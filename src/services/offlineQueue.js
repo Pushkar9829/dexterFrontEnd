@@ -79,12 +79,12 @@ export async function flush() {
   flushing = true;
   const out = { sent: 0, failed: 0 };
   try {
-    const { getToken } = await import("./api.js");
+    const { getToken, apiUrl } = await import("./api.js");
     for (const e of await queued()) {
       if (e.status !== "pending") continue;
       let res;
       try {
-        res = await fetch(e.path, { method: e.method, body: e.body, headers: { "Content-Type": "application/json", Authorization: "Bearer " + getToken(), "X-Offline-At": e.madeAt } });
+        res = await fetch(apiUrl(e.path), { method: e.method, body: e.body, headers: { "Content-Type": "application/json", Authorization: "Bearer " + getToken(), "X-Offline-At": e.madeAt } });
       } catch {
         break;
       }

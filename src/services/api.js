@@ -1,6 +1,10 @@
 import { enqueue, flush, queued } from "./offlineQueue.js";
 
 const TOKEN_KEY = "af_token";
+// Empty means same origin: the Vite dev proxy, or the API serving the built UI.
+const API_BASE = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
+
+export const apiUrl = (path) => API_BASE + path;
 // Figma capture tabs sign in as different demo users side by side, so each keeps its own token.
 const tokenStore = import.meta.env.DEV && new URLSearchParams(window.location.search).has("demo") ? sessionStorage : localStorage;
 
@@ -32,7 +36,7 @@ export async function api(path, options = {}) {
   }
   let res;
   try {
-    res = await fetch(path, { ...opts, headers });
+    res = await fetch(apiUrl(path), { ...opts, headers });
   } catch (err) {
     if (offline) return keep();
     throw err;
