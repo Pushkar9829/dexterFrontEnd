@@ -72,7 +72,7 @@ const TABS: { key: Tab; label: string; test: (m: Mail) => boolean }[] = [
   { key: 'followups', label: 'Follow-ups', test: (m) => m.followUp },
 ]
 const TITLES: Record<MailFolder, string> = { inbox: 'My Inbox', sent: 'Sent', drafts: 'Drafts' }
-const PAGE = 10
+const PAGE = 8
 
 export const PRIORITY_CLS: Record<MailPriority, string> = {
   High: 'bg-red-50 text-red-700',
@@ -86,7 +86,24 @@ export function TrackerChip({ id, className }: { id?: string; className?: string
   return <span className={cn('rounded border bg-white px-1.5 py-0.5 text-[10px] font-semibold', cls, className)}>{id}</span>
 }
 const AVATAR_BG = ['bg-primary text-white', 'bg-violet-600 text-white', 'bg-teal-600 text-white', 'bg-blue-600 text-white', 'bg-amber-500 text-white', 'bg-emerald-600 text-white']
-export const avatarCls = (name: string) => AVATAR_BG[[...name].reduce((a, c) => a + c.charCodeAt(0), 0) % AVATAR_BG.length]
+// colours used for the known senders in the Figma mailbox; anyone else gets a stable hashed colour
+const AVATAR_FIXED: Record<string, string> = {
+  'Rohit Sharma': AVATAR_BG[0],
+  'Support Team': AVATAR_BG[0],
+  'Customer Support': AVATAR_BG[1],
+  'Vikram Singh': AVATAR_BG[1],
+  'Neha Verma': AVATAR_BG[2],
+  'Ravi Kumar': AVATAR_BG[3],
+  'Arun Desai': AVATAR_BG[3],
+  'Amit Patel': AVATAR_BG[4],
+  'Priya Mehta': AVATAR_BG[5],
+}
+export const avatarCls = (name: string) => AVATAR_FIXED[name] ?? AVATAR_BG[[...name].reduce((a, c) => a + c.charCodeAt(0), 0) % AVATAR_BG.length]
+/** 'rohit.sharma@example.com' → 'Rohit Sharma' (sent/draft rows show the recipient's initials) */
+const nameFromAddr = (addr: string) =>
+  addr.split('@')[0].split(/[._-]+/).filter(Boolean).map((w) => w[0].toUpperCase() + w.slice(1)).join(' ')
+/** list preview skips the salutation line, as in the design */
+const preview = (body: string) => body.replace(/^\s*(dear|hi|hello)\b[^\n,]*,?\s*/i, '').replace(/\s+/g, ' ').slice(0, 90)
 
 export default function Mailbox({ folder, compose = false }: { folder: MailFolder; compose?: boolean }) {
   const { mails } = emailStore.use()
@@ -206,7 +223,7 @@ export default function Mailbox({ folder, compose = false }: { folder: MailFolde
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-[24px] font-semibold tracking-tight text-ink sm:text-[28px]">Email — {TITLES[folder]}</h1>
-          <p className="mt-1 text-[13px] text-muted">Manage, read and respond to emails from connected accounts</p>
+          <p className="mt-1.5 text-[12px] text-muted">Manage, read and respond to emails from connected accounts</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button
@@ -215,9 +232,9 @@ export default function Mailbox({ folder, compose = false }: { folder: MailFolde
               aiRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
               aiRef.current?.querySelector('textarea')?.focus()
             }}
-            className="flex h-10 items-center gap-2 rounded-lg border border-primary/20 bg-primary-soft px-4 text-[13px] font-semibold text-primary hover:border-primary/40"
+            className="flex h-[38px] items-center gap-2 rounded-lg border border-primary/20 bg-primary-soft px-4 text-[12px] font-semibold text-primary hover:border-primary/40"
           >
-            <Sparkles size={16} /> AI Assistant
+            <Sparkles size={15} /> AI Assistant
           </button>
           <Button icon={<Send size={16} />} onClick={() => nav('/email/inbox/compose')}>
             Compose Email
@@ -226,7 +243,7 @@ export default function Mailbox({ folder, compose = false }: { folder: MailFolde
       </div>
 
       {/* Tabs */}
-      <div role="tablist" className="scroll-thin flex gap-1 overflow-x-auto rounded-xl border border-line bg-white p-1.5">
+      <div role="tablist" className="scroll-thin flex gap-1 overflow-x-auto rounded-xl border border-line bg-white p-[5px]">
         {TABS.map((t) => {
           const n = inFolder.filter(t.test).length
           return (
@@ -235,19 +252,19 @@ export default function Mailbox({ folder, compose = false }: { folder: MailFolde
               role="tab"
               aria-selected={tab === t.key}
               onClick={() => setTab(t.key)}
-              className={cn('flex shrink-0 items-center gap-2.5 rounded-lg px-4 py-2 text-[13px]', tab === t.key ? 'bg-primary-soft font-semibold text-primary' : 'text-ink-2 hover:bg-surface')}
+              className={cn('flex h-9 shrink-0 items-center gap-2.5 rounded-lg px-4 text-[11px] font-medium', tab === t.key ? 'bg-primary-soft font-semibold text-primary' : 'text-ink-2 hover:bg-surface')}
             >
               {t.label}
-              <span className={cn('rounded px-1.5 py-0.5 text-[11px] font-semibold', tab === t.key ? 'bg-white/70 text-primary' : 'bg-primary-soft text-primary')}>{n}</span>
+              <span className={cn('rounded px-1.5 py-0.5 text-[9.5px] font-semibold', tab === t.key ? 'bg-white/70 text-primary' : 'bg-primary-soft text-primary')}>{n}</span>
             </button>
           )
         })}
       </div>
 
       {/* Search + filters */}
-      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-line bg-white p-2.5">
-        <label className="flex h-9 min-w-[220px] flex-1 items-center gap-2 rounded-lg border border-line px-3 text-[13px] text-muted focus-within:border-primary">
-          <Search size={15} />
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-line bg-white p-2">
+        <label className="flex h-[34px] min-w-[220px] flex-1 items-center gap-2 rounded-md border border-line px-3 text-[11px] text-muted focus-within:border-primary">
+          <Search size={14} />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search emails by subject, sender, tracker, customer..." className="w-full bg-transparent text-ink outline-none placeholder:text-muted" />
           {q && (
             <button aria-label="Clear search" onClick={() => setQ('')}>
@@ -260,8 +277,8 @@ export default function Mailbox({ folder, compose = false }: { folder: MailFolde
         <Sel label="Status" value={status} onChange={setStatus} options={[['all', 'All Status'], ...MAIL_STATUSES.map((d) => [d, d] as [string, string])]} />
         <Sel label="Date range" value={range} onChange={setRange} options={[['today', 'Today'], ['7', 'Last 7 Days'], ['30', 'Last 30 Days'], ['all', 'All time']]} />
         <div className="relative">
-          <button onClick={() => setMore((v) => !v)} aria-expanded={more} className="flex h-9 items-center gap-1.5 rounded-lg border border-line px-3 text-[13px] font-semibold text-primary hover:border-primary/40">
-            <Filter size={14} /> More Filters
+          <button onClick={() => setMore((v) => !v)} aria-expanded={more} className="flex h-[34px] items-center gap-1.5 rounded-md border border-line px-3 text-[11px] font-semibold text-primary hover:border-primary/40">
+            <Filter size={13} /> More Filters
             {activeFilters > 0 && <span className="rounded bg-primary px-1.5 text-[11px] text-white">{activeFilters}</span>}
           </button>
           {more && (
@@ -319,10 +336,11 @@ export default function Mailbox({ folder, compose = false }: { folder: MailFolde
       <div className="grid items-start gap-4 lg:grid-cols-[300px_minmax(0,1fr)] xl:grid-cols-[325px_minmax(0,1fr)_310px]">
         {/* List */}
         <section className={cn('min-w-0 overflow-hidden rounded-xl border border-line bg-white lg:row-span-2 xl:row-span-1', selectedId ? 'hidden lg:block' : 'block')}>
-          <div className="flex items-center gap-3 border-b border-line px-3 py-2.5 text-[12px]">
+          <div className="flex items-center gap-3 border-b border-line px-3 py-2.5 text-[11px]">
             <input
               type="checkbox"
               aria-label="Select all on page"
+              className="h-3 w-3 opacity-60"
               checked={visible.length > 0 && visible.every((m) => sel.includes(m.id))}
               onChange={(e) => setSel(e.target.checked ? [...new Set([...sel, ...visible.map((m) => m.id)])] : sel.filter((id) => !visible.some((m) => m.id === id)))}
             />
@@ -372,7 +390,7 @@ export default function Mailbox({ folder, compose = false }: { folder: MailFolde
               </div>
             )}
             <label className="relative ml-auto flex items-center text-ink-2">
-              <select aria-label="Sort" value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} className="cursor-pointer appearance-none bg-transparent pr-5 text-[12px] outline-none">
+              <select aria-label="Sort" value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} className="cursor-pointer appearance-none bg-transparent pr-5 text-[11px] outline-none">
                 <option value="newest">Newest first</option>
                 <option value="unread">Unread first</option>
                 <option value="oldest">Oldest first</option>
@@ -388,7 +406,7 @@ export default function Mailbox({ folder, compose = false }: { folder: MailFolde
             {visible.map((m) => {
               const isSel = selected?.id === m.id
               const who = m.folder === 'inbox' ? m.fromName : m.to[0] ? `To: ${m.to[0]}` : '(no recipient)'
-              const avatarName = m.folder === 'inbox' ? m.fromName : (m.to[0] ?? 'NA')
+              const avatarName = m.folder === 'inbox' ? m.fromName : nameFromAddr(m.to[0] ?? 'NA')
               return (
                 <li key={m.id}>
                   <div
@@ -396,7 +414,7 @@ export default function Mailbox({ folder, compose = false }: { folder: MailFolde
                     tabIndex={0}
                     onClick={() => open(m)}
                     onKeyDown={(e) => e.key === 'Enter' && open(m)}
-                    className={cn('flex cursor-pointer gap-2.5 border-b border-l-[3px] border-b-line-soft px-3 py-3 outline-none hover:bg-surface/70 focus-visible:bg-surface', isSel ? 'border-l-primary bg-primary-soft/60 hover:bg-primary-soft/60' : 'border-l-transparent')}
+                    className={cn('flex cursor-pointer items-start gap-2.5 border-b-2 border-l-[3px] border-b-line-soft px-3 py-2.5 outline-none hover:bg-surface/70 focus-visible:bg-surface', isSel ? 'border-l-primary bg-primary-soft/60 hover:bg-primary-soft/60' : 'border-l-transparent')}
                   >
                     <input
                       type="checkbox"
@@ -404,13 +422,13 @@ export default function Mailbox({ folder, compose = false }: { folder: MailFolde
                       checked={sel.includes(m.id)}
                       onClick={(e) => e.stopPropagation()}
                       onChange={() => setSel((s) => (s.includes(m.id) ? s.filter((x) => x !== m.id) : [...s, m.id]))}
-                      className="mt-1"
+                      className="mt-0.5 h-3 w-3 shrink-0 self-start opacity-60"
                     />
-                    <span className={cn('grid h-7 w-7 shrink-0 place-items-center rounded-full text-[10px] font-semibold', avatarCls(avatarName))}>{initialsOf(avatarName)}</span>
+                    <span className={cn('mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full text-[9.5px] font-semibold', avatarCls(avatarName))}>{initialsOf(avatarName)}</span>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className={cn('min-w-0 truncate text-[12px] text-ink', m.read ? 'font-medium' : 'font-semibold')}>{who}</span>
-                        <span className="ml-auto shrink-0 text-[10px] text-muted">{m.sendState === 'Scheduled' ? 'Scheduled' : listTime(m.at)}</span>
+                        <span className={cn('min-w-0 truncate text-[11px] text-ink', m.read ? 'font-medium' : 'font-semibold')}>{who}</span>
+                        <span className="ml-auto shrink-0 text-[9px] text-muted">{m.sendState === 'Scheduled' ? 'Scheduled' : listTime(m.at)}</span>
                         <button
                           aria-label={m.starred ? 'Unstar' : 'Star'}
                           className="ml-2 shrink-0 text-muted"
@@ -422,13 +440,12 @@ export default function Mailbox({ folder, compose = false }: { folder: MailFolde
                           <Star size={13} className={m.starred ? 'fill-amber-400 text-amber-500' : ''} />
                         </button>
                       </div>
-                      <div className="mt-0.5 truncate text-[11px] font-semibold text-ink">
-                        {!m.read && <span className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-bright align-middle" />}
+                      <div className="mt-1 truncate text-[10px] font-semibold text-ink">
                         {m.subject || '(no subject)'}
                       </div>
-                      {!compact && <div className="truncate text-[10.5px] text-muted">{m.body.replace(/\s+/g, ' ').slice(0, 90)}</div>}
+                      {!compact && <div className="mt-0.5 truncate text-[9.5px] text-muted">{preview(m.body)}</div>}
                       <div className="mt-1.5 flex items-center gap-2">
-                        {m.tracker ? <span className="text-[10.5px] font-medium text-primary">{m.tracker}</span> : <MailIcon size={13} className="text-muted" aria-label="No tracker" />}
+                        {m.tracker ? <span className="text-[9.5px] font-medium text-primary">{m.tracker}</span> : <MailIcon size={13} className="text-muted" aria-label="No tracker" />}
                         {m.sendState === 'Scheduled' && (
                           <span className="flex items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
                             <Clock3 size={10} /> Scheduled
@@ -436,7 +453,7 @@ export default function Mailbox({ folder, compose = false }: { folder: MailFolde
                         )}
                         <span className="ml-auto flex items-center gap-2">
                           {m.attachments.length > 0 && <Paperclip size={12} className="text-primary" aria-label="Has attachments" />}
-                          <span className={cn('rounded px-1.5 py-0.5 text-[10px] font-semibold', PRIORITY_CLS[m.priority])}>{m.priority}</span>
+                          <span className={cn('rounded px-1.5 py-0.5 text-[9.5px] font-semibold', PRIORITY_CLS[m.priority])}>{m.priority}</span>
                         </span>
                       </div>
                     </div>
@@ -446,7 +463,7 @@ export default function Mailbox({ folder, compose = false }: { folder: MailFolde
             })}
           </ul>
           {filtered.length === 0 && <div className="px-6 py-14 text-center text-[13px] text-muted">{folder === 'drafts' ? 'No saved drafts.' : 'No emails match these filters.'}</div>}
-          <div className="px-3 py-3 text-[11px] text-muted">
+          <div className="px-3 py-3 text-[10px] text-muted">
             {visible.length} conversation{visible.length === 1 ? '' : 's'} shown
           </div>
         </section>
@@ -505,15 +522,15 @@ function pageList(cur: number, pages: number): number[] {
 
 function Sel({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: [string, string][] }) {
   return (
-    <label className="relative flex h-9 items-center rounded-lg border border-line bg-white pr-2 pl-3 text-[13px] font-semibold text-primary hover:border-primary/40">
-      <select aria-label={label} value={value} onChange={(e) => onChange(e.target.value)} className="h-full max-w-[200px] cursor-pointer appearance-none bg-transparent pr-5 outline-none">
+    <label className="relative flex h-[34px] items-center gap-1 rounded-md border border-line bg-white px-3 text-[11px] font-semibold text-primary hover:border-primary/40">
+      <select aria-label={label} value={value} onChange={(e) => onChange(e.target.value)} className="h-full max-w-[200px] cursor-pointer appearance-none bg-transparent outline-none [field-sizing:content]">
         {options.map(([v, l]) => (
           <option key={v} value={v}>
             {l}
           </option>
         ))}
       </select>
-      <ChevronDown size={13} className="pointer-events-none absolute right-2 text-primary" />
+      <ChevronDown size={11} className="pointer-events-none text-primary" />
     </label>
   )
 }
@@ -521,9 +538,9 @@ function Sel({ label, value, onChange, options }: { label: string; value: string
 /* ------------------------------ reader ------------------------------ */
 
 function Body({ m }: { m: Mail }) {
-  if (m.html) return <div className="prose-mail text-[13px] leading-relaxed text-ink [&_a]:text-primary [&_a]:underline [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-5" dangerouslySetInnerHTML={{ __html: sanitize(m.html) }} />
+  if (m.html) return <div className="prose-mail text-[12px] leading-[18px] text-ink [&_a]:text-primary [&_a]:underline [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-5" dangerouslySetInnerHTML={{ __html: sanitize(m.html) }} />
   return (
-    <div className="space-y-3 text-[13px] leading-relaxed text-ink">
+    <div className="space-y-3 text-[12px] leading-[18px] text-ink">
       {m.body.split(/\n{2,}/).map((p, i) => (
         <p key={i} className="whitespace-pre-line">
           {p}
@@ -537,7 +554,7 @@ function Reader({ m, all, onBack }: { m: Mail; all: Mail[]; onBack: () => void }
   const nav = useNavigate()
   const [menu, setMenu] = useState(false)
   const [showCc, setShowCc] = useState(false)
-  const [openPrev, setOpenPrev] = useState(true)
+  const [openPrev, setOpenPrev] = useState(false) // collapsed: latest previous message only, as in the design
   const thread = threadOf(m, all).filter((x) => Date.parse(x.at) < Date.parse(m.at))
   const go = (mode: string) => nav(`/email/inbox/compose?${mode}=${m.id}`)
   const createFollowUp = () => {
@@ -632,7 +649,7 @@ function Reader({ m, all, onBack }: { m: Mail; all: Mail[]; onBack: () => void }
 
       <div className="px-5 pt-5 pb-2">
         <div className="flex flex-wrap items-start gap-3">
-          <h2 className="min-w-0 flex-1 text-[16px] font-semibold text-ink">{m.subject || '(no subject)'}</h2>
+          <h2 className="min-w-0 flex-1 text-[15px] font-semibold text-ink">{m.subject || '(no subject)'}</h2>
           <span className={cn('rounded px-2 py-0.5 text-[11px] font-semibold', PRIORITY_CLS[m.priority])}>{m.priority}</span>
           {m.sendState && <span className={cn('rounded px-2 py-0.5 text-[11px] font-semibold', m.sendState === 'Scheduled' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700')}>{m.sendState}</span>}
           <button aria-label={m.starred ? 'Remove star' : 'Star'} onClick={() => updateMails([m.id], (x) => ({ ...x, starred: !x.starred }))} className="text-muted hover:text-amber-500">
@@ -688,7 +705,7 @@ function Reader({ m, all, onBack }: { m: Mail; all: Mail[]; onBack: () => void }
 
         {m.attachments.length > 0 && (
           <div className="mt-6 border-t border-line-soft pt-4">
-            <div className="flex items-center justify-between text-[12px]">
+            <div className="flex items-center justify-between text-[11px]">
               <span className="flex items-center gap-1.5 font-semibold text-ink">
                 <Paperclip size={14} className="text-muted" />
                 {m.attachments.length} Attachment{m.attachments.length > 1 ? 's' : ''}
@@ -704,8 +721,8 @@ function Reader({ m, all, onBack }: { m: Mail; all: Mail[]; onBack: () => void }
                     {/\.(png|jpe?g)$/i.test(a.name) ? <ImageIcon size={15} /> : <FileText size={15} />}
                   </span>
                   <button onClick={() => demoFile(a.name)} className="min-w-0 flex-1 text-left">
-                    <span className="block truncate text-[11px] font-medium text-ink">{a.name}</span>
-                    <span className="block text-[10px] text-muted">{fmtBytes(a.size)}</span>
+                    <span className="block truncate text-[10px] font-medium text-ink">{a.name}</span>
+                    <span className="block text-[9px] text-muted">{fmtBytes(a.size)}</span>
                   </button>
                   <button aria-label={`Download ${a.name}`} title="Download" onClick={() => demoFile(a.name)} className="text-muted hover:text-primary">
                     <MoreVertical size={15} />
@@ -718,14 +735,14 @@ function Reader({ m, all, onBack }: { m: Mail; all: Mail[]; onBack: () => void }
 
         {thread.length > 0 && (
           <div className="mt-5 border-t border-line-soft pt-4">
-            <button onClick={() => setOpenPrev((v) => !v)} className="flex items-center gap-2 text-[12px] font-semibold text-ink">
-              <ChevronDown size={14} className={cn('transition-transform', !openPrev && '-rotate-90')} />
+            <button onClick={() => setOpenPrev((v) => !v)} className="flex items-center gap-2 text-[11px] font-semibold text-ink">
+              <ChevronDown size={14} className={cn('transition-transform', openPrev && 'rotate-180')} />
               Previous Messages ({thread.length})
             </button>
-            {openPrev && (
+            {thread.length > 0 && (
               <div className="mt-3 space-y-2">
-                {thread.map((x) => (
-                  <div key={x.id} className="rounded-lg border border-line bg-surface/40 px-3 py-3 text-[11px]">
+                {(openPrev ? thread : thread.slice(0, 1)).map((x) => (
+                  <div key={x.id} className="rounded-lg border border-line bg-surface/40 px-3 py-3 text-[10px]">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className={cn('grid h-6 w-6 shrink-0 place-items-center rounded-full text-[9px] font-semibold', avatarCls(x.fromName))}>{initialsOf(x.fromName)}</span>
                       <span className="font-semibold text-ink">{x.fromName}</span>
@@ -745,7 +762,7 @@ function Reader({ m, all, onBack }: { m: Mail; all: Mail[]; onBack: () => void }
 
 function ToolBtn({ icon, children, onClick }: { icon: ReactNode; children: ReactNode; onClick: () => void }) {
   return (
-    <button onClick={onClick} className="flex h-7 items-center gap-1.5 text-[11.5px] font-medium text-ink hover:text-primary">
+    <button onClick={onClick} className="flex h-7 items-center gap-1.5 text-[11px] font-medium text-ink hover:text-primary">
       <span className="text-primary">{icon}</span>
       {children}
     </button>
@@ -804,7 +821,7 @@ function SidePanel({ m, all, aiRef }: { m: Mail; all: Mail[]; aiRef: React.RefOb
             </div>
             <div className="mt-4 text-[12px] font-semibold text-ink">Customer Details</div>
             <div className="mt-3 flex gap-3 text-[10.5px]">
-              <span className={cn('grid h-9 w-9 shrink-0 place-items-center rounded-full text-[11px] font-semibold', avatarCls(tr.customer.name))}>{initialsOf(tr.customer.name)}</span>
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-violet-600 text-[11px] font-semibold text-white">{initialsOf(tr.customer.name)}</span>
               <div className="min-w-0 space-y-1.5 text-muted">
                 <div className="text-[11.5px] font-semibold text-ink">{tr.customer.name}</div>
                 <div className="truncate">{tr.customer.email}</div>

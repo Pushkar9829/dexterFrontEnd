@@ -238,7 +238,7 @@ export default function Complaint360() {
         </div>
       </section>
 
-      <div className="mb-4 rounded-lg bg-primary-soft px-3 py-2.5 text-[12px] text-primary">
+      <div className="mb-4 rounded-lg bg-primary-soft px-3 py-2.5 text-[11px] text-primary">
         <nav aria-label="On this page" className="min-w-0">
           On this page:{' '}
           {ANCHORS.map(([label, id], i) => (
@@ -318,10 +318,10 @@ export default function Complaint360() {
         <Panel
           className="mb-4"
           title="AI summary"
-          sub={c.ai.reviewed ? `AI-generated · Demo prediction · Reviewed by ${c.ai.reviewed.by} · ${fmtDT(c.ai.reviewed.at)}` : `AI-generated · Updated ${fmtDT(c.ai.updated)} · Human review required · Demo prediction`}
+          sub={c.ai.reviewed ? `AI-generated · Demo prediction · Reviewed by ${c.ai.reviewed.by} · ${fmtDT(c.ai.reviewed.at)}` : `AI-generated · Updated ${fmtDT(c.ai.updated)} · Human review required`}
           action={!c.ai.reviewed && <LinkBtn onClick={reviewAi}>Review summary</LinkBtn>}
         >
-          <div className="grid gap-5 md:grid-cols-[1fr_300px]">
+          <div className="grid gap-5 md:grid-cols-[1fr_340px] md:gap-x-12">
             <div>
               <p className="text-[12px] leading-[18px] text-ink-2">{c.ai.summary}</p>
               <div className="mt-3 flex flex-wrap gap-2">
@@ -476,7 +476,7 @@ export default function Complaint360() {
               title={
                 <>
                   {fmtDate(h.receivedAt)} ·{' '}
-                  <Link to={`${BASE}/${h.id}`} className="text-primary hover:underline">
+                  <Link to={`${BASE}/${h.id}`} className="hover:text-primary hover:underline">
                     {h.id}
                   </Link>{' '}
                   · {h.title}
@@ -489,7 +489,7 @@ export default function Complaint360() {
           ))}
           <Entry title={`${atm.installed} · ATM commissioned`} status="Installed" tone="gray" meta={`${atm.model} · ${atm.project} · ${atm.siteId}`} />
         </Panel>
-        <Panel title="Audit trail" action={audit.length > 4 && <LinkBtn onClick={() => setFullLog((f) => !f)}>{fullLog ? 'Show latest' : 'View full log'}</LinkBtn>}>
+        <Panel title="Audit trail" action={<LinkBtn onClick={() => setFullLog((f) => !f)}>{fullLog ? 'Show latest' : 'View full log'}</LinkBtn>}>
           {(fullLog ? audit : audit.slice(0, 4)).map((a, i) => (
             <Entry key={`${a.at}-${i}`} title={`${fmtDT(a.at)} · ${a.title}`} meta={a.meta} />
           ))}

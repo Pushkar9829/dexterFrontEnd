@@ -21,18 +21,18 @@ export function AttachCell({ row, editing, onChange, onView }: { row: Row; editi
   }
   if (editing)
     return (
-      <span className="flex items-center gap-2">
+      <span className="flex min-w-0 items-center gap-1.5">
         {att && (
-          <span className="flex max-w-[150px] items-center gap-1 truncate text-[12px] text-ink-2" title={att.name}>
-            <Paperclip size={13} className="shrink-0" /> <span className="truncate">{att.name}</span>
+          <span className="flex min-w-0 flex-1 items-center gap-1 text-[11px] text-ink-2" title={att.name}>
+            <Paperclip size={12} className="shrink-0" /> <span className="truncate">{att.name}</span>
           </span>
         )}
-        <button type="button" onClick={() => ref.current?.click()} className="flex items-center gap-1 rounded-md border border-line bg-white px-2 py-1 text-[12px] font-semibold text-primary hover:bg-primary-soft">
-          <Upload size={13} /> {att ? 'Replace' : 'Upload'}
+        <button type="button" onClick={() => ref.current?.click()} className="flex shrink-0 items-center gap-1 rounded-md border border-line bg-white px-1.5 py-0.5 text-[11px] font-semibold text-primary hover:bg-primary-soft">
+          <Upload size={12} /> {att ? 'Replace' : 'Upload'}
         </button>
         {att && (
           <button type="button" onClick={() => onChange('')} aria-label="Remove attachment" className="text-muted hover:text-brand-red">
-            <X size={14} />
+            <X size={13} />
           </button>
         )}
         <input ref={ref} type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" onChange={(e) => take(e.target.files?.[0])} />
@@ -40,8 +40,8 @@ export function AttachCell({ row, editing, onChange, onView }: { row: Row; editi
     )
   if (!att) return <span className="text-muted">Not attached</span>
   return (
-    <button type="button" onClick={() => onView(att)} title={att.name} className="flex max-w-[190px] items-center gap-1.5 text-[13px] font-medium text-primary hover:underline">
-      <Paperclip size={14} className="shrink-0" /> <span className="truncate">{att.name}</span>
+    <button type="button" onClick={() => onView(att)} title={att.name} className="flex max-w-full items-center gap-1 text-[11px] font-medium text-primary hover:underline">
+      <Paperclip size={12} className="shrink-0" /> <span className="truncate">{att.name}</span>
     </button>
   )
 }

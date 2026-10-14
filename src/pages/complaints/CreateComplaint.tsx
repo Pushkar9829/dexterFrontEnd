@@ -431,7 +431,7 @@ export default function CreateComplaint() {
           <SelectField label="Priority" required options={PRIORITIES} value={f.priority} onChange={(x) => set('priority', x.target.value as Priority | '')} error={e('priority')} />
           <ReadOnly label="Complaint Pending Since (No. of Days)" kind="CALCULATED" value={f.receivedDate ? `${pendingDays(ist(f.receivedDate))} day${pendingDays(ist(f.receivedDate)) === 1 ? '' : 's'}` : '—'} hint="Calculated from receiving date to today" />
           <TextField className="sm:col-span-2 lg:col-span-3" label="Issue title" required value={f.title} onChange={(x) => set('title', x.target.value)} placeholder="e.g. Low battery backup at Kothrud ATM" error={e('title')} maxLength={120} />
-          <TextAreaField className="sm:col-span-2 lg:col-span-3" label="Issue details" required rows={4} value={f.details} onChange={(x) => set('details', x.target.value)} placeholder="What happened, since when, what the FR observed, current ATM state" error={e('details')} />
+          <TextAreaField className="sm:col-span-2 lg:col-span-3" label="Issue details" required rows={3} value={f.details} onChange={(x) => set('details', x.target.value)} placeholder="What happened, since when, what the FR observed, current ATM state" error={e('details')} />
           <Attachments value={f.attachments} onChange={(v) => set('attachments', v)} />
         </Section>
 
@@ -458,19 +458,19 @@ export default function CreateComplaint() {
             <p className="mt-1 text-[11px] text-muted">{f.linkTask ? (f.reminderDate ? `Owner: ${CURRENT_USER} · Due ${fmtDate(ist(f.reminderDate))}, 10:00` : 'Set a reminder date to create the task') : 'No task will be created'}</p>
           </div>
           <ReadOnly label="Last Action Status" value={f.remark.trim() || 'Complaint registered'} hint="Default from Remark · Updates with the latest action" />
-          <TextAreaField className="sm:col-span-2 lg:col-span-3" label="Remark" rows={2} value={f.remark} onChange={(x) => set('remark', x.target.value)} placeholder="e.g. HD Team reviewing battery test request" />
+          <TextAreaField className="sm:col-span-2 lg:col-span-3" label="Remark" rows={3} value={f.remark} onChange={(x) => set('remark', x.target.value)} placeholder="e.g. HD Team reviewing battery test request" />
         </Section>
 
         <Section cols={2} num="05" title="Closure & outcome · Optional at creation" sub="Leave these fields blank while the complaint is open. Record the actual redressal date and dated outcome after restoration.">
           <TextField label="Date of Redressal of Complaint" required={f.status === 'Close'} type="date" value={f.redressalDate} onChange={(x) => set('redressalDate', x.target.value)} error={e('redressalDate')} hint="Manual calendar · Optional until closure" />
           <TextField label="Outcome date" required={f.status === 'Close'} type="date" value={f.outcomeDate} onChange={(x) => set('outcomeDate', x.target.value)} error={e('outcomeDate')} hint="Manual calendar · Date of the outcome" />
-          <TextAreaField className="sm:col-span-2" label="Outcome remark" required={f.status === 'Close'} rows={2} value={f.outcomeRemark} onChange={(x) => set('outcomeRemark', x.target.value)} placeholder="Add resolution, tests completed and complainant confirmation" error={e('outcomeRemark')} />
+          <TextAreaField className="sm:col-span-2" label="Outcome remark" required={f.status === 'Close'} rows={3} value={f.outcomeRemark} onChange={(x) => set('outcomeRemark', x.target.value)} placeholder="Add resolution, tests completed and complainant confirmation" error={e('outcomeRemark')} />
         </Section>
 
-        <div className="sticky bottom-0 z-10 -mx-4 flex flex-wrap items-center gap-3 border-t border-line bg-white/95 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-xl sm:border">
-          <div className="min-w-0 flex-1 text-[12px]">
-            <div className={cn('font-medium', savedAt ? 'text-emerald-700' : 'text-ink')}>{savedAt ? 'Draft saved automatically' : 'New draft'}</div>
-            <div className="text-muted">{savedAt ? `Last saved at ${clock(savedAt)}` : 'Changes save automatically'} · Not included in complaint totals</div>
+        <div className="sticky bottom-0 z-10 -mx-4 flex flex-wrap items-center gap-3 border-t border-line bg-white/95 px-4 py-4 backdrop-blur sm:mx-0 sm:px-6 sm:rounded-xl sm:border">
+          <div className="min-w-0 flex-1 text-[11px]">
+            <div className="font-medium text-emerald-700">{savedAt ? 'Draft saved automatically' : 'Draft saves automatically'}</div>
+            <div className="text-[10.5px] text-muted">{savedAt ? `Last saved at ${clock(savedAt)}` : 'Not saved yet'} · Not included in complaint totals</div>
           </div>
           <Button
             type="button"

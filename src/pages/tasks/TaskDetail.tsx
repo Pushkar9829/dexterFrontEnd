@@ -195,7 +195,7 @@ export default function TaskDetail() {
 
         <div className="min-w-0 space-y-4">
           <Panel title="Accountability" sub="Ownership remains visible across every handoff">
-            <div className="space-y-2.5">
+            <div className="space-y-3.5">
               {(
                 [
                   [t.owner, 'Accountable Owner'],

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, Pencil, Signal, Wifi, BatteryFull } from 'lucide-react'
+import { ArrowLeft, ChevronDown, Pencil, Signal, Wifi, BatteryFull } from 'lucide-react'
 import { toast } from '@/components/ui/Toast'
 import { cn } from '@/lib/cn'
 import { dotDate, grp } from '@/data/cbrSites'
@@ -30,19 +30,27 @@ function AtmCard({ rec }: { rec: MobileCbr }) {
     <article className="overflow-hidden rounded-xl border border-line bg-white">
       <header className="flex items-start justify-between gap-3 bg-navy-900 px-4 py-3.5 text-white">
         <div>
-          <div className="text-[12px] text-white/80">Date</div>
-          <div className="mt-1 text-[11px] text-white/70">{cur.fundingType}</div>
+          <div className="text-[13px] text-white/85">Date</div>
+          <div className="mt-1.5 text-[12px] text-white/70">{cur.fundingType}</div>
         </div>
-        <div className="text-right">
-          <div className="text-[17px] font-semibold">{dotDate(cur.date)}</div>
+        <div className="flex items-center gap-2">
           {!editing && (
-            <button onClick={() => { setDraft(rec); setEditing(true) }} className="mt-1 inline-flex items-center gap-1 rounded bg-white/10 px-2 py-0.5 text-[11px] font-semibold hover:bg-white/20">
-              <Pencil size={11} /> Edit
+            <button
+              onClick={() => {
+                setDraft(rec)
+                setEditing(true)
+              }}
+              aria-label={`Edit ${rec.atmId}`}
+              title="Edit"
+              className="grid h-6 w-6 place-items-center rounded text-white/60 hover:bg-white/10 hover:text-white"
+            >
+              <Pencil size={12} />
             </button>
           )}
+          <div className="text-[18px] font-semibold">{dotDate(cur.date)}</div>
         </div>
       </header>
-      <div className="flex justify-between bg-surface px-4 py-2 text-[10px] font-medium text-muted">
+      <div className="flex justify-between bg-surface px-4 py-2 text-[11px] text-muted">
         <span>
           S.N. <span className="ml-2">Details</span>
         </span>
@@ -53,7 +61,7 @@ function AtmCard({ rec }: { rec: MobileCbr }) {
           const computed = f.computed
           const highlight = f.key === 'closingWla' || f.key === 'loadingAmount'
           let value: React.ReactNode
-          if (f.key === 'atmId') value = <span className="text-[15px] font-bold text-primary">{cur.atmId}</span>
+          if (f.key === 'atmId') value = <span className="text-[17px] font-bold text-primary">{cur.atmId}</span>
           else if (f.key === 'closingWla') value = <Value v={calc.closingWla} />
           else if (f.key === 'difference') value = <Value v={calc.difference} />
           else if (editing)
@@ -72,12 +80,14 @@ function AtmCard({ rec }: { rec: MobileCbr }) {
             value = <Value v={raw === '' ? null : Number(raw)} tone={f.key === 'loadingAmount' ? 'text-primary' : undefined} />
           }
           return (
-            <li key={f.key} className={cn('flex items-start gap-3 border-t border-line-soft px-4 py-3', highlight && 'bg-primary-soft/70')}>
-              <span className="w-5 shrink-0 pt-0.5 text-[12px] text-muted">{i + 1}</span>
-              <span className={cn('min-w-0 flex-1 text-[13px] leading-snug', (highlight || f.key === 'atmId') && 'font-semibold')}>
+            <li key={f.key} className={cn('flex items-start gap-3 border-t border-line-soft px-4 py-[15px]', highlight && 'bg-primary-soft/70')}>
+              <span className="w-5 shrink-0 pt-px text-[12px] text-muted">{i + 1}</span>
+              <span className={cn('min-w-0 flex-1 text-[14px] leading-[22px]', (highlight || f.key === 'atmId') && 'font-semibold')}>
                 {f.label}
                 {computed && (
-                  <span className="mt-0.5 block text-[10.5px] font-normal text-muted">
+                  /* Figma shows no formula hint; kept for screen readers only */
+                  <span className="sr-only">
+                    {' · '}
                     {f.key === 'closingWla'
                       ? 'Auto · Opening + Fund Given − Withdrawal'
                       : cur.fundingType === 'WLA account'
@@ -86,7 +96,7 @@ function AtmCard({ rec }: { rec: MobileCbr }) {
                   </span>
                 )}
               </span>
-              <span className="shrink-0 pt-0.5 text-right text-[14px] font-semibold">{value}</span>
+              <span className="shrink-0 text-right text-[16px] leading-[22px] font-semibold">{value}</span>
             </li>
           )
         })}
@@ -133,20 +143,25 @@ export default function MobileCbr() {
           </Link>
           <div className="mt-2 flex items-end justify-between gap-2">
             <h1 className="text-[22px] font-bold tracking-tight">Daily CBR</h1>
-            <span className="pb-1 text-[12px] text-muted">
-              {recs.length} ATM record{recs.length === 1 ? '' : 's'}
+            <span className="flex items-center gap-1 pb-1 text-[12px] text-muted">
+              <label className="relative">
+                <span className="sr-only">Date</span>
+                <select
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  className="h-6 appearance-none rounded border border-transparent bg-transparent pr-4 pl-1 text-[12px] text-muted outline-none hover:border-line focus:border-primary"
+                >
+                  {dates.map((d) => (
+                    <option key={d} value={d}>
+                      {dotDate(d)}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown size={11} className="pointer-events-none absolute top-1/2 right-0.5 -translate-y-1/2" />
+              </label>
+              · {recs.length} ATM record{recs.length === 1 ? '' : 's'}
             </span>
           </div>
-          <label className="mt-3 flex items-center gap-2 text-[12px] text-muted">
-            Date
-            <select value={date} onChange={(e) => setDate(e.target.value)} className="h-8 flex-1 rounded-md border border-line bg-white px-2 text-[13px] text-ink">
-              {dates.map((d) => (
-                <option key={d} value={d}>
-                  {dotDate(d)}
-                </option>
-              ))}
-            </select>
-          </label>
 
           <div className="mt-4 space-y-4">
             {recs.map((r) => (
@@ -155,9 +170,9 @@ export default function MobileCbr() {
           </div>
 
           <p className="mt-4 text-[11px] leading-relaxed text-muted">
-            Blank values are retained as supplied, not zero. Highlighted rows are the closing and loading balances; negative differences are shown in red.
+            Blank values are retained as supplied, not zero. Negative differences are shown in red.
           </p>
-          <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-[11px] leading-relaxed text-amber-800">
+          <p className="mt-2 text-[11px] leading-relaxed text-muted">
             Assumed formulas — needs client confirmation: Closing Balance in WLA = Opening + Fund Given by HPY − Withdrawal; Loading Amount Difference = expected funding (WLA: Fund Given by HPY ·
             Axis: 1st Lot + 2nd Lot) − Loading Amount.
           </p>

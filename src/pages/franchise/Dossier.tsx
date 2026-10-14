@@ -24,7 +24,8 @@ export default function Dossier() {
   const fr = getFranchise(id)
   const [params, setParams] = useSearchParams()
   const section = Math.min(6, Math.max(1, Number(params.get('section')) || 1))
-  const [editing, setEditing] = useState(false)
+  // `?edit=1` opens the dossier straight in edit mode (deep link / QA screenshots)
+  const [editing, setEditing] = useState(() => params.get('edit') === '1')
   const [draft, setDraft] = useState<DossierForm | null>(null)
   const [errors, setErrors] = useState<Errors>({})
 
@@ -34,7 +35,7 @@ export default function Dossier() {
   const initials = fr.name.split(' ').map((p) => p[0]).slice(0, 2).join('')
   const evidence = form.documents.filter((d) => d.file).length + form.images.filter(Boolean).length + (form.applicantPhoto ? 1 : 0) + (form.signature ? 1 : 0)
 
-  const goto = (n: number) => setParams({ section: String(n) })
+  const goto = (n: number) => setParams(editing ? { section: String(n), edit: '1' } : { section: String(n) })
 
   const save = () => {
     // validate every section of the draft; jump to the first one with problems
@@ -52,6 +53,7 @@ export default function Dossier() {
     saveDossier(fr.id, form)
     setEditing(false)
     setDraft(null)
+    if (params.has('edit')) setParams({ section: String(section) })
     toast(`${fr.id} dossier saved · change recorded in Governance → Audit`)
   }
 

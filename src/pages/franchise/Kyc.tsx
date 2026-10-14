@@ -69,22 +69,22 @@ export function KycQueue() {
 // ── Mock document preview ─────────────────────────────────────────────
 function DocPreview({ c, doc, zoom }: { c: KycCase; doc: string; zoom: number }) {
   return (
-    <div className="grid min-h-[520px] place-items-center overflow-auto bg-slate-200/70 p-6">
+    <div className="grid h-full min-h-[520px] place-items-center overflow-auto bg-slate-200/70 p-6">
       <div style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'center' }} className="transition-transform">
         {doc === 'PAN Card' ? (
-          <div className="w-[430px] rounded-sm border border-amber-200 bg-[#f6efd9] p-5 shadow-md">
+          <div className="w-[500px] rounded-sm border border-amber-300 bg-[#f6efd9] p-6 shadow-md">
             <div className="flex justify-between text-[11px] font-bold">
               <span>आयकर विभाग<br />INCOME TAX DEPARTMENT</span>
               <span className="grid h-9 w-9 place-items-center rounded-full border-2 border-amber-700/50" />
               <span className="text-right">भारत सरकार<br />GOVT. OF INDIA</span>
             </div>
-            <div className="mt-5 flex gap-4">
-              <div className="grid h-24 w-20 place-items-center bg-slate-300 text-[22px] font-semibold text-slate-600">
+            <div className="mt-6 flex gap-4">
+              <div className="grid h-[112px] w-[92px] place-items-center bg-slate-300 text-[22px] font-semibold text-slate-600">
                 {c.fields.nameOnPan.split(' ').map((p) => p[0]).slice(0, 2).join('')}
               </div>
-              <div className="text-[11px]">
+              <div className="text-[12px]">
                 <div className="text-[9px] text-muted">Name</div>
-                <div className="font-bold uppercase">{c.fields.nameOnPan}</div>
+                <div className="text-[14px] font-bold uppercase">{c.fields.nameOnPan}</div>
                 {c.fields.fatherName && (
                   <>
                     <div className="mt-2 text-[9px] text-muted">Father’s Name</div>
@@ -94,7 +94,7 @@ function DocPreview({ c, doc, zoom }: { c: KycCase; doc: string; zoom: number })
                 <div className="mt-2">DOB: {c.fields.dob.split('-').reverse().join(' / ')}</div>
               </div>
             </div>
-            <div className="mt-4 text-[17px] font-bold tracking-wider">{c.fields.pan}</div>
+            <div className="mt-5 text-[19px] font-bold tracking-wider">{c.fields.pan}</div>
           </div>
         ) : (
           <div className="w-[380px] rounded-sm bg-white p-6 shadow-md">
@@ -149,7 +149,7 @@ export function KycWorkspace() {
     }, 1100)
   }
 
-  const input = 'h-9 w-full rounded-md border border-line bg-white px-3 text-[13px] outline-none focus:border-primary disabled:bg-surface'
+  const input = 'h-9 w-full rounded-md border border-line bg-white px-3 text-[12px] outline-none focus:border-primary disabled:bg-surface'
   const field = (label: string, k: keyof KycCase['fields'], type = 'text', prefix?: string) => (
     <label className="block text-[11px] text-muted">
       {label}
@@ -162,14 +162,17 @@ export function KycWorkspace() {
 
   return (
     <div>
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
+      <div className="-mt-1.5 mb-3 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <div className="text-[12px] text-muted">Franchise / Applications / {c.id}</div>
-          <div className="mt-1 flex flex-wrap items-center gap-3">
-            <h1 className="text-[26px] font-medium">{c.applicant}</h1>
-            <Badge tone={tone[c.status]}>{c.status}</Badge>
+          <div className="text-[11px] text-muted">Franchise / Applications / {c.id}</div>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-[25px] leading-[34px] font-medium">{c.applicant}</h1>
+            <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold', { blue: 'bg-primary-soft text-primary', green: 'bg-emerald-50 text-emerald-700', red: 'bg-red-50 text-brand-red' }[tone[c.status]])}>
+              <span className="h-1.5 w-1.5 rounded-full bg-current" />
+              {c.status}
+            </span>
           </div>
-          <div className="mt-1 font-mono text-[12px] text-muted">
+          <div className="font-mono text-[11px] text-muted">
             Site / LOI Number: {c.loi} · {c.region}
           </div>
         </div>
@@ -177,13 +180,13 @@ export function KycWorkspace() {
           Back to applications
         </Button>
       </div>
-      <div className="mb-5 border-b border-line">
-        <span className="-mb-px inline-block border-b-2 border-primary px-1 py-2.5 text-[13px] font-semibold text-primary">KYC Documents</span>
+      <div className="mb-4 border-b border-line">
+        <span className="-mb-px inline-block border-b-2 border-primary px-1 py-2.5 text-[12px] font-semibold text-primary">KYC Documents</span>
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-[1fr_380px]">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_430px]">
         {/* documents */}
-        <section className="min-w-0 overflow-hidden rounded-xl border border-line bg-white">
+        <section className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-line bg-white">
           <div className="flex flex-wrap items-start justify-between gap-3 px-4 pt-4">
             <div>
               <h2 className="text-[15px] font-semibold">Uploaded documents</h2>
@@ -220,7 +223,7 @@ export function KycWorkspace() {
               <ChevronLeft size={13} className="opacity-50" /> Page 1 / 1 <ChevronRight size={13} className="opacity-50" />
             </span>
           </div>
-          <div className="relative mx-4 mb-4">
+          <div className="relative mx-4 mb-4 flex-1">
             <DocPreview c={c} doc={doc} zoom={zoom} />
             {/* viewer watermark: [User Name] | [Company Name] | [Timestamp] */}
             <div aria-hidden className="pointer-events-none absolute inset-0 grid place-items-center overflow-hidden">
@@ -232,7 +235,7 @@ export function KycWorkspace() {
         </section>
 
         {/* verification panel */}
-        <section className="space-y-4 rounded-xl border border-line bg-white p-4">
+        <section className="space-y-2.5 rounded-xl border border-line bg-white p-4">
           <div className="flex items-start justify-between gap-3">
             <div>
               <h2 className="text-[15px] font-semibold">PAN verification</h2>
@@ -268,8 +271,8 @@ export function KycWorkspace() {
             <input disabled={locked} value={c.note} onChange={(e) => updateCase(c.id, { note: e.target.value })} placeholder="Name, DOB and address match application records." className={cn(input, 'mt-1 text-ink')} />
           </label>
 
-          <div className="rounded-lg border border-line p-3">
-            <div className="mb-2 text-[12px] font-semibold">Verification checklist</div>
+          <div className="rounded-lg border border-line bg-surface/70 px-3 py-2">
+            <div className="mb-1 text-[11px] font-semibold">Verification checklist</div>
             {(
               [
                 ['panActive', 'PAN is active and valid'],
@@ -278,7 +281,7 @@ export function KycWorkspace() {
                 ['rentValid', 'Rent agreement valid through 2029'],
               ] as const
             ).map(([k, label]) => (
-              <label key={k} className="flex items-center gap-2 py-1 text-[12px]">
+              <label key={k} className="flex items-center gap-2 py-0.5 text-[11px]">
                 <input type="checkbox" disabled={locked} checked={c.checklist[k]} onChange={() => setCheck(k)} />
                 {label}
               </label>
@@ -286,14 +289,14 @@ export function KycWorkspace() {
           </div>
 
           <div>
-            <div className="mb-2 flex justify-between text-[12px]">
+            <div className="mb-1.5 flex justify-between text-[11px]">
               <span className="font-semibold">Version history</span>
-              <span className="text-muted">
+              <span className="text-[10px] text-muted">
                 {doc} · {current.versions.length} version{current.versions.length > 1 ? 's' : ''}
               </span>
             </div>
             {current.versions.map((v, i) => (
-              <div key={v.v} className="mb-2 flex items-center justify-between gap-2 rounded-md border border-line px-3 py-2 text-[11px]">
+              <div key={v.v} className="mb-1.5 flex items-center justify-between gap-2 rounded-md border border-line px-2.5 py-1 text-[10px] leading-[14px]">
                 <div>
                   <div className="font-medium text-ink">{fmt(v.at).replace(',', ' ·')}</div>
                   <div className="text-muted">{v.by}</div>

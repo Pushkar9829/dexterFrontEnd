@@ -22,6 +22,8 @@ export type SheetCol = {
   /** show enum values as status badges */
   badge?: boolean
   editable?: boolean
+  /** per-row edit guard (e.g. DLR3 Date only on the first denomination row) */
+  editableRow?: (r: Row) => boolean
   /** not a source column (e.g. the Action column) — skipped by export / search */
   virtual?: boolean
   value?: (r: Row) => string
@@ -223,6 +225,8 @@ function Head({
 type Ctx = {
   editing: boolean
   fit: boolean
+  /** DLR cards: grey, top-aligned header without sort / filter icons (Figma DLR2 / DLR3 sheets) */
+  plainHeader: boolean
   rowHeight: number
   hidden: Set<string>
   sort: { key: string; dir: 'asc' | 'desc' } | null
@@ -293,15 +297,15 @@ function BandTable({ band, lead, leadLetters, start, rows, ctx, locked }: { band
               ))}
             </tr>
           )}
-          <tr className="bg-white text-left">
+          <tr className={cn('text-left', ctx.plainHeader ? 'bg-surface align-top' : 'bg-white')}>
             {cols.map((x) => {
               const s = ctx.sort?.key === x.c.key ? ctx.sort.dir : null
-              const sortable = !x.c.virtual && !narrow(x.c)
+              const sortable = !ctx.plainHeader && !x.c.virtual && !narrow(x.c)
               const k = x.c.key
               return (
                 <th
                   key={k}
-                  className={cn('relative h-[41px] border-r border-b border-line py-2 font-semibold last:border-r-0', narrow(x.c) ? 'px-2' : 'px-2.5')}
+                  className={cn('relative h-[41px] border-r border-b border-line font-semibold last:border-r-0', ctx.plainHeader ? 'py-3' : 'py-2', narrow(x.c) ? 'px-2' : 'px-2.5')}
                   style={ctx.fit ? undefined : { minWidth: x.c.width ?? 140 }}
                 >
                   <Head
@@ -349,7 +353,7 @@ function BandTable({ band, lead, leadLetters, start, rows, ctx, locked }: { band
               <tr key={r.id} className={cn('align-middle hover:bg-surface/60', ctx.rowClassName?.(r))}>
                 {cols.map((x) => {
                   const c = x.c
-                  const canEdit = ctx.editing && !ro && !(x.lead && locked) && c.editable !== false && !c.virtual
+                  const canEdit = ctx.editing && !ro && !(x.lead && locked) && c.editable !== false && !c.virtual && (!c.editableRow || c.editableRow(r))
                   const wraps = c.kind === 'multi' || c.kind === 'deno'
                   const plain = !canEdit && !c.render && !wraps ? textOf(c, r) : undefined
                   return (
@@ -490,7 +494,7 @@ export function ReportSheet({
       })
     }
     return out
-  }, [rows, query, allCols, editing, sort, colFilters])
+  }, [rows, query, allCols, sort, colFilters])
 
   const pages = Math.max(1, Math.ceil(processed.length / pageSize))
   const current = Math.min(page, pages)
@@ -515,7 +519,8 @@ export function ReportSheet({
   }
   const ctx: Ctx = {
     editing,
-    fit: fit ?? layout === 'single',
+    fit: fit ?? true,
+    plainHeader: layout === 'cards',
     rowHeight,
     hidden,
     sort,
@@ -635,19 +640,19 @@ export function ReportSheet({
           <section key={b.title} className="overflow-hidden rounded-xl border border-line bg-white">
             <BandHeader band={b} range={rangeOf(b, i)} right={bandRight?.(b, i)} />
             {showToolbar(i) && toolbarEl(b.toolbarTitle ?? title)}
-            <div className="flex items-center justify-between gap-2 border-b border-line px-4 py-2 text-[12px] text-muted">
-              <span className="font-semibold text-ink-2">{processed.length} {noun}</span>
+            <div className="flex min-h-[33px] items-center justify-between gap-2 border-b border-line px-3.5 py-1.5 text-[10.5px] text-muted">
+              <span className="text-[11px] font-semibold text-ink-2">{processed.length} {noun}</span>
               <span className="flex items-center gap-1.5">
-                <MousePointer2 size={13} /> {editing ? 'Editable grid · Changes apply when you click Save' : 'Editable grid · Source values'}
+                <MousePointer2 size={12} /> {editing ? 'Editable grid · Changes apply when you click Save' : 'Editable grid · Source values'}
               </span>
             </div>
             <BandTable band={b} lead={i === 0 || repeatLead ? lead : []} leadLetters start={starts[i]} rows={visible} ctx={ctx} locked={i > 0} />
             {emptyBlock}
-            <div className="border-t border-line px-4 py-2.5 text-[12px] text-muted">
+            <div className="border-t border-line px-3.5 py-2.5 text-[11px] text-muted">
               All {processed.length} {noun} visible · Blank cells preserved
             </div>
             {b.footer && (
-              <div className="flex flex-wrap justify-between gap-2 border-t border-line bg-surface/60 px-4 py-2.5 text-[11px] text-muted">
+              <div className="flex flex-wrap justify-between gap-2 border-t border-line bg-surface/60 px-3.5 py-2.5 text-[10px] text-muted">
                 <span>{b.footer}</span>
                 <span className="text-primary">{editing ? 'Editing · Save to apply' : 'Editable grid · Update to edit'}</span>
               </div>

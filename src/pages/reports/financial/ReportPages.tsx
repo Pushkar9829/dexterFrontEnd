@@ -71,8 +71,8 @@ export function ReportList({ def }: { def: ReportDef }) {
         meta={def.meta(inScope, def.rangeKey ? period : scope, 'list')}
         metaRight={
           def.rangeKey ? (
-            <span className="flex min-h-9 flex-wrap items-center gap-2 rounded-lg border border-line bg-white px-3 py-1 text-[13px] text-ink-2">
-              <CalendarDays size={15} className="text-muted" />
+            <span className="flex min-h-8 flex-wrap items-center gap-2 rounded-lg border border-line bg-white px-2.5 py-0.5 text-[11px] text-ink-2">
+              <CalendarDays size={13} className="text-muted" />
               <span className="text-muted">Deposit date:</span>
               <input type="date" aria-label="Deposit date from" value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} className="bg-transparent outline-none" />
               <span className="text-muted">–</span>

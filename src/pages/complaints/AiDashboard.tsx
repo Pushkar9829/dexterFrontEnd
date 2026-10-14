@@ -89,7 +89,7 @@ export default function AiDashboard() {
   }
   const reconsider = (r: Recommendation) => recStore.set((xs) => xs.map((x) => (x.id === r.id ? { ...x, status: 'Needs review', decidedAt: undefined, decidedBy: undefined, rejectReason: undefined } : x)))
 
-  const shownRecs = recs.filter((r) => (recFilter === 'All' ? true : recFilter === 'Highlighted' ? r.highlighted || r.status === 'Needs review' : r.status === recFilter))
+  const shownRecs = recs.filter((r) => (recFilter === 'All' ? true : recFilter === 'Highlighted' ? r.highlighted : r.status === recFilter))
 
   const cols: GridColumn<Complaint>[] = [
     { key: 'id', header: 'Complaint ID', width: 120, render: (c) => <Link to={`${BASE}/${c.id}`} className="font-medium text-primary hover:underline">{c.id}</Link> },
@@ -156,13 +156,16 @@ export default function AiDashboard() {
             <BarRow key={k} label={k} value={n} max={d.drivers[0][1]} suffix={n === 1 ? ' case' : ' cases'} />
           ))}
         </Panel>
-        <Panel title="Model & review status" sub={`Model · ${MODEL_INFO.name} · Updated ${fmtDT(MODEL_INFO.updated)}`}>
+        <Panel title="Model & review status">
+          <KV k="Model">
+            {MODEL_INFO.name} · Updated {fmtDT(MODEL_INFO.updated)}
+          </KV>
           <KV k="Prediction horizon">{MODEL_INFO.horizon}</KV>
           <KV k="Validation precision">{MODEL_INFO.precision}% · Prior 30-day reviewed outcomes</KV>
           <KV k="Human review">
             {pending.length} recommendation{pending.length === 1 ? '' : 's'} awaiting review · {Object.keys(reviews).length} prediction{Object.keys(reviews).length === 1 ? '' : 's'} reviewed
           </KV>
-          <p className="mt-3 text-[11px] text-muted">Confidence reflects model certainty, not guaranteed likelihood of an outcome.</p>
+          <p className="mt-3 text-[10.5px] text-muted">Confidence reflects model certainty, not guaranteed likelihood of an outcome.</p>
         </Panel>
       </div>
 
@@ -178,14 +181,14 @@ export default function AiDashboard() {
 
       <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
         <h2 className="mr-auto text-[15px] font-semibold">Preventive recommendations</h2>
-        <span className="text-[12px] text-muted">
+        <span className="text-[11px] text-muted">
           {pending.length} awaiting review · {recs.filter((r) => r.highlighted).length} highlighted
         </span>
         <select
           value={recFilter}
           onChange={(e) => setRecFilter(e.target.value as RecFilter)}
           aria-label="Show recommendations"
-          className="h-8 rounded-md border border-line bg-white px-2 text-[12px] text-ink-2"
+          className="h-7 rounded-md border border-transparent bg-transparent px-1 text-[11px] text-primary hover:border-line"
         >
           {(['Highlighted', 'Needs review', 'Accepted', 'Rejected', 'All'] as RecFilter[]).map((f) => (
             <option key={f} value={f}>
@@ -198,15 +201,15 @@ export default function AiDashboard() {
       <div className="mb-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {shownRecs.length === 0 && <p className="text-[13px] text-muted">No recommendations in this view.</p>}
         {shownRecs.map((r) => (
-          <article key={r.id} className="flex flex-col rounded-xl border border-line bg-white p-5">
+          <article key={r.id} className="flex flex-col rounded-xl border border-line bg-white p-4">
             <div className="flex items-center justify-between gap-2">
               <Badge tone={recTone(r.status)} dot={false}>
                 {r.status === 'Accepted' ? 'Accepted · Task created' : `Recommendation · ${r.status}`}
               </Badge>
-              <span className="text-[12px] text-muted">{r.confidence}% confidence</span>
+              <span className="text-[11px] text-muted">{r.confidence}% confidence</span>
             </div>
-            <h4 className="mt-3 text-[13px] font-semibold text-ink">{r.title}</h4>
-            <p className="mt-1 text-[12px] text-primary">
+            <h4 className="mt-3.5 text-[13px] font-semibold text-ink">{r.title}</h4>
+            <p className="mt-2.5 text-[11px] text-primary">
               {r.complaintId ? (
                 <Link to={`${BASE}/${r.complaintId}`} className="hover:underline">
                   {r.context}
@@ -215,22 +218,22 @@ export default function AiDashboard() {
                 r.context
               )}
             </p>
-            <p className="mt-2 flex-1 text-[12px] leading-[18px] text-muted">{r.body}</p>
+            <p className="mt-3 flex-1 text-[11px] leading-4 text-muted">{r.body}</p>
             {r.status === 'Rejected' && r.rejectReason && <p className="mt-2 text-[12px] text-brand-red">Rejected by {r.decidedBy}: {r.rejectReason}</p>}
             <div className="mt-4 flex flex-wrap items-center gap-2">
               {r.status === 'Needs review' && (
                 <>
-                  <Button size="sm" variant="secondary" onClick={() => setRecModal({ rec: r, mode: 'review' })}>
+                  <Button variant="secondary" onClick={() => setRecModal({ rec: r, mode: 'review' })}>
                     Review
                   </Button>
-                  <Button size="sm" onClick={() => accept(r)}>
+                  <Button onClick={() => accept(r)}>
                     Accept & create task
                   </Button>
                 </>
               )}
               {r.status === 'Accepted' && r.taskId && (
                 <>
-                  <Button size="sm" variant="secondary" onClick={() => nav(`/tasks/my/${r.taskId}`)}>
+                  <Button variant="secondary" onClick={() => nav(`/tasks/my/${r.taskId}`)}>
                     View task {r.taskId}
                   </Button>
                   {r.decidedBy && (

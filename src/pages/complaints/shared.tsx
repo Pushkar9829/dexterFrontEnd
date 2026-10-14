@@ -146,7 +146,7 @@ export function Panel({
           <h3 className="text-[14px] font-semibold text-ink">{title}</h3>
           {sub && <p className="mt-2.5 text-[11px] text-muted">{sub}</p>}
         </div>
-        {action && <div className="flex shrink-0 flex-wrap items-center gap-3">{action}</div>}
+        {action && <div className="mt-0.5 flex shrink-0 flex-wrap items-center gap-3">{action}</div>}
       </div>
       {children}
     </section>
@@ -168,16 +168,16 @@ export function LinkBtn({ onClick, children, to }: { onClick?: () => void; child
   )
 }
 
-export const ViewAll = ({ to, onClick, label = 'View all' }: { to?: string; onClick?: () => void; label?: string }) => (
+export const ViewAll = ({ to, onClick, label = 'View all', arrow = true }: { to?: string; onClick?: () => void; label?: string; arrow?: boolean }) => (
   <LinkBtn to={to} onClick={onClick}>
-    {label} <ArrowRight size={13} />
+    {label} {arrow && <ArrowRight size={13} />}
   </LinkBtn>
 )
 
 /** "Label · value" detail row (design style). */
 export function KV({ k, children }: { k: string; children: ReactNode }) {
   return (
-    <div className="py-1 text-[12px] leading-[17px] text-ink-2">
+    <div className="py-1 text-[12px] leading-[18px] text-ink-2">
       <span className="text-ink">{k}</span>
       <span className="mx-1.5 text-muted">·</span>
       <span>{children}</span>
@@ -278,7 +278,7 @@ export function MultiCheck({ options, value, onChange, allLabel }: { options: st
 /** Simple timeline list item used in Complaint 360 / dashboards. */
 export function Entry({ title, status, meta, tone, action }: { title: ReactNode; status?: string; meta?: ReactNode; tone?: Tone; action?: ReactNode }) {
   return (
-    <div className="group py-[9px] [.panel-head+&]:pt-0">
+    <div className="group py-[10px] [.panel-head+&]:pt-0">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] leading-5 text-ink">
         <span className="min-w-0">{title}</span>
         {status && (
@@ -295,7 +295,7 @@ export function Entry({ title, status, meta, tone, action }: { title: ReactNode;
 }
 
 export function Banner({ tone = 'red', lead, children, action }: { tone?: 'red' | 'amber' | 'blue'; lead: ReactNode; children: ReactNode; action?: ReactNode }) {
-  const box = tone === 'red' ? 'border-red-200 bg-red-50' : tone === 'amber' ? 'border-amber-100 bg-[#fdf4e3]' : 'border-blue-200 bg-primary-soft'
+  const box = tone === 'red' ? 'border-red-200 bg-red-50' : tone === 'amber' ? 'border-amber-100 bg-[#fdf4e3]' : 'border-transparent bg-primary-soft'
   const leadCls = tone === 'red' ? 'text-brand-red' : tone === 'amber' ? 'text-amber-700' : 'text-primary'
   return (
     <div className={cn('mb-5 flex flex-wrap items-center gap-x-5 gap-y-2 rounded-xl border px-5 py-3.5 text-[12px]', box)}>

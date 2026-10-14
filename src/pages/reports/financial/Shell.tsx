@@ -223,19 +223,3 @@ export function ChipSelect({ label, value, onChange, options }: { label: string;
     </label>
   )
 }
-
-/** compact select used for filters in report headers */
-export function HeaderSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: { value: string; label: string }[] }) {
-  return (
-    <label className="flex h-10 items-center gap-2 rounded-lg border border-line bg-white px-3 text-[13px]">
-      <span className="text-muted">{label}</span>
-      <select value={value} onChange={(e) => onChange(e.target.value)} className="bg-transparent font-semibold text-ink outline-none">
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-    </label>
-  )
-}

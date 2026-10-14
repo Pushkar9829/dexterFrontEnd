@@ -147,10 +147,10 @@ export function DlrDetail({ kind }: { kind: DlrKind }) {
 }
 
 const Banner = ({ children }: { children: ReactNode }) => (
-  <div className="rounded-xl border border-blue-200 bg-primary-soft/60 px-4 py-3 text-[13px] text-primary">{children}</div>
+  <div className="rounded-xl border border-blue-200 bg-primary-soft/60 px-3.5 py-2.5 text-[12px] text-primary">{children}</div>
 )
 const WideLine = ({ left, right }: { left: string; right: string }) => (
-  <div className="mb-3 flex flex-wrap justify-between gap-2 text-[12px]">
+  <div className="mb-3 flex flex-wrap justify-between gap-2 text-[11px]">
     <span className="text-muted">{left}</span>
     <span className="font-semibold text-primary">{right}</span>
   </div>
@@ -205,7 +205,7 @@ function DlrSheet({ kind, atmId }: { kind: DlrKind; atmId: string }) {
           />
         }
         name={name}
-        chip="Source data"
+        chip="Source data + examples"
         meta={`14 source columns · ${n} source rows · Funds received: ${monthOf(funds)} · Loading: ${monthOf(loads)} · ${who}`}
         banner={
           <Banner>
@@ -225,7 +225,7 @@ function DlrSheet({ kind, atmId }: { kind: DlrKind; atmId: string }) {
           exportName={`dlr2-${atmId}`}
           searchPlaceholder="Search source rows"
           layout="cards"
-          toolbar="first"
+          toolbar="none"
           noun="source rows"
         />
       </FinancialShell>
@@ -236,8 +236,8 @@ function DlrSheet({ kind, atmId }: { kind: DlrKind; atmId: string }) {
   const display = withTotals(d.rows)
   const groups = [...new Set(d.rows.map((r) => r.group))]
   const lead: SheetCol[] = [
-    { key: 'sn', label: 'S.N.', hi: 'क्र.स.', width: 60, editable: false, value: (r) => (r.deno === '100' ? String(groups.indexOf(r.group) + 1) : '') },
-    { key: 'date', label: 'Date', hi: 'तारीख', kind: 'date', width: 130, render: (r) => (r.deno === '100' ? dmy(r.date) : '') },
+    { key: 'sn', label: 'S.N.', hi: 'क्र.स.', width: 60, editable: false, value: (r) => (r.deno === '100' ? String(groups.indexOf(r.group) + 1) : ''), render: (r) => (r.deno === '100' ? String(groups.indexOf(r.group) + 1) : '') },
+    { key: 'date', label: 'Date', hi: 'तारीख', kind: 'date', width: 130, editableRow: (r) => r.deno === '100', render: (r) => (r.deno === '100' ? dmy(r.date) : '') },
     { key: 'deno', label: 'Deno', hi: 'मूल्यवर्ग / नोटों के प्रकार', width: 130, editable: false, render: (r) => (r.isTotal ? <b>Total=</b> : r.deno) },
   ]
   const change = (id: string, key: string, value: string) => {

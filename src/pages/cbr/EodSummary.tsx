@@ -253,7 +253,7 @@ export default function EodSummary() {
           <span className="text-[12px] font-semibold text-ink">CBR LAST COUNTER CLEARED</span>
           <span className="text-muted">Same ATMs · {counters.length} ATMs · Flagged when not cleared for over 7 days</span>
         </div>
-        <div className="[&>section]:rounded-none [&>section]:border-0">
+        <div className="[&>section]:rounded-none [&>section]:border-0 [&_thead_th:not(:first-child)>div>span:first-child]:ml-auto">
           <ExcelGrid title="CBR LAST COUNTER CLEARED" rows={counters} columns={ctrCols} rowId={(c) => c.atmId} rowNumbers={false} hideToolbar pageSize={12} noun="ATMs" exportName="cbr-last-counter-cleared" />
         </div>
       </section>
