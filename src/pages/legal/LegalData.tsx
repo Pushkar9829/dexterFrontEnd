@@ -1,15 +1,22 @@
-import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { ArrowRight, CheckCircle2, FileWarning, Hourglass, ShieldCheck } from 'lucide-react'
+import { useMemo, useState, type ReactNode } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { ArrowRight, ChevronDown, Table2 } from 'lucide-react'
 import { ExcelGrid, type GridColumn } from '@/components/grid/ExcelGrid'
 import { PageHeader } from '@/components/ui/Card'
-import { StatCard } from '@/components/ui/KpiCard'
 import { toast } from '@/components/ui/Toast'
 import { downloadCsv } from '@/lib/export'
 import { LEGAL_STATUSES, agreementOf, docsForSite, legalStore, readiness, sendReminder, useLegal, type LegalSite, type LegalState } from '@/data/legal'
-import { StatusBadge } from './ui'
+import { legalTone } from './ui'
 
-const sel = 'h-9 w-full rounded-lg border border-line bg-white px-3 text-[13px] text-ink outline-none focus:border-primary sm:w-auto'
+const sel = 'h-10 w-full appearance-none rounded-lg border border-line bg-white pr-9 pl-3 text-[13px] font-medium text-ink outline-none focus:border-primary sm:w-auto'
+
+const AGR_CELL: Record<string, string> = {
+  amber: 'bg-amber-50 text-amber-700',
+  blue: 'bg-blue-50 text-blue-700',
+  green: 'bg-emerald-50 text-emerald-700',
+  red: 'bg-red-50 text-red-700',
+}
+const CORE_LABEL = { contactNumber: 'Contact Number', model: 'Model', mf: 'MF' } as const
 
 type Row = LegalSite & { agreement: string; agreementVersion: string; cleared: boolean; approved: number }
 
@@ -21,9 +28,10 @@ function toRows(s: LegalState): Row[] {
   })
 }
 
-/** Legal Data — consolidated site legal register. */
+/** Legal Data — consolidated site legal register (Figma 91:7783). */
 export default function LegalData() {
   const state = useLegal()
+  const navigate = useNavigate()
   const all = useMemo(() => toRows(state), [state])
   const [clearance, setClearance] = useState('')
   const [st, setSt] = useState('')
@@ -41,37 +49,53 @@ export default function LegalData() {
       (!agr || r.agreement === agr),
   )
 
-  const count = (pred: (r: Row) => boolean) => all.filter(pred).length
+  const missing = (Object.keys(CORE_LABEL) as (keyof typeof CORE_LABEL)[]).filter((k) => rows.some((r) => !r[k])).map((k) => CORE_LABEL[k])
+  const missingNote = missing.length
+    ? `${missing.length > 1 ? `${missing.slice(0, -1).join(', ')} and ${missing[missing.length - 1]} are` : `${missing[0]} is`} not provided for some sites.`
+    : 'Contact Number, Model and MF are provided for every site shown.'
 
   const columns: GridColumn<Row>[] = [
     {
-      key: 'id', header: 'Site/LOI Number', width: 190, pinned: true, sortable: true,
+      key: 'id', header: 'Site/LOI Number', width: 170, pinned: true, sortable: true,
       render: (r) => (
-        <Link to={`/legal/${r.id}`} className="block leading-tight">
-          <span className="font-semibold text-primary hover:underline">{r.id}</span>
-          <span className="block text-[11px] text-muted">{r.cleared ? 'Legally cleared' : `${r.approved} of 3 approved`}</span>
+        <Link to={`/legal/${r.id}`} className="block leading-snug font-medium text-primary underline underline-offset-2">
+          {r.id}
+          <span className="block">Existing site record</span>
         </Link>
       ),
     },
-    { key: 'location', header: 'Location', width: 230, sortable: true, render: (r) => <span>{r.location}<span className="block text-[11px] text-muted">{r.city}, {r.state}</span></span> },
-    { key: 'franchiseName', header: 'Name of Franchisee', width: 230, sortable: true, filterable: true },
-    { key: 'contactNumber', header: 'Contact Number', width: 160 },
-    { key: 'model', header: 'Model', width: 130, filterable: true },
-    { key: 'mf', header: 'MF', label: 'MF (Master Franchise)', width: 220, filterable: true },
     {
-      key: 'agreement', header: 'Agreement Status', width: 200, sortable: true,
+      key: 'location', header: 'Location', width: 200, sortable: true, filterable: true,
       render: (r) => (
-        <span className="flex flex-col items-start gap-0.5">
-          <StatusBadge status={r.agreement} />
-          <span className="text-[11px] text-muted">Agreement {r.agreementVersion}</span>
+        <span className="leading-snug">
+          {r.location}
+          <span className="block">
+            {r.city}, {r.state}
+          </span>
+        </span>
+      ),
+    },
+    { key: 'franchiseName', header: 'Name of Franchisee', width: 190, sortable: true, filterable: true, render: (r) => <span className="block whitespace-normal">{r.franchiseName}</span> },
+    { key: 'contactNumber', header: 'Contact Number', width: 160, sortable: true, filterable: true },
+    { key: 'model', header: 'Model', width: 130, sortable: true, filterable: true },
+    { key: 'mf', header: 'MF', label: 'MF (Master Franchise)', width: 190, sortable: true, render: (r) => (r.mf ? <span className="block whitespace-normal">{r.mf}</span> : <span className="text-muted">—</span>) },
+    {
+      key: 'agreement', header: 'Agreement Status', width: 170, sortable: true, filterable: true,
+      render: (r) => (
+        <span className={`block rounded-md px-2 py-1.5 leading-snug ${AGR_CELL[legalTone(r.agreement)] ?? 'bg-surface text-ink-2'}`}>
+          {r.agreement}
+          <span className="block">Agreement {r.agreementVersion}</span>
         </span>
       ),
     },
     {
-      key: 'record', header: 'Record', width: 210, value: () => '',
+      key: 'record', header: 'Record', width: 150, value: () => '',
       render: (r) => (
-        <Link to={`/legal/${r.id}`} className="inline-flex items-center gap-1 text-[12px] font-semibold text-primary hover:underline">
-          View Master Site Record <ArrowRight size={13} />
+        <Link to={`/legal/${r.id}`} className="block leading-snug text-primary hover:underline">
+          View Master
+          <span className="flex items-center gap-1">
+            Site Record <ArrowRight size={13} />
+          </span>
         </Link>
       ),
     },
@@ -80,27 +104,26 @@ export default function LegalData() {
   return (
     <div>
       <PageHeader title="Legal Data" sub="Consolidated site legal register · Open a site to view its Master Site Record." />
-
-      <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="Site records" value={all.length} caption="7 core columns · — = Not provided" icon={<ShieldCheck size={18} />} />
-        <StatCard label="Legally cleared" value={count((r) => r.cleared)} caption="LOI, Affidavit & Agreement approved" icon={<CheckCircle2 size={18} />} />
-        <StatCard label="Agreement action required" value={count((r) => r.agreement === 'Action Required')} caption="Signed copy pending with franchisee" icon={<FileWarning size={18} />} />
-        <StatCard label="Under review" value={count((r) => r.agreement === 'Under Review')} caption="Signed agreements awaiting review" icon={<Hourglass size={18} />} />
+      <div className="-mt-2 mb-4 flex flex-wrap items-center justify-between gap-2 text-[12px] text-muted">
+        <span className="flex items-center gap-1.5">
+          <Table2 size={14} className="text-primary" />
+          {all.length} existing site record{all.length === 1 ? '' : 's'} · 7 core columns
+        </span>
+        <span>— = Not provided</span>
       </div>
 
-      <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-line bg-white p-3">
-        <span className="mr-1 text-[12px] font-semibold text-ink-2">Filter by</span>
-        <select aria-label="Sites" className={sel} value={clearance} onChange={(e) => setClearance(e.target.value)}>
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <span className="mr-1 text-[12px] text-muted">Filter by</span>
+        <Dropdown label="Sites" value={clearance} onChange={setClearance}>
           <option value="">All sites</option>
           <option value="pending">Compliance pending</option>
           <option value="cleared">Legally cleared</option>
-        </select>
-        <select
-          aria-label="States"
-          className={sel}
+        </Dropdown>
+        <Dropdown
+          label="States"
           value={st}
-          onChange={(e) => {
-            setSt(e.target.value)
+          onChange={(v) => {
+            setSt(v)
             setCity('')
           }}
         >
@@ -108,19 +131,19 @@ export default function LegalData() {
           {states.map((s) => (
             <option key={s}>{s}</option>
           ))}
-        </select>
-        <select aria-label="Cities" className={sel} value={city} onChange={(e) => setCity(e.target.value)}>
+        </Dropdown>
+        <Dropdown label="Cities" value={city} onChange={setCity}>
           <option value="">All cities</option>
           {cities.map((c) => (
             <option key={c}>{c}</option>
           ))}
-        </select>
-        <select aria-label="Agreement statuses" className={sel} value={agr} onChange={(e) => setAgr(e.target.value)}>
+        </Dropdown>
+        <Dropdown label="Agreement statuses" value={agr} onChange={setAgr}>
           <option value="">All agreement statuses</option>
           {LEGAL_STATUSES.map((s) => (
             <option key={s}>{s}</option>
           ))}
-        </select>
+        </Dropdown>
         {(clearance || st || city || agr) && (
           <button
             className="text-[12px] font-semibold text-primary hover:underline"
@@ -134,50 +157,75 @@ export default function LegalData() {
             Clear filters
           </button>
         )}
-        <span className="text-[12px] text-muted sm:ml-auto">
-          {rows.length} of {all.length} site records · — = Not provided
-        </span>
       </div>
 
-      <ExcelGrid
-        title="Legal data register"
-        countLabel={`${rows.length} record${rows.length === 1 ? '' : 's'}`}
-        rows={rows}
-        columns={columns}
-        rowId={(r) => r.id}
-        searchPlaceholder="Search site, location or franchisee"
-        selectable
-        bulkActions={(ids, clear) => (
-          <span className="flex flex-wrap gap-3">
-            <button
-              className="font-semibold text-primary hover:underline"
-              onClick={() => {
-                const pick = all.filter((r) => ids.includes(r.id))
-                downloadCsv('legal-data-selected', ['Site/LOI Number', 'Location', 'Name of Franchisee', 'Contact Number', 'Model', 'MF', 'Agreement Status'], pick.map((r) => [r.id, r.location, r.franchiseName, r.contactNumber, r.model, r.mf, `${r.agreement} · ${r.agreementVersion}`]))
-                clear()
-              }}
-            >
-              Export selected
-            </button>
-            <button
-              className="font-semibold text-primary hover:underline"
-              onClick={() => {
-                const pending = ids.flatMap((id) => docsForSite(legalStore.get(), id).filter((d) => d.status === 'Action Required' || d.status === 'Resubmission Required'))
-                pending.forEach((d) => sendReminder(d.id))
-                toast(pending.length ? `${pending.length} reminder${pending.length > 1 ? 's' : ''} sent to franchisees · recorded in audit history` : 'Nothing pending with the selected franchisees', pending.length ? 'success' : 'info')
-                clear()
-              }}
-            >
-              Send reminders
-            </button>
-          </span>
-        )}
-        noun="sites"
-        exportName="legal-data-register"
-        emptyState="No site records match these filters."
-        footerLeft="7 core columns · Site/LOI Number pinned · Open a row to view its Master Site Record"
-        footerRight="Site links open the existing Master Site Record · Legal summary"
-      />
+      {/* rows open the Master Site Record ("Open a row to view its Master Site Record") */}
+      <div
+        className="[&_tbody_tr]:cursor-pointer"
+        onClick={(e) => {
+          const t = e.target as HTMLElement
+          if (t.closest('a,button,input,select,label,thead')) return
+          const href = t.closest('tr')?.querySelector('a[href^="/legal/"]')?.getAttribute('href')
+          if (href) navigate(href)
+        }}
+      >
+        <ExcelGrid
+          title="Legal data register"
+          countLabel={`${rows.length} record${rows.length === 1 ? '' : 's'}`}
+          rows={rows}
+          columns={columns}
+          rowId={(r) => r.id}
+          searchPlaceholder="Search site, location or franchisee"
+          letters
+          selectable
+          hideSelectionBar
+          bulkActions={(ids, clear) => (
+            <span className="flex flex-wrap gap-3">
+              <button
+                className="font-semibold text-primary hover:underline"
+                onClick={() => {
+                  const pick = all.filter((r) => ids.includes(r.id))
+                  downloadCsv('legal-data-selected', ['Site/LOI Number', 'Location', 'Name of Franchisee', 'Contact Number', 'Model', 'MF', 'Agreement Status'], pick.map((r) => [r.id, r.location, r.franchiseName, r.contactNumber, r.model, r.mf, `${r.agreement} · ${r.agreementVersion}`]))
+                  clear()
+                }}
+              >
+                Export selected
+              </button>
+              <button
+                className="font-semibold text-primary hover:underline"
+                onClick={() => {
+                  const pending = ids.flatMap((id) => docsForSite(legalStore.get(), id).filter((d) => d.status === 'Action Required' || d.status === 'Resubmission Required'))
+                  pending.forEach((d) => sendReminder(d.id))
+                  toast(pending.length ? `${pending.length} reminder${pending.length > 1 ? 's' : ''} sent to franchisees · recorded in audit history` : 'Nothing pending with the selected franchisees', pending.length ? 'success' : 'info')
+                  clear()
+                }}
+              >
+                Send reminders
+              </button>
+            </span>
+          )}
+          noun={rows.length === 1 ? 'existing site record' : 'existing site records'}
+          exportName="legal-data-register"
+          emptyState="No site records match these filters."
+          footerLeft="7 core columns · Site/LOI Number pinned"
+          footerRight="Open a row to view its Master Site Record"
+        />
+      </div>
+      <div className="mt-3 flex flex-wrap justify-between gap-2 text-[12px] text-muted">
+        <span>{missingNote}</span>
+        <span>Site links open the existing Master Site Record · Legal summary</span>
+      </div>
     </div>
+  )
+}
+
+function Dropdown({ label, value, onChange, children }: { label: string; value: string; onChange: (v: string) => void; children: ReactNode }) {
+  return (
+    <label className="relative w-full sm:w-auto">
+      <select aria-label={label} className={sel} value={value} onChange={(e) => onChange(e.target.value)}>
+        {children}
+      </select>
+      <ChevronDown size={14} className="pointer-events-none absolute top-3 right-3 text-ink-2" />
+    </label>
   )
 }

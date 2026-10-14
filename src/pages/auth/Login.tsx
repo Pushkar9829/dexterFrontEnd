@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Mail } from 'lucide-react'
+import { LoaderCircle, Mail } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Checkbox, Input, PasswordInput, PhoneInput, Segmented } from '@/components/ui/Field'
 import { signIn } from '@/lib/auth'
@@ -69,7 +69,7 @@ export default function Login() {
           ]}
         />
         <div>
-          <div className="mb-2 text-[12px] font-medium tracking-wide text-muted">AUTHENTICATION METHOD</div>
+          <div className="mb-2 text-[12px] font-medium tracking-wide text-ink-2">AUTHENTICATION METHOD</div>
           <Segmented
             value={method}
             onChange={setMethod}
@@ -133,7 +133,8 @@ export default function Login() {
           <p className="text-[13px] text-muted">We’ll send a six-digit code to your registered {channel === 'phone' ? 'phone number' : 'email'}.</p>
         )}
 
-        <Button type="submit" size="lg" block disabled={busy}>
+        <Button type="submit" size="lg" block disabled={busy} className={busy ? 'disabled:bg-primary' : undefined}>
+          {busy && <LoaderCircle size={18} className="animate-spin" />}
           {busy ? 'Signing in...' : method === 'password' ? 'Sign In' : 'Send OTP'}
         </Button>
 

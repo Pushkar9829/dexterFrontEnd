@@ -1,9 +1,9 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Mail, UserCog } from 'lucide-react'
+import { Mail } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input, PhoneInput, Segmented } from '@/components/ui/Field'
-import { AuthLayout, AuthTitle } from './AuthLayout'
+import { Alert, AuthLayout, AuthTitle } from './AuthLayout'
 import { isEmail, isPhone } from './validation'
 
 export default function ForgotPassword() {
@@ -61,13 +61,7 @@ export default function ForgotPassword() {
             Back to sign in
           </Link>
         </div>
-        <div className="flex gap-3 rounded-lg bg-surface px-4 py-3 text-[13px]">
-          <UserCog size={18} className="mt-0.5 shrink-0 text-primary" />
-          <div>
-            <div className="font-semibold">Need administrator help?</div>
-            <div className="text-muted">Contact your franchise or regional administrator if your registered details have changed.</div>
-          </div>
-        </div>
+        <Alert title="Need administrator help?">Contact your franchise or regional administrator if your registered details have changed.</Alert>
       </form>
     </AuthLayout>
   )

@@ -32,7 +32,7 @@ export function Pagination({
             onChange={(e) => onPageSize?.(Number(e.target.value))}
             className="h-8 appearance-none rounded-md border border-line bg-white pr-3 pl-7 text-[13px] font-semibold text-ink outline-none"
           >
-            {[10, 25, 50].map((n) => (
+            {[...new Set([pageSize, 10, 25, 50])].sort((x, y) => x - y).map((n) => (
               <option key={n}>{n}</option>
             ))}
           </select>

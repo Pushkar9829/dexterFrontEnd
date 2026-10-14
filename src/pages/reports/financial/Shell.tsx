@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
-import { Pencil, Plus, Save, X } from 'lucide-react'
+import { Info, Pencil, PencilLine, Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { toast } from '@/components/ui/Toast'
 import { cn } from '@/lib/cn'
@@ -20,8 +20,8 @@ export const FIN_TABS = [
 export const FOOTER = 'Reports respect your workspace permissions. Exports are recorded in the audit trail.'
 
 /** view → Update → edit (Save / Cancel) state over a list of rows. */
-export function useDraft(saved: Row[], persist: (rows: Row[]) => void, label: string) {
-  const [draft, setDraft] = useState<Row[] | null>(null)
+export function useDraft(saved: Row[], persist: (rows: Row[]) => void, label: string, initialEditing = false) {
+  const [draft, setDraft] = useState<Row[] | null>(initialEditing ? saved.map((r) => ({ ...r })) : null)
   const rows = draft ?? saved
   return {
     rows,
@@ -31,7 +31,7 @@ export function useDraft(saved: Row[], persist: (rows: Row[]) => void, label: st
     save: () => {
       if (draft) persist(draft)
       setDraft(null)
-      toast(`${label} saved · ${draft?.length ?? 0} rows`)
+      toast(`${label} saved`)
     },
     change: (id: string, key: string, value: string) => setDraft((d) => (d ?? saved).map((r) => (r.id === id ? { ...r, [key]: value } : r))),
     setRows: (fn: (rows: Row[]) => Row[]) => setDraft((d) => fn(d ?? saved)),
@@ -41,103 +41,187 @@ export function useDraft(saved: Row[], persist: (rows: Row[]) => void, label: st
 let seq = 0
 export const newId = (prefix: string) => `${prefix}-N${Date.now().toString(36)}${(seq++).toString(36)}`
 
-/** "Financial Report" page frame: title, sub-tabs (BS … DLR3), report header with Update / Save, notes and footer. */
-export function FinancialShell({
-  sub,
-  name,
-  meta,
-  chip,
-  controls,
+/** Navy "Update" in view mode; Cancel + bright blue "Save" (and optional Add) in edit mode — sits at the right of the tab strip. */
+export function EditActions({
   editing,
   onUpdate,
   onCancel,
   onSave,
   onAdd,
   addLabel = 'Add row',
-  back,
-  children,
-  notes,
 }: {
-  sub: string
-  name: ReactNode
-  meta?: ReactNode
-  chip?: string
-  controls?: ReactNode
-  editing?: boolean
-  onUpdate?: () => void
-  onCancel?: () => void
-  onSave?: () => void
+  editing: boolean
+  onUpdate: () => void
+  onCancel: () => void
+  onSave: () => void
   onAdd?: () => void
   addLabel?: string
-  back?: ReactNode
-  children: ReactNode
-  notes?: ReactNode
 }) {
+  if (!editing)
+    return (
+      <Button icon={<Pencil size={16} />} onClick={onUpdate}>
+        Update
+      </Button>
+    )
   return (
-    <div className="min-w-0">
-      {back}
-      <h1 className="text-[28px] font-semibold tracking-tight text-ink">Financial Report</h1>
-      <p className="mt-1.5 text-[14px] text-muted">{sub}</p>
+    <>
+      {onAdd && (
+        <Button variant="secondary" icon={<Plus size={16} />} onClick={onAdd}>
+          {addLabel}
+        </Button>
+      )}
+      <Button variant="secondary" icon={<X size={16} />} onClick={onCancel}>
+        Cancel
+      </Button>
+      <Button variant="bright" icon={<PencilLine size={16} />} onClick={onSave}>
+        Save
+      </Button>
+    </>
+  )
+}
 
-      <nav className="scroll-thin mt-4 mb-5 flex overflow-x-auto border-b border-line" aria-label="Financial reports">
-        {FIN_TABS.map((t) => (
-          <NavLink
-            key={t.slug}
-            to={`/reports/financial/${t.slug}`}
-            className={({ isActive }) =>
-              cn(
-                '-mb-px shrink-0 border-b-2 px-3.5 py-2.5 text-[13px] whitespace-nowrap',
-                isActive ? 'border-primary font-semibold text-primary' : 'border-transparent text-muted hover:text-ink',
-              )
-            }
-          >
-            {t.label}
-          </NavLink>
-        ))}
-      </nav>
-
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-[20px] font-semibold text-ink">{name}</h2>
-            {chip && <span className="rounded-md bg-primary-soft px-2 py-0.5 text-[11px] font-medium text-primary">{chip}</span>}
-          </div>
-          {meta && <p className="mt-1 text-[12px] text-muted">{meta}</p>}
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {!editing && controls}
-          {onUpdate &&
-            (editing ? (
-              <>
-                {onAdd && (
-                  <Button variant="secondary" icon={<Plus size={16} />} onClick={onAdd}>
-                    {addLabel}
-                  </Button>
-                )}
-                <Button variant="secondary" icon={<X size={16} />} onClick={onCancel}>
-                  Cancel
-                </Button>
-                <Button variant="bright" icon={<Save size={16} />} onClick={onSave}>
-                  Save
-                </Button>
-              </>
-            ) : (
-              <Button icon={<Pencil size={16} />} onClick={onUpdate}>
-                Update
-              </Button>
-            ))}
-        </div>
+/** Figma info note: ⓘ + bold title + muted text on a soft blue card. */
+export function InfoNote({ title, children }: { title: ReactNode; children: ReactNode }) {
+  return (
+    <div className="flex gap-3 rounded-xl bg-primary-soft/70 px-4 py-3.5 text-[12px]">
+      <Info size={16} className="mt-0.5 shrink-0 text-primary" />
+      <div>
+        <div className="text-[13px] font-semibold text-ink">{title}</div>
+        <div className="mt-1 text-muted">{children}</div>
       </div>
-
-      {children}
-
-      {notes && <div className="mt-4 grid gap-4 lg:grid-cols-2">{notes}</div>}
-      <p className="mt-6 border-t border-line pt-4 text-center text-[12px] text-muted">{FOOTER}</p>
     </div>
   )
 }
 
-/** compact select used for F.Y. / month selectors in report headers */
+/** "Source reference entries" card: allowed values shown as chips. */
+export function SourceEntries({ sub, groups, foot }: { sub: string; groups: { label: string; values: string[] }[]; foot?: ReactNode }) {
+  return (
+    <section className="rounded-xl border border-line bg-white px-4 py-4">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <h3 className="text-[15px] font-semibold text-ink">Source reference entries</h3>
+        <span className="text-[12px] text-muted">{sub}</span>
+      </div>
+      <div className="mt-3 grid gap-4 md:grid-cols-2">
+        {groups.map((g) => (
+          <div key={g.label} className="flex flex-wrap items-center gap-2">
+            <span className="mr-1 text-[12px] font-semibold text-ink">
+              {g.label} · {g.values.length} entries
+            </span>
+            {g.values.map((v) => (
+              <span key={v} className="rounded-md border border-line bg-surface px-2.5 py-1 text-[12px] text-ink-2">
+                {v}
+              </span>
+            ))}
+          </div>
+        ))}
+      </div>
+      {foot && <p className="mt-3 text-[12px] text-muted">{foot}</p>}
+    </section>
+  )
+}
+
+/**
+ * "Financial Report" page frame (Figma: Reports > Financial Report).
+ * Title + subtitle, sub-tab strip (all reports on a list page, only the current report on a record page) with the
+ * F.Y. chip / Update / Save at its right, the report heading row (title, chip, meta, view note), content, notes and footer.
+ */
+export function FinancialShell({
+  sub,
+  only,
+  tabRight,
+  name,
+  chip,
+  meta,
+  metaRight,
+  banner,
+  children,
+  notes,
+  footerLeft = FOOTER,
+  footerRight,
+}: {
+  sub: string
+  /** slug of the single tab shown on record / detail pages */
+  only?: string
+  tabRight?: ReactNode
+  name: ReactNode
+  chip?: ReactNode
+  meta?: ReactNode
+  metaRight?: ReactNode
+  banner?: ReactNode
+  children: ReactNode
+  notes?: ReactNode
+  footerLeft?: ReactNode
+  footerRight?: ReactNode
+}) {
+  const tabs = only ? FIN_TABS.filter((t) => t.slug === only) : FIN_TABS
+  return (
+    <div className="min-w-0">
+      <h1 className="text-[28px] font-semibold tracking-tight text-ink">Financial Report</h1>
+      <p className="mt-1.5 text-[14px] text-muted">{sub}</p>
+
+      <div className="mt-4 mb-6 flex flex-wrap items-end justify-between gap-3 border-b border-line">
+        <nav className="scroll-thin flex min-w-0 overflow-x-auto" aria-label="Financial reports">
+          {tabs.map((t) => (
+            <NavLink
+              key={t.slug}
+              to={`/reports/financial/${t.slug}`}
+              className={({ isActive }) =>
+                cn(
+                  '-mb-px shrink-0 border-b-2 px-4 py-2.5 text-[14px] whitespace-nowrap',
+                  isActive ? 'border-primary font-semibold text-primary' : 'border-transparent font-medium text-ink-2 hover:text-ink',
+                )
+              }
+            >
+              {t.label}
+            </NavLink>
+          ))}
+        </nav>
+        {tabRight && <div className="mb-1.5 flex flex-wrap items-center gap-2">{tabRight}</div>}
+      </div>
+
+      <div className="mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-[20px] font-semibold text-ink">{name}</h2>
+          {chip && <span className="rounded-md bg-primary-soft px-2.5 py-1 text-[12px] font-medium text-primary">{chip}</span>}
+        </div>
+        {(meta || metaRight) && (
+          <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2 text-[12px] text-muted">
+            <span>{meta}</span>
+            {metaRight && <span className="flex items-center gap-2">{metaRight}</span>}
+          </div>
+        )}
+      </div>
+
+      {banner && <div className="mb-4">{banner}</div>}
+
+      {children}
+
+      {notes && <div className="mt-4 space-y-4">{notes}</div>}
+      <div className="mt-5 flex flex-wrap justify-between gap-2 text-[12px] text-muted">
+        <span>{footerLeft}</span>
+        {footerRight && <span>{footerRight}</span>}
+      </div>
+    </div>
+  )
+}
+
+/** compact select styled as the Figma "F.Y. Year 22-23" chip (also used for the FFM EOD month) */
+export function ChipSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: { value: string; label: string }[] }) {
+  return (
+    <label className="flex h-8 items-center rounded-md bg-primary-soft px-2.5 text-[12px] font-semibold text-primary">
+      <span className="sr-only">{label}</span>
+      <select aria-label={label} value={value} onChange={(e) => onChange(e.target.value)} className="cursor-pointer bg-transparent outline-none">
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  )
+}
+
+/** compact select used for filters in report headers */
 export function HeaderSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: { value: string; label: string }[] }) {
   return (
     <label className="flex h-10 items-center gap-2 rounded-lg border border-line bg-white px-3 text-[13px]">

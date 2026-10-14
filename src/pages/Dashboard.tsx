@@ -27,7 +27,7 @@ export default function Dashboard() {
   const user = getSession() ?? DEMO_USER
   const firstName = user.name.split(' ')[0]
   const totalTickets = tickets.reduce((s, t) => s + t.value, 0)
-  const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })
+  const today = 'Tuesday, 06 October 2026' // business date of the demo data (matches "Last updated 06 Oct 2026")
 
   return (
     <div className="space-y-5">

@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { ArrowDown, ArrowLeft, ArrowUp, CalendarRange, Download, Info, Search, Smartphone } from 'lucide-react'
+import { ArrowDown, ArrowLeft, ArrowUp, CalendarRange, Download, Info, Search, Smartphone, Table2 } from 'lucide-react'
 import { ExcelGrid, type GridColumn } from '@/components/grid/ExcelGrid'
 import { Button } from '@/components/ui/Button'
 import { downloadCsv } from '@/lib/export'
 import { cn } from '@/lib/cn'
-import { SITES, dmy, getSite, grp } from '@/data/cbrSites'
+import { SITES, dmy, getSite } from '@/data/cbrSites'
 import { CBR_DATES, CBR_END, dailyForSite, dailyStore, reconcile, toConsolidated, type ConsolidatedRow } from '@/data/cbr'
 import { rowMark, useRowNav } from '../finance/shared'
 import { Amt, SiteContext } from './shared'
@@ -71,8 +71,7 @@ export default function Consolidated() {
   }, [all, from, to, q, desc])
 
   const rangeLabel = from || to ? `${from ? dmy(from) : '…'} – ${to ? dmy(to) : '…'}` : 'Not set'
-  const tot = (k: keyof ConsolidatedRow) => rows.reduce((s, r) => s + (r[k] as number), 0)
-
+  
   const exportCsv = () =>
     downloadCsv(
       `consolidated-cbr-${site.siteId}`,
@@ -141,21 +140,6 @@ export default function Consolidated() {
         </span>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-5">
-        {[
-          ['Total dispense', tot('dispense')],
-          ['Total loading', tot('loading')],
-          ['Overage', tot('overage')],
-          ['Shortage', tot('shortage')],
-          ['Latest closing', rows.length ? (desc ? rows[0] : rows[rows.length - 1]).closing : 0],
-        ].map(([l, v]) => (
-          <div key={l as string} className="rounded-xl border border-line bg-white px-4 py-3">
-            <div className="text-[12px] text-muted">{l}</div>
-            <div className="mt-1 text-[18px] font-semibold">₹ {grp(v as number)}</div>
-          </div>
-        ))}
-      </div>
-
       <section className="mt-4 overflow-hidden rounded-xl border border-line bg-white">
         <div className="flex flex-wrap items-center gap-3 border-b border-line px-4 py-3">
           <span className="-mb-3 border-b-2 border-primary pb-2.5 text-[13px] font-semibold text-primary">Consolidated Datewise CBR</span>
@@ -205,6 +189,7 @@ export default function Consolidated() {
         </div>
 
         <div className="flex flex-wrap items-center gap-3 border-b border-line px-4 py-3">
+          <Table2 size={18} className="text-primary" />
           <span className="text-[14px] font-semibold">Datewise CBR register</span>
           <span className="text-[12px] text-muted">{rows.length} rows</span>
           <label className="flex h-9 w-full items-center gap-2 rounded-lg border border-line px-3 text-[13px] text-muted sm:w-[260px]">
@@ -216,7 +201,7 @@ export default function Consolidated() {
               Date {desc ? 'newest first' : 'oldest first'}
             </Button>
             <Button variant="secondary" size="sm" icon={<Download size={14} />} onClick={exportCsv}>
-              Export .csv
+              Export .xlsx
             </Button>
           </div>
         </div>
@@ -240,6 +225,10 @@ export default function Consolidated() {
           <span className="text-primary">Amounts in ₹ · derived from Daily CBR denominations</span>
         </div>
       </section>
+      <div className="mt-5 flex flex-wrap justify-between gap-2 text-[11px] text-muted">
+        <span>Values from the Daily CBR records · Click a row (or its date) to open the Daily CBR</span>
+        <span>Site-level report · {site.siteId}</span>
+      </div>
     </div>
   )
 }

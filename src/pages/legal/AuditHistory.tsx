@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react'
-import { CalendarRange, Download, History, Lock } from 'lucide-react'
+import { CalendarRange, ChevronDown, Download, History, ShieldCheck } from 'lucide-react'
 import { ExcelGrid, type GridColumn } from '@/components/grid/ExcelGrid'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -8,7 +8,8 @@ import { downloadCsv } from '@/lib/export'
 import { fmtDate, fmtTime, istDay, type AuditEvent } from '@/data/legal'
 import { BackLink, legalTone } from './ui'
 
-const sel = 'h-9 rounded-lg border border-line bg-white px-3 text-[13px] text-ink outline-none focus:border-primary'
+const sel = 'h-10 appearance-none rounded-lg border border-line bg-white pr-3 pl-8 text-[13px] font-semibold text-ink outline-none focus:border-primary'
+const date = 'h-8 rounded-md bg-transparent px-1 text-[13px] font-semibold text-ink outline-none'
 
 /**
  * Generic, read-only audit history screen. Used by legal documents and project records.
@@ -68,12 +69,12 @@ export function AuditHistory({
   const filtered = type || version || from || to
 
   const columns: GridColumn<AuditEvent>[] = [
-    { key: 'date', header: 'Date', width: 120, value: (e) => fmtDate(e.at) },
-    { key: 'actor', header: 'Actor', width: 150, filterable: true, render: (e) => <span className="font-medium">{e.actor}</span> },
-    { key: 'event', header: 'Event', width: 130, filterable: true, render: (e) => <span className="font-semibold text-ink">{e.event}</span> },
-    { key: 'role', header: 'Role', width: 130, filterable: true },
+    { key: 'date', header: 'Date', width: 120, pinned: true, sortable: true, value: (e) => e.at, render: (e) => fmtDate(e.at) },
+    { key: 'actor', header: 'Actor', width: 150, sortable: true, filterable: true },
+    { key: 'event', header: 'Event', width: 130, sortable: true, filterable: true },
+    { key: 'role', header: 'Role', width: 130, sortable: true, filterable: true },
     {
-      key: 'context', header: 'File / context', width: 260,
+      key: 'context', header: 'File / context', width: 260, sortable: true, filterable: true,
       render: (e) => (
         <span className="block max-w-[360px] truncate" title={e.note ? `${e.context} — ${e.note}` : e.context}>
           {e.context}
@@ -81,10 +82,10 @@ export function AuditHistory({
         </span>
       ),
     },
-    ...(showVersions ? [{ key: 'version', header: 'Ver.', label: 'Version', width: 70 } as GridColumn<AuditEvent>] : []),
-    { key: 'outcome', header: 'Outcome', width: 120, render: (e) => <Badge tone={legalTone(e.outcome)}>{e.outcome}</Badge> },
-    { key: 'source', header: 'Source', width: 110, filterable: true },
-    { key: 'time', header: 'Time (IST)', width: 100, value: (e) => fmtTime(e.at) },
+    ...(showVersions ? [{ key: 'version', header: 'Ver.', label: 'Version', width: 70, sortable: true } as GridColumn<AuditEvent>] : []),
+    { key: 'outcome', header: 'Outcome', width: 120, sortable: true, filterable: true, render: (e) => <Badge tone={legalTone(e.outcome)}>{e.outcome}</Badge> },
+    { key: 'source', header: 'Source', width: 110, sortable: true, filterable: true },
+    { key: 'time', header: 'Time (IST)', width: 100, sortable: true, filterable: true, value: (e) => `${fmtTime(e.at)} IST` },
   ]
 
   const exportLog = () => {
@@ -112,28 +113,43 @@ export function AuditHistory({
         </div>
       </div>
 
-      <div className="mb-4 rounded-xl border border-line bg-white p-4">{context}</div>
+      <div className="mb-4 flex items-start gap-4 rounded-xl border border-line bg-white p-5">
+        <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary">
+          <History size={22} />
+        </span>
+        <div className="min-w-0 flex-1">{context}</div>
+      </div>
 
-      <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-line bg-white p-3">
-        <select aria-label="Event type" className={sel} value={type} onChange={(e) => setType(e.target.value)}>
-          <option value="">All events</option>
-          {types.map((t) => (
-            <option key={t}>{t}</option>
-          ))}
-        </select>
-        {showVersions && (
-          <select aria-label="Version" className={sel} value={version} onChange={(e) => setVersion(e.target.value)}>
-            <option value="">All versions</option>
-            {versions.map((v) => (
-              <option key={v}>{v}</option>
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <label className="relative">
+          <ChevronDown size={14} className="pointer-events-none absolute top-3 left-3 text-ink-2" />
+          <select aria-label="Event type" className={sel} value={type} onChange={(e) => setType(e.target.value)}>
+            <option value="">All events</option>
+            {types.map((t) => (
+              <option key={t}>{t}</option>
             ))}
           </select>
+        </label>
+        {showVersions && (
+          <label className="relative">
+            <ChevronDown size={14} className="pointer-events-none absolute top-3 left-3 text-ink-2" />
+            <select aria-label="Version" className={sel} value={version} onChange={(e) => setVersion(e.target.value)}>
+              <option value="">All versions</option>
+              {versions.map((v) => (
+                <option key={v}>{v}</option>
+              ))}
+            </select>
+          </label>
         )}
-        <span className="flex flex-wrap items-center gap-1.5 text-[12px] text-muted">
-          <CalendarRange size={15} className="text-primary" />
-          <input type="date" aria-label="From date" className={sel} value={from} min={minDay} max={to || maxDay} onChange={(e) => setFrom(e.target.value)} />
+        <span className="flex h-10 flex-wrap items-center gap-1 rounded-lg border border-line bg-white px-3 text-[13px] text-muted">
+          <CalendarRange size={15} className="text-ink-2" />
+          <input type="date" aria-label="From date" className={date} value={from || minDay} min={minDay} max={to || maxDay} onChange={(e) => setFrom(e.target.value)} />
           –
-          <input type="date" aria-label="To date" className={sel} value={to} min={from || minDay} max={maxDay} onChange={(e) => setTo(e.target.value)} />
+          <input type="date" aria-label="To date" className={date} value={to || maxDay} min={from || minDay} max={maxDay} onChange={(e) => setTo(e.target.value)} />
+        </span>
+        <span className="text-[12px] text-muted">
+          {rows.length} recorded event{rows.length === 1 ? '' : 's'} · {people} {people === 1 ? 'person' : 'people'}
+          {showVersions && ` · ${vers} version${vers === 1 ? '' : 's'}`}
         </span>
         {filtered && (
           <button
@@ -148,45 +164,39 @@ export function AuditHistory({
             Clear filters
           </button>
         )}
-        <span className="text-[12px] text-ink-2 sm:ml-auto">
-          {rows.length} recorded event{rows.length === 1 ? '' : 's'} · {people} {people === 1 ? 'person' : 'people'}
-          {showVersions && ` · ${vers} version${vers === 1 ? '' : 's'}`}
-          {!filtered && minDay && ` · ${fmtDate(minDay)} – ${fmtDate(maxDay)}`}
-        </span>
-        <select aria-label="Sort order" className={sel} value={order} onChange={(e) => setOrder(e.target.value as 'new' | 'old')}>
+        <select
+          aria-label="Sort order"
+          className="ml-auto h-9 bg-transparent text-[12px] text-muted outline-none"
+          value={order}
+          onChange={(e) => setOrder(e.target.value as 'new' | 'old')}
+        >
           <option value="new">Newest first</option>
           <option value="old">Oldest first</option>
         </select>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="min-w-0">
-          <ExcelGrid
-            key={order}
-            title={gridTitle}
-            countLabel={`${rows.length} events`}
-            rows={rows}
-            columns={columns}
-            rowId={(e) => e.id}
-            searchPlaceholder="Search actor or event"
-            noun="events"
-            exportName={exportName}
-            emptyState="No events match these filters."
-            footerLeft={`Showing ${filtered ? `${rows.length} filtered` : `all ${rows.length}`} events · ${order === 'new' ? 'Newest first' : 'Oldest first'}`}
-            footerRight={`Immutable audit log · ${footerRef}${showVersions ? ` · ${versions.length} version${versions.length === 1 ? '' : 's'}` : ''} · Read-only · All times IST`}
-          />
-        </div>
-        <div className="space-y-4">
-          {callout}
-          <div className="flex gap-2.5 rounded-xl border border-line bg-white p-4 text-[12px] text-ink-2">
-            <Lock size={16} className="mt-0.5 shrink-0 text-primary" />
-            <span>{policy}</span>
-          </div>
-          <div className="flex gap-2.5 rounded-xl border border-line bg-white p-4 text-[12px] text-ink-2">
-            <History size={16} className="mt-0.5 shrink-0 text-primary" />
-            <span>Use the filters above to narrow the log. Exports contain exactly the events currently shown.</span>
-          </div>
-        </div>
+      <ExcelGrid
+        key={order}
+        title={gridTitle}
+        countLabel={`${rows.length} events`}
+        rows={rows}
+        columns={columns}
+        rowId={(e) => e.id}
+        searchPlaceholder="Search actor or event"
+        noun="events"
+        exportName={exportName}
+        emptyState="No events match these filters."
+        rowClassName={(e) => (e.outcome === 'Rejected' ? 'bg-red-50/70' : undefined)}
+        footerLeft={`Immutable audit log · ${footerRef}${showVersions ? ` · ${versions.length} version${versions.length === 1 ? '' : 's'}` : ''} · ${filtered ? `${rows.length} filtered` : `All ${rows.length}`} events · ${order === 'new' ? 'Newest first' : 'Oldest first'}`}
+        footerRight="Read-only · All times IST"
+      />
+
+      {callout && <div className="mt-4">{callout}</div>}
+      <div className="mt-4 flex flex-wrap items-start justify-between gap-2 text-[11px] text-muted">
+        <span className="flex items-start gap-1.5">
+          <ShieldCheck size={14} className="shrink-0" /> {policy}
+        </span>
+        <span>All dates in IST</span>
       </div>
     </div>
   )

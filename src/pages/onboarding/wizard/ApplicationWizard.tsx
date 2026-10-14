@@ -99,6 +99,7 @@ export function ApplicationWizard({ app, onClose }: { app: Application | null; o
   }
 
   const View = STEP_VIEWS[step - 1]
+  const modal = step === 1 && !readOnly
   const props: StepProps = { form, set, errors, readOnly }
   const title = readOnly ? `${app!.id} · ${app!.applicantName}` : 'WLA Franchise Application Form'
   const subtitle = readOnly
@@ -106,8 +107,17 @@ export function ApplicationWizard({ app, onClose }: { app: Application | null; o
     : `Step ${step} of 7 · ${STEPS[step - 1]} · ${step === 1 ? 'Fields marked * are required' : 'Draft application'}`
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/45 lg:pl-[264px]" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div role="dialog" aria-modal="true" aria-label={title} className="flex h-full w-full flex-col bg-white shadow-2xl">
+    <div
+      className={cn('fixed inset-0 z-50 flex bg-black/45', modal ? 'items-center justify-center p-3 sm:p-6' : 'justify-end lg:pl-[264px]')}
+      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+    >
+      {/* Figma: step 1 is a centred modal (201:11033); steps 2–7 are a large right-hand panel */}
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className={cn('flex w-full flex-col bg-white shadow-2xl', modal ? 'h-full max-h-[1030px] max-w-[1320px] overflow-hidden rounded-xl' : 'h-full')}
+      >
         {/* header */}
         <header className="flex items-start justify-between gap-4 border-b border-line px-5 pt-5 pb-4 sm:px-6">
           <div className="min-w-0">
@@ -129,11 +139,11 @@ export function ApplicationWizard({ app, onClose }: { app: Application | null; o
                 key={s}
                 onClick={() => (readOnly || n < step ? go(n) : n === step + 1 ? next() : undefined)}
                 className={cn(
-                  'flex min-w-[118px] flex-1 flex-col items-center gap-1 rounded-lg border px-2 py-2.5 text-[11px] transition-colors',
-                  active ? 'border-primary bg-primary text-white' : 'border-line bg-white text-muted hover:border-primary/40',
+                  'flex min-h-16 min-w-[118px] flex-1 flex-col items-center justify-center gap-1.5 rounded-lg border px-2 py-2.5 text-[11px] transition-colors',
+                  active ? 'border-primary bg-primary-soft text-primary' : 'border-line bg-white text-muted hover:border-primary/40',
                 )}
               >
-                <span className={cn('grid h-5 min-w-6 place-items-center rounded px-1 text-[10px] font-semibold', active ? 'bg-white/20 text-white' : 'bg-primary-soft text-primary')}>
+                <span className={cn('grid h-5 min-w-5 place-items-center rounded px-1 text-[10px] font-semibold', active ? 'bg-primary text-white' : 'bg-primary-soft text-primary')}>
                   {String(n).padStart(2, '0')}
                 </span>
                 <span className={active ? 'font-semibold' : ''}>{s}</span>
@@ -160,7 +170,7 @@ export function ApplicationWizard({ app, onClose }: { app: Application | null; o
                   <span className={cn('h-1.5 w-1.5 rounded-full', savedAt ? 'bg-emerald-600' : 'bg-line')} />
                   {savedAt ? 'Draft saved automatically' : 'Not saved yet'}
                 </div>
-                {savedAt && <div className="mt-0.5 text-muted">Last saved at {savedAt}{id ? ` · ${id}` : ''}</div>}
+                {savedAt && <div className="mt-0.5 text-muted">Last saved at {savedAt}</div>}
               </>
             )}
           </div>

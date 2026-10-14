@@ -73,7 +73,10 @@ export default function CommandCenter() {
   const blockTotal = blockers.reduce((a, b) => a + b.count, 0)
   const biggest = [...blockers].sort((a, b) => b.count - a.count)[0]
 
-  const workload = DEPT_BASE.filter((d) => depts.includes(d.dept))
+  // the panel tracks the three hand-off departments of the activation pipeline (as in CRM-07); other filters fall back to the selected departments
+  const PIPELINE: Dept[] = ['Verification', 'Franchise', 'Finance']
+  const wlDepts = PIPELINE.some((d) => depts.includes(d)) ? PIPELINE.filter((d) => depts.includes(d)) : depts
+  const workload = DEPT_BASE.filter((d) => wlDepts.includes(d.dept))
     .map((d) => ({ dept: d.dept, pct: Math.round((d.active / d.capacity) * 100) }))
     .sort((a, b) => b.pct - a.pct)
 
@@ -126,9 +129,9 @@ export default function CommandCenter() {
         <Kpi icon={<Gauge size={17} />} title="Organizational Productivity" value={`${k.score} / 100`} caption={`Aggregated score · ${k.depts} departments`} trend={`${Math.abs(LAST_MONTH.score)} points vs last month`} good up />
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,330px)_minmax(0,316px)]">
+      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,330px)_minmax(0,316px)]">
         {/* Coordination matrix */}
-        <Card className="min-w-0 xl:row-span-1">
+        <Card className="min-w-0 xl:col-start-1 xl:row-start-1">
           <div className="px-5 pt-5">
             <h3 className="text-[15px] font-semibold">Department Coordination Matrix</h3>
             <p className="mt-0.5 text-[12px] text-muted">Active cross-department pipeline · {wfs.length} priority workflows</p>
@@ -186,7 +189,7 @@ export default function CommandCenter() {
         </Card>
 
         {/* Why is work stuck */}
-        <Card className="min-w-0 self-start">
+        <Card className="min-w-0 xl:col-start-2 xl:row-start-1">
           <div className="px-5 pt-5">
             <h3 className="text-[15px] font-semibold">Why Is Work Stuck?</h3>
             <p className="mt-0.5 text-[12px] text-muted">{blockTotal} pending tasks · grouped by primary blocker</p>
@@ -231,7 +234,7 @@ export default function CommandCenter() {
         </Card>
 
         {/* AI panel + workload */}
-        <div className="min-w-0 space-y-5">
+        <div className="min-w-0 space-y-5 xl:col-start-3 xl:row-span-2 xl:row-start-1">
           <Card>
             <div className="px-5 pt-5">
               <h3 className="text-[15px] font-semibold">AI Intelligence Panel</h3>
@@ -276,23 +279,23 @@ export default function CommandCenter() {
             </div>
           </Card>
         </div>
-      </div>
 
-      {/* Management interventions */}
-      <Card>
-        <div className="px-5 pt-5">
-          <h3 className="text-[15px] font-semibold">Management interventions</h3>
-          <p className="mt-0.5 text-[12px] text-muted">Recommended actions requiring department leadership</p>
-        </div>
-        <div className="divide-y divide-line-soft px-5 pb-2">
-          {t1048 && isOpen(t1048) ? (
-            <Intervention id="TSK-1048" to="/tasks/my/TSK-1048" what="KYC approval · ABC Franchise" who="Meera Iyer" when="Due 11:00 IST" whenCls="text-red-600" action="Review now" onAction={() => nav('/tasks/my/TSK-1048')} />
-          ) : (
-            <div className="py-4 text-[13px] text-emerald-700">TSK-1048 closed — KYC approval intervention resolved.</div>
-          )}
-          <Intervention id="TEAM-VER" what="Rebalance Verification queue" who="Suresh Nair" when={overCap ? `${overCap} tasks above capacity` : 'Within capacity'} whenCls={overCap ? 'text-amber-700' : 'text-emerald-700'} action="Reassign tasks" onAction={() => setRebalance(true)} />
-        </div>
-      </Card>
+        {/* Management interventions */}
+        <Card className="min-w-0 xl:col-span-2 xl:col-start-1 xl:row-start-2">
+          <div className="px-5 pt-5">
+            <h3 className="text-[15px] font-semibold">Management interventions</h3>
+            <p className="mt-0.5 text-[12px] text-muted">Recommended actions requiring department leadership</p>
+          </div>
+          <div className="divide-y divide-line-soft px-5 pb-2">
+            {t1048 && isOpen(t1048) ? (
+              <Intervention id="TSK-1048" to="/tasks/my/TSK-1048" what="KYC approval · ABC Franchise" who="Meera Iyer" when="Due 11:00 IST" whenCls="text-red-600" action="Review now" onAction={() => nav('/tasks/my/TSK-1048')} />
+            ) : (
+              <div className="py-4 text-[13px] text-emerald-700">TSK-1048 closed — KYC approval intervention resolved.</div>
+            )}
+            <Intervention id="TEAM-VER" what="Rebalance Verification queue" who="Suresh Nair" when={overCap ? `${overCap} tasks above capacity` : 'Within capacity'} whenCls={overCap ? 'text-amber-700' : 'text-emerald-700'} action="Reassign tasks" onAction={() => setRebalance(true)} />
+          </div>
+        </Card>
+      </div>
 
       <Footer />
 
@@ -305,7 +308,7 @@ export default function CommandCenter() {
 function Kpi({ icon, title, value, caption, trend, up, good }: { icon: ReactNode; title: string; value: string; caption: string; trend: string; up: boolean; good: boolean }) {
   return (
     <div className="flex gap-3 rounded-xl border border-line bg-white p-4">
-      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary-soft text-primary">{icon}</span>
+      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary">{icon}</span>
       <div className="min-w-0">
         <div className="text-[13px] font-semibold text-ink">{title}</div>
         <div className="mt-1 text-[28px] leading-tight font-semibold text-ink">{value}</div>

@@ -1,13 +1,10 @@
 import { useState } from 'react'
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, Eye, EyeOff, Info, Pencil, Save } from 'lucide-react'
-import { Badge } from '@/components/ui/Badge'
+import { ArrowLeft, Eye, EyeOff, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { RadioGroup, TextField } from '@/components/ui/Form'
 import { toast } from '@/components/ui/Toast'
 import { ACC_RE, IFSC_RE, PAN_RE, PAYOUT_SECTIONS, PAYOUT_STATUSES, emptyPayout, getPayout, maskAcc, payoutStore, savePayout, type PayoutRecord } from '@/data/financePayout'
-import { ClearLink, FormCard, ReadField } from './shared'
-import { payoutTone } from './PayoutList'
+import { InfoBanner, LockedInput, RecordFooter, RecordSection, TInput } from './shared'
 
 type Errors = Partial<Record<keyof PayoutRecord | 'form', string>>
 
@@ -24,6 +21,8 @@ function validate(p: PayoutRecord, isNew: boolean): Errors {
   return e
 }
 
+const UPPER = new Set<keyof PayoutRecord>(['loiCode', 'atmId', 'panNo', 'ifsc', 'panName', 'accName'])
+
 export default function PayoutRecordPage() {
   const { id = '' } = useParams()
   const [params] = useSearchParams()
@@ -38,6 +37,7 @@ export default function PayoutRecordPage() {
 
   if (!isNew && !existing) return <Navigate to="/finance/payout" replace />
   const rec = editing ? form : existing!
+  const ro = !editing
 
   const set = <K extends keyof PayoutRecord>(k: K, v: PayoutRecord[K]) => {
     setForm((f) => ({ ...f, [k]: v }))
@@ -45,10 +45,11 @@ export default function PayoutRecordPage() {
   }
 
   const save = () => {
-    const e = validate(form, isNew)
+    const clean = { ...form, status: form.status.trim(), emailSubject: form.emailSubject.trim() }
+    const e = validate(clean, isNew)
     setErrors(e)
     if (Object.values(e).some(Boolean)) return toast('Fix the highlighted fields before saving', 'info')
-    const saved = savePayout(form)
+    const saved = savePayout(clean)
     toast(isNew ? `Payout account ${saved.id} created` : `Payout account ${saved.id} saved`)
     setForm(saved)
     setEditing(false)
@@ -61,111 +62,104 @@ export default function PayoutRecordPage() {
     setEditing(false)
   }
 
-  const upper = new Set<keyof PayoutRecord>(['loiCode', 'atmId', 'panNo', 'ifsc', 'panName', 'accName'])
-  const placeholders: Partial<Record<keyof PayoutRecord, string>> = {
-    loiCode: 'e.g. LOI-MH-PUN-00124', atmId: 'e.g. DX-MH-01482', panName: 'Name as per PAN', panNo: 'AAAAA9999A', accName: 'Settlement account name',
-    accNo: 'Settlement account number', bankName: 'e.g. HDFC Bank', ifsc: 'e.g. HDFC0001834', emailSubject: 'e.g. Payout advice – DX-MH-01482',
-  }
-
-  const editControl = (k: keyof PayoutRecord, label: string) => {
-    if (k === 'sn') return <ReadField key={k} label={label}>{isNew ? <span className="text-muted">System-assigned</span> : String(form.sn)}</ReadField>
-    if (k === 'status')
+  const control = (k: keyof PayoutRecord, label: string) => {
+    if (k === 'sn') return <LockedInput key={k} label={label} note="System-assigned" value={isNew ? '' : String(rec.sn)} />
+    if (k === 'accNo' && ro)
       return (
-        <div key={k} className="sm:col-span-2">
-          <RadioGroup label={label} value={form.status} options={[...PAYOUT_STATUSES]} onChange={(v) => set('status', v)} />
-          <ClearLink show={!!form.status} onClear={() => set('status', '')} />
-        </div>
+        <TInput
+          key={k}
+          label={label}
+          name={k}
+          mono
+          readOnly
+          value={reveal ? rec.accNo : maskAcc(rec.accNo)}
+          note={
+            rec.accNo ? (
+              <button type="button" onClick={() => setReveal((r) => !r)} className="inline-flex items-center gap-1 font-semibold text-primary" aria-label={reveal ? 'Hide account number' : 'Show account number'}>
+                {reveal ? <EyeOff size={12} /> : <Eye size={12} />} {reveal ? 'Hide' : 'Show'}
+              </button>
+            ) : undefined
+          }
+        />
       )
     return (
-      <TextField
+      <TInput
         key={k}
         label={label}
         name={k}
-        placeholder={placeholders[k]}
+        value={String(rec[k] ?? '')}
+        readOnly={ro}
+        mono={k === 'panNo' || k === 'ifsc' || k === 'accNo'}
+        list={k === 'status' ? 'payout-status-suggestions' : undefined}
         inputMode={k === 'accNo' ? 'numeric' : undefined}
         maxLength={k === 'panNo' ? 10 : k === 'ifsc' ? 11 : k === 'accNo' ? 18 : undefined}
-        value={String(form[k])}
-        onChange={(e) => set(k, (k === 'accNo' ? e.target.value.replace(/\D/g, '') : upper.has(k) ? e.target.value.toUpperCase() : e.target.value) as never)}
+        onChange={(v) => set(k, (k === 'accNo' ? v.replace(/\D/g, '') : UPPER.has(k) ? v.toUpperCase() : v) as never)}
         error={errors[k]}
       />
     )
   }
 
-  const viewValue = (k: keyof PayoutRecord) => {
-    if (k === 'status') return rec.status ? <Badge tone={payoutTone(rec.status)}>{rec.status}</Badge> : ''
-    if (k === 'accNo')
-      return rec.accNo ? (
-        <span className="flex w-full items-center justify-between gap-2">
-          <span className="font-mono text-[12.5px]">{reveal ? rec.accNo : maskAcc(rec.accNo)}</span>
-          <button type="button" onClick={() => setReveal((r) => !r)} className="flex items-center gap-1 text-[11px] font-semibold text-primary" aria-label={reveal ? 'Hide account number' : 'Show account number'}>
-            {reveal ? <EyeOff size={13} /> : <Eye size={13} />} {reveal ? 'Hide' : 'Show'}
-          </button>
-        </span>
-      ) : ''
-    return String(rec[k] ?? '')
-  }
+  const updated = rec.updatedAt ? `Last updated ${new Date(rec.updatedAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })} by ${rec.updatedBy}` : ''
 
   return (
-    <div className="max-w-[1180px]">
-      <Link to="/finance/payout" className="mb-3 inline-flex items-center gap-1.5 text-[13px] font-medium text-primary hover:underline">
+    <div className="max-w-[1280px]">
+      <Link to="/finance/payout" className="mb-4 inline-flex items-center gap-1.5 text-[13px] font-medium text-primary hover:underline">
         <ArrowLeft size={15} /> Back to Payout details
       </Link>
       <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">{isNew ? 'New Payout Record' : editing ? 'Edit Payout Record' : 'Payout Record'}</h1>
-          <p className="mt-1 text-[14px] text-muted">
-            {editing ? 'Edit the supplied Pay-out Account identifiers, PAN and settlement details.' : 'View the supplied Pay-out Account identifiers, PAN and settlement details.'}
-            {!isNew && <span className="ml-1 text-ink-2">· {rec.id}</span>}
-          </p>
+          <p className="mt-1 text-[14px] text-muted">Edit the supplied Pay-out Account identifiers, PAN and settlement details.</p>
         </div>
-        <div className="flex gap-2">
-          {editing ? (
+        {editing ? (
+          <div className="text-right">
+            <div className="text-[11px] text-muted">Account setup</div>
+            <div className="text-[14px] font-semibold text-primary">Pay-out Account</div>
+            <div className="text-[11px] text-muted">{isNew ? 'Blank source template' : rec.id}</div>
+          </div>
+        ) : (
+          <Button icon={<Pencil size={16} />} onClick={() => { setForm(existing!); setEditing(true) }}>
+            Edit record
+          </Button>
+        )}
+      </div>
+
+      <InfoBanner title={isNew ? 'Blank template · Edit layout' : `${rec.id} · ${editing ? 'Edit layout' : 'View layout'}`}>
+        {isNew
+          ? 'No account record is selected. All account values and status remain unspecified. Leave fields blank where no verified information has been supplied.'
+          : 'Leave fields blank where no verified information has been supplied. Keep the settlement account separate from the PAN details.'}
+      </InfoBanner>
+      {errors.form && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-[13px] text-brand-red">{errors.form}</div>}
+
+      <datalist id="payout-status-suggestions">
+        {PAYOUT_STATUSES.map((s) => (
+          <option key={s} value={s} />
+        ))}
+      </datalist>
+
+      <div className="overflow-hidden rounded-xl border border-line bg-white">
+        {PAYOUT_SECTIONS.map((s, i) => (
+          <RecordSection key={s.title} title={s.title} sub={s.sub} cols={2}>
+            {i === 0 ? (
+              <>
+                <div className="grid gap-x-6 gap-y-4 sm:col-span-2 sm:grid-cols-3">{s.fields.slice(0, 3).map((f) => control(f.key, f.label))}</div>
+                {s.fields.slice(3).map((f) => control(f.key, f.label))}
+              </>
+            ) : (
+              s.fields.map((f) => control(f.key, f.label))
+            )}
+          </RecordSection>
+        ))}
+        <RecordFooter title={`11 source fields · ${isNew ? 'Blank account format' : 'Account format'}`} sub={isNew ? 'No account values or status have been prefilled.' : updated}>
+          {editing && (
             <>
               <Button variant="secondary" onClick={cancel}>
                 Cancel
               </Button>
-              <Button variant="bright" icon={<Save size={16} />} onClick={save}>
-                {isNew ? 'Create record' : 'Save changes'}
-              </Button>
+              <Button onClick={save}>{isNew ? 'Create record' : 'Save changes'}</Button>
             </>
-          ) : (
-            <Button icon={<Pencil size={16} />} onClick={() => { setForm(existing!); setEditing(true) }}>
-              Edit record
-            </Button>
           )}
-        </div>
-      </div>
-
-      <div className="mb-4 flex items-start gap-3 rounded-xl border border-blue-100 bg-primary-soft/60 px-4 py-3 text-[12px]">
-        <Info size={16} className="mt-0.5 shrink-0 text-primary" />
-        <div>
-          <div className="font-semibold text-primary">Account setup · Pay-out Account</div>
-          <div className="mt-0.5 text-ink-2">
-            PAN and settlement account are kept separate. Status options (Active / Pending verification / Inactive) are a proposal — the design supplies none.
-          </div>
-        </div>
-      </div>
-      {errors.form && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-[13px] text-brand-red">{errors.form}</div>}
-
-      <div className="space-y-4">
-        {PAYOUT_SECTIONS.map((s, i) => (
-          <FormCard key={s.title} letter={String.fromCharCode(65 + i)} title={s.title} sub={s.sub} count={s.fields.length}>
-            {s.fields.map((f) =>
-              editing ? (
-                editControl(f.key, f.label)
-              ) : (
-                <ReadField key={f.key} label={f.label} mono={['panNo', 'ifsc'].includes(f.key)}>
-                  {viewValue(f.key)}
-                </ReadField>
-              ),
-            )}
-          </FormCard>
-        ))}
-      </div>
-
-      <div className="mt-4 text-[12px] text-muted">
-        11 source fields
-        {!isNew && rec.updatedAt && ` · Last updated ${new Date(rec.updatedAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })} by ${rec.updatedBy}`}
+        </RecordFooter>
       </div>
     </div>
   )

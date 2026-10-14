@@ -28,10 +28,10 @@ export default function ProjectAudit() {
       context={
         <div className="flex flex-wrap items-start gap-3">
           <div className="min-w-0 flex-1">
-            <div className="text-[15px] font-semibold">
+            <div className="text-[18px] font-semibold">
               {p.f.siteLoi} · {p.f.siteLocation}
             </div>
-            <div className="mt-0.5 text-[12px] text-ink-2">
+            <div className="mt-1 text-[13px] text-ink-2">
               {p.id} / {p.f.franchisee} / {p.f.model} / {pr.done} of {pr.total} milestones done
             </div>
           </div>

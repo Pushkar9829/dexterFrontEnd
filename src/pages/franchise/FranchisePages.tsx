@@ -1,5 +1,5 @@
 import { Link, Navigate, useParams } from 'react-router-dom'
-import { ArrowRight, Building2, CircleCheck, FolderOpen, IdCard, LayoutGrid, Plus, Scale, ShieldCheck, Smartphone, Table2, Upload } from 'lucide-react'
+import { ArrowRight, Building2, CircleCheck, FolderKanban, PanelsTopLeft, Plus, Scale, ShieldCheck, Tablet, Upload, UserPen } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { PageHeader } from '@/components/ui/Card'
 import { StatCard } from '@/components/ui/KpiCard'
@@ -9,33 +9,36 @@ import { FranchiseGrid, useAddFranchise } from './FranchiseGrid'
 
 // ── Hub ────────────────────────────────────────────────────────────────
 const HUB = [
-  { title: 'MASTER DATA', sub: 'Manage core reference data and configurations.', to: '/franchise/master-data', Icon: Building2 },
-  { title: 'FRANCHISE REGISTRATION', sub: 'Review and manage franchise registrations.', to: '/franchise/registration', Icon: LayoutGrid },
-  { title: 'APNA APP', sub: 'Access app setup and operational tools.', to: '/franchise/apna-app', Icon: Smartphone },
-  { title: 'PROJECTS', sub: 'Track franchise projects and milestones.', to: '/projects/active', Icon: FolderOpen },
-  { title: 'LEGAL', sub: 'Manage agreements and legal documentation.', to: '/legal', Icon: Scale },
-  { title: 'KYC MANAGEMENT', sub: 'Review identity documents and verification status.', to: '/kyc/verification', Icon: IdCard },
+  { title: 'MASTER DATA', sub: 'Manage core reference data and configurations.', to: '/franchise/master-data', Icon: Building2, arrow: true },
+  { title: 'FRANCHISE REGISTRATION', sub: 'Review and manage franchise registrations.', to: '/franchise/registration', Icon: PanelsTopLeft, arrow: true },
+  { title: 'APNA APP', sub: 'Access app setup and operational tools.', to: '/franchise/apna-app', Icon: Tablet, arrow: true },
+  { title: 'PROJECTS', sub: 'Track franchise projects and milestones.', to: '/projects/active', Icon: FolderKanban, arrow: false },
+  { title: 'LEGAL', sub: 'Manage agreements and legal documentation.', to: '/legal', Icon: Scale, arrow: true },
+  { title: 'KYC MANAGEMENT', sub: 'Review identity documents and verification status.', to: '/kyc/verification', Icon: UserPen, arrow: true },
 ]
 
 export function FranchiseHub() {
   return (
     <div>
-      <div className="pt-4">
-        <PageHeader title="Franchise Management" sub="Manage franchise operations, records, and compliance in one place." />
+      <div className="pt-6">
+        <div className="mb-12">
+          <h1 className="text-[34px] font-bold tracking-tight text-ink">Franchise Management</h1>
+          <p className="mt-1.5 text-[14px] text-muted">Manage franchise operations, records, and compliance in one place.</p>
+        </div>
       </div>
-      <div className="grid max-w-[1240px] gap-5 sm:grid-cols-2 xl:grid-cols-3">
-        {HUB.map(({ title, sub, to, Icon }) => (
-          <Link key={title} to={to} className="group relative h-[196px] overflow-hidden rounded-xl border border-line bg-white p-6 transition-shadow hover:shadow-lg">
-            <span className="grid h-12 w-12 place-items-center rounded-lg bg-primary-soft text-primary">
-              <Icon size={26} strokeWidth={1.6} />
+      <div className="grid max-w-[1240px] gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {HUB.map(({ title, sub, to, Icon, arrow }) => (
+          <Link key={title} to={to} className="group relative h-[236px] overflow-hidden rounded-xl border border-line bg-white p-6 transition-shadow hover:shadow-lg">
+            <span className="grid h-14 w-14 place-items-center rounded-lg bg-primary-soft text-primary">
+              <Icon size={34} strokeWidth={1.5} />
             </span>
-            <span className="absolute top-8 right-5 grid h-9 w-9 place-items-center rounded-full bg-surface text-ink transition-transform group-hover:translate-x-0.5">
-              <ArrowRight size={18} />
+            <span className="absolute top-8 right-5 grid h-10 w-10 place-items-center rounded-full bg-surface text-ink transition-transform group-hover:translate-x-0.5">
+              {arrow && <ArrowRight size={20} />}
             </span>
-            <div className="mt-5 text-[19px] font-bold tracking-tight">{title}</div>
-            <p className="mt-1 max-w-[220px] text-[12px] text-muted">{sub}</p>
-            <span className="pointer-events-none absolute -right-8 -bottom-16 h-36 w-36 rounded-full bg-primary/25" />
-            <span className="pointer-events-none absolute -right-24 -bottom-24 h-36 w-36 rounded-full bg-primary/5" />
+            <div className="mt-6 text-[24px] leading-tight font-bold tracking-tight text-ink">{title}</div>
+            <p className="mt-1 max-w-[220px] text-[13px] leading-snug text-muted">{sub}</p>
+            <span className="pointer-events-none absolute -right-10 -bottom-20 h-44 w-44 rounded-full bg-primary/30" />
+            <span className="pointer-events-none absolute -right-2 -bottom-28 h-44 w-48 rounded-full bg-primary/5" />
           </Link>
         ))}
       </div>
@@ -45,25 +48,21 @@ export function FranchiseHub() {
 
 // ── Registration: pick a tier ──────────────────────────────────────────
 export function FranchiseRegistration() {
-  const all = useFranchises()
-  const icons = [<Building2 size={16} />, <Table2 size={16} />, <CircleCheck size={16} />]
+  const icons = [Building2, PanelsTopLeft, CircleCheck]
   return (
     <div>
-      <h1 className="mb-5 text-[24px] font-semibold">Franchise Registration</h1>
+      <h1 className="mb-5 text-[28px] font-semibold tracking-tight">Franchise Registration</h1>
       <div className="grid gap-4 md:grid-cols-3">
         {TIERS.map((t, i) => {
           const slug = Object.keys(TIER_SLUG).find((k) => TIER_SLUG[k] === t)
-          const n = all.filter((f) => f.tier === t).length
+          const Icon = icons[i]
           return (
-            <Link key={t} to={`/franchise/${slug}`} className="group h-[152px] rounded-xl border border-line bg-white p-4 transition-shadow hover:shadow-md">
+            <Link key={t} to={`/franchise/${slug}`} className="h-[200px] rounded-xl border border-line bg-white p-4 transition-shadow hover:shadow-md">
               <div className="flex justify-between text-[12px] text-muted">
-                Franchise Management <span className="text-primary">{icons[i]}</span>
+                Franchise Management <span className="text-primary"><Icon size={16} /></span>
               </div>
-              <div className="mt-2 text-[24px] font-semibold">{TIER_TITLE[t]}</div>
-              <div className="mt-1 text-[11px] text-muted">{TIER_TITLE[t]} · Full registry</div>
-              <div className="mt-6 flex items-center gap-1 text-[12px] font-semibold text-primary">
-                {n.toLocaleString('en-IN')} records <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" />
-              </div>
+              <div className="mt-2 text-[28px] font-semibold tracking-tight">{TIER_TITLE[t]}</div>
+              <div className="mt-2 text-[11px] text-muted">{TIER_TITLE[t]} · Full registry</div>
             </Link>
           )
         })}
@@ -81,10 +80,12 @@ export function TierList() {
   if (!tier) return <Navigate to="/franchise/registration" replace />
 
   const rows = all.filter((f) => f.tier === tier)
-  const active = rows.filter((f) => f.status === 'Active').length
-  const verified = rows.filter((f) => f.kyc === 'Verified').length
-  const pending = rows.filter((f) => f.kyc === 'Pending').length
-  const review = rows.filter((f) => f.kyc === 'In review').length
+  // "preview" = the records on the list's first page (the grid opens on 10 rows)
+  const preview = rows.slice(0, 10)
+  const active = preview.filter((f) => f.status === 'Active').length
+  const verified = preview.filter((f) => f.kyc === 'Verified').length
+  const pending = preview.filter((f) => f.kyc === 'Pending').length
+  const review = preview.filter((f) => f.kyc === 'In review').length
   const lower = tier === 'Franchise' ? '' : `${tier.toLowerCase()} `
 
   return (
@@ -103,11 +104,11 @@ export function TierList() {
           </>
         }
       />
-      <div className="mb-5 grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
-        <StatCard label="Tier registry total" value={rows.length.toLocaleString('en-IN')} caption={`${tier} · Full registry`} icon={<Building2 size={16} />} />
-        <StatCard label="Active" value={active.toLocaleString('en-IN')} caption={`${rows.length - active} inactive`} icon={<CircleCheck size={16} />} />
-        <StatCard label="Verified KYC" value={verified.toLocaleString('en-IN')} caption={`${pending} pending · ${review} in review`} icon={<ShieldCheck size={16} />} />
-        <StatCard label="ATMs in tier" value={rows.reduce((s, f) => s + f.atms, 0).toLocaleString('en-IN')} caption="Across active and inactive" icon={<Table2 size={16} />} />
+      <div className="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Tier registry total" value={rows.length.toLocaleString('en-IN')} caption={`${TIER_TITLE[tier]} · Full registry`} icon={<Building2 size={16} />} />
+        <StatCard label="Source preview" value={preview.length} caption={`${preview.length} supplied record${preview.length === 1 ? '' : 's'} shown below`} icon={<PanelsTopLeft size={16} />} />
+        <StatCard label="Active in preview" value={active} caption={`${preview.length - active} inactive · Supplied records only`} icon={<CircleCheck size={16} />} />
+        <StatCard label="Verified KYC in preview" value={verified} caption={`${pending} pending · ${review} in review in preview`} icon={<ShieldCheck size={16} />} />
       </div>
       <FranchiseGrid key={tier} rows={rows} mode="tier" scope={`Tier: ${tier}`} />
       {add.ui}
@@ -141,7 +142,7 @@ export function MasterData() {
           </>
         }
       />
-      <div className="mb-5 grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
+      <div className="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-xl border border-line bg-white p-5">
           <div className="flex justify-between text-[13px] text-muted">Total Franchises <Building2 size={16} className="text-primary" /></div>
           <div className="mt-2 flex items-end justify-between">
@@ -172,16 +173,19 @@ export function MasterData() {
           <div className="flex justify-between text-[13px] text-muted">
             Franchise tier mix <span className="text-[12px] text-primary">{states} states</span>
           </div>
-          <div className="mt-3 flex h-2 overflow-hidden rounded-full">
+          <div className="mt-3 flex h-2.5 gap-0.5 overflow-hidden rounded-sm">
             {mix.map(([t, n], i) => (
               <span key={t} className={['bg-navy-900', 'bg-primary', 'bg-blue-300'][i]} style={{ width: `${Math.max(3, (n / all.length) * 100)}%` }} />
             ))}
           </div>
           <div className="mt-3 grid grid-cols-3 text-[11px] text-muted">
-            {mix.map(([t, n]) => (
-              <div key={t}>
+            {mix.map(([t, n], i) => (
+              <div key={t} className={i === 1 ? 'text-center' : i === 2 ? 'text-right' : ''}>
                 <div className="text-[18px] font-semibold text-ink">{n.toLocaleString('en-IN')}</div>
-                {t}
+                <span className="inline-flex items-center gap-1">
+                  <span className={['h-1.5 w-1.5 bg-navy-900', 'h-1.5 w-1.5 bg-primary', 'h-1.5 w-1.5 bg-blue-300'][i]} />
+                  {t}
+                </span>
               </div>
             ))}
           </div>

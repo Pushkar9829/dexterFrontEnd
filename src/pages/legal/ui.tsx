@@ -12,7 +12,15 @@ const LEGAL_TONE: Record<string, Tone> = {
   'Compliance pending': 'amber',
   'Legally cleared': 'green',
   Superseded: 'gray',
-  'Current version': 'navy',
+  'Current version': 'blue',
+  Saved: 'blue',
+  Opened: 'blue',
+  Delivered: 'blue',
+  Created: 'blue',
+  Received: 'blue',
+  Downloaded: 'blue',
+  Restored: 'blue',
+  Archived: 'gray',
 }
 
 export const legalTone = (s: string): Tone => LEGAL_TONE[s] ?? toneFor(s)
@@ -35,7 +43,7 @@ export function BackLink({ to, children }: { to: string; children: ReactNode }) 
 
 export function Tabs<T extends string>({ tabs, value, onChange }: { tabs: readonly T[]; value: T; onChange: (t: T) => void }) {
   return (
-    <div className="scroll-thin mb-5 flex overflow-x-auto border-b border-line" role="tablist">
+    <div className="scroll-thin mb-5 flex overflow-x-auto rounded-xl border border-line bg-white" role="tablist">
       {tabs.map((t) => (
         <button
           key={t}
@@ -43,8 +51,8 @@ export function Tabs<T extends string>({ tabs, value, onChange }: { tabs: readon
           aria-selected={value === t}
           onClick={() => onChange(t)}
           className={cn(
-            '-mb-px shrink-0 border-b-2 px-3 py-2.5 text-[13px] whitespace-nowrap transition-colors',
-            value === t ? 'border-primary font-semibold text-primary' : 'border-transparent text-muted hover:text-ink',
+            'shrink-0 border-b-2 px-6 py-3.5 text-[13px] whitespace-nowrap transition-colors first:rounded-tl-xl',
+            value === t ? 'border-primary bg-primary-soft font-semibold text-primary' : 'border-transparent text-ink-2 hover:text-ink',
           )}
         >
           {t}
@@ -58,8 +66,8 @@ export function Tabs<T extends string>({ tabs, value, onChange }: { tabs: readon
 export function Fact({ label, children, className }: { label: string; children: ReactNode; className?: string }) {
   return (
     <div className={cn('min-w-0', className)}>
-      <div className="text-[11px] font-medium tracking-wide text-muted uppercase">{label}</div>
-      <div className="mt-1 text-[13px] font-medium break-words text-ink">{children || <span className="text-muted">—</span>}</div>
+      <div className="text-[12px] text-muted">{label}</div>
+      <div className="mt-1.5 text-[14px] font-semibold break-words text-ink">{children || <span className="text-muted">—</span>}</div>
     </div>
   )
 }
@@ -72,7 +80,7 @@ export function Monogram({ text, className }: { text: string; className?: string
     .slice(0, 2)
     .join('')
     .toUpperCase()
-  return <span className={cn('grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-primary text-[16px] font-semibold text-white', className)}>{initials}</span>
+  return <span className={cn('grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-primary-soft text-[17px] font-semibold text-primary', className)}>{initials}</span>
 }
 
 export function Note({ children, className }: { children: ReactNode; className?: string }) {

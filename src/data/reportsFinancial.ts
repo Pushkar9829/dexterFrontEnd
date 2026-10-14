@@ -51,7 +51,9 @@ const pad = (n: number, w = 2) => String(n).padStart(w, '0')
 const iso = (y: number, m: number, d: number) => `${y}-${pad(m)}-${pad(d)}`
 
 // ── Enumerations from the source sheets ───────────────────────────────────
-export const AC_STATUS = ['Current Account', 'Axis Indent', 'ICICI SR']
+/** separator for multi-entry cells (e.g. BS A/C Status: "Current Account / Axis Indent / ICICI SR" stacked) */
+export const MULTI_SEP = '\n'
+export const AC_STATUS =['Current Account', 'Axis Indent', 'ICICI SR']
 export const UPLOAD_STATUS = ['Uploaded', 'Pending', 'Not uploaded']
 export const CLF_STATUS = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th']
 export const SETTLEMENT_BANKS = ['Axis Indent', 'WLA Account', 'ICICI SR', 'HDFC', 'SBI']
@@ -86,8 +88,9 @@ function seedBs(): Row[] {
         franchise: s.franchise,
         contact: s.phone,
         state: s.state,
+        state2: s.state,
         clDate: iso(y, 1 + ((i * 5) % 12), 3 + ((i * 7) % 25)),
-        acStatus: AC_STATUS[i % 3],
+        acStatus: AC_STATUS.slice(0, 1 + ((i + 2) % 3)).join(MULTI_SEP),
         upload,
         action: upload === 'Uploaded' ? 'No action required' : pick(r, actions.filter((a) => a !== 'No action required')),
         remark: upload === 'Uploaded' ? 'Verified by Finance' : upload === 'Pending' ? 'Reminder sent to franchise' : '',
@@ -96,7 +99,7 @@ function seedBs(): Row[] {
   }
   return out
 }
-export const bsStore = createStore<Row[]>('dexter.reports.bs.v1', seedBs)
+export const bsStore = createStore<Row[]>('dexter.reports.bs.v2', seedBs)
 
 // ── Axis & ICD ────────────────────────────────────────────────────────────
 function seedAxis(): Row[] {

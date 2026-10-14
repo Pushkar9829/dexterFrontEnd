@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowRight, Download, Table2 } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { ExcelGrid, type GridColumn } from '@/components/grid/ExcelGrid'
 import { Badge } from '@/components/ui/Badge'
@@ -25,7 +25,7 @@ import {
   updateComplaint,
   type Complaint,
 } from '@/data/complaints'
-import { BarRow, Banner, CHART, Chip, ComplaintsShell, Kpi, Panel, PriorityBadge, SlaText, StatusBadge, ViewAll, BASE, useNow } from './shared'
+import { BarRow, Banner, CHART, Chip, ComplaintsShell, GridCard, Kpi, Panel, PriorityBadge, SlaText, StatusBadge, ViewAll, BASE, useNow } from './shared'
 import { FilterBar, filterStore } from './FilterBar'
 import { daysBetween, matches, percentile, priorRange, shortRange, stateOf } from './filters'
 
@@ -129,10 +129,10 @@ export default function ManagementDashboard() {
   const priorityCols: GridColumn<Complaint>[] = [
     { key: 'id', header: 'Complaint ID', width: 120, render: (c) => <Link to={`${BASE}/${c.id}`} className="font-medium text-primary hover:underline">{c.id}</Link> },
     { key: 'issue', header: 'Issue / ATM', width: 280, value: (c) => `${c.subcategory} · ${c.atmId}` },
-    { key: 'priority', header: 'Priority', width: 100, render: (c) => <PriorityBadge p={c.priority} /> },
+    { key: 'priority', header: 'Priority', width: 100 },
     { key: 'owner', header: 'Owner', width: 140 },
-    { key: 'sla', header: 'SLA / next step', width: 150, value: (c) => d.slas.get(c.id)!.label, render: (c) => <SlaText c={c} now={now} /> },
-    { key: 'status', header: 'Status', width: 100, value: statusLabel, render: (c) => <StatusBadge c={c} /> },
+    { key: 'sla', header: 'SLA / next step', width: 150, value: (c) => d.slas.get(c.id)!.label },
+    { key: 'status', header: 'Status', width: 100, value: statusLabel },
   ]
 
   const allCols: GridColumn<Complaint>[] = [
@@ -231,21 +231,15 @@ export default function ManagementDashboard() {
         </Banner>
       )}
 
-      <section className="mb-5 overflow-hidden rounded-xl border border-line bg-white">
-        <div className="flex flex-wrap items-center gap-3 px-5 py-4">
-          <Table2 size={18} className="text-primary" />
-          <h3 className="text-[15px] font-semibold">Priority complaints</h3>
-          <span className="text-[12px] text-muted">Critical and SLA-exposed complaints</span>
-          <div className="ml-auto flex items-center gap-4">
-            <button type="button" aria-label="Export priority complaints" onClick={() => complaintCsv('priority-complaints', d.priority, now)} className="text-muted hover:text-primary">
-              <Download size={16} />
-            </button>
-            <ViewAll onClick={() => goGrid('Priority')} />
-          </div>
-        </div>
-        <ExcelGrid title="Priority complaints" hideToolbar rowNumbers={false} rows={d.priority.slice(0, 6)} columns={priorityCols} rowId={(c) => c.id} pageSize={6} noun="priority records" emptyState="No critical or SLA-exposed complaints." />
-        <div className="px-5 py-3 text-[12px] text-muted">Showing {Math.min(6, d.priority.length)} of {d.priority.length} priority records</div>
-      </section>
+      <GridCard
+        title="Priority complaints"
+        sub="Critical and SLA-exposed complaints"
+        onExport={() => complaintCsv('priority-complaints', d.priority, now)}
+        viewAll={<ViewAll onClick={() => goGrid('Priority')} />}
+        footer={`Showing ${Math.min(6, d.priority.length)} priority records`}
+      >
+        <ExcelGrid title="Priority complaints" hideToolbar hidePagination rowNumbers={false} rows={d.priority.slice(0, 6)} columns={priorityCols} rowId={(c) => c.id} pageSize={6} noun="priority records" emptyState="No critical or SLA-exposed complaints." />
+      </GridCard>
 
       <div className="mb-6 grid gap-4 lg:grid-cols-2">
         <Panel title="Escalation load">
@@ -260,8 +254,8 @@ export default function ManagementDashboard() {
                 {o && (
                   <>
                     {' '}· Oldest {fmtDur(now - d.escAt(o))} ·{' '}
-                    <Link to={`${BASE}/${o.id}`} className="text-primary hover:underline">
-                      {o.id}
+                    <Link to={`${BASE}/${o.id}`} className="hover:text-primary hover:underline">
+                      {lvl === 3 ? 'Review today' : o.id}
                     </Link>
                   </>
                 )}

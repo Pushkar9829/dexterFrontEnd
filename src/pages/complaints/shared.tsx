@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { ArrowRight, ChevronDown, Download, Plus } from 'lucide-react'
+import { ArrowRight, ChevronDown, Download, Plus, Table2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { PageHeader } from '@/components/ui/Card'
 import { Badge, type Tone } from '@/components/ui/Badge'
@@ -279,7 +279,12 @@ export function Entry({ title, status, meta, tone, action }: { title: ReactNode;
     <div className="border-b border-line-soft py-2.5 last:border-0">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-ink">
         <span className="min-w-0">{title}</span>
-        {status && <Badge tone={tone ?? 'gray'}>{status}</Badge>}
+        {status && (
+          <>
+            <span className="text-muted">·</span>
+            <span data-tone={tone ?? 'gray'}>{status}</span>
+          </>
+        )}
         {action && <span className="ml-auto">{action}</span>}
       </div>
       {meta && <div className="mt-0.5 text-[12px] text-muted">{meta}</div>}
@@ -296,6 +301,47 @@ export function Banner({ tone = 'red', lead, children, action }: { tone?: 'red' 
       <span className="min-w-0 flex-1 text-ink-2">{children}</span>
       {action}
     </div>
+  )
+}
+
+/** Design "grid card": icon + title + sub, export icon and View all on the right, grid, "Showing N … records" footer. */
+export function GridCard({
+  id,
+  title,
+  sub,
+  onExport,
+  viewAll,
+  footer,
+  children,
+  className,
+}: {
+  id?: string
+  title: ReactNode
+  sub?: ReactNode
+  onExport?: () => void
+  viewAll?: ReactNode
+  footer?: ReactNode
+  children: ReactNode
+  className?: string
+}) {
+  return (
+    <section id={id} className={cn('mb-5 scroll-mt-4 overflow-hidden rounded-xl border border-line bg-white', className)}>
+      <div className="flex flex-wrap items-center gap-3 px-4 py-4 sm:px-5">
+        <Table2 size={18} className="text-primary" />
+        <h3 className="text-[15px] font-semibold">{title}</h3>
+        {sub && <span className="text-[12px] text-muted">{sub}</span>}
+        <div className="ml-auto flex items-center gap-4">
+          {onExport && (
+            <button type="button" aria-label={`Export ${typeof title === 'string' ? title.toLowerCase() : 'records'}`} onClick={onExport} className="text-muted hover:text-primary">
+              <Download size={16} />
+            </button>
+          )}
+          {viewAll}
+        </div>
+      </div>
+      {children}
+      {footer && <div className="border-t border-line-soft px-4 py-3 text-[12px] text-muted sm:px-5">{footer}</div>}
+    </section>
   )
 }
 

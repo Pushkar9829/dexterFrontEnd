@@ -8,13 +8,17 @@ import { cn } from '@/lib/cn'
 import { toast } from '@/components/ui/Toast'
 import { NOTICES, NOTICE_TYPES, type Notice, type NoticeType } from '@/data/notices'
 
-function whenLabel(iso: string) {
-  const d = new Date(iso)
-  const today = new Date('2026-10-06T23:59:00+05:30')
-  const sameDay = d.toDateString() === today.toDateString()
-  const date = d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' })
-  const time = d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' }).toLowerCase()
-  return { top: sameDay ? `Today · ${date}` : date, time }
+const TODAY = '2026-10-06'
+const istDay = (iso: string) => new Date(new Date(iso).getTime() + 5.5 * 3600_000).toISOString().slice(0, 10)
+// the first notice older than today is tagged "Earlier", as in the design
+const FIRST_EARLIER = NOTICES.find((n) => istDay(n.at) < TODAY)?.id
+
+function whenLabel(n: Notice) {
+  const d = new Date(n.at)
+  const date = d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit', timeZone: 'Asia/Kolkata' })
+  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' }).toLowerCase()
+  const top = istDay(n.at) === TODAY ? `Today · ${date}` : n.id === FIRST_EARLIER ? `Earlier · ${date}` : date
+  return { top, time }
 }
 
 function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
@@ -51,7 +55,7 @@ export default function Notices() {
     {
       key: 'at', header: 'When', label: 'When', width: 130, sortable: true,
       render: (n) => {
-        const w = whenLabel(n.at)
+        const w = whenLabel(n)
         return (
           <span className="leading-tight text-muted">
             {w.top}
@@ -72,7 +76,7 @@ export default function Notices() {
             Open ›
           </Link>
           {n.read ? (
-            <span className="text-muted">Read</span>
+            <span className="text-primary/70">Read</span>
           ) : (
             <button onClick={() => markRead([n.id])} className="flex items-center gap-1 text-primary hover:underline">
               <Check size={12} /> Mark read
@@ -138,6 +142,9 @@ export default function Notices() {
         searchPlaceholder="Search notices"
         rowNumbers={false}
         selectable
+        toolbarButtons={['columns']}
+        selectionLabel={(c) => `${c} ${c === 1 ? 'notice' : 'notices'} selected`}
+        selectionHint="Select notices to manage read status"
         noun="notices"
         exportName="notices"
         rowClassName={(n) => (n.read ? undefined : 'shadow-[inset_3px_0_0_var(--color-primary)]')}
@@ -157,7 +164,7 @@ export default function Notices() {
             </button>
           </>
         )}
-        footerLeft={`${unread} unread · ${items.length - unread} read`}
+        footerLeft={(sel) => `${sel.length ? `Selected: ${sel.length} ${sel.length === 1 ? 'notice' : 'notices'} · ` : ''}${unread} unread · ${items.length - unread} read`}
         footerRight="Newest first · All notice types"
       />
 
@@ -166,6 +173,11 @@ export default function Notices() {
           <span className="h-1.5 w-1.5 rounded-full bg-primary" /> Blue-edged rows are unread. Open a notice to view the related record.
         </span>
         <span>All times in IST</span>
+      </div>
+
+      <div className="mt-6 flex flex-wrap justify-between gap-2 text-[12px] text-muted">
+        <span>India operations · Notices across your workspace</span>
+        <span>Last refreshed 06 Oct 2026, 09:14 IST</span>
       </div>
     </div>
   )

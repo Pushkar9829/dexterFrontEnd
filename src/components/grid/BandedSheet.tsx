@@ -19,6 +19,7 @@ export function BandedSheet<T>({
   noun = 'rows',
   exportName,
   rowLabel,
+  keepToolbarInEdit = false,
 }: {
   bands: Band<T>[]
   rows: T[]
@@ -32,6 +33,8 @@ export function BandedSheet<T>({
   exportName?: string
   /** leading column of the first band (e.g. S.N.) */
   rowLabel?: GridColumn<T>
+  /** keep search / Filters / Columns / Export on the first band in edit mode (SD edit design) */
+  keepToolbarInEdit?: boolean
 }) {
   let offset = 0
   return (
@@ -64,7 +67,7 @@ export function BandedSheet<T>({
                 rowNumbers={false}
                 editing={editing}
                 onCellChange={onCellChange}
-                hideToolbar={editing || i > 0}
+                hideToolbar={(editing && !keepToolbarInEdit) || i > 0}
                 searchPlaceholder={searchPlaceholder}
                 noun={noun}
                 exportName={exportName}

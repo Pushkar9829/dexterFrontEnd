@@ -51,7 +51,7 @@ function AtmCard({ rec }: { rec: MobileCbr }) {
       <ol>
         {fields.map((f, i) => {
           const computed = f.computed
-          const highlight = computed || f.key === 'loadingAmount'
+          const highlight = f.key === 'closingWla' || f.key === 'loadingAmount'
           let value: React.ReactNode
           if (f.key === 'atmId') value = <span className="text-[15px] font-bold text-primary">{cur.atmId}</span>
           else if (f.key === 'closingWla') value = <Value v={calc.closingWla} />
@@ -155,7 +155,7 @@ export default function MobileCbr() {
           </div>
 
           <p className="mt-4 text-[11px] leading-relaxed text-muted">
-            Blank values are retained as supplied, not zero. Highlighted rows are calculated or reconciled amounts; negative differences are shown in red.
+            Blank values are retained as supplied, not zero. Highlighted rows are the closing and loading balances; negative differences are shown in red.
           </p>
           <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-[11px] leading-relaxed text-amber-800">
             Assumed formulas — needs client confirmation: Closing Balance in WLA = Opening + Fund Given by HPY − Withdrawal; Loading Amount Difference = expected funding (WLA: Fund Given by HPY ·

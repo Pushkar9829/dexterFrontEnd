@@ -1,17 +1,17 @@
 import { useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
-import { AlertTriangle, ArrowRight, BellRing, Check, CheckCircle2, Clock3, Download, Eye, FileText, History, RefreshCw, Send, ShieldCheck, XCircle } from 'lucide-react'
+import { AlertTriangle, ArrowRight, Check, CheckCircle2, Clock3, Download, Eye, FileText, History, RefreshCw, Send, ShieldCheck, XCircle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { Card, CardHeader } from '@/components/ui/Card'
+import { Card } from '@/components/ui/Card'
 import { Modal } from '@/components/ui/Modal'
 import { SelectField, TextAreaField, TextField } from '@/components/ui/Form'
 import { toast } from '@/components/ui/Toast'
 import { cn } from '@/lib/cn'
 import {
-  DOC_META, currentVersion, fmtDate, fmtDateTime, getDoc, getSite, istDay, lastAccess, nextVersion, pendingUpload, recordAccess, reviewUpload,
+  DOC_META, currentVersion, fmtDate, fmtDateTime, fmtShort, fmtTime, getDoc, getSite, istDay, lastAccess, nextVersion, pendingUpload, recordAccess, reviewUpload,
   sendReminder, shareRevision, useLegal, type LegalDoc, type LegalSite,
 } from '@/data/legal'
-import { BackLink, Fact, Note, StatusBadge } from './ui'
+import { BackLink, Fact, StatusBadge } from './ui'
 
 const phrase: Record<string, string> = {
   'Action Required': 'Signed copy pending',
@@ -91,109 +91,109 @@ export default function DocumentDetail() {
               {site.franchiseName} <span className="text-muted">/</span> {site.location} <span className="text-muted">/</span> {phrase[doc.status]}
             </p>
           </div>
-          <div className="text-[13px] sm:text-right">
+          <div className="sm:text-right">
             {doc.status === 'Approved' ? (
-              <span className="text-emerald-700">Signed copy approved</span>
+              <>
+                <div className="text-[12px] text-muted">Signed copy</div>
+                <div className="mt-1 text-[15px] font-semibold text-emerald-700">Approved</div>
+              </>
             ) : (
               <>
-                <span className="text-muted">Franchisee submission due</span> <b>{fmtDate(doc.dueDate)}</b>
+                <div className="text-[12px] text-muted">Franchisee submission due</div>
+                <div className="mt-1 text-[15px] font-semibold">{fmtDate(doc.dueDate)}</div>
               </>
             )}
           </div>
-        </div>
-
-        {/* Legal-team actions */}
-        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-line-soft pt-4">
-          <span className="mr-1 text-[12px] font-semibold text-ink-2">Legal team actions</span>
-          <Button size="sm" variant="secondary" icon={<RefreshCw size={14} />} onClick={() => setDialog('share')}>
-            Share revised original
-          </Button>
-          <Button size="sm" icon={<Check size={14} />} disabled={!pending} onClick={() => setDialog('approve')} title={pending ? '' : 'No signed upload is awaiting review'}>
-            Approve signed upload
-          </Button>
-          <Button size="sm" variant="danger" icon={<XCircle size={14} />} disabled={!pending} onClick={() => setDialog('reject')} className="disabled:opacity-50">
-            Reject signed upload
-          </Button>
-          {!pending && <span className="text-[12px] text-muted">Approve / reject unlock when a signed upload is awaiting review.</span>}
         </div>
       </Card>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="min-w-0 space-y-5">
           <Card>
-            <CardHeader title="Document metadata" sub="Site mapping, ownership and version control" />
-            <div className="grid grid-cols-1 gap-5 px-5 pb-5 sm:grid-cols-2 lg:grid-cols-3">
-              <Fact label="Site ID">
-                <Link to={`/legal/${site.id}`} className="text-primary hover:underline">
-                  {site.id}
-                </Link>
-              </Fact>
-              <Fact label="ATM ID">{site.atmId || 'Not mapped'}</Fact>
-              <Fact label="Document ID">{doc.id}</Fact>
-              <Fact label="Franchise name">{site.franchiseName}</Fact>
-              <Fact label="Franchise ID / Tier">
-                <Link to={`/franchise/master-data/${site.franchiseId}`} className="text-primary hover:underline">
-                  {site.franchiseId}
-                </Link>{' '}
-                / {site.tier}
-              </Fact>
-              <Fact label="Authorized signatory">{site.signatory}</Fact>
-              <Fact label="Document owner">{cur.createdBy}</Fact>
-              <Fact label="Version / Status">
-                {doc.version} / {doc.status}
-              </Fact>
-              <Fact label="Created on">{fmtDateTime(cur.createdAt)}</Fact>
-              <Fact label="Shared on">{fmtDateTime(cur.sharedAt)}</Fact>
-              <Fact label="Access">Legal team & franchisee</Fact>
-              <Fact label="Pages / size">
-                {cur.pages} pages · {cur.sizeMb} MB
-              </Fact>
+            <Head title="Document metadata" sub="Site mapping, ownership and version control" />
+            <div className="space-y-5 px-6 py-6">
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+                <Fact label="Site ID">
+                  <Link to={`/legal/${site.id}`} className="hover:text-primary hover:underline">
+                    {site.id}
+                  </Link>
+                </Fact>
+                <Fact label="ATM ID">{site.atmId || 'Not mapped'}</Fact>
+                <Fact label="Document ID">{doc.id}</Fact>
+              </div>
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                <Fact label="Franchise name">{site.franchiseName}</Fact>
+                <Fact label="Franchise ID / Tier">
+                  <Link to={`/franchise/master-data/${site.franchiseId}`} className="hover:text-primary hover:underline">
+                    {site.franchiseId}
+                  </Link>{' '}
+                  / {site.tier}
+                </Fact>
+              </div>
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+                <Fact label="Authorized signatory">{site.signatory}</Fact>
+                <Fact label="Document owner">{cur.createdBy}</Fact>
+                <Fact label="Version / Status">
+                  {doc.version} / {doc.status}
+                </Fact>
+                <Fact label="Created on">{fmtDateTime(cur.createdAt)}</Fact>
+                <Fact label="Shared on">{fmtDateTime(cur.sharedAt)}</Fact>
+                <Fact label="Access">Legal team & franchisee</Fact>
+              </div>
             </div>
           </Card>
 
-          <FilesCard doc={doc} site={site} onView={view} onDownload={download} onApprove={() => setDialog('approve')} onReject={() => setDialog('reject')} />
+          <FilesCard
+            doc={doc}
+            site={site}
+            onView={view}
+            onDownload={download}
+            onApprove={() => setDialog('approve')}
+            onReject={() => setDialog('reject')}
+            onShare={() => setDialog('share')}
+          />
         </div>
 
         <div className="space-y-5">
           <Workflow doc={doc} site={site} />
 
-          <Card className="p-5">
-            <h3 className="text-[15px] font-semibold">Instructions sent to franchisee</h3>
-            <p className="mt-2 text-[13px] text-ink-2">{doc.instructions}</p>
+          <div className="rounded-xl bg-primary-soft p-5">
+            <h3 className="text-[16px] font-semibold text-primary">Instructions sent to franchisee</h3>
+            <p className="mt-3 text-[13px] text-primary">{doc.instructions}</p>
             {doc.status !== 'Approved' && doc.status !== 'Under Review' ? (
-              <Button className="mt-4" size="sm" variant="secondary" icon={<BellRing size={14} />} onClick={remind}>
+              <Button className="mt-4" variant="secondary" icon={<Send size={15} />} onClick={remind}>
                 Send reminder
               </Button>
             ) : (
               <p className="mt-3 text-[12px] text-muted">No reminder needed · {doc.status === 'Approved' ? 'document approved' : 'submission under review'}.</p>
             )}
-          </Card>
+          </div>
 
           <Card className="p-5">
-            <h3 className="text-[15px] font-semibold">Last accessed</h3>
+            <h3 className="text-[16px] font-semibold">Last accessed</h3>
             {access ? (
               <>
-                <p className="mt-2 text-[13px]">
+                <p className="mt-3 text-[13px]">
                   {access.event} by {access.actor}
                 </p>
-                <p className="text-[12px] text-muted">
+                <p className="mt-2 text-[12px] text-muted">
                   {fmtDateTime(access.at)} · {access.source}
                 </p>
               </>
             ) : (
-              <p className="mt-2 text-[13px] text-muted">Not opened yet.</p>
+              <p className="mt-3 text-[13px] text-muted">Not opened yet.</p>
             )}
-            <Link to={`${base}/audit`} className="mt-3 inline-flex items-center gap-1 text-[13px] font-semibold text-primary hover:underline">
+            <Link to={`${base}/audit`} className="mt-2 inline-flex items-center gap-1 text-[13px] font-semibold text-primary hover:underline">
               Open audit history <ArrowRight size={14} />
             </Link>
           </Card>
-
-          <Note>
-            <ShieldCheck size={15} className="mb-1 text-primary" />
-            Every view, download, upload, share and review decision is recorded. Original files cannot be overwritten.
-          </Note>
         </div>
       </div>
+
+      <p className="mt-5 flex items-start gap-1.5 text-[11px] text-muted">
+        <ShieldCheck size={14} className="shrink-0" />
+        Every view, download, upload, share and review decision is recorded. Original files cannot be overwritten.
+      </p>
 
       {dialog === 'view' && <ViewDialog doc={doc} site={site} onClose={() => setDialog(null)} onDownload={download} />}
       {dialog === 'share' && <ShareDialog doc={doc} site={site} onClose={() => setDialog(null)} />}
@@ -231,7 +231,18 @@ export default function DocumentDetail() {
   )
 }
 
-function FilesCard({ doc, site, onView, onDownload, onApprove, onReject }: { doc: LegalDoc; site: LegalSite; onView: () => void; onDownload: () => void; onApprove: () => void; onReject: () => void }) {
+function Head({ title, sub }: { title: string; sub?: string }) {
+  return (
+    <div className="border-b border-line px-6 py-5">
+      <h3 className="text-[17px] font-semibold text-ink">{title}</h3>
+      {sub && <p className="mt-1.5 text-[13px] text-muted">{sub}</p>}
+    </div>
+  )
+}
+
+function FilesCard({
+  doc, site, onView, onDownload, onApprove, onReject, onShare,
+}: { doc: LegalDoc; site: LegalSite; onView: () => void; onDownload: () => void; onApprove: () => void; onReject: () => void; onShare: () => void }) {
   const cur = currentVersion(doc)
   const curUploads = doc.uploads.filter((u) => u.version === doc.version)
   const latest = curUploads[curUploads.length - 1]
@@ -239,29 +250,33 @@ function FilesCard({ doc, site, onView, onDownload, onApprove, onReject }: { doc
   const audit = `/legal/${site.id}/documents/${doc.id}/audit`
   return (
     <Card>
-      <CardHeader title="Files & versions" sub="The original is read-only. Signed uploads create a separate submission." />
-      <div className="space-y-3 px-5 pb-5">
-        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-line p-3">
-          <span className="grid h-10 w-10 place-items-center rounded-lg bg-red-50 text-[11px] font-bold text-brand-red">PDF</span>
+      <Head title="Files & versions" sub="The original is read-only. Signed uploads create a separate submission." />
+      <div className="space-y-4 px-6 py-5">
+        <div className="flex flex-wrap items-center gap-3">
+          <FileText size={22} className="shrink-0 text-primary" />
           <div className="min-w-0 flex-1">
             <div className="truncate text-[13px] font-semibold">{cur.file}</div>
-            <div className="text-[12px] text-muted">
-              Original · PDF · {cur.sizeMb} MB · {cur.pages} pages · Read-only
+            <div className="mt-0.5 text-[12px] text-muted">
+              Original · PDF · {cur.sizeMb} MB · {cur.pages} pages
             </div>
           </div>
-          <Button size="sm" variant="secondary" icon={<Eye size={14} />} onClick={onView}>
+          <Button variant="secondary" icon={<Eye size={15} />} onClick={onView}>
             View
           </Button>
-          <Button size="sm" variant="secondary" icon={<Download size={14} />} onClick={onDownload}>
+          <Button variant="secondary" icon={<Download size={15} />} onClick={onDownload}>
             Download
           </Button>
         </div>
 
         {latest ? (
-          <div className={cn('flex flex-wrap items-center gap-3 rounded-lg border p-3', latest.decision === 'Rejected' ? 'border-red-200 bg-red-50/40' : latest.decision ? 'border-emerald-200 bg-emerald-50/40' : 'border-blue-200 bg-blue-50/40')}>
-            <span className="grid h-10 w-10 place-items-center rounded-lg bg-white text-primary">
-              <FileText size={18} />
-            </span>
+          <div className={cn('flex flex-wrap items-center gap-3 rounded-lg p-4', latest.decision === 'Rejected' ? 'bg-red-50' : latest.decision ? 'bg-emerald-50' : 'bg-blue-50')}>
+            {latest.decision === 'Rejected' ? (
+              <XCircle size={17} className="shrink-0 text-red-600" />
+            ) : latest.decision ? (
+              <CheckCircle2 size={17} className="shrink-0 text-emerald-600" />
+            ) : (
+              <FileText size={17} className="shrink-0 text-blue-600" />
+            )}
             <div className="min-w-0 flex-1">
               <div className="truncate text-[13px] font-semibold">{latest.file}</div>
               <div className="text-[12px] text-muted">
@@ -286,9 +301,12 @@ function FilesCard({ doc, site, onView, onDownload, onApprove, onReject }: { doc
             )}
           </div>
         ) : (
-          <div className="rounded-lg border border-dashed border-line p-3">
-            <div className="text-[13px] font-semibold">Signed version not yet uploaded</div>
-            <div className="text-[12px] text-muted">Awaiting {site.signatory}’s submission from the mobile app.</div>
+          <div className="flex gap-3 rounded-lg bg-surface p-4">
+            <Clock3 size={17} className="mt-0.5 shrink-0 text-ink-2" />
+            <div>
+              <div className="text-[13px] font-semibold">Signed version not yet uploaded</div>
+              <div className="mt-0.5 text-[12px] text-muted">Awaiting {site.signatory}’s submission from the mobile app.</div>
+            </div>
           </div>
         )}
         {doc.status === 'Resubmission Required' && latest?.decision === 'Rejected' && (
@@ -298,16 +316,21 @@ function FilesCard({ doc, site, onView, onDownload, onApprove, onReject }: { doc
         {older.map((v) => {
           const up = doc.uploads.filter((u) => u.version === v.version).pop()
           return (
-            <div key={v.version} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-surface px-3 py-2.5 text-[12px]">
+            <div key={v.version} className="flex flex-wrap items-center justify-between gap-2 text-[12px] text-muted">
               <span>
-                <b>{v.version}</b> · Superseded on {fmtDate(v.superseded!.on)} · {up?.decision === 'Rejected' ? 'Signed upload rejected' : v.superseded!.reason}
+                {v.version} · Superseded on {fmtDate(v.superseded!.on)} · {up?.decision === 'Rejected' ? 'Signed upload rejected' : v.superseded!.reason}
               </span>
-              <Link to={`${audit}?version=${v.version}`} className="font-semibold text-primary hover:underline">
-                View history →
+              <Link to={`${audit}?version=${v.version}`} className="inline-flex items-center gap-1 font-semibold text-primary hover:underline">
+                View history <ArrowRight size={13} />
               </Link>
             </div>
           )
         })}
+        <div className="flex justify-end border-t border-line-soft pt-3">
+          <button onClick={onShare} className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-primary hover:underline">
+            <RefreshCw size={13} /> Share revised original
+          </button>
+        </div>
       </div>
     </Card>
   )
@@ -318,40 +341,40 @@ function Workflow({ doc, site }: { doc: LegalDoc; site: LegalSite }) {
   const up = doc.uploads.filter((u) => u.version === doc.version).pop()
   type S = 'done' | 'active' | 'todo' | 'alert'
   const steps: { title: string; sub: string; s: S }[] = [
-    { title: 'Original prepared', sub: `${cur.createdBy} · ${fmtDateTime(cur.createdAt).replace(' IST', '')}`, s: 'done' },
-    { title: 'Shared with franchisee', sub: `${site.signatory} · ${fmtDateTime(cur.sharedAt).replace(' IST', '')}`, s: cur.sharedAt ? 'done' : 'todo' },
+    { title: 'Original prepared', sub: `${cur.createdBy} · ${fmtWhen(cur.createdAt)}`, s: 'done' },
+    { title: 'Shared with franchisee', sub: `${site.signatory} · ${fmtWhen(cur.sharedAt)}`, s: cur.sharedAt ? 'done' : 'todo' },
     doc.status === 'Action Required'
       ? { title: 'Signed upload pending', sub: `Due ${fmtDate(doc.dueDate)}`, s: 'active' }
       : doc.status === 'Resubmission Required'
         ? { title: 'Signed upload rejected', sub: `Resubmission due ${fmtDate(doc.dueDate)}`, s: 'alert' }
-        : { title: 'Signed upload received', sub: `${up?.by ?? site.signatory} · ${fmtDateTime(up?.uploadedAt).replace(' IST', '')}`, s: 'done' },
+        : { title: 'Signed upload received', sub: `${up?.by ?? site.signatory} · ${fmtWhen(up?.uploadedAt)}`, s: 'done' },
     doc.status === 'Approved'
-      ? { title: 'Legal review & approval', sub: `Approved by ${up?.reviewer ?? '—'} · ${fmtDateTime(up?.reviewedAt).replace(' IST', '')}`, s: 'done' }
+      ? { title: 'Legal review & approval', sub: `Approved by ${up?.reviewer ?? '—'} · ${fmtWhen(up?.reviewedAt)}`, s: 'done' }
       : doc.status === 'Under Review'
         ? { title: 'Legal review & approval', sub: 'In review with the legal team', s: 'active' }
         : { title: 'Legal review & approval', sub: 'Starts after signed upload', s: 'todo' },
   ]
   return (
-    <Card className="p-5">
-      <h3 className="text-[15px] font-semibold">Workflow status</h3>
-      <ol className="mt-4 space-y-0">
-        {steps.map((st, i) => (
-          <li key={st.title} className="relative flex gap-3 pb-4 last:pb-0">
-            {i < steps.length - 1 && <span className={cn('absolute top-7 left-[13px] h-[calc(100%-24px)] w-px', st.s === 'done' ? 'bg-emerald-300' : 'bg-line')} />}
+    <Card>
+      <div className="border-b border-line px-6 py-5">
+        <h3 className="text-[17px] font-semibold">Workflow status</h3>
+      </div>
+      <ol className="space-y-5 px-6 py-5">
+        {steps.map((st) => (
+          <li key={st.title} className="flex gap-3">
             <span
               className={cn(
-                'grid h-7 w-7 shrink-0 place-items-center rounded-full',
+                'grid h-6 w-6 shrink-0 place-items-center rounded-full',
                 st.s === 'done' && 'bg-emerald-50 text-emerald-600',
-                st.s === 'active' && 'bg-blue-50 text-blue-600',
                 st.s === 'alert' && 'bg-red-50 text-red-600',
-                st.s === 'todo' && 'bg-surface text-muted',
+                (st.s === 'active' || st.s === 'todo') && 'bg-surface text-ink-2',
               )}
             >
-              {st.s === 'done' ? <CheckCircle2 size={16} /> : st.s === 'alert' ? <AlertTriangle size={15} /> : <Clock3 size={15} />}
+              {st.s === 'done' ? <Check size={14} strokeWidth={2.5} /> : st.s === 'alert' ? <AlertTriangle size={13} /> : <Clock3 size={14} />}
             </span>
             <div>
-              <div className={cn('text-[13px] font-semibold', st.s === 'todo' && 'text-muted')}>{st.title}</div>
-              <div className="text-[12px] text-muted">{st.sub}</div>
+              <div className="text-[13px] font-semibold">{st.title}</div>
+              <div className="mt-0.5 text-[12px] text-muted">{st.sub}</div>
             </div>
           </li>
         ))}
@@ -359,6 +382,9 @@ function Workflow({ doc, site }: { doc: LegalDoc; site: LegalSite }) {
     </Card>
   )
 }
+
+/** 07 Oct, 14:00 */
+const fmtWhen = (iso?: string) => (iso ? `${fmtShort(iso)}, ${fmtTime(iso)}` : '—')
 
 function ViewDialog({ doc, site, onClose, onDownload }: { doc: LegalDoc; site: LegalSite; onClose: () => void; onDownload: () => void }) {
   const cur = currentVersion(doc)

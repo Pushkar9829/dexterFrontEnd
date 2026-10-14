@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react'
-import { Info } from 'lucide-react'
 import type { ApplicationForm, AppStatus } from '@/data/applications'
 import { cn } from '@/lib/cn'
 import { stepStatus } from './validate'
@@ -58,8 +57,8 @@ export function Review({ form: f, status, onEdit }: { form: ApplicationForm; sta
       </div>
 
       {isDraft && (docs < 8 || imgs < 15) && (
-        <div className="flex items-center gap-3 rounded-lg border border-blue-100 bg-primary-soft px-4 py-3 text-[12px] text-primary">
-          <Info size={16} />
+        <div className="flex items-center gap-3 rounded-lg border border-blue-100 bg-primary-soft px-3 py-3 text-[12px] text-primary">
+          <span className="grid h-6 w-6 shrink-0 place-items-center rounded bg-primary/10 text-[12px] font-semibold">i</span>
           This application is still a draft. Several details are not entered and no evidence files have been uploaded. It has not been submitted.
         </div>
       )}
@@ -120,10 +119,14 @@ export function Review({ form: f, status, onEdit }: { form: ApplicationForm; sta
       </Section>
 
       <Section n={4} title="CRA & ATMs" f={f} onEdit={onEdit && (() => onEdit(4))}>
-        <Item label="CRA Coverage / Agency Name"><V v={join(f.craCoverage, f.craAgency)} /></Item>
+        <Item label="CRA Coverage / Agency Name">
+          <V v={f.craCoverage || f.craAgency ? `${f.craCoverage || 'Not selected'} / ${f.craAgency || 'Not entered'}` : ''} empty="Not selected / Not entered" />
+        </Item>
         <Item label="WLA ATM account proposed branch name"><V v={f.proposedBranch} /></Item>
-        <Item label="Branch Manager Name / Number"><V v={join(f.branchManager, f.branchManagerNumber)} /></Item>
-        <Item label="Branch SOL ID / IFSC Code · Distance (KM)"><V v={join(f.solIfsc, f.branchDistance)} /></Item>
+        <Item label="Branch Manager Name / Number"><V v={join(f.branchManager, f.branchManagerNumber)} empty="Not entered / Not entered" /></Item>
+        <Item label="Branch SOL ID / IFSC Code · Distance (KM)">
+          <V v={f.solIfsc || f.branchDistance ? `${f.solIfsc || 'Not entered'} · ${f.branchDistance || 'Not entered'}` : ''} empty="Not entered · Not entered" />
+        </Item>
         <Item label="Nearest ATM Details">
           <V v={atmFilled(f.nearestAtms) ? `${atmFilled(f.nearestAtms)} of 5 rows entered` : ''} empty="Rows A–E: all cells awaiting entry" />
         </Item>
@@ -138,7 +141,13 @@ export function Review({ form: f, status, onEdit }: { form: ApplicationForm; sta
         title="Documents"
         f={f}
         onEdit={onEdit && (() => onEdit(5))}
-        note={f.documents.some((d) => !d.status) ? 'Some document Yes / No statuses are unselected. All documents should be a self-attested photocopy.' : undefined}
+        note={
+          f.documents.every((d) => !d.status)
+            ? 'All eight document Yes / No statuses are unselected. All documents should be a self-attested photocopy.'
+            : f.documents.some((d) => !d.status)
+              ? 'Some document Yes / No statuses are unselected. All documents should be a self-attested photocopy.'
+              : undefined
+        }
       >
         <Item label="PPT / PAN Card"><V v={docPair(0, 1)} /></Item>
         <Item label="Aadhar Card / Pass-book or cancel Cheque"><V v={docPair(2, 3)} /></Item>
@@ -151,7 +160,12 @@ export function Review({ form: f, status, onEdit }: { form: ApplicationForm; sta
           <V v={imgs ? `${imgs} of 15 numbered image slots uploaded` : ''} empty="All fifteen numbered image slots are awaiting upload" />
         </Item>
         <Item label="PPT image sequence">Shop, road and terrace views, V-SAT space, Google map and satellite view</Item>
-        <Item label="Site Number / Site Sourced By / Site Sourcing Code"><V v={join(f.siteNumber, f.sourcedBy, f.sourcingCode)} /></Item>
+        <Item label="Site Sourcing SSE / SSM Details">
+          <V v={f.siteNumber || f.sourcedBy || f.sourcingCode ? 'Office use only · Entered' : ''} empty="Office use only · Not entered" />
+        </Item>
+        <Item label="Site Number / Site Sourced By / Site Sourcing Code">
+          <V v={join(f.siteNumber, f.sourcedBy, f.sourcingCode)} empty="Not entered / Not entered / Not entered" />
+        </Item>
       </Section>
     </div>
   )

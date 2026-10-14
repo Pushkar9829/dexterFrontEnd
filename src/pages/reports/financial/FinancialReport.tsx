@@ -1,29 +1,13 @@
 import { Navigate, useParams } from 'react-router-dom'
 import { DlrSummary } from './Dlr'
-import { FfmEodReport, OverageDepositReport } from './FfmOverage'
-import { AxisIcdReport, BsReport, ClfReport, SdReport } from './Sheets'
+import { DEFS } from './defs'
+import { ReportList } from './ReportPages'
 
-/** /reports/financial/:report — BS | Axis & ICD | CLF | SD | FFM EOD | Overage deposit | DLR2 | DLR3 */
+/** /reports/financial/:report — BS | Axis & ICD | CLF | SD | FFM EOD | Overage deposit (list → record) | DLR2 | DLR3 (summary → ATM sheet) */
 export default function FinancialReport() {
   const { report = '' } = useParams()
-  switch (report) {
-    case 'bs':
-      return <BsReport key="bs" />
-    case 'axis-icd':
-      return <AxisIcdReport key="axis-icd" />
-    case 'clf':
-      return <ClfReport key="clf" />
-    case 'sd':
-      return <SdReport key="sd" />
-    case 'ffm-eod':
-      return <FfmEodReport key="ffm-eod" />
-    case 'overage-deposit':
-      return <OverageDepositReport key="overage-deposit" />
-    case 'dlr2':
-      return <DlrSummary key="dlr2" kind="dlr2" />
-    case 'dlr3':
-      return <DlrSummary key="dlr3" kind="dlr3" />
-    default:
-      return <Navigate to="/reports/financial/bs" replace />
-  }
+  if (report === 'dlr2' || report === 'dlr3') return <DlrSummary key={report} kind={report} />
+  const def = DEFS[report]
+  if (!def) return <Navigate to="/reports/financial/bs" replace />
+  return <ReportList key={report} def={def} />
 }

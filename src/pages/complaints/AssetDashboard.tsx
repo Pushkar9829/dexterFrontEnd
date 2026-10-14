@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Plus, Server, X } from 'lucide-react'
-import { Bar, BarChart, CartesianGrid, LabelList, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Server, X } from 'lucide-react'
+import { Bar, BarChart, CartesianGrid, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { ExcelGrid, type GridColumn } from '@/components/grid/ExcelGrid'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -32,7 +32,7 @@ import {
   type Complaint,
 } from '@/data/complaints'
 import { recStore } from '@/data/complaintsAi'
-import { BarRow, CHART, ComplaintsShell, Kpi, LinkBtn, Panel, Entry, ViewAll, BASE, useNow } from './shared'
+import { BarRow, CHART, ComplaintsShell, GridCard, KV, Kpi, LinkBtn, Panel, Entry, ViewAll, BASE, useNow } from './shared'
 import { FilterBar, filterStore } from './FilterBar'
 import { daysBetween, matches, priorRange, shortRange } from './filters'
 
@@ -48,6 +48,23 @@ const PM_TASK: Record<string, string> = {
   'Cooling & environment': 'Clean filters & test cooling fans',
   'Software & EJ': 'Patch application & verify EJ upload',
 }
+const PM_HEAD: Record<string, string> = {
+  'Power & UPS': 'Investigate charging faults before another replacement',
+  Network: 'Stabilise the network link before the next outage',
+  'Cash dispenser': 'Service the dispenser before the next jam',
+  'Card reader': 'Recalibrate the card reader before replacing it',
+  'Receipt printer': 'Service the printer before replacing the head',
+  'Cooling & environment': 'Restore cooling before peak load',
+  'Software & EJ': 'Patch software before the next EJ failure',
+}
+const watchText = (cat: string, days: number) =>
+  cat === 'Power & UPS'
+    ? `Battery recurrence in ${days} days`
+    : cat === 'Cash dispenser'
+      ? 'Repeated dispenser jams'
+      : cat === 'Network'
+        ? 'Intermittent network faults'
+        : `${RECURRING_LABEL[cat] ?? cat} recurrence in ${days} days`
 const COMPONENT_SHORT: Record<string, string> = {
   'Power & UPS': 'UPS battery',
   Network: 'Router',
@@ -84,6 +101,7 @@ export default function AssetDashboard() {
   const [params, setParams] = useSearchParams()
   const selected = params.get('atm')
   const [showAllWatch, setShowAllWatch] = useState(false)
+  const [registerAll, setRegisterAll] = useState(false)
   const [modal, setModal] = useState<{ atmId: string; title: string } | null>(null)
 
   const d = useMemo(() => {
@@ -142,7 +160,7 @@ export default function AssetDashboard() {
   const cols: GridColumn<Row>[] = [
     { key: 'atm', header: 'ATM ID', width: 120, sortable: true, value: (r) => r.atm.atmId, render: (r) => <LinkBtn onClick={() => setParams({ atm: r.atm.atmId })}>{r.atm.atmId}</LinkBtn> },
     { key: 'site', header: 'Site / component context', width: 240, value: (r) => `${r.atm.siteId} · ${r.atm.city} · ${COMPONENT_SHORT[r.topCat]}` },
-    { key: 'cases', header: 'Cases / repeats', width: 120, sortable: true, value: (r) => r.cases.length, render: (r) => `${r.cases.length}/${r.repeats.length}` },
+    { key: 'cases', header: 'Cases / repeats', width: 120, sortable: true, value: (r) => r.cases.length, render: (r) => `${r.cases.length} / ${r.repeats.length}` },
     {
       key: 'repl',
       header: 'Replacements',
@@ -150,8 +168,16 @@ export default function AssetDashboard() {
       value: (r) => (r.repl.length ? r.repl.map((x) => `1 ${REPL_SHORT[x]}`).join(', ') : 'None'),
     },
     { key: 'downtime', header: 'Downtime', width: 110, sortable: true, value: (r) => Math.round(r.downtime * 60), render: (r) => (r.downtime ? fmtDur(r.downtime * 3_600_000) : '—') },
-    { key: 'health', header: 'Health', width: 110, sortable: true, filterable: true, value: (r) => r.health, render: (r) => <Badge tone={healthTone(r.health)}>{r.health}</Badge> },
+    { key: 'health', header: 'Health', width: 110, sortable: true, filterable: true, value: (r) => r.health },
   ]
+
+  const pmTop = d.rows[0] as Row | undefined
+  const pmLinked = pmTop && ([...pmTop.cases].filter(isOpen).sort((a, b) => Date.parse(b.receivedAt) - Date.parse(a.receivedAt))[0] ?? pmTop.cases[0])
+  const pmTask = pmTop && taskFor(pmTop.atm.atmId)
+  const pmBody = (r: Row) =>
+    r.topCat === 'Power & UPS'
+      ? `${r.atm.atmId} has ${r.repl.length ? 'a recent battery replacement and ' : ''}a new power complaint. Validate charging voltage, wiring and load before accepting a new battery.`
+      : `${r.atm.atmId} has ${r.cases.length} complaint${r.cases.length === 1 ? '' : 's'} and ${r.repeats.length} repeat${r.repeats.length === 1 ? '' : 's'} on the ${COMPONENT_SHORT[r.topCat].toLowerCase()} this period. ${PM_TASK[r.topCat]} before approving another replacement.`
 
   const sel = selected ? atmById(selected) : undefined
   const selComplaints = sel ? all.filter((c) => c.atmId === sel.atmId).sort((a, b) => Date.parse(b.receivedAt) - Date.parse(a.receivedAt)) : []
@@ -231,62 +257,68 @@ export default function AssetDashboard() {
 
       <div className="mb-5 grid gap-4 lg:grid-cols-3">
         <Panel title="Downtime trend" sub="Total hours across affected ATMs · Daily">
+          <p className="mb-2 flex items-center gap-1.5 text-[11px] text-primary">
+            <span className="h-2 w-2 bg-primary" /> Downtime hours
+          </p>
           <div className="h-[200px]">
             <ResponsiveContainer>
-              <LineChart data={d.trend} margin={{ top: 16, right: 12, left: -24, bottom: 0 }}>
+              <BarChart data={d.trend} margin={{ top: 18, right: 4, left: 4, bottom: 0 }}>
                 <CartesianGrid vertical={false} stroke={CHART.grid} />
                 <XAxis dataKey="day" tick={{ fontSize: 11, fill: CHART.muted }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: CHART.muted }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
-                <Line type="monotone" dataKey="Downtime hours" stroke={CHART.navy} strokeWidth={2} dot={{ r: 3 }}>
-                  <LabelList dataKey="Downtime hours" position="top" style={{ fontSize: 10, fill: CHART.navy }} />
-                </Line>
-              </LineChart>
+                <YAxis hide />
+                <Tooltip cursor={{ fill: '#f6f8fc' }} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
+                <Bar dataKey="Downtime hours" fill={CHART.navy} radius={[3, 3, 0, 0]} maxBarSize={22}>
+                  <LabelList dataKey="Downtime hours" position="top" formatter={(v) => Math.round(Number(v))} style={{ fontSize: 11, fill: CHART.navy }} />
+                </Bar>
+              </BarChart>
             </ResponsiveContainer>
           </div>
           <p className="mt-2 text-[11px] text-muted">{Math.round(d.downtime)} hours in period · Daily total includes all incidents.</p>
         </Panel>
         <Panel title="Component replacements" sub={`${d.repl.length} replacements completed · ${shortRange(filter)}`}>
-          {d.replData.length === 0 ? (
-            <p className="text-[12px] text-muted">No replacements in this period.</p>
-          ) : (
-            <div className="h-[210px]">
-              <ResponsiveContainer>
-                <BarChart data={d.replData} layout="vertical" margin={{ top: 0, right: 28, left: 8, bottom: 0 }}>
-                  <XAxis type="number" hide allowDecimals={false} />
-                  <YAxis type="category" dataKey="name" width={112} tick={{ fontSize: 11, fill: CHART.muted }} axisLine={false} tickLine={false} />
-                  <Tooltip cursor={{ fill: '#f6f8fc' }} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
-                  <Bar dataKey="value" name="Replacements" fill={CHART.navy} radius={[0, 3, 3, 0]} maxBarSize={14}>
-                    <LabelList dataKey="value" position="right" style={{ fontSize: 11, fill: CHART.navy }} />
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          )}
+          {d.replData.length === 0 && <p className="text-[12px] text-muted">No replacements in this period.</p>}
+          {[...d.replData]
+            .sort((x, y) => y.value - x.value)
+            .slice(0, 5)
+            .map((x, _i, arr) => (
+              <BarRow key={x.name} label={x.name} value={x.value} max={arr[0].value} />
+            ))}
         </Panel>
         <Panel title="Asset health" sub={`Network snapshot · ${fmtDT(now)}`}>
-          <BarRow label={`Healthy · ${d.healthy.toLocaleString('en-IN')} assets`} value={Number(((d.healthy / NETWORK_ATM_COUNT) * 100).toFixed(1))} max={100} suffix="%" color="bg-emerald-600" />
-          <BarRow label={`Degraded · ${d.degraded} assets`} value={Number(((d.degraded / NETWORK_ATM_COUNT) * 100).toFixed(1))} max={100} suffix="%" color="bg-amber-500" />
-          <BarRow label={`Down · ${d.down} assets`} value={Number(((d.down / NETWORK_ATM_COUNT) * 100).toFixed(1))} max={100} suffix="%" color="bg-brand-red" />
-          <p className="mt-2 text-[12px] font-medium text-brand-red">{d.down} assets need restoration</p>
-          <p className="mt-1 text-[11px] text-muted">Health combines heartbeat, open faults and engineer validation. Percentages are rounded.</p>
+          <KV k="Healthy">
+            {d.healthy.toLocaleString('en-IN')} assets · {pct(d.healthy)}
+          </KV>
+          <KV k="Degraded">
+            {d.degraded} assets · {pct(d.degraded)}
+          </KV>
+          <KV k="Down">
+            {d.down} assets · {pct(d.down)}
+          </KV>
+          {d.down > 0 && <p className="mt-3 inline-block rounded bg-red-50 px-2 py-1 text-[12px] font-medium text-brand-red">{d.down} assets need restoration</p>}
+          <p className="mt-3 text-[11px] text-muted">Health combines heartbeat, open faults and engineer validation. Percentages are rounded.</p>
         </Panel>
       </div>
 
-      <div className="mb-5">
+      <GridCard
+        title="ATM health & complaint register"
+        sub={`${d.rows.filter((r) => r.health !== 'Healthy' || r.repeats.length).length} assets requiring review · Period complaints / 30-day repeats`}
+        onExport={exportRegister}
+        viewAll={d.rows.length > 6 && <ViewAll label={registerAll ? 'Show fewer' : 'View all'} onClick={() => setRegisterAll((x) => !x)} />}
+        footer={`Showing ${registerAll ? d.rows.length : Math.min(6, d.rows.length)} priority records`}
+      >
         <ExcelGrid
+          key={registerAll ? 'all' : 'top'}
           title="ATM health & complaint register"
-          countLabel={`${d.rows.filter((r) => r.health !== 'Healthy' || r.repeats.length).length} assets requiring review · Period complaints / 30-day repeats`}
-          rows={d.rows}
+          hideToolbar
+          hidePagination={!registerAll}
+          rows={registerAll ? d.rows : d.rows.slice(0, 6)}
           columns={cols}
           rowId={(r) => r.atm.atmId}
-          searchPlaceholder="Search ATM, site, city…"
           rowNumbers={false}
-          pageSize={6}
+          pageSize={registerAll ? 25 : 6}
           noun="assets"
-          exportName="atm-health-register"
         />
-      </div>
+      </GridCard>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel title="Repeat-failure watchlist" action={repeatAtms.length > 3 && <ViewAll label={showAllWatch ? 'Show fewer' : `View all ${repeatAtms.length}`} onClick={() => setShowAllWatch((s) => !s)} />}>
@@ -300,37 +332,53 @@ export default function AssetDashboard() {
                 key={r.atm.atmId}
                 title={
                   <>
-                    <LinkBtn onClick={() => setParams({ atm: r.atm.atmId })}>{r.atm.atmId}</LinkBtn> ·{' '}
+                    <button type="button" onClick={() => setParams({ atm: r.atm.atmId })} className="hover:text-primary hover:underline">
+                      {r.atm.atmId}
+                    </button>
+                    <span className="mx-1.5 text-muted">·</span>
                     <Link to={`${BASE}/${c.id}`} className="hover:text-primary">
                       {c.id}
                     </Link>{' '}
                     /{' '}
                     <Link to={`${BASE}/${prev.id}`} className="hover:text-primary">
                       {prev.id}
-                    </Link>
+                    </Link>{' '}
+                    · {watchText(c.category, days)}
                   </>
                 }
-                status={r.health}
-                tone={healthTone(r.health)}
-                meta={`${RECURRING_LABEL[c.category]} recurrence in ${days} days · ${r.atm.siteName}`}
               />
             )
           })}
         </Panel>
-        <Panel title="Preventive maintenance priorities" action={<Button size="sm" icon={<Plus size={14} />} onClick={() => setModal({ atmId: d.rows[0]?.atm.atmId ?? ATM_MASTER[0].atmId, title: '' })}>Create maintenance task</Button>}>
-          {d.rows.slice(0, 5).map((r, i) => {
-            const t = taskFor(r.atm.atmId)
-            return (
-              <Entry
-                key={r.atm.atmId}
-                title={`${i + 1}. ${r.atm.atmId} · ${PM_TASK[r.topCat]}`}
-                status={t ? `${t.id} created` : `Score ${Math.round(r.score)}`}
-                tone={t ? 'green' : i < 2 ? 'red' : 'amber'}
-                meta={`${r.cases.length} cases · ${r.repeats.length} repeats · ${fmtDur(r.downtime * 3_600_000)} downtime · ${r.atm.engineer}`}
-                action={!t && <LinkBtn onClick={() => setModal({ atmId: r.atm.atmId, title: PM_TASK[r.topCat] })}>Create task</LinkBtn>}
-              />
-            )
-          })}
+        <Panel
+          title="Preventive maintenance priorities"
+          action={<LinkBtn onClick={() => setModal({ atmId: pmTop?.atm.atmId ?? ATM_MASTER[0].atmId, title: pmTop ? PM_TASK[pmTop.topCat] : '' })}>Create maintenance task</LinkBtn>}
+        >
+          {!pmTop && <p className="text-[12px] text-muted">No assets need preventive maintenance in this period.</p>}
+          {pmTop && (
+            <>
+              <p className="text-[13px] font-semibold text-ink">{PM_HEAD[pmTop.topCat] ?? PM_TASK[pmTop.topCat]}</p>
+              <p className="mt-2 text-[13px] leading-relaxed text-ink-2">{pmBody(pmTop)}</p>
+              <p className="mt-3 text-[12px] text-primary">
+                {pmLinked && (
+                  <>
+                    <Link to={`${BASE}/${pmLinked.id}`} className="hover:underline">
+                      Linked complaint: {pmLinked.id}
+                    </Link>
+                    {' · '}
+                  </>
+                )}
+                <button type="button" onClick={() => setParams({ atm: pmTop.atm.atmId })} className="hover:underline">
+                  Engineer: {pmTop.atm.engineer}
+                </button>
+              </p>
+              {pmTask && (
+                <p className="mt-2 text-[12px] text-emerald-700">
+                  {pmTask.id} created · {pmTask.title}
+                </p>
+              )}
+            </>
+          )}
           {maint.length > 0 && <p className="mt-2 text-[12px] text-muted">{maint.length} preventive task{maint.length > 1 ? 's' : ''} created · visible in each asset record.</p>}
         </Panel>
       </div>

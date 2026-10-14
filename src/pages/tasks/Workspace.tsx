@@ -1,8 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { AlertTriangle, ArrowDownUp, ArrowRight, CalendarDays, Filter, Plus, X } from 'lucide-react'
+import { AlertTriangle, ArrowDownUp, ArrowRight, CalendarDays, Filter } from 'lucide-react'
 import { ExcelGrid, type GridColumn } from '@/components/grid/ExcelGrid'
-import { Button } from '@/components/ui/Button'
 import { toast } from '@/components/ui/Toast'
 import { cn } from '@/lib/cn'
 import {
@@ -45,8 +44,13 @@ export default function Workspace({ view }: { view: WorkspaceView }) {
   const { tasks, viewAs, routine } = tasksStore.use()
   const nav = useNavigate()
   const [params, setParams] = useSearchParams()
-  const isLead = viewAs === 'Team Leader'
-  const tab: 'my' | 'team' = isLead && params.get('tab') === 'team' ? 'team' : 'my'
+  // CRM-06: the "My Tasks" tab is the employee queue (Rahul Kumar); "Team Tasks" is the team leader queue (Priya Menon)
+  const tab: 'my' | 'team' = params.get('tab') === 'team' ? 'team' : 'my'
+  const isLead = tab === 'team'
+  useEffect(() => {
+    const want = tab === 'team' ? 'Team Leader' : 'Employee'
+    if (viewAs !== want) tasksStore.set((s) => ({ ...s, viewAs: want }))
+  }, [tab, viewAs])
   const me = isLead ? CURRENT_LEAD : CURRENT_EMPLOYEE
   const cfg = VIEWS[view]
 
@@ -54,8 +58,14 @@ export default function Workspace({ view }: { view: WorkspaceView }) {
   const [status, setStatus] = useState<TaskStatus | 'all'>('all')
   const [due, setDue] = useState<DueFilter>('any')
   const [sort, setSort] = useState<SortKey>('soonest')
-  const [creating, setCreating] = useState(false)
-  const [dismissed, setDismissed] = useState<string | null>(null)
+  // "Create Task" lives in the top bar; it opens this modal through ?create=1
+  const creating = params.get('create') === '1'
+  const setCreating = (v: boolean) => {
+    const p = new URLSearchParams(params)
+    if (v) p.set('create', '1')
+    else p.delete('create')
+    setParams(p, { replace: true })
+  }
 
   const top = tasks.filter((t) => !t.subtask)
   const mine = top.filter((t) => t.assignee === me)
@@ -67,10 +77,6 @@ export default function Workspace({ view }: { view: WorkspaceView }) {
     if (t === 'team') p.set('tab', 'team')
     else p.delete('tab')
     setParams(p, { replace: true })
-  }
-  const setViewAs = (v: 'Employee' | 'Team Leader') => {
-    tasksStore.set((s) => ({ ...s, viewAs: v }))
-    if (v === 'Employee') setTab('my')
   }
 
   const rows = useMemo(() => {
@@ -157,10 +163,10 @@ export default function Workspace({ view }: { view: WorkspaceView }) {
     { key: 'expectedOutcome', header: 'Expected Outcome', width: 300, sortable: true, filterable: true },
   ]
 
-  const daily = mine.filter((t) => t.kind === 'Daily Routine')
   const monthly = mine.filter((t) => t.kind === 'Monthly')
   const nextMonthly = monthly.filter(isOpen).sort((a, b) => slaOf(a).due - slaOf(b).due)[0]
   const routineDone = routine.filter((r) => r.done).length
+  const nextRoutine = routine.find((r) => !r.done)
   const teamUnassigned = team.filter((t) => !t.assignee).length
   const teamReview = team.filter((t) => t.status === 'Pending Approval').length
   const teamRisk = team.filter((t) => slaOf(t).remainingMin < 120).length
@@ -175,31 +181,6 @@ export default function Workspace({ view }: { view: WorkspaceView }) {
     <div className="space-y-5">
       <HeroBanner title={cfg.title} sub={cfg.sub(me.split(' ')[0])} code="CRM-06" />
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-[12px] text-muted">
-          <span className="font-semibold text-ink-2">View as</span>
-          <div role="radiogroup" aria-label="View as" className="flex rounded-lg border border-line bg-white p-0.5">
-            {(['Employee', 'Team Leader'] as const).map((v) => (
-              <button
-                key={v}
-                role="radio"
-                aria-checked={viewAs === v}
-                onClick={() => setViewAs(v)}
-                className={cn('h-8 rounded-md px-3 text-[12px] font-semibold', viewAs === v ? 'bg-primary text-white' : 'text-ink-2 hover:bg-surface')}
-              >
-                {v}
-              </button>
-            ))}
-          </div>
-          <span className="hidden sm:inline">
-            {me} · {isLead ? 'Team Leader' : 'Employee'} · Verification
-          </span>
-        </div>
-        <Button icon={<Plus size={16} />} onClick={() => setCreating(true)}>
-          Create Task
-        </Button>
-      </div>
-
       {/* Summary metrics */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Metric value={m.open} label="My open tasks" caption={`${m.assigned} assigned to you`} onClick={() => nav('/tasks/my')} />
@@ -212,13 +193,11 @@ export default function Workspace({ view }: { view: WorkspaceView }) {
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-line">
         <div role="tablist" className="flex">
           <TabBtn active={tab === 'my'} onClick={() => setTab('my')}>
-            My Tasks · {mine.filter(isOpen).length}
+            My Tasks · {top.filter((t) => t.assignee === CURRENT_EMPLOYEE && isOpen(t)).length}
           </TabBtn>
-          {isLead && (
-            <TabBtn active={tab === 'team'} onClick={() => setTab('team')}>
-              Team Tasks · {team.length}
-            </TabBtn>
-          )}
+          <TabBtn active={tab === 'team'} onClick={() => setTab('team')}>
+            Team Tasks · {team.length}
+          </TabBtn>
         </div>
         <div className="mb-2 flex flex-wrap gap-2">
           <PillSelect label="Priority" icon={<Filter size={13} />} value={priority} onChange={setPriority} options={[{ value: 'all', label: 'All priorities' }, ...PRIORITIES.map((p) => ({ value: p, label: p }))]} />
@@ -251,7 +230,7 @@ export default function Workspace({ view }: { view: WorkspaceView }) {
         </div>
       </div>
 
-      {alertTask && dismissed !== alertTask.id && (
+      {alertTask && (
         <div className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
           <AlertTriangle size={18} className="shrink-0 text-amber-600" />
           <span className="min-w-0 flex-1">
@@ -261,9 +240,6 @@ export default function Workspace({ view }: { view: WorkspaceView }) {
           <Link to={`/tasks/my/${alertTask.id}`} className="flex h-8 items-center gap-1 rounded-lg border border-line bg-white px-3 text-[12px] font-semibold text-ink hover:bg-surface">
             Open task <ArrowRight size={13} />
           </Link>
-          <button aria-label="Dismiss alert" onClick={() => setDismissed(alertTask.id)} className="text-amber-700 hover:text-amber-900">
-            <X size={16} />
-          </button>
         </div>
       )}
 
@@ -285,24 +261,16 @@ export default function Workspace({ view }: { view: WorkspaceView }) {
       {/* Queue cards */}
       <div className="grid gap-4 lg:grid-cols-3">
         <QueueCard title="Daily Routine" sub={`Today · ${routineDone} of ${routine.length} completed`} chip={`${routine.length - routineDone} remaining`} chipTone="amber" link={{ to: '/tasks/daily', label: 'Open routine' }}>
-          <ul className="space-y-1.5">
-            {routine.map((r) => (
-              <li key={r.id}>
-                <label className="flex cursor-pointer items-start gap-2 text-[13px]">
-                  <input type="checkbox" checked={r.done} onChange={() => toggleRoutine(r.id)} className="mt-0.5 accent-[#1e3f95]" />
-                  <span className={cn(r.done ? 'text-muted line-through' : 'text-ink')}>
-                    {r.time} · {r.text}
-                    {r.taskId && (
-                      <Link to={`/tasks/my/${r.taskId}`} className="ml-1 text-[11px] text-primary no-underline hover:underline">
-                        {r.taskId}
-                      </Link>
-                    )}
-                  </span>
-                </label>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-2 text-[11px] text-muted">{daily.length} daily routine tasks in your queue.</p>
+          {nextRoutine ? (
+            <label className="flex cursor-pointer items-start gap-2 text-[13px] text-ink" title="Tick when done">
+              <input type="checkbox" checked={false} onChange={() => toggleRoutine(nextRoutine.id)} className="mt-0.5 accent-[#1e3f95]" />
+              <span>
+                {nextRoutine.time} · {nextRoutine.text}
+              </span>
+            </label>
+          ) : (
+            <p className="text-[13px] text-emerald-700">All {routine.length} routine checks done for today.</p>
+          )}
         </QueueCard>
         <QueueCard title="Monthly Tasks" sub={`October · ${monthly.filter((t) => !isOpen(t)).length} of ${monthly.length} completed`} chip={`${monthly.filter(isOpen).length} scheduled`} chipTone="blue" link={{ to: '/tasks/monthly', label: 'View monthly tasks' }}>
           {nextMonthly ? (
@@ -316,18 +284,13 @@ export default function Workspace({ view }: { view: WorkspaceView }) {
         <QueueCard
           title="Team Leader overview"
           sub={`Verification · ${team.length} team tasks`}
-          chip={isLead ? 'Team access' : 'Team Leader access only'}
+          chip="Team access"
           chipTone="gray"
           link={{
             label: 'Review team queue',
             onClick: () => {
-              if (!isLead) {
-                setViewAs('Team Leader')
-                toast('Switched to Team Leader view (Priya Menon).', 'info')
-              }
-              const p = new URLSearchParams(params)
-              p.set('tab', 'team')
-              setParams(p, { replace: true })
+              if (!isLead) toast('Showing the Team Leader queue (Priya Menon).', 'info')
+              setTab('team')
             },
           }}
         >

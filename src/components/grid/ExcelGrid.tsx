@@ -50,9 +50,28 @@ type Props<T> = {
   noun?: string
   emptyState?: ReactNode
   hideToolbar?: boolean
+  /** hide the selection / scope bar even when rows are selectable */
+  hideSelectionBar?: boolean
+  /** hide the pagination row (cards that render their own footer) */
+  hidePagination?: boolean
   exportName?: string
-  footerLeft?: ReactNode
+  /** footer note; a function receives the selected row ids (e.g. "Selected: 2 notices · …") */
+  footerLeft?: ReactNode | ((selected: string[]) => ReactNode)
   footerRight?: ReactNode
+  /** which toolbar buttons to show (default: all three) */
+  toolbarButtons?: ('filters' | 'columns' | 'export')[]
+  /** custom "N rows selected" label in the selection bar */
+  selectionLabel?: (count: number) => ReactNode
+  /** muted hint right-aligned in the selection bar (alias: scopeRight) */
+  selectionHint?: ReactNode
+  /** right side of the selection/scope bar, e.g. "Supplied master-data records only" */
+  scopeRight?: ReactNode
+  /** right side of the bar while rows are selected, e.g. "Double-click a cell to edit" (falls back to scopeRight) */
+  bulkHint?: ReactNode
+  /** header of the running-number column (default "#") */
+  rowNumberLabel?: string
+  /** formula bar: save time shown as "All changes saved · <savedAt>" */
+  savedAt?: string
 }
 
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
@@ -79,10 +98,20 @@ export function ExcelGrid<T>({
   noun = 'records',
   emptyState,
   hideToolbar = false,
+  hideSelectionBar = false,
+  hidePagination = false,
   exportName,
   footerLeft,
   footerRight,
+  toolbarButtons = ['filters', 'columns', 'export'],
+  selectionLabel,
+  selectionHint,
+  scopeRight,
+  bulkHint,
+  savedAt,
+  rowNumberLabel = '#',
 }: Props<T>) {
+  const rightHint = scopeRight ?? selectionHint
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<{ key: string; dir: 'asc' | 'desc' } | null>(null)
   const [filters, setFilters] = useState<Record<string, string>>({})
@@ -182,6 +211,7 @@ export function ExcelGrid<T>({
             />
           </label>
           <div className="relative ml-auto flex items-center gap-2">
+            {toolbarButtons.includes('filters') && (
             <button
               onClick={() => setOpenFilter(openFilter ? null : cols.find((c) => c.filterable)?.key ?? null)}
               className="flex h-9 items-center gap-2 rounded-lg border border-line px-3 text-[13px] font-semibold"
@@ -191,12 +221,17 @@ export function ExcelGrid<T>({
                 <span className="rounded bg-primary px-1.5 text-[11px] text-white">{Object.values(filters).filter(Boolean).length}</span>
               )}
             </button>
-            <button onClick={() => setShowColumns((s) => !s)} className="flex h-9 items-center gap-2 rounded-lg border border-line px-3 text-[13px] font-semibold">
-              <Columns3 size={15} /> Columns
-            </button>
-            <button onClick={onExport} className="flex h-9 items-center gap-2 rounded-lg border border-line px-3 text-[13px] font-semibold">
-              <Download size={15} /> Export .xlsx
-            </button>
+            )}
+            {toolbarButtons.includes('columns') && (
+              <button onClick={() => setShowColumns((s) => !s)} className="flex h-9 items-center gap-2 rounded-lg border border-line px-3 text-[13px] font-semibold">
+                <Columns3 size={15} /> Columns
+              </button>
+            )}
+            {toolbarButtons.includes('export') && (
+              <button onClick={onExport} className="flex h-9 items-center gap-2 rounded-lg border border-line px-3 text-[13px] font-semibold">
+                <Download size={15} /> Export .xlsx
+              </button>
+            )}
             {showColumns && (
               <div className="absolute top-11 right-0 z-30 max-h-72 w-56 overflow-y-auto rounded-lg border border-line bg-white p-2 shadow-lg">
                 {columns.map((c) => (
@@ -222,7 +257,7 @@ export function ExcelGrid<T>({
         </div>
       )}
 
-      {(selectable || scope) && (
+      {!hideSelectionBar && (selectable || scope || scopeRight != null) && (
         <div className="flex flex-wrap items-center gap-4 border-b border-line bg-primary-soft/60 px-4 py-2.5 text-[12px]">
           {scope && (
             <span className="flex items-center gap-1.5 font-semibold text-primary">
@@ -232,11 +267,15 @@ export function ExcelGrid<T>({
           {selectable && (
             <>
               <span className={selected.size ? 'font-semibold text-primary' : 'text-muted'}>
-                {selected.size} {selected.size === 1 ? 'row' : 'rows'} selected
+                {selectionLabel ? selectionLabel(selected.size) : `${selected.size} ${selected.size === 1 ? 'row' : 'rows'} selected`}
               </span>
-              {selected.size > 0 ? bulkActions?.([...selected], clear) : <span className="text-muted">Select rows to access bulk actions</span>}
+              {selected.size > 0 ? bulkActions?.([...selected], clear) : !rightHint && <span className="text-muted">Select rows to access bulk actions</span>}
             </>
           )}
+          {(() => {
+            const hint = selectable && selected.size > 0 && bulkHint != null ? bulkHint : rightHint
+            return hint != null ? <span className="ml-auto text-[11px] text-muted">{hint}</span> : null
+          })()}
         </div>
       )}
 
@@ -246,7 +285,7 @@ export function ExcelGrid<T>({
           <span className="italic">fx</span>
           <span className="flex-1 truncate text-ink-2">{active ? activeValue || '(blank)' : 'No cell selected'}</span>
           <span className="flex items-center gap-1.5 text-emerald-700">
-            <CheckCircle2 size={14} /> All changes saved
+            <CheckCircle2 size={14} /> All changes saved{savedAt ? ` · ${savedAt}` : ''}
           </span>
         </div>
       )}
@@ -266,11 +305,12 @@ export function ExcelGrid<T>({
               </tr>
             )}
             <tr className="bg-surface text-left">
-              {rowNumbers && <th className="sticky left-0 z-10 w-12 border-r border-b border-line bg-surface px-3 py-3 font-semibold">#</th>}
+              {rowNumbers && <th className="sticky left-0 z-10 w-12 border-r border-b border-line bg-surface px-3 py-3 font-semibold">{rowNumberLabel}</th>}
               {selectable && (
                 <th className="sticky z-10 w-9 border-r border-b border-line bg-surface px-2.5" style={{ left: rowNumbers ? 48 : 0 }}>
                   <input
                     type="checkbox"
+                    className="accent-primary"
                     aria-label="Select all on page"
                     checked={allOnPage}
                     onChange={() =>
@@ -346,7 +386,7 @@ export function ExcelGrid<T>({
                   {rowNumbers && <td className="sticky left-0 z-[1] border-r border-b border-line-soft bg-inherit px-3 py-3 text-muted">{n}</td>}
                   {selectable && (
                     <td className="sticky z-[1] border-r border-b border-line-soft bg-inherit px-2.5" style={{ left: rowNumbers ? 48 : 0 }}>
-                      <input type="checkbox" aria-label={`Select row ${n}`} checked={isSel} onChange={() => toggleRow(id)} />
+                      <input type="checkbox" className="accent-primary" aria-label={`Select row ${n}`} checked={isSel} onChange={() => toggleRow(id)} />
                     </td>
                   )}
                   {cols.map((c) => {
@@ -421,12 +461,14 @@ export function ExcelGrid<T>({
         )}
       </div>
 
-      <div className="border-t border-line">
-        <Pagination page={current} pageSize={pageSize} total={processed.length} onPage={setPage} onPageSize={(n) => { setPageSize(n); setPage(1) }} noun={noun} />
-      </div>
+      {!hidePagination && (
+        <div className="border-t border-line">
+          <Pagination page={current} pageSize={pageSize} total={processed.length} onPage={setPage} onPageSize={(n) => { setPageSize(n); setPage(1) }} noun={noun} />
+        </div>
+      )}
       {(footerLeft || footerRight) && (
         <div className="flex flex-wrap justify-between gap-2 border-t border-line px-4 py-2.5 text-[12px] text-muted">
-          <span>{footerLeft}</span>
+          <span>{typeof footerLeft === 'function' ? footerLeft([...selected]) : footerLeft}</span>
           <span className="text-primary">{footerRight}</span>
         </div>
       )}

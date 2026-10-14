@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type InputHTMLAttributes, type ReactNode } from 'react'
-import { Check, Eye, EyeOff } from 'lucide-react'
+import { Check, CircleAlert, Eye, EyeOff } from 'lucide-react'
 import { cn } from '@/lib/cn'
 
 export function Label({ children, required, htmlFor }: { children: ReactNode; required?: boolean; htmlFor?: string }) {
@@ -43,7 +43,7 @@ export function Input({ label, required, error, hint, leading, trailing, classNa
       >
         {leading}
         <input id={fieldId} {...rest} className="h-full w-full bg-transparent text-[15px] text-ink outline-none placeholder:text-muted/70" />
-        {trailing}
+        {trailing ?? (error ? <CircleAlert size={18} className="shrink-0 text-brand-red" aria-hidden /> : null)}
       </div>
       <FieldMessage error={error} hint={hint} />
     </div>

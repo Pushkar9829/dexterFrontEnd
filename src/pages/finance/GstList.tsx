@@ -1,119 +1,111 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { BadgeIndianRupee, CircleCheck, FileText, Hourglass, MinusCircle, Pencil, Plus, ReceiptText, RotateCcw, Wallet } from 'lucide-react'
-import { ExcelGrid, type GridColumn } from '@/components/grid/ExcelGrid'
+import { Plus } from 'lucide-react'
 import { Badge, type Tone } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { PageHeader } from '@/components/ui/Card'
 import { cn } from '@/lib/cn'
-import { rupee } from '@/data/cbrSites'
-import { FIN_YEARS, FY_MONTHS, deductionsOf, gstStore, gstViewStore, numOr0, type GstRecord, type GstView } from '@/data/financeGst'
-import { Chip, rowMark, useRowNav } from './shared'
-
-type StatusChip = 'all' | 'Pending at FR End' | 'Pending at Hitachi End' | 'pay-pending' | 'pay-done' | 'unspecified'
+import { dmy, rupee } from '@/data/cbrSites'
+import { FIN_YEARS, FY_MONTHS, GST_INVOICE_STATUSES, GST_PAYMENT_STATUSES, gstStore, gstViewStore, numOr0, type GstRecord, type GstView } from '@/data/financeGst'
+import { Chip, FilterBar, PageFooter, ReportHeading, SourceNote, WrappedBands, type BandCol, type BandDef } from './shared'
 
 export function invoiceTone(s: string): Tone {
   return s === 'Pending at FR End' ? 'amber' : s === 'Pending at Hitachi End' ? 'purple' : 'gray'
 }
 
-function Kpi({ icon, label, value, caption, tone = 'text-primary' }: { icon: React.ReactNode; label: string; value: string; caption?: string; tone?: string }) {
-  return (
-    <div className="min-w-0 rounded-xl border border-line bg-white p-4">
-      <div className="flex items-center justify-between gap-2 text-[12px] text-muted">
-        <span className="truncate">{label}</span>
-        <span className={tone}>{icon}</span>
-      </div>
-      <div className="mt-2 truncate text-[20px] font-semibold text-ink">{value}</div>
-      {caption && <div className="mt-1 truncate text-[11px] text-muted">{caption}</div>}
-    </div>
-  )
-}
+const sel = 'h-10 w-full appearance-none rounded-md border border-line bg-white px-3 text-[13px] outline-none focus:border-primary disabled:bg-surface disabled:text-muted'
+
+const amount = (key: keyof GstRecord, header: string, bold = false): BandCol<GstRecord> => ({
+  key,
+  header,
+  align: 'right',
+  width: 130,
+  value: (g) => numOr0(String(g[key])),
+  render: (g) => (g[key] ? bold ? <b>{rupee(String(g[key]))}</b> : rupee(String(g[key])) : <span className="text-muted">—</span>),
+})
+
+/** 24 source columns wrapped into four bands of six (Figma 95:7894 shows band A–F). */
+const BANDS: BandDef<GstRecord>[] = [
+  {
+    title: 'Identity & reporting period',
+    columns: [
+      { key: 'sn', header: 'S.N.', width: 70, value: (g) => g.sn },
+      { key: 'franchiseeName', header: 'Franchisee Name', width: 230, filterable: true, render: (g) => (g.franchiseeName ? <span className="font-medium text-primary">{g.franchiseeName}</span> : <span className="text-muted">—</span>) },
+      { key: 'contactNo', header: 'Contact No.', width: 130 },
+      { key: 'siteId', header: 'Site ID', width: 160, filterable: true },
+      { key: 'atmId', header: 'ATM Id', width: 130, filterable: true },
+      { key: 'sapCode', header: 'SAP Code', width: 110 },
+    ],
+  },
+  {
+    title: 'Period, location & invoice',
+    columns: [
+      { key: 'fYear', header: 'F. Year', width: 90, filterable: true, value: (g) => (g.fYear ? `F.Y. ${g.fYear}` : '') },
+      { key: 'month', header: 'Month', width: 110, filterable: true },
+      { key: 'locationName', header: 'Location Name', width: 220, filterable: true },
+      { key: 'gstNumber', header: 'GST Number', width: 170, render: (g) => (g.gstNumber ? <span className="font-mono text-[12.5px]">{g.gstNumber}</span> : <span className="text-muted">—</span>) },
+      { key: 'invoiceNumber', header: 'Invoice Number', width: 150, filterable: true },
+      amount('invoiceAmount', 'Invoice Amount'),
+    ],
+  },
+  {
+    title: 'Deductions & net amount',
+    columns: [
+      amount('tds', 'TDS'),
+      amount('cashShortageDeduction', 'Cash Shortage Deduction'),
+      amount('disputeDeduction', 'Dispute Deduction'),
+      amount('chargebackDeduction', 'Charge back Deduction'),
+      amount('gstRelatedDeduction', 'GST Related Deduction'),
+      amount('netAmount', 'Net Amount'),
+    ],
+  },
+  {
+    title: 'Payment, status & remarks',
+    columns: [
+      amount('paidAmount', 'Paid Amount', true),
+      { key: 'paymentDate', header: 'Payment Date', width: 120, value: (g) => g.paymentDate, render: (g) => dmy(g.paymentDate) || <span className="text-muted">—</span> },
+      { key: 'utrNumber', header: 'UTR Number', width: 180, render: (g) => (g.utrNumber ? <span className="font-mono text-[12.5px]">{g.utrNumber}</span> : <span className="text-muted">—</span>) },
+      {
+        key: 'invoiceStatus', header: 'GST Invoice Status', width: 190, filterable: true,
+        render: (g) => (g.invoiceStatus ? <Badge tone={invoiceTone(g.invoiceStatus)}>{g.invoiceStatus}</Badge> : <span className="text-muted">—</span>),
+      },
+      {
+        key: 'paymentStatus', header: 'GST Payment Status', width: 170, filterable: true,
+        render: (g) => (g.paymentStatus ? <Badge tone={g.paymentStatus === 'Done' ? 'green' : 'amber'}>{g.paymentStatus}</Badge> : <span className="text-muted">—</span>),
+      },
+      { key: 'remark', header: 'Remark', width: 280, render: (g) => (g.remark ? <span className="block max-w-[320px] truncate" title={g.remark}>{g.remark}</span> : <span className="text-muted">—</span>) },
+    ],
+  },
+]
+
+type Status = { field: 'invoiceStatus' | 'paymentStatus'; value: string } | null
 
 export default function GstList() {
   const all = gstStore.use()
   const applied = gstViewStore.use()
   const [draft, setDraft] = useState<GstView>(applied)
-  const [chip, setChip] = useState<StatusChip>('all')
-  const onRow = useRowNav((id) => `/finance/gst/${id}`)
+  const [status, setStatus] = useState<Status>(null)
 
   const period = useMemo(
     () => all.filter((g) => g.fYear === applied.fy && (applied.mode === 'Yearly' || !applied.month || g.month === applied.month)),
     [all, applied],
   )
-
-  const counts = {
-    all: period.length,
-    'Pending at FR End': period.filter((g) => g.invoiceStatus === 'Pending at FR End').length,
-    'Pending at Hitachi End': period.filter((g) => g.invoiceStatus === 'Pending at Hitachi End').length,
-    'pay-pending': period.filter((g) => g.paymentStatus === 'Pending').length,
-    'pay-done': period.filter((g) => g.paymentStatus === 'Done').length,
-    unspecified: period.filter((g) => !g.paymentStatus && !g.invoiceStatus).length,
-  }
-
-  const rows = period.filter((g) => {
-    if (chip === 'all') return true
-    if (chip === 'pay-pending') return g.paymentStatus === 'Pending'
-    if (chip === 'pay-done') return g.paymentStatus === 'Done'
-    if (chip === 'unspecified') return !g.paymentStatus && !g.invoiceStatus
-    return g.invoiceStatus === chip
-  })
-
-  const sum = (f: (g: GstRecord) => number, xs = period) => xs.reduce((s, g) => s + f(g), 0)
-  const invoiceTotal = sum((g) => numOr0(g.invoiceAmount))
-  const dedTotal = sum(deductionsOf)
-  const paid = sum((g) => numOr0(g.paidAmount))
-  const frPending = period.filter((g) => g.invoiceStatus === 'Pending at FR End')
-  const hiPending = period.filter((g) => g.invoiceStatus === 'Pending at Hitachi End')
+  const rows = status ? period.filter((g) => g[status.field] === status.value) : period
 
   const apply = () => {
     gstViewStore.set({ ...draft, month: draft.mode === 'Yearly' ? '' : draft.month })
-    setChip('all')
+    setStatus(null)
   }
   const reset = () => {
     const d: GstView = { mode: 'Yearly', fy: '26-27', month: '' }
     setDraft(d)
     gstViewStore.set(d)
-    setChip('all')
+    setStatus(null)
   }
+  const pick = (field: 'invoiceStatus' | 'paymentStatus', value: string) =>
+    setStatus((s) => (s?.field === field && s.value === value ? null : { field, value }))
 
-  const columns: GridColumn<GstRecord>[] = [
-    { key: 'sn', header: 'S.N.', width: 60, sortable: true, value: (g) => g.sn },
-    {
-      key: 'franchiseeName', header: 'Franchisee Name', width: 230, sortable: true, filterable: true,
-      render: (g) => (
-        <Link to={`/finance/gst/${g.id}`} className="font-medium text-primary hover:underline">
-          {g.franchiseeName || '—'}
-        </Link>
-      ),
-    },
-    { key: 'contactNo', header: 'Contact No.', width: 120 },
-    { key: 'siteId', header: 'Site ID', width: 160, sortable: true, filterable: true },
-    { key: 'atmId', header: 'ATM Id', width: 130, filterable: true },
-    { key: 'sapCode', header: 'SAP Code', width: 100 },
-    { key: 'month', header: 'Month', width: 100, filterable: true, value: (g) => (g.month ? `${g.month} ${g.fYear}` : '') },
-    { key: 'invoiceNumber', header: 'Invoice Number', width: 150 },
-    { key: 'invoiceAmount', header: 'Invoice Amount', align: 'right', width: 130, sortable: true, value: (g) => numOr0(g.invoiceAmount), render: (g) => rupee(g.invoiceAmount) || <span className="text-muted">—</span> },
-    { key: 'netAmount', header: 'Net Amount', align: 'right', width: 130, sortable: true, value: (g) => numOr0(g.netAmount), render: (g) => rupee(g.netAmount) || <span className="text-muted">—</span> },
-    { key: 'paidAmount', header: 'Paid Amount', align: 'right', width: 130, sortable: true, value: (g) => numOr0(g.paidAmount), render: (g) => (g.paidAmount ? <b>{rupee(g.paidAmount)}</b> : <span className="text-muted">—</span>) },
-    {
-      key: 'invoiceStatus', header: 'GST Invoice Status', width: 190, filterable: true,
-      render: (g) => (g.invoiceStatus ? <Badge tone={invoiceTone(g.invoiceStatus)}>{g.invoiceStatus}</Badge> : <span className="text-muted">—</span>),
-    },
-    {
-      key: 'paymentStatus', header: 'GST Payment Status', width: 160, filterable: true,
-      render: (g) => (g.paymentStatus ? <Badge tone={g.paymentStatus === 'Done' ? 'green' : 'amber'}>{g.paymentStatus}</Badge> : <span className="text-muted">—</span>),
-    },
-    {
-      key: 'action', header: 'Action', label: 'Action', width: 90, value: () => '',
-      render: (g) => (
-        <Link to={`/finance/gst/${g.id}?edit=1`} className="inline-flex items-center gap-1 text-[12px] font-semibold text-primary hover:underline" aria-label={`Edit ${g.id}`}>
-          <Pencil size={13} /> Edit
-        </Link>
-      ),
-    },
-  ]
-
-  const periodLabel = applied.mode === 'Yearly' || !applied.month ? `F.Y. ${applied.fy} · All months` : `${applied.month} · F.Y. ${applied.fy}`
+  const monthLabel = applied.mode === 'Yearly' || !applied.month ? 'All months' : applied.month
 
   return (
     <div>
@@ -122,32 +114,34 @@ export default function GstList() {
         sub="View the supplied franchise GST invoice, deduction and payment fields."
         actions={
           <Link to="/finance/gst/new">
-            <Button icon={<Plus size={16} />}>New GST record</Button>
+            <Button variant="secondary" icon={<Plus size={16} />}>
+              New GST record
+            </Button>
           </Link>
         }
       />
 
-      {/* period filter bar */}
-      <div className="mb-5 flex flex-wrap items-end gap-4 rounded-xl border border-line bg-white p-4">
+      <FilterBar ctx={`${applied.mode} · F.Y. ${applied.fy}`} ctxSub={monthLabel}>
         <div>
-          <div className="mb-1.5 text-[12px] font-semibold">View by</div>
+          <div className="mb-1.5 text-[12px] text-ink-2">View by</div>
           <div className="inline-flex rounded-lg border border-line bg-surface p-0.5" role="tablist">
             {(['Yearly', 'Monthly'] as const).map((m) => (
               <button
                 key={m}
+                type="button"
                 role="tab"
                 aria-selected={draft.mode === m}
                 onClick={() => setDraft((d) => ({ ...d, mode: m, month: m === 'Yearly' ? '' : d.month || 'April' }))}
-                className={cn('h-8 rounded-md px-4 text-[13px]', draft.mode === m ? 'bg-white font-semibold text-primary shadow-sm' : 'text-ink-2')}
+                className={cn('h-9 w-24 rounded-md text-[13px]', draft.mode === m ? 'bg-primary font-semibold text-white shadow-sm' : 'text-ink-2')}
               >
                 {m}
               </button>
             ))}
           </div>
         </div>
-        <label className="block w-full sm:w-44">
-          <span className="mb-1.5 block text-[12px] font-semibold">Financial year</span>
-          <select value={draft.fy} onChange={(e) => setDraft((d) => ({ ...d, fy: e.target.value }))} className="h-9 w-full rounded-md border border-line bg-white px-3 text-[13px]">
+        <label className="block w-full sm:w-52">
+          <span className="mb-1.5 block text-[12px] text-ink-2">Financial year</span>
+          <select value={draft.fy} onChange={(e) => setDraft((d) => ({ ...d, fy: e.target.value }))} className={sel}>
             {FIN_YEARS.map((y) => (
               <option key={y} value={y}>
                 F.Y. {y}
@@ -156,14 +150,9 @@ export default function GstList() {
           </select>
         </label>
         <label className="block w-full sm:w-52">
-          <span className="mb-1.5 block text-[12px] font-semibold">Month</span>
-          <select
-            value={draft.month}
-            disabled={draft.mode === 'Yearly'}
-            onChange={(e) => setDraft((d) => ({ ...d, month: e.target.value }))}
-            className="h-9 w-full rounded-md border border-line bg-white px-3 text-[13px] disabled:bg-surface disabled:text-muted"
-          >
-            <option value="">{draft.mode === 'Yearly' ? 'All months · not filtered in Yearly view' : 'All months'}</option>
+          <span className="mb-1.5 block text-[12px] text-ink-2">Month{draft.mode === 'Yearly' && ' · not filtered in Yearly view'}</span>
+          <select value={draft.month} disabled={draft.mode === 'Yearly'} onChange={(e) => setDraft((d) => ({ ...d, month: e.target.value }))} className={sel}>
+            <option value="">All months</option>
             {FY_MONTHS.map((m) => (
               <option key={m}>{m}</option>
             ))}
@@ -171,55 +160,64 @@ export default function GstList() {
         </label>
         <div className="flex gap-2">
           <Button onClick={apply}>Apply</Button>
-          <Button variant="secondary" icon={<RotateCcw size={14} />} onClick={reset}>
+          <Button variant="secondary" onClick={reset}>
             Reset
           </Button>
         </div>
-        <span className="ml-auto text-[12px] text-muted">
-          Showing <b className="text-ink">{applied.mode}</b> · {periodLabel}
-        </span>
+      </FilterBar>
+
+      <ReportHeading
+        title={`Franchise GST BILL Status F.Y. ${applied.fy}`}
+        sub={`24 labeled source columns · ${period.length} records · ${monthLabel} · Status reference entries supplied`}
+        right="Wrapped column view · All fields visible in four bands"
+      />
+
+      <WrappedBands
+        bands={BANDS}
+        rows={rows}
+        rowId={(g) => g.id}
+        onOpen={(id) => `/finance/gst/${id}`}
+        title="GST source fields"
+        label={status ? `${rows.length} of ${period.length} records · ${status.value}` : `${rows.length} records`}
+        searchPlaceholder="Search report fields"
+        noun="records"
+        exportName={`gst-bill-status-fy-${applied.fy}`}
+        emptyState="No GST records for this period and status."
+      />
+
+      <section className="mt-5 rounded-xl border border-line bg-white px-4 py-4">
+        <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h3 className="text-[14px] font-semibold">Source status entries</h3>
+          <span className="text-[12px] text-muted">Reference options · Click an entry to filter the bands</span>
+          {status && (
+            <button type="button" onClick={() => setStatus(null)} className="ml-auto text-[12px] font-semibold text-primary hover:underline">
+              Clear status filter
+            </button>
+          )}
+        </div>
+        {([
+          ['invoiceStatus', 'GST Invoice Status', GST_INVOICE_STATUSES],
+          ['paymentStatus', 'GST Payment Status', GST_PAYMENT_STATUSES],
+        ] as const).map(([field, label, opts]) => (
+          <div key={field} className="flex flex-wrap items-center gap-3 py-1.5">
+            <span className="w-44 text-[12px] font-semibold">{label}</span>
+            {opts.map((o) => (
+              <Chip key={o} active={status?.field === field && status.value === o} onClick={() => pick(field, o)} count={period.filter((g) => g[field] === o).length}>
+                {o}
+              </Chip>
+            ))}
+          </div>
+        ))}
+      </section>
+
+      <div className="mt-5">
+        <SourceNote title="Source format preserved">
+          All labeled headers from the supplied image are retained in source order. The four bands continue the same record rows. Blank cells are shown as —;
+          no values or totals are inferred where the source leaves them unspecified.
+        </SourceNote>
       </div>
 
-      <h2 className="mb-3 text-[18px] font-semibold tracking-tight">Franchise GST BILL Status F.Y. {applied.fy}</h2>
-
-      <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-        <Kpi icon={<FileText size={16} />} label="Invoices" value={String(period.length)} caption={periodLabel} />
-        <Kpi icon={<ReceiptText size={16} />} label="Invoice total" value={rupee(invoiceTotal) || '₹ 0'} caption="Incl. GST" />
-        <Kpi icon={<MinusCircle size={16} />} label="Deductions total" value={rupee(dedTotal) || '₹ 0'} caption="TDS, shortage, dispute, charge back, GST" tone="text-brand-red" />
-        <Kpi icon={<Wallet size={16} />} label="Paid" value={rupee(paid) || '₹ 0'} caption={`${counts['pay-done']} payments done`} tone="text-emerald-600" />
-        <Kpi icon={<Hourglass size={16} />} label="Pending at FR End" value={String(frPending.length)} caption={rupee(sum((g) => numOr0(g.invoiceAmount), frPending)) || '₹ 0'} tone="text-amber-600" />
-        <Kpi icon={<BadgeIndianRupee size={16} />} label="Pending at Hitachi End" value={String(hiPending.length)} caption={rupee(sum((g) => numOr0(g.invoiceAmount), hiPending)) || '₹ 0'} tone="text-violet-600" />
-      </div>
-
-      <div className="mb-3 flex gap-2 overflow-x-auto pb-1 scroll-thin">
-        <Chip active={chip === 'all'} onClick={() => setChip('all')} count={counts.all}>All records</Chip>
-        <Chip active={chip === 'Pending at FR End'} onClick={() => setChip('Pending at FR End')} count={counts['Pending at FR End']}>Pending at FR End</Chip>
-        <Chip active={chip === 'Pending at Hitachi End'} onClick={() => setChip('Pending at Hitachi End')} count={counts['Pending at Hitachi End']}>Pending at Hitachi End</Chip>
-        <Chip active={chip === 'pay-pending'} onClick={() => setChip('pay-pending')} count={counts['pay-pending']}>Payment Pending</Chip>
-        <Chip active={chip === 'pay-done'} onClick={() => setChip('pay-done')} count={counts['pay-done']}>
-          <CircleCheck size={13} /> Payment Done
-        </Chip>
-        <Chip active={chip === 'unspecified'} onClick={() => setChip('unspecified')} count={counts.unspecified}>Status unspecified</Chip>
-      </div>
-
-      <div onClick={onRow}>
-        <ExcelGrid
-          title="GST source fields"
-          countLabel={`${rows.length} of ${period.length} records`}
-          rows={rows}
-          columns={columns}
-          rowId={(g) => g.id}
-          rowNumbers={false}
-          letters
-          searchPlaceholder="Search report fields"
-          noun="records"
-          exportName={`gst-bill-status-fy-${applied.fy}`}
-          rowClassName={(g) => rowMark(g.id)}
-          emptyState="No GST records for this period and status."
-          footerLeft="Click a row to open the GST record · Exports are recorded in the audit trail."
-          footerRight={`${period.length} records · F.Y. ${applied.fy}`}
-        />
-      </div>
+      <PageFooter left="Reports respect your workspace permissions. Exports are recorded in the audit trail." right={`GST source format · ${period.length} records`} />
     </div>
   )
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
-import { ArrowLeft, ChevronLeft, ChevronRight, CircleCheck, CircleX, Download, Pencil, Printer, Save, Search, Table2 } from 'lucide-react'
+import { ArrowLeft, ChevronLeft, ChevronRight, CircleX, Info, Download, Pencil, Printer, Search, Table2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { toast } from '@/components/ui/Toast'
 import { downloadCsv } from '@/lib/export'
@@ -174,7 +174,7 @@ export default function DailyCbrPage() {
                 <Button variant="secondary" onClick={() => { setEditing(false); setDraft(null) }}>
                   Cancel
                 </Button>
-                <Button variant="bright" icon={<Save size={16} />} onClick={save}>
+                <Button onClick={save}>
                   Save
                 </Button>
               </>
@@ -209,18 +209,22 @@ export default function DailyCbrPage() {
 
       <div
         className={cn(
-          'mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border px-4 py-3 text-[12.5px]',
-          rec.diff === 0 ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-red-200 bg-red-50 text-red-800',
+          'mt-4 flex items-start gap-3 rounded-xl px-4 py-3.5 text-[12px]',
+          rec.diff === 0 ? 'bg-primary-soft/60 text-ink-2' : 'border border-red-200 bg-red-50 text-red-800',
         )}
       >
-        {rec.diff === 0 ? <CircleCheck size={16} /> : <CircleX size={16} />}
-        <span className="font-semibold">{rec.diff === 0 ? 'Balanced' : `Difference ₹ ${grp(rec.diff)}`}</span>
-        <span className="min-w-0">
-          Opening {grp(amountOf(d.groups.opening))} − Dispensed {grp(amountOf(d.groups.dispensed))} − Purge {grp(amountOf(d.groups.purge))} + Replenishment{' '}
-          {grp(amountOf(d.groups.replenishment))} + Overage {grp(amountOf(d.groups.overage))} − Shortage {grp(amountOf(d.groups.shortage))} = <b>{grp(rec.expected)}</b> vs Closing{' '}
-          <b>{grp(rec.closing)}</b>
-        </span>
-        {editing && <span className="ml-auto text-[11px] opacity-80">Updates live as you edit</span>}
+        {rec.diff === 0 ? <Info size={16} className="mt-0.5 shrink-0 text-primary" /> : <CircleX size={16} className="mt-0.5 shrink-0" />}
+        <div className="min-w-0">
+          <div className={cn('font-semibold', rec.diff === 0 ? 'text-primary' : '')}>
+            Daily CBR detail · {rec.diff === 0 ? 'Reconciled to the consolidated record' : `Not reconciled · difference ₹ ${grp(rec.diff)}`}
+          </div>
+          <div className="mt-0.5">
+            Opening {grp(amountOf(d.groups.opening))} − Dispensed {grp(amountOf(d.groups.dispensed))} − Purge {grp(amountOf(d.groups.purge))} + Replenishment{' '}
+            {grp(amountOf(d.groups.replenishment))} + Overage {grp(amountOf(d.groups.overage))} − Shortage {grp(amountOf(d.groups.shortage))} = <b>{grp(rec.expected)}</b> vs Closing{' '}
+            <b>{grp(rec.closing)}</b>
+            {editing && ' · Updates live as you edit'}
+          </div>
+        </div>
       </div>
 
       <section className="print-sheet mt-4 overflow-hidden rounded-xl border border-line bg-white">
@@ -228,12 +232,12 @@ export default function DailyCbrPage() {
           <div>
             <h2 className="text-[18px] font-semibold tracking-tight">MONEY SPOT ATM DAILY CBR</h2>
             <p className="mt-0.5 text-[12px] text-muted">
-              {site.siteId} · {d.atmId} · {dmy(d.date)}
+              Daily detail report · All cash movement and balance fields retained · {d.atmId} · {dmy(d.date)}
               {d.updatedBy && ` · Edited by ${d.updatedBy}`}
             </p>
           </div>
           <span className={cn('rounded-md px-2.5 py-1 text-[11px] font-semibold', editing ? 'bg-amber-50 text-amber-700' : 'bg-primary-soft text-primary')}>
-            {editing ? 'Editing · Qty cells are editable' : 'Amount = Deno × Qty'}
+            {editing ? 'Editing · Qty cells are editable' : 'Source values preserved'}
           </span>
         </div>
 
@@ -267,7 +271,7 @@ export default function DailyCbrPage() {
             <input value={deno} onChange={(e) => setDeno(e.target.value.replace(/\D/g, ''))} placeholder="Search denomination" className="w-full bg-transparent text-ink outline-none placeholder:text-muted" />
           </label>
           <Button variant="secondary" size="sm" className="ml-auto" icon={<Download size={14} />} onClick={exportCsv}>
-            Export .csv
+            Export .xlsx
           </Button>
         </div>
 
@@ -303,12 +307,18 @@ export default function DailyCbrPage() {
               ) : d.remarks ? (
                 <p className="text-ink">{d.remarks}</p>
               ) : (
-                <p className="text-muted">— No remarks for ATM Sr. No. {d.srNo}.</p>
+                <>
+                  <p className="text-ink">—</p>
+                  <p className="mt-1 text-[12px] text-muted">No remarks supplied for ATM Sr. No. {d.srNo}.</p>
+                </>
               )}
-              <div className="mt-5 font-semibold">Reading this report</div>
+              <div className="mt-5 font-semibold">Reading this supplied report</div>
               <p className="mt-1.5 text-[12px] text-muted">
-                Qty and Amount are shown separately for each balance group; Amount = Deno × Qty and the Total row is calculated. “—” denotes a blank cell, not zero. Switch counter
-                is the host's expected balance (it does not know about overage / shortage found at EOD count).
+                Qty and Amount are shown separately for each balance group. Deno repeats across bands for continuity; these are not additional ATM records.
+              </p>
+              <p className="mt-2 text-[12px] text-muted">
+                — denotes a blank source cell, not zero. Amount = Deno × Qty and the Total row is calculated. Switch counter is the host's expected balance (it does not know
+                about overage / shortage found at EOD count).
               </p>
             </div>
           </div>
@@ -318,6 +328,12 @@ export default function DailyCbrPage() {
           <span className="text-primary">Totals calculated from denomination quantities</span>
         </div>
       </section>
+      <div className="no-print mt-5 flex flex-wrap justify-between gap-2 text-[11px] text-muted">
+        <span>
+          Daily CBR detail · Opening total {grp(amountOf(d.groups.opening))} · Closing total {grp(amountOf(d.groups.closing))}
+        </span>
+        <span>Site-level report · {site.siteId}</span>
+      </div>
     </div>
   )
 }

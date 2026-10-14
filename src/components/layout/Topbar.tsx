@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Bell, ChevronDown, ChevronRight, LogOut, Menu, PanelLeft, Search } from 'lucide-react'
+import { Plus, Bell, ChevronDown, ChevronRight, LogOut, Menu, PanelLeft, Search } from 'lucide-react'
 import { trailFor } from '@/data/nav'
 import { getSession, signOut, DEMO_USER } from '@/lib/auth'
 
@@ -39,14 +39,22 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
       </nav>
 
       <div className="ml-auto flex items-center gap-4">
-        <label className="hidden h-9 w-[264px] items-center gap-2 rounded-lg border border-line px-3 text-[13px] text-muted md:flex">
+        {pathname.startsWith('/tasks/') && (
+          <button
+            onClick={() => navigate(/^\/tasks\/(my|today|daily|monthly|overdue|blocked|approval-pending)$/.test(pathname) ? `${pathname}?create=1` : '/tasks/my?create=1')}
+            className="hidden h-9 shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-[13px] font-semibold text-white hover:bg-primary-hover sm:flex"
+          >
+            <Plus size={16} /> Create Task
+          </button>
+        )}
+        <label className="hidden h-9 w-[262px] items-center gap-2.5 rounded-lg border border-line-soft bg-surface px-3 text-[13px] text-muted md:flex">
           <Search size={16} />
           <input
             ref={searchRef}
             placeholder="Search across workspace"
             className="w-full bg-transparent text-ink outline-none placeholder:text-muted"
           />
-          <span className="text-[11px] whitespace-nowrap">⌘ K</span>
+          <span className="text-[10px] whitespace-nowrap">⌘ K</span>
         </label>
         <button className="relative text-ink-2" aria-label="Notifications" onClick={() => navigate('/notices')}>
           <Bell size={20} />
@@ -55,14 +63,14 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
         <div className="hidden h-8 w-px bg-line sm:block" />
         <div className="relative">
           <button onClick={() => setMenu((m) => !m)} className="flex items-center gap-2.5">
-            <span className="grid h-9 w-9 place-items-center rounded-full bg-primary-soft text-[13px] font-semibold text-primary">
+            <span className="grid h-9 w-9 place-items-center rounded-full bg-primary-soft text-[13px] font-medium text-primary">
               {user.initials}
             </span>
             <span className="hidden text-left leading-tight sm:block">
               <span className="block text-[13px] font-semibold">{user.name}</span>
               <span className="block text-[11px] text-muted">{user.role}</span>
             </span>
-            <ChevronDown size={16} className="text-muted" />
+            <ChevronDown size={20} strokeWidth={1.4} className="text-muted" />
           </button>
           {menu && (
             <div className="absolute right-0 mt-2 w-44 rounded-lg border border-line bg-white py-1 shadow-lg">

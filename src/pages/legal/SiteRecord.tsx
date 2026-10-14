@@ -1,5 +1,5 @@
 import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowRight, BellRing, Building2, Download, FileText, History, MapPin, ShieldCheck } from 'lucide-react'
+import { ArrowRight, ArrowUpRight, Building2, Download, ExternalLink, FileText, History, Link2, MapPin } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { toast } from '@/components/ui/Toast'
@@ -10,7 +10,7 @@ import {
   type LegalDoc, type LegalSite, type LegalState,
 } from '@/data/legal'
 import { useProjects } from '@/data/projects'
-import { BackLink, Fact, Monogram, Note, StatusBadge, Tabs } from './ui'
+import { BackLink, Fact, Monogram, StatusBadge, Tabs } from './ui'
 
 const TABS = ['Legal summary', 'Site information', 'Franchise details', 'Documents'] as const
 type Tab = (typeof TABS)[number]
@@ -50,7 +50,7 @@ export default function SiteRecord() {
           <Button variant="secondary" icon={<Download size={16} />} onClick={exportSummary}>
             Export summary
           </Button>
-          <Button icon={<MapPin size={16} />} onClick={() => setTab('Site information')}>
+          <Button icon={<ExternalLink size={16} />} onClick={() => setTab('Site information')}>
             View site details
           </Button>
         </div>
@@ -87,6 +87,7 @@ export default function SiteRecord() {
 
 function Summary({ state, site, docs }: { state: LegalState; site: LegalSite; docs: LegalDoc[] }) {
   const r = readiness(state, site.id)
+  const required = docs.filter((d) => DOC_META[d.kind].required)
   const pending = docs.filter((d) => d.status === 'Action Required' || d.status === 'Resubmission Required')
   const latest = eventsForSite(state, site.id)[0]
   const latestDoc = latest && docs.find((d) => d.id === latest.ref)
@@ -97,76 +98,75 @@ function Summary({ state, site, docs }: { state: LegalState; site: LegalSite; do
   }
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
-      <div className="min-w-0 space-y-5">
+    <div>
+      <div className="grid gap-5 lg:grid-cols-[300px_minmax(0,1fr)]">
         <Card className="p-5">
-          <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
-            <div>
-              <div className="text-[11px] font-semibold tracking-wider text-muted">LEGAL READINESS</div>
-              <div className="mt-2 text-[24px] font-semibold">
-                {r.approved} of {r.total} approved
-              </div>
-              <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface">
-                <div className={cn('h-full rounded-full', r.cleared ? 'bg-accent-green' : 'bg-primary')} style={{ width: `${(r.approved / Math.max(1, r.total)) * 100}%` }} />
-              </div>
-              <p className="mt-2 text-[12px] text-muted">
-                {r.cleared
-                  ? 'All required documents approved · Site legally cleared'
-                  : `${loi?.status === 'Approved' ? 'LOI complete' : 'LOI pending'} · ${r.needAction} document${r.needAction === 1 ? '' : 's'} need action`}
-              </p>
-            </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <Fact label="Mapped ATM ID">{site.atmId || 'Not mapped'}</Fact>
-              <Fact label="Franchise ID">
-                <Link to={`/franchise/master-data/${site.franchiseId}`} className="text-primary hover:underline">
-                  {site.franchiseId}
-                </Link>
-              </Fact>
-              <Fact label="Franchise tier">
-                {site.tier} · {site.atms} ATMs
-              </Fact>
-              <p className="text-[12px] text-muted sm:col-span-3">
-                {site.atmMappedOn
-                  ? `ATM mapped on ${fmtDate(site.atmMappedOn)}. ${r.cleared ? 'Legal clearance is complete.' : 'Legal clearance is still pending.'}`
-                  : 'No ATM mapped to this site yet.'}
-              </p>
-            </div>
+          <div className="text-[12px] tracking-wide text-muted">LEGAL READINESS</div>
+          <div className="mt-2 text-[30px] font-semibold tracking-tight">
+            {r.approved} of {r.total} approved
           </div>
+          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-surface">
+            <div className="h-full rounded-full bg-accent-green" style={{ width: `${(r.approved / Math.max(1, r.total)) * 100}%` }} />
+          </div>
+          <p className="mt-3 text-[12px] text-muted">
+            {r.cleared
+              ? 'All required documents approved · Site legally cleared'
+              : `${loi?.status === 'Approved' ? 'LOI complete' : 'LOI pending'} · ${r.needAction} document${r.needAction === 1 ? '' : 's'} need action`}
+          </p>
         </Card>
-
-        <Card>
-          <CardHeader title="Legal documents" icon={<FileText size={18} />} sub={`${r.total} required documents · Latest versions`} />
-          <div className="grid gap-3 px-5 pb-5 md:grid-cols-2 2xl:grid-cols-4">
-            {docs.map((d) => (
-              <DocCard key={d.id} doc={d} siteId={site.id} />
-            ))}
+        <Card className="p-5">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+            <Fact label="Mapped ATM ID">{site.atmId || 'Not mapped'}</Fact>
+            <Fact label="Franchise ID">
+              <Link to={`/franchise/master-data/${site.franchiseId}`} className="hover:text-primary hover:underline">
+                {site.franchiseId}
+              </Link>
+            </Fact>
+            <Fact label="Franchise tier">
+              {site.tier} · {site.atms} ATMs
+            </Fact>
           </div>
+          <p className={cn('mt-5 flex items-center gap-2 text-[13px]', site.atmMappedOn ? 'text-emerald-700' : 'text-muted')}>
+            <Link2 size={15} className="shrink-0" />
+            {site.atmMappedOn
+              ? `ATM mapped on ${fmtDate(site.atmMappedOn)}. ${r.cleared ? 'Legal clearance is complete.' : 'Legal clearance is still pending.'}`
+              : 'No ATM mapped to this site yet.'}
+          </p>
         </Card>
       </div>
 
-      <div className="space-y-5">
-        <Card className="p-5">
-          <h3 className="text-[15px] font-semibold">Pending with the franchisee</h3>
+      <div className="mt-6 mb-3 flex flex-wrap items-baseline justify-between gap-2">
+        <h3 className="text-[17px] font-semibold">Legal documents</h3>
+        <span className="text-[12px] text-muted">{r.total} required documents · Latest versions</span>
+      </div>
+      <div className="grid gap-4 md:grid-cols-3">
+        {required.map((d) => (
+          <DocCard key={d.id} doc={d} siteId={site.id} />
+        ))}
+      </div>
+
+      <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+        <div className={cn('rounded-xl p-5', pending.length ? 'bg-amber-50' : 'border border-line bg-white')}>
+          <h3 className={cn('text-[15px] font-semibold', pending.length ? 'text-amber-800' : 'text-ink')}>Pending with the franchisee</h3>
           {pending.length ? (
             <>
-              <ol className="mt-3 space-y-2 text-[13px] text-ink-2">
+              <ol className="mt-3 space-y-2.5 text-[13px] text-amber-700">
                 {pending.map((d, i) => (
-                  <li key={d.id} className="flex gap-2">
-                    <span className="font-semibold text-ink">{i + 1}.</span>
-                    <Link to={`/legal/${site.id}/documents/${d.id}`} className="hover:text-primary">
-                      {pendingLine(d)}
+                  <li key={d.id}>
+                    <Link to={`/legal/${site.id}/documents/${d.id}`} className="hover:underline">
+                      {i + 1}. {pendingLine(d)}
                     </Link>
                   </li>
                 ))}
               </ol>
-              <button onClick={remind} className="mt-4 inline-flex items-center gap-1.5 text-[13px] font-semibold text-primary hover:underline">
-                <BellRing size={14} /> Send reminder to {site.signatory} <ArrowRight size={14} />
+              <button onClick={remind} className="mt-3 inline-flex items-center gap-1 text-[13px] font-semibold text-primary hover:underline">
+                Send reminder to {site.signatory} <ArrowRight size={14} />
               </button>
             </>
           ) : (
             <p className="mt-3 text-[13px] text-muted">Nothing is pending with {site.signatory}.</p>
           )}
-        </Card>
+        </div>
 
         <Card className="p-5">
           <h3 className="text-[15px] font-semibold">Latest legal activity</h3>
@@ -175,11 +175,11 @@ function Summary({ state, site, docs }: { state: LegalState; site: LegalSite; do
               <p className="mt-3 text-[13px] text-ink">
                 {latest.actor} {latest.event === 'Reminder sent' ? 'sent a reminder for' : latest.event.toLowerCase()} {latestDoc ? `${DOC_META[latestDoc.kind].short} ${latest.version}` : latest.context}.
               </p>
-              <p className="mt-1 text-[12px] text-muted">
+              <p className="mt-2 text-[12px] text-muted">
                 {fmtDateTime(latest.at)} · {latest.source === 'Mobile app' ? 'Franchisee mobile app' : 'Operator workspace'}
               </p>
               {latestDoc && (
-                <Link to={`/legal/${site.id}/documents/${latestDoc.id}/audit`} className="mt-3 inline-flex items-center gap-1 text-[13px] font-semibold text-primary hover:underline">
+                <Link to={`/legal/${site.id}/documents/${latestDoc.id}/audit`} className="mt-2 inline-flex items-center gap-1 text-[13px] font-semibold text-primary hover:underline">
                   View document audit history <ArrowRight size={14} />
                 </Link>
               )}
@@ -188,12 +188,11 @@ function Summary({ state, site, docs }: { state: LegalState; site: LegalSite; do
             <p className="mt-3 text-[13px] text-muted">No activity recorded.</p>
           )}
         </Card>
+      </div>
 
-        <Note>
-          <ShieldCheck size={15} className="mb-1 text-primary" />
-          Site clearance requires approved LOI, Affidavit and Agreement. ATM mapping does not imply legal approval.
-          <div className="mt-1 text-muted">All dates in IST</div>
-        </Note>
+      <div className="mt-4 flex flex-wrap justify-between gap-2 text-[11px] text-muted">
+        <span>Site clearance requires approved LOI, Affidavit and Agreement. ATM mapping does not imply legal approval.</span>
+        <span>All dates in IST</span>
       </div>
     </div>
   )
@@ -202,24 +201,22 @@ function Summary({ state, site, docs }: { state: LegalState; site: LegalSite; do
 function DocCard({ doc, siteId }: { doc: LegalDoc; siteId: string }) {
   const m = DOC_META[doc.kind]
   return (
-    <div className="flex flex-col rounded-xl border border-line p-4">
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <div className="text-[14px] font-semibold">{m.title}</div>
-          <div className="text-[12px] text-muted">
-            {doc.version}
-            {!m.required && ' · Optional'}
-          </div>
-        </div>
+    <div className="flex flex-col rounded-xl border border-line bg-white p-5">
+      <div className="flex items-center gap-3">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary">
+          <FileText size={17} />
+        </span>
+        <span className="min-w-0 flex-1 text-[15px] font-semibold">{m.title}</span>
+        <span className="text-[12px] text-muted">{doc.version}</span>
+      </div>
+      <div className="mt-3">
         <StatusBadge status={doc.status} />
       </div>
-      <p className="mt-3 flex-1 text-[12px] text-ink-2">{cardNote(doc)}</p>
-      <div className="mt-3 flex items-center justify-between border-t border-line-soft pt-3 text-[12px]">
-        <span className="text-muted">{doc.id}</span>
-        <Link to={`/legal/${siteId}/documents/${doc.id}`} className="inline-flex items-center gap-1 font-semibold text-primary hover:underline">
-          Open document <ArrowRight size={13} />
-        </Link>
-      </div>
+      <p className="mt-3 flex-1 text-[13px] text-ink-2">{cardNote(doc)}</p>
+      <div className="mt-3 text-[12px] text-muted">{doc.id}</div>
+      <Link to={`/legal/${siteId}/documents/${doc.id}`} className="mt-3 flex items-center justify-between border-t border-line pt-3 text-[13px] font-semibold text-primary hover:underline">
+        Open document <ArrowUpRight size={15} />
+      </Link>
     </div>
   )
 }

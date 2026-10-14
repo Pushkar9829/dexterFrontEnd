@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Search, Table2 } from 'lucide-react'
+import { Search } from 'lucide-react'
 import { ExcelGrid, type GridColumn } from '@/components/grid/ExcelGrid'
-import { Badge, type Tone } from '@/components/ui/Badge'
+import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { toast } from '@/components/ui/Toast'
 import { downloadCsv } from '@/lib/export'
@@ -26,7 +26,7 @@ import {
   type CTask,
 } from '@/data/complaints'
 import { recStore } from '@/data/complaintsAi'
-import { ComplaintsShell, Entry, KV, LinkBtn, Panel, ViewAll, BASE, priorityTone, useNow } from './shared'
+import { ComplaintsShell, Entry, GridCard, KV, LinkBtn, Panel, ViewAll, BASE, priorityTone, useNow } from './shared'
 import { AddActionModal, AssignOwnerModal, ComposeEmailModal, EditDetailsModal, EscalateModal, ResolutionModal, ScheduleVisitModal } from './Complaint360Modals'
 
 const H = 3_600_000
@@ -53,7 +53,6 @@ const FAULT: Record<string, string> = {
   'Software & EJ': 'software fault',
 }
 const minLabel = (m: number) => (m >= 60 ? `${m / 60}h` : `${m}m`)
-const taskTone = (s: string): Tone => (s === 'Overdue' ? 'red' : s === 'Due today' ? 'amber' : s === 'Completed' ? 'green' : 'blue')
 
 function Finder() {
   const all = complaintStore.use()
@@ -167,8 +166,22 @@ export default function Complaint360() {
     { key: 'owner', header: 'Owner', width: 130 },
     { key: 'due', header: 'Due date', width: 120, value: (t) => fmtDT(t.due) },
     { key: 'dependency', header: 'Dependency', width: 120 },
-    { key: 'status', header: 'Status', width: 110, value: (t) => taskStatus(t, now), render: (t) => <Badge tone={taskTone(taskStatus(t, now))}>{taskStatus(t, now)}</Badge> },
-    { key: 'act', header: 'Action', width: 100, value: () => '', render: (t) => (t.done ? <span className="text-muted">—</span> : <LinkBtn onClick={() => markTask(t)}>Mark done</LinkBtn>) },
+    {
+      key: 'status',
+      header: 'Status',
+      width: 150,
+      value: (t) => taskStatus(t, now),
+      render: (t) => (
+        <span className="flex items-center gap-2">
+          {taskStatus(t, now)}
+          {!t.done && (
+            <button type="button" onClick={() => markTask(t)} className="ml-auto text-[11px] font-medium text-primary hover:underline">
+              Mark done
+            </button>
+          )}
+        </span>
+      ),
+    },
   ]
 
   const exportOne = () =>
@@ -225,8 +238,8 @@ export default function Complaint360() {
         </div>
       </section>
 
-      <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg bg-primary-soft px-3 py-2.5 text-[12px] text-primary">
-        <nav aria-label="On this page" className="min-w-0 flex-1">
+      <div className="mb-4 rounded-lg bg-primary-soft px-3 py-2.5 text-[12px] text-primary">
+        <nav aria-label="On this page" className="min-w-0">
           On this page:{' '}
           {ANCHORS.map(([label, id], i) => (
             <span key={label}>
@@ -237,7 +250,6 @@ export default function Complaint360() {
             </span>
           ))}
         </nav>
-        <Finder />
       </div>
 
       {/* Context */}
@@ -349,19 +361,17 @@ export default function Complaint360() {
       )}
 
       {/* Tasks */}
-      <section id="c360-tasks" className="mb-4 scroll-mt-4 overflow-hidden rounded-xl border border-line bg-white">
-        <div className="flex flex-wrap items-center gap-3 px-5 py-4">
-          <Table2 size={18} className="text-primary" />
-          <h3 className="text-[15px] font-semibold">Tasks</h3>
-          <span className="text-[12px] text-muted">
-            {c.tasks.length} linked task{c.tasks.length === 1 ? '' : 's'} · {overdue} overdue
-          </span>
-          <div className="ml-auto">
-            <ViewAll to="/tasks/my" />
-          </div>
-        </div>
-        <ExcelGrid title="Tasks" hideToolbar rowNumbers={false} rows={[...c.tasks].sort((a, b) => Date.parse(a.due) - Date.parse(b.due))} columns={taskCols} rowId={(t) => t.id} pageSize={5} noun="tasks" emptyState="No linked tasks. Use Add action to create one." />
-      </section>
+      <GridCard
+        id="c360-tasks"
+        className="mb-4"
+        title="Tasks"
+        sub={`${c.tasks.length} linked task${c.tasks.length === 1 ? '' : 's'} · ${overdue} overdue`}
+        onExport={() => downloadCsv(`${c.id}-tasks`, ['Task ID', 'Task / next action', 'Owner', 'Due date', 'Dependency', 'Status'], c.tasks.map((t) => [t.id, t.title, t.owner, fmtDT(t.due), t.dependency, taskStatus(t, now)]))}
+        viewAll={<ViewAll to="/tasks/my" />}
+        footer={`Showing ${Math.min(5, c.tasks.length)} priority record${c.tasks.length === 1 ? '' : 's'}`}
+      >
+        <ExcelGrid title="Tasks" hideToolbar hidePagination={c.tasks.length <= 5} rowNumbers={false} rows={[...c.tasks].sort((a, b) => Date.parse(a.due) - Date.parse(b.due))} columns={taskCols} rowId={(t) => t.id} pageSize={5} noun="tasks" emptyState="No linked tasks. Use Add action to create one." />
+      </GridCard>
 
       <div id="c360-emails" className="mb-4 grid scroll-mt-4 gap-4 lg:grid-cols-2">
         <Panel title="Emails" action={<LinkBtn onClick={() => setModal('email')}>Compose email</LinkBtn>}>

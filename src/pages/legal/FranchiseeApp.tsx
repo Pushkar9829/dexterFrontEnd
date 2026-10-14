@@ -1,7 +1,7 @@
 import { useRef, useState, type ReactNode } from 'react'
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
-  AlertTriangle, ArrowLeft, Bell, CheckCircle2, ChevronDown, ChevronRight, Clock3, Download, FileText, Files, HelpCircle, House, Lock, Mail, Phone, Send, UploadCloud, UserRound, X,
+  AlertCircle, AlertTriangle, ArrowLeft, CalendarClock, CheckCircle2, ChevronDown, ChevronRight, Download, FileText, Files, HelpCircle, House, Lock, Mail, Phone, Send, Upload, UploadCloud, UserRound, X,
 } from 'lucide-react'
 import { toast } from '@/components/ui/Toast'
 import { cn } from '@/lib/cn'
@@ -61,31 +61,25 @@ export default function FranchiseeApp() {
       </div>
 
       <div className="flex justify-center">
-        <div className="w-full max-w-[390px] rounded-[44px] bg-navy-900 p-2.5 shadow-2xl">
-          <div className="relative flex h-[min(820px,calc(100vh-170px))] min-h-[640px] flex-col overflow-hidden rounded-[36px] bg-surface">
-            {/* status bar */}
-            <div className="flex h-9 shrink-0 items-center justify-between bg-white px-6 text-[11px] font-semibold">
-              <span>9:41</span>
-              <span className="h-5 w-24 rounded-full bg-navy-900" />
-              <span>5G ▮▮▮</span>
+        {/* phone frame on desktop; at phone width (≤ 640px) the app fills the screen like the 390px Figma frames */}
+        <div className="w-full max-w-[390px] max-sm:max-w-none sm:rounded-[44px] sm:bg-navy-900 sm:p-2.5 sm:shadow-2xl">
+          <div className="relative flex h-[min(820px,calc(100vh-170px))] min-h-[640px] flex-col overflow-hidden bg-white max-sm:-mx-4 max-sm:h-[calc(100dvh-140px)] sm:rounded-[36px]">
+            <div className="scroll-thin flex-1 overflow-y-auto px-6 pt-6 pb-6">
+              {/* app header (scrolls with the screen, as in the frames) */}
+              <header className="mb-5 flex items-center gap-2.5">
+                <span className="h-8 w-1 rounded-full bg-brand-red" />
+                <div className="leading-tight">
+                  <div className="text-[20px] font-bold text-primary">Dexter India</div>
+                  <div className="text-[9px] font-semibold tracking-wide text-ink-2">OPERATIONS CRM</div>
+                </div>
+                <button aria-label="Profile" onClick={() => go('profile')} className="ml-auto grid h-9 w-9 place-items-center rounded-full bg-primary-soft text-[12px] font-bold text-primary">
+                  {persona.name.split(' ').map((p) => p[0]).join('')}
+                </button>
+              </header>
+              {screen}
             </div>
-            {/* app header */}
-            <header className="flex shrink-0 items-center gap-2.5 border-b border-line bg-white px-4 py-2.5">
-              <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary text-[11px] font-bold text-white">DX</span>
-              <div className="leading-tight">
-                <div className="text-[13px] font-semibold">Dexter India</div>
-                <div className="text-[9px] font-semibold tracking-widest text-muted">OPERATIONS CRM</div>
-              </div>
-              <button aria-label="Notifications" onClick={() => toast('No new notifications', 'info')} className="ml-auto grid h-8 w-8 place-items-center rounded-full text-ink-2 hover:bg-surface">
-                <Bell size={17} />
-              </button>
-              <button aria-label="Profile" onClick={() => go('profile')} className="grid h-8 w-8 place-items-center rounded-full bg-primary-soft text-[11px] font-bold text-primary">
-                {persona.name.split(' ').map((p) => p[0]).join('')}
-              </button>
-            </header>
-            <div className="scroll-thin flex-1 overflow-y-auto px-4 py-4">{screen}</div>
             {/* bottom nav */}
-            <nav className="grid shrink-0 grid-cols-4 border-t border-line bg-white pt-1.5 pb-3">
+            <nav className="grid shrink-0 grid-cols-4 border-t border-line bg-white pt-3 pb-4">
               {(
                 [
                   ['home', 'Home', House],
@@ -94,8 +88,8 @@ export default function FranchiseeApp() {
                   ['profile', 'Profile', UserRound],
                 ] as const
               ).map(([key, label, Icon]) => (
-                <button key={key} onClick={() => go(key)} className={cn('flex flex-col items-center gap-0.5 py-1 text-[10px]', tab === key ? 'font-semibold text-primary' : 'text-muted')}>
-                  <Icon size={19} />
+                <button key={key} onClick={() => go(key)} className={cn('flex flex-col items-center gap-1 py-1 text-[11px]', tab === key ? 'font-semibold text-primary' : 'text-muted')}>
+                  <Icon size={20} />
                   {label}
                 </button>
               ))}
@@ -130,21 +124,28 @@ const ACTION: Record<LegalStatus, string> = {
   'Resubmission Required': 'Review feedback',
 }
 
+const ICON_TONE: Record<LegalStatus, string> = {
+  'Action Required': 'text-amber-600',
+  'Under Review': 'text-primary',
+  Approved: 'text-emerald-600',
+  'Resubmission Required': 'text-red-600',
+}
+
 function Dashboard({ site, sites, docs, persona, onSite, onOpen }: { site: LegalSite; sites: LegalSite[]; docs: LegalDoc[]; persona: string; onSite: (id: string) => void; onOpen: (id: string) => void }) {
   const attention = docs.filter((d) => d.status === 'Action Required' || d.status === 'Resubmission Required').length
   return (
     <div>
-      <h2 className="text-[20px] font-semibold">Your documents</h2>
-      <p className="text-[12px] text-muted">
+      <h2 className="text-[26px] font-bold tracking-tight">Your documents</h2>
+      <p className="mt-1 text-[13px] text-ink-2">
         {persona} · {site.franchiseName}
       </p>
 
-      <label className="relative mt-3 block rounded-xl border border-line bg-white px-3 py-2.5">
-        <span className="block text-[13px] font-semibold">{site.location}</span>
-        <span className="block text-[11px] text-muted">
+      <label className="relative mt-5 block rounded-xl bg-primary-soft px-4 py-3.5">
+        <span className="block text-[14px] font-semibold text-primary">{site.location}</span>
+        <span className="mt-1.5 block text-[12px] text-ink-2">
           Site {site.id} · ATM {site.atmId || 'not mapped'}
         </span>
-        <ChevronDown size={16} className="absolute top-4 right-3 text-muted" />
+        <ChevronDown size={18} className="absolute top-4 right-4 text-primary" />
         <select aria-label="Select site" value={site.id} onChange={(e) => onSite(e.target.value)} className="absolute inset-0 cursor-pointer opacity-0">
           {sites.map((s) => (
             <option key={s.id} value={s.id}>
@@ -154,32 +155,34 @@ function Dashboard({ site, sites, docs, persona, onSite, onOpen }: { site: Legal
         </select>
       </label>
 
-      <div className={cn('mt-3 flex items-center justify-between rounded-xl px-3 py-2.5 text-[13px]', attention ? 'bg-amber-50 text-amber-800' : 'bg-emerald-50 text-emerald-800')}>
-        <span className="font-semibold">{attention ? `${attention} document${attention > 1 ? 's' : ''} need${attention > 1 ? '' : 's'} your attention` : 'You are all caught up'}</span>
-        <span className="text-[12px]">{docs.length} total</span>
+      <div className="mt-4 flex items-center justify-between text-[13px]">
+        <span className={cn('flex items-center gap-2', attention ? 'text-amber-700' : 'text-emerald-700')}>
+          {attention ? <AlertCircle size={16} /> : <CheckCircle2 size={16} />}
+          {attention ? `${attention} document${attention > 1 ? 's' : ''} need${attention > 1 ? '' : 's'} your attention` : 'You are all caught up'}
+        </span>
+        <span className="text-[12px] text-muted">{docs.length} total</span>
       </div>
 
       {LEGAL_STATUSES.map((st) => {
         const group = docs.filter((d) => d.status === st)
         if (!group.length) return null
         return (
-          <section key={st} className="mt-4">
-            <div className="mb-2 flex items-center gap-2 text-[12px] font-semibold text-ink-2">
-              {st} <span className="rounded-full bg-white px-1.5 text-[11px] text-muted ring-1 ring-line">{group.length}</span>
+          <section key={st} className="mt-5">
+            <div className="mb-2 flex items-center justify-between">
+              <h3 className="text-[14px] font-semibold text-ink">{st}</h3>
+              <span className="grid h-6 min-w-6 place-items-center rounded-md bg-surface px-1.5 text-[11px] text-ink-2">{group.length}</span>
             </div>
             <div className="space-y-2">
               {group.map((d) => (
-                <button key={d.id} onClick={() => onOpen(d.id)} className="block w-full rounded-xl border border-line bg-white p-3 text-left hover:border-primary/50">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <div className="text-[13px] font-semibold">{DOC_META[d.kind].title}</div>
-                      <div className="text-[11px] text-muted">{d.version}</div>
-                    </div>
-                    <StatusBadge status={d.status} className="text-[10px]" />
+                <button key={d.id} onClick={() => onOpen(d.id)} className="block w-full rounded-xl border border-line bg-white px-3.5 py-3 text-left hover:border-primary/50">
+                  <div className="flex items-center gap-2">
+                    <FileText size={17} className={cn('shrink-0', ICON_TONE[d.status])} />
+                    <span className="min-w-0 flex-1 text-[14px] font-semibold">{DOC_META[d.kind].title}</span>
+                    <span className="text-[11px] text-muted">{d.version}</span>
                   </div>
-                  <div className="mt-1.5 text-[12px] text-ink-2">{cardLine(d)}</div>
-                  <div className={cn('mt-2 inline-flex items-center gap-1 text-[12px] font-semibold', st === 'Action Required' || st === 'Resubmission Required' ? 'text-bright' : 'text-primary')}>
-                    {ACTION[d.status]} <ChevronRight size={14} />
+                  <div className="mt-2 text-[12px] text-muted">{cardLine(d)}</div>
+                  <div className="mt-2 flex items-center justify-between text-[13px] font-semibold text-primary">
+                    {ACTION[d.status]} <ChevronRight size={16} />
                   </div>
                 </button>
               ))}
@@ -188,7 +191,7 @@ function Dashboard({ site, sites, docs, persona, onSite, onOpen }: { site: Legal
         )
       })}
 
-      <p className="mt-4 text-center text-[11px] text-muted">Last synced {fmtDateTime(new Date().toISOString())}. We’ll notify you when your submissions are reviewed.</p>
+      <p className="mt-5 text-[12px] text-muted">Last synced {fmtDateTime(new Date().toISOString())}. We’ll notify you when your submissions are reviewed.</p>
     </div>
   )
 }
@@ -202,6 +205,7 @@ function AgreementAction({ doc, site, persona, onHelp }: { doc: LegalDoc; site: 
   const [file, setFile] = useState<{ name: string; size: number } | null>(null)
   const [err, setErr] = useState('')
   const canUpload = doc.status === 'Action Required' || doc.status === 'Resubmission Required'
+  const signText = m.sign.replace(/^Sign every page and |^Sign both pages and /, '').replace(/^./, (c) => c.toUpperCase()).replace(/\.$/, '')
 
   const pick = (list: FileList | null) => {
     setErr('')
@@ -226,40 +230,41 @@ function AgreementAction({ doc, site, persona, onHelp }: { doc: LegalDoc; site: 
 
   return (
     <div>
-      <Link to={`/franchisee-app?site=${site.id}`} className="mb-3 inline-flex items-center gap-1 text-[12px] font-semibold text-primary">
-        <ArrowLeft size={14} /> Back to documents
+      <Link to={`/franchisee-app?site=${site.id}`} className="mb-4 inline-flex items-center gap-1.5 text-[13px] text-primary">
+        <ArrowLeft size={15} /> Back to documents
       </Link>
-      <div className="rounded-xl border border-line bg-white p-3.5">
-        <div className="flex items-start justify-between gap-2">
-          <h2 className="text-[18px] font-semibold">{m.title}</h2>
-          <StatusBadge status={doc.status} className="text-[10px]" />
-        </div>
-        <div className="text-[12px] text-ink-2">{doc.version} · Current version</div>
-        <div className="mt-1 text-[11px] text-muted">
-          {doc.id} · {site.location.replace(' · ', ', ')}
-        </div>
-        <div className="mt-2.5 grid grid-cols-2 gap-2 border-t border-line-soft pt-2.5 text-[11px]">
+      <h2 className="text-[24px] font-bold tracking-tight">{m.title}</h2>
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px] text-muted">
+        <StatusBadge status={doc.status} className="text-[11px]" />
+        {doc.version} · Current version
+      </div>
+      <div className="mt-2 text-[13px] text-muted">
+        {doc.id} · {site.location.replace(' · ', ', ')}
+      </div>
+
+      <div className="mt-5 rounded-xl border border-line bg-surface px-4 py-4">
+        <div className="grid grid-cols-2 gap-3">
           <div>
-            <div className="text-muted">Site ID</div>
-            <div className="font-semibold">{site.id}</div>
+            <div className="text-[12px] text-muted">Site ID</div>
+            <div className="mt-1 text-[14px] font-semibold">{site.id}</div>
           </div>
           <div>
-            <div className="text-muted">ATM ID</div>
-            <div className="font-semibold">{site.atmId || 'Not mapped'}</div>
+            <div className="text-[12px] text-muted">ATM ID</div>
+            <div className="mt-1 text-[14px] font-semibold">{site.atmId || 'Not mapped'}</div>
           </div>
         </div>
-        <div className="mt-2 text-[11px] text-muted">
+        <div className="mt-3 text-[12px] text-muted">
           {site.franchiseName} · {site.franchiseId}
         </div>
       </div>
 
       {canUpload && (
         <>
-          <div className="mt-3 flex items-center gap-2 rounded-xl bg-amber-50 px-3 py-2.5 text-[12px] text-amber-800">
-            <Clock3 size={15} className="shrink-0" /> Upload your signed copy by {fmtDate(doc.dueDate)}.
+          <div className="mt-4 flex items-center gap-2.5 rounded-lg bg-amber-50 px-3.5 py-3 text-[13px] text-amber-700">
+            <CalendarClock size={16} className="shrink-0" /> Upload your signed copy by {fmtDate(doc.dueDate)}.
           </div>
           {doc.status === 'Resubmission Required' && doc.feedback && (
-            <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-[12px] text-red-800">
+            <div className="mt-3 rounded-lg bg-red-50 px-3.5 py-3 text-[12px] text-red-800">
               <div className="flex items-center gap-1.5 font-semibold">
                 <AlertTriangle size={14} /> Legal team feedback
               </div>
@@ -267,67 +272,68 @@ function AgreementAction({ doc, site, persona, onHelp }: { doc: LegalDoc; site: 
             </div>
           )}
 
-          <Step n={1} title="Download the original">
-            <div className="flex items-center gap-2.5 rounded-lg bg-surface p-2.5">
-              <span className="grid h-9 w-9 place-items-center rounded-md bg-red-50 text-[10px] font-bold text-brand-red">PDF</span>
-              <div className="min-w-0">
-                <div className="truncate text-[12px] font-semibold">
-                  {m.short} · {doc.version}.pdf
-                </div>
-                <div className="text-[11px] text-muted">
-                  PDF · {cur.sizeMb} MB · {cur.pages} pages
-                </div>
+          <h3 className="mt-6 mb-3 text-[16px] font-semibold">1. Download the original</h3>
+          <div className="flex items-center gap-3 rounded-xl border border-line px-4 py-3.5">
+            <FileText size={22} className="shrink-0 text-ink-2" />
+            <div className="min-w-0">
+              <div className="truncate text-[13px] font-semibold">
+                {m.short} · {doc.version}.pdf
+              </div>
+              <div className="mt-0.5 text-[12px] text-muted">
+                PDF · {cur.sizeMb} MB · {cur.pages} pages
               </div>
             </div>
-            <button onClick={download} className="mt-2.5 flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-primary text-[13px] font-semibold text-primary">
-              <Download size={16} /> Download original file
-            </button>
-          </Step>
+          </div>
+          <button onClick={download} className="mt-2.5 flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-line bg-white text-[14px] font-semibold text-ink hover:bg-surface">
+            <Download size={16} className="text-ink-2" /> Download original file
+          </button>
 
-          <Step n={2} title="Sign every page">
-            <p className="text-[12px] text-ink-2">
-              Print {doc.version} and sign all {cur.pages} pages. {m.sign.replace(/^Sign every page and |^Sign both pages and /, '').replace(/^./, (c) => c.toUpperCase())} Then scan every page into one clear PDF.
-            </p>
-            {prev && <p className="mt-2 rounded-lg bg-primary-soft px-2.5 py-2 text-[11px] font-medium text-primary">Use this revised original, not the previous {prev.version}.</p>}
-          </Step>
+          <h3 className="mt-6 mb-2 text-[16px] font-semibold">2. Sign every page</h3>
+          <p className="text-[13px] text-ink-2">
+            Print {doc.version} and sign all {cur.pages} pages. {signText}, then scan every page into one clear PDF.
+          </p>
+          {prev && <p className="mt-2 text-[12px] text-primary">Use this revised original, not the previous {prev.version}.</p>}
 
-          <Step n={3} title="Upload the signed version">
-            {file ? (
-              <div className="flex items-center gap-2.5 rounded-lg border border-emerald-200 bg-emerald-50/60 p-2.5">
-                <FileText size={18} className="shrink-0 text-emerald-600" />
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-[12px] font-semibold">{file.name}</div>
-                  <div className="text-[11px] text-muted">{file.size > 1024 * 1024 ? `${(file.size / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(file.size / 1024))} KB`} · Ready to submit</div>
-                </div>
-                <button aria-label="Remove file" onClick={() => setFile(null)} className="text-muted">
-                  <X size={16} />
-                </button>
+          <h3 className="mt-6 mb-3 text-[16px] font-semibold">3. Upload the signed version</h3>
+          {file ? (
+            <div className="flex items-center gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50/60 p-3.5">
+              <FileText size={18} className="shrink-0 text-emerald-600" />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[13px] font-semibold">{file.name}</div>
+                <div className="text-[12px] text-muted">{file.size > 1024 * 1024 ? `${(file.size / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(file.size / 1024))} KB`} · Ready to submit</div>
               </div>
-            ) : (
-              <div className="rounded-lg border border-dashed border-line p-2.5 text-[12px]">
-                <div className="font-semibold text-ink-2">No signed file selected</div>
-                <div className="text-[11px] text-muted">
-                  One PDF · Maximum {MAX_MB} MB · All {cur.pages} pages
-                </div>
-              </div>
-            )}
-            {err && <p className="mt-1.5 text-[11px] text-brand-red">{err}</p>}
-            <input ref={input} type="file" accept="application/pdf,.pdf" className="hidden" onChange={(e) => { pick(e.target.files); e.target.value = '' }} />
-            <button onClick={submit} className="mt-2.5 flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-bright text-[13px] font-semibold text-white">
-              <UploadCloud size={16} /> {file ? 'Submit signed version' : 'Upload signed version'}
-            </button>
-            {file && (
-              <button onClick={() => input.current?.click()} className="mt-1.5 w-full text-center text-[12px] font-semibold text-primary">
-                Choose a different file
+              <button aria-label="Remove file" onClick={() => setFile(null)} className="text-muted">
+                <X size={16} />
               </button>
-            )}
-            <p className="mt-2 text-[11px] text-muted">Once submitted, the status changes to Under Review and you cannot replace the file during review.</p>
-          </Step>
+            </div>
+          ) : (
+            <button
+              onClick={() => input.current?.click()}
+              className="flex w-full flex-col items-center rounded-xl border border-dashed border-line bg-surface px-4 py-5 text-center"
+            >
+              <UploadCloud size={22} className="text-primary" />
+              <span className="mt-2 text-[13px] font-semibold text-ink">No signed file selected</span>
+              <span className="mt-1 text-[12px] text-muted">
+                One PDF · Maximum {MAX_MB} MB · All {cur.pages} pages
+              </span>
+            </button>
+          )}
+          {err && <p className="mt-1.5 text-[12px] text-brand-red">{err}</p>}
+          <input ref={input} type="file" accept="application/pdf,.pdf" className="hidden" onChange={(e) => { pick(e.target.files); e.target.value = '' }} />
+          <button onClick={submit} className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary text-[14px] font-semibold text-white hover:bg-primary-hover">
+            <Upload size={16} /> {file ? 'Submit signed version' : 'Upload signed version'}
+          </button>
+          {file && (
+            <button onClick={() => input.current?.click()} className="mt-1.5 w-full text-center text-[12px] font-semibold text-primary">
+              Choose a different file
+            </button>
+          )}
+          <p className="mt-3 text-[12px] text-muted">Select a file to submit for legal review. Once submitted, the status changes to Under Review and you cannot replace the file during review.</p>
         </>
       )}
 
       {doc.status === 'Under Review' && up && (
-        <div className="mt-3 rounded-xl border border-blue-200 bg-blue-50/60 p-3.5 text-[12px]">
+        <div className="mt-4 rounded-xl bg-blue-50 p-4 text-[12px]">
           <div className="flex items-center gap-1.5 font-semibold text-blue-800">
             <Lock size={14} /> Submission under review
           </div>
@@ -339,35 +345,21 @@ function AgreementAction({ doc, site, persona, onHelp }: { doc: LegalDoc; site: 
       )}
 
       {doc.status === 'Approved' && (
-        <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50/60 p-3.5 text-[12px]">
+        <div className="mt-4 rounded-xl bg-emerald-50 p-4 text-[12px]">
           <div className="flex items-center gap-1.5 font-semibold text-emerald-800">
             <CheckCircle2 size={14} /> Approved by the legal team
           </div>
-          <p className="mt-1.5 text-ink-2">
-            {up ? `${up.file} · approved ${fmtDate(up.reviewedAt)}` : 'Signed copy verified.'}
-          </p>
-          <button onClick={download} className="mt-2.5 flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-emerald-600 font-semibold text-emerald-700">
+          <p className="mt-1.5 text-ink-2">{up ? `${up.file} · approved ${fmtDate(up.reviewedAt)}` : 'Signed copy verified.'}</p>
+          <button onClick={download} className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-line bg-white text-[13px] font-semibold text-ink">
             <Download size={15} /> Download signed copy
           </button>
         </div>
       )}
 
-      <button onClick={onHelp} className="mt-4 w-full text-center text-[12px] text-muted">
-        Need help? <span className="font-semibold text-primary">Contact the legal team</span>
+      <button onClick={onHelp} className="mt-5 inline-flex items-center gap-2 text-[13px] font-semibold text-primary">
+        <HelpCircle size={16} /> Need help? Contact the legal team
       </button>
     </div>
-  )
-}
-
-function Step({ n, title, children }: { n: number; title: string; children: ReactNode }) {
-  return (
-    <section className="mt-3 rounded-xl border border-line bg-white p-3.5">
-      <h3 className="mb-2 flex items-center gap-2 text-[13px] font-semibold">
-        <span className="grid h-5 w-5 place-items-center rounded-full bg-primary text-[11px] text-white">{n}</span>
-        {title}
-      </h3>
-      {children}
-    </section>
   )
 }
 

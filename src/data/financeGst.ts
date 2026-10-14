@@ -71,7 +71,7 @@ export const GST_SECTIONS: { title: string; sub: string; fields: { key: keyof Gs
   },
   {
     title: 'Deductions & net amount',
-    sub: 'Enter the supplied amounts in INR. Net Amount is entered manually.',
+    sub: 'Enter the supplied amounts in INR. Net Amount is entered manually; no calculation is applied.',
     fields: [
       { key: 'tds', label: 'TDS' },
       { key: 'cashShortageDeduction', label: 'Cash Shortage Deduction' },

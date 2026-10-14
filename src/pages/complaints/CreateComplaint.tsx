@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FileText, Search, UploadCloud, X } from 'lucide-react'
+import { FileText, UploadCloud, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { SectionTitle, SelectField, TextAreaField, TextField, fmtSize } from '@/components/ui/Form'
 import { toast } from '@/components/ui/Toast'
@@ -90,18 +90,18 @@ const blank = (): FormState => ({
 const clock = (ms: number) => new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true }).format(ms)
 
 function Tag({ kind }: { kind: 'AUTO-FILLED' | 'CALCULATED' }) {
-  return <span className={cn('ml-1.5 rounded px-1.5 py-px text-[9px] font-semibold tracking-wide', kind === 'AUTO-FILLED' ? 'bg-primary-soft text-primary' : 'bg-violet-50 text-violet-700')}>{kind}</span>
+  return <span className="ml-auto pl-2 text-[10px] font-medium tracking-wide text-primary">{kind}</span>
 }
 
-function ReadOnly({ label, value, hint, kind = 'AUTO-FILLED', required, className }: { label: string; value: ReactNode; hint?: string; kind?: 'AUTO-FILLED' | 'CALCULATED'; required?: boolean; className?: string }) {
+function ReadOnly({ label, value, hint, kind = 'AUTO-FILLED', required, className }: { label: string; value: ReactNode; hint?: string; kind?: 'AUTO-FILLED' | 'CALCULATED' | null; required?: boolean; className?: string }) {
   return (
     <div className={className}>
-      <div className="mb-1.5 flex flex-wrap items-center text-[12px] font-semibold text-ink">
+      <div className="mb-1.5 flex items-center text-[12px] font-semibold text-ink">
         {label}
-        {required && <span> *</span>}
-        <Tag kind={kind} />
+        {required && <span>&nbsp;*</span>}
+        {kind && <Tag kind={kind} />}
       </div>
-      <div aria-readonly="true" aria-label={label} className="flex min-h-9 items-center rounded-md border border-line-soft bg-surface px-3 py-1.5 text-[13px] text-ink-2">
+      <div aria-readonly="true" aria-label={label} className={cn('flex min-h-9 items-center rounded-md border px-3 py-1.5 text-[13px] text-ink-2', kind ? 'border-line-soft bg-surface' : 'border-line bg-white')}>
         {value || <span className="text-muted">Select an ATM ID</span>}
       </div>
       {hint && <p className="mt-1 text-[11px] text-muted">{hint}</p>}
@@ -109,11 +109,11 @@ function ReadOnly({ label, value, hint, kind = 'AUTO-FILLED', required, classNam
   )
 }
 
-function Section({ num, title, sub, children }: { num: string; title: string; sub: string; children: ReactNode }) {
+function Section({ num, title, sub, children, cols = 3 }: { num: string; title: string; sub: string; children: ReactNode; cols?: 2 | 3 }) {
   return (
     <section className="mb-5 rounded-xl border border-line bg-white p-4 sm:p-6">
       <SectionTitle num={num} title={title} sub={sub} />
-      <div className="grid gap-x-5 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">{children}</div>
+      <div className={cn('grid gap-x-5 gap-y-4 sm:grid-cols-2', cols === 3 && 'lg:grid-cols-3')}>{children}</div>
     </section>
   )
 }
@@ -142,7 +142,6 @@ function AtmPicker({ value, onChange, error }: { value: string; onChange: (v: st
         ATM ID *
       </label>
       <div className={cn('flex h-9 items-center gap-2 rounded-md border bg-white px-3 focus-within:border-primary focus-within:ring-3 focus-within:ring-primary/10', error ? 'border-brand-red' : 'border-line')}>
-        <Search size={14} className="text-muted" />
         <input
           id="atmId"
           role="combobox"
@@ -183,14 +182,10 @@ function AtmPicker({ value, onChange, error }: { value: string; onChange: (v: st
                   onChange(a.atmId)
                   setOpen(false)
                 }}
-                className={cn('flex w-full flex-col rounded px-3 py-1.5 text-left hover:bg-surface', a.atmId === value && 'bg-primary-soft')}
+                title={`${a.siteId} · ${a.franchise}`}
+                className={cn('flex w-full rounded px-3 py-1.5 text-left text-[12px] hover:bg-surface', a.atmId === value ? 'bg-primary-soft text-primary' : 'text-ink')}
               >
-                <span className="text-[13px] font-medium text-ink">
-                  {a.atmId} · {a.siteName}
-                </span>
-                <span className="text-[11px] text-muted">
-                  {a.siteId} · {a.franchise}
-                </span>
+                {a.atmId} · {a.siteName}, {a.city}
               </button>
             </li>
           ))}
@@ -218,9 +213,9 @@ function Attachments({ value, onChange }: { value: Att[]; onChange: (v: Att[]) =
   }
   return (
     <div className="sm:col-span-2 lg:col-span-3">
-      <div className="mb-1.5 text-[12px] font-semibold text-ink">Attachments</div>
       <div
         role="button"
+        aria-label="Attachments"
         tabIndex={0}
         onClick={() => ref.current?.click()}
         onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && ref.current?.click()}
@@ -413,7 +408,7 @@ export default function CreateComplaint() {
     ])
 
   return (
-    <ComplaintsShell title="Create Complaint" sub="Register a complaint and route it to the responsible team. Fields marked * are required." onExport={exportForm} footer={false}>
+    <ComplaintsShell title="Create Complaint" sub="Register a complaint and route it to the responsible team. Fields marked * are required." onExport={exportForm} >
       <div className="mb-5 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-blue-200 bg-primary-soft px-5 py-3.5 text-[13px]">
         <span className="font-semibold text-primary">New registration · Draft</span>
         <span className="text-ink-2">Master data fills linked site and contact information. Calculated fields are read-only. Closure details can be added after resolution.</span>
@@ -432,10 +427,10 @@ export default function CreateComplaint() {
           <TextField label="Complaint Receiving Date" required type="date" max={today()} value={f.receivedDate} onChange={(x) => set('receivedDate', x.target.value)} error={e('receivedDate')} hint="Manual calendar · Date received from FR / Field Officer Mobile App" />
           <ReadOnly label="Site ID" value={atm && `${atm.siteId} · ${atm.siteName}`} />
           <ReadOnly label="Franchise Name / Name of Complainant" value={atm && `${atm.franchise} / ${atm.complainant}`} />
-          <ReadOnly label="Receiving source" value={channelFor(f.reportingAuthority)} />
-          <ReadOnly label="State" required value={atm?.state} />
+          <ReadOnly label="Receiving source" kind={null} value={channelFor(f.reportingAuthority)} />
           <ReadOnly label="Mobile Number" value={atm?.mobile} />
           <ReadOnly label="FR Email" value={atm?.email} />
+          <ReadOnly label="State" required value={atm?.state} />
         </Section>
 
         <Section num="02" title="Issue & asset context" sub="Provide enough detail for the help desk and engineer to act without another callback.">
@@ -453,7 +448,6 @@ export default function CreateComplaint() {
               setF((s) => ({ ...s, issue: v, component: v ? DEFAULT_COMPONENT[sub] : s.component, department: s.department || (v ? DEPARTMENT_FOR[cat] : '') }))
             }}
             error={e('issue')}
-            hint="Category / subcategory · sets the default component"
           />
           <SelectField label="Priority" required options={PRIORITIES} value={f.priority} onChange={(x) => set('priority', x.target.value as Priority | '')} error={e('priority')} />
           <ReadOnly label="Complaint Pending Since (No. of Days)" kind="CALCULATED" value={f.receivedDate ? `${pendingDays(ist(f.receivedDate))} day${pendingDays(ist(f.receivedDate)) === 1 ? '' : 's'}` : '—'} hint="Calculated from receiving date to today" />
@@ -465,7 +459,7 @@ export default function CreateComplaint() {
         <Section num="03" title="Routing, ownership & escalation" sub="Escalation is selected automatically after the department is chosen. SSM, RM and engineer come from setup/database mappings.">
           <TextField label="Complaint Forwarded to the Concerned On" required type="date" value={f.forwardedOn} onChange={(x) => set('forwardedOn', x.target.value)} error={e('forwardedOn')} />
           <SelectField label="Concerned department" required options={DEPARTMENTS} value={f.department} onChange={(x) => set('department', x.target.value as Department | '')} error={e('department')} />
-          <ReadOnly label="Escalation" value={chain.length ? chain.map((l) => `L${l.level} · ${l.role}`).join(' → ') : <span className="text-muted">Select a department</span>} hint={f.department ? `Auto-selected by ${f.department} escalation matrix · L2 ${chain[1]?.person}` : undefined} />
+          <ReadOnly label="Escalation" value={chain.length ? chain.map((l) => `L${l.level} · ${l.role}`).join(' → ') : <span className="text-muted">Select a department</span>} hint={f.department ? `Auto-selected by ${f.department} escalation matrix` : undefined} />
           <ReadOnly label="SSM" value={atm?.ssm} />
           <ReadOnly label="RM" value={atm?.rm} />
           <ReadOnly label="Engineer Name & Number" value={atm && `${atm.engineer} · ${atm.engineerPhone}`} />
@@ -488,20 +482,20 @@ export default function CreateComplaint() {
           <TextAreaField className="sm:col-span-2 lg:col-span-3" label="Remark" rows={2} value={f.remark} onChange={(x) => set('remark', x.target.value)} placeholder="e.g. HD Team reviewing battery test request" />
         </Section>
 
-        <Section num="05" title="Closure & outcome · Optional at creation" sub="Leave these fields blank while the complaint is open. Record the actual redressal date and dated outcome after restoration.">
+        <Section cols={2} num="05" title="Closure & outcome · Optional at creation" sub="Leave these fields blank while the complaint is open. Record the actual redressal date and dated outcome after restoration.">
           <TextField label="Date of Redressal of Complaint" required={f.status === 'Close'} type="date" value={f.redressalDate} onChange={(x) => set('redressalDate', x.target.value)} error={e('redressalDate')} hint="Manual calendar · Optional until closure" />
           <TextField label="Outcome date" required={f.status === 'Close'} type="date" value={f.outcomeDate} onChange={(x) => set('outcomeDate', x.target.value)} error={e('outcomeDate')} hint="Manual calendar · Date of the outcome" />
-          <TextAreaField className="sm:col-span-2 lg:col-span-3" label="Outcome remark" required={f.status === 'Close'} rows={2} value={f.outcomeRemark} onChange={(x) => set('outcomeRemark', x.target.value)} placeholder="Add resolution, tests completed and complainant confirmation" error={e('outcomeRemark')} />
+          <TextAreaField className="sm:col-span-2" label="Outcome remark" required={f.status === 'Close'} rows={2} value={f.outcomeRemark} onChange={(x) => set('outcomeRemark', x.target.value)} placeholder="Add resolution, tests completed and complainant confirmation" error={e('outcomeRemark')} />
         </Section>
 
         <div className="sticky bottom-0 z-10 -mx-4 flex flex-wrap items-center gap-3 border-t border-line bg-white/95 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-xl sm:border">
           <div className="min-w-0 flex-1 text-[12px]">
-            <div className="font-semibold text-ink">{savedAt ? 'Draft saved automatically' : 'New draft'}</div>
+            <div className={cn('font-medium', savedAt ? 'text-emerald-700' : 'text-ink')}>{savedAt ? 'Draft saved automatically' : 'New draft'}</div>
             <div className="text-muted">{savedAt ? `Last saved at ${clock(savedAt)}` : 'Changes save automatically'} · Not included in complaint totals</div>
           </div>
           <Button
             type="button"
-            variant="ghost"
+            variant="secondary"
             onClick={() => {
               draftStore.set(null)
               nav(BASE)

@@ -1,7 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
-  ArrowRight, BadgeIndianRupee, Bookmark, CalendarClock, ChevronDown, ExternalLink, FileSpreadsheet, Gauge, Search, ShieldCheck, Table2, UserPlus, Users, IdCard,
+  ArrowRight, ArrowUpRight, BadgeIndianRupee, Bookmark, CalendarClock, CalendarDays, Check, ChevronDown, ChevronRight, Gauge, RefreshCw, Search, ShieldCheck, Table2, UserPlus, Users, IdCard,
 } from 'lucide-react'
 import { ExcelGrid, type GridColumn } from '@/components/grid/ExcelGrid'
 import { Badge, toneFor } from '@/components/ui/Badge'
@@ -12,7 +12,7 @@ import { toast } from '@/components/ui/Toast'
 import { cn } from '@/lib/cn'
 import { downloadCsv } from '@/lib/export'
 import { franchiseStore } from '@/data/franchises'
-import { CATEGORIES, DATE_RANGES, REPORTS, getReport, savedViewStore, scheduleStore, type CategoryId, type PCol, type PRow, type ReportDef } from '@/data/reportsHub'
+import { CATEGORIES, DATE_RANGES, REPORTS, getReport, type CategoryId, type PCol, type PRow, type ReportDef } from '@/data/reportsHub'
 import { SavedReportsModal, ScheduledExportsModal } from './HubModals'
 import { FOOTER } from './financial/Shell'
 
@@ -69,8 +69,6 @@ const toGrid = (cols: PCol[]): GridColumn<PRow>[] =>
 
 export default function ReportsHub() {
   const frs = franchiseStore.use()
-  const schedules = scheduleStore.use()
-  const saved = savedViewStore.use()
   const [params, setParams] = useSearchParams()
   const fromUrl = getReport(params.get('report') ?? '')
   const reportId = fromUrl && !fromUrl.to ? fromUrl.id : 'franchise-register'
@@ -109,11 +107,9 @@ export default function ReportsHub() {
           <>
             <Button variant="secondary" icon={<CalendarClock size={16} />} onClick={() => setModal('schedules')}>
               Scheduled exports
-              <span className="rounded bg-primary-soft px-1.5 text-[11px] text-primary">{schedules.filter((s) => s.active).length}</span>
             </Button>
             <Button variant="secondary" icon={<Bookmark size={16} />} onClick={() => setModal('saved')}>
               My saved reports
-              <span className="rounded bg-primary-soft px-1.5 text-[11px] text-primary">{saved.length}</span>
             </Button>
           </>
         }
@@ -124,7 +120,7 @@ export default function ReportsHub() {
           <Search size={16} />
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={`Search ${REPORTS.length} reports`} className="w-full bg-transparent text-ink outline-none placeholder:text-muted" />
         </label>
-        <select aria-label="Category" value={category} onChange={(e) => setCategory(e.target.value)} className="h-10 rounded-lg border border-line bg-white px-3 text-[13px] font-medium outline-none focus:border-primary">
+        <select aria-label="Category" value={category} onChange={(e) => setCategory(e.target.value)} className="h-10 rounded-lg border border-line bg-white px-3 text-[13px] font-semibold text-ink outline-none focus:border-primary">
           <option value="all">All categories</option>
           {CATEGORIES.map((c) => (
             <option key={c.id} value={c.id}>
@@ -132,15 +128,24 @@ export default function ReportsHub() {
             </option>
           ))}
         </select>
-        <select aria-label="Date range" value={range} onChange={(e) => setRange(e.target.value)} className="h-10 rounded-lg border border-line bg-white px-3 text-[13px] font-medium outline-none focus:border-primary">
-          {DATE_RANGES.map((r) => (
-            <option key={r.id} value={r.id}>
-              {r.label}
-            </option>
-          ))}
-        </select>
-        <span className="text-[12px] text-muted sm:ml-auto">
-          {q || category !== 'all' ? `${visibleCats.length} of ${CATEGORIES.length} categories · ${REPORTS.filter((r) => cats.some((c) => c.id === r.category) && matches(r)).length} of ${REPORTS.length} reports match` : `${CATEGORIES.length} categories · ${REPORTS.length} reports`} · Refreshed 09:00 IST
+        <label className="flex h-10 items-center gap-2 rounded-lg border border-line bg-white px-3 text-[13px] font-semibold text-ink focus-within:border-primary">
+          <CalendarDays size={16} className="text-muted" />
+          <select aria-label="Date range" value={range} onChange={(e) => setRange(e.target.value)} className="bg-transparent outline-none">
+            {DATE_RANGES.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <span className="flex items-center gap-3 text-[12px] text-muted sm:ml-auto">
+          <span>
+            {q || category !== 'all' ? `${visibleCats.length} of ${CATEGORIES.length} categories · ${REPORTS.filter((r) => cats.some((c) => c.id === r.category) && matches(r)).length} of ${REPORTS.length} reports match` : `${CATEGORIES.length} categories · ${REPORTS.length} reports`}
+          </span>
+          <span className="h-4 w-px bg-line" />
+          <span className="flex items-center gap-1.5">
+            <RefreshCw size={13} /> Refreshed 09:00 IST
+          </span>
         </span>
       </div>
 
@@ -158,54 +163,60 @@ export default function ReportsHub() {
             const hits = all.filter(matches)
             const open = expanded.has(c.id) || !!q
             const shown = open ? hits : hits.slice(0, 3)
+            const selectedHere = all.some((r) => r.id === reportId && !r.to)
+            const toggle = () =>
+              setExpanded((x) => {
+                const n = new Set(x)
+                if (n.has(c.id)) n.delete(c.id)
+                else n.add(c.id)
+                return n
+              })
             return (
-              <section key={c.id} className="flex flex-col rounded-xl border border-line bg-white p-5">
-                <div className="flex items-start gap-3">
-                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary">{ICONS[c.id]}</span>
-                  <div className="min-w-0">
-                    <h3 className="text-[15px] font-semibold">{c.name}</h3>
-                    <div className="text-[12px] text-muted">{all.length} reports</div>
-                  </div>
+              <section key={c.id} className={cn('flex flex-col rounded-xl border bg-white p-4', selectedHere ? 'border-primary ring-1 ring-primary' : 'border-line')}>
+                <div className="flex items-center gap-3">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary">{ICONS[c.id]}</span>
+                  <h3 className="min-w-0 flex-1 truncate text-[16px] font-semibold">{c.name}</h3>
+                  <button
+                    type="button"
+                    onClick={toggle}
+                    disabled={!!q || all.length <= 3}
+                    aria-label={open ? `Show fewer ${c.name}` : `Show all ${c.name}`}
+                    title={all.length > 3 ? (open ? 'Show fewer' : `Show all ${all.length}`) : undefined}
+                    className="flex items-center gap-1 text-[12px] text-muted hover:text-primary disabled:hover:text-muted"
+                  >
+                    {all.length} reports <ChevronRight size={15} className={cn('text-ink transition-transform', open && all.length > 3 && 'rotate-90')} />
+                  </button>
                 </div>
-                <p className="mt-3 text-[13px] font-medium text-ink-2">{c.kpi}</p>
-                <ul className="mt-3 flex-1 space-y-1">
+                <p className="mt-2 text-[12px] text-muted">{c.kpi}</p>
+                <ul className="mt-3 flex-1 space-y-0.5">
                   {shown.map((r) => {
+                    const active = r.id === reportId && !r.to
                     const cls = cn(
                       'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] transition-colors',
-                      r.id === reportId && !r.to ? 'bg-primary-soft font-semibold text-primary' : 'text-ink hover:bg-surface',
+                      active ? 'bg-primary-soft font-semibold text-primary' : 'text-ink-2 hover:bg-surface',
                     )
                     return (
                       <li key={r.id}>
                         {r.to ? (
                           <Link to={r.to} className={cls} title={r.desc}>
-                            <FileSpreadsheet size={14} className="shrink-0 text-muted" />
+                            <Table2 size={14} className="shrink-0 text-muted" />
                             <span className="flex-1 truncate">{r.name}</span>
-                            <ExternalLink size={13} className="text-muted" />
+                            <ArrowUpRight size={14} className="text-primary" />
                           </Link>
                         ) : (
                           <button className={cls} title={r.desc} onClick={() => select(r.id)}>
-                            <Table2 size={14} className="shrink-0 text-muted" />
+                            <Table2 size={14} className={cn('shrink-0', active ? 'text-primary' : 'text-muted')} />
                             <span className="flex-1 truncate">{r.name}</span>
-                            <ArrowRight size={13} className="text-muted" />
+                            {active ? <Check size={14} /> : <ArrowUpRight size={14} className="text-primary" />}
                           </button>
                         )}
                       </li>
                     )
                   })}
                 </ul>
-                {!q && all.length > 3 && (
-                  <button
-                    className="mt-3 flex items-center gap-1 self-start text-[12px] font-semibold text-primary"
-                    onClick={() =>
-                      setExpanded((s) => {
-                        const n = new Set(s)
-                        if (n.has(c.id)) n.delete(c.id)
-                        else n.add(c.id)
-                        return n
-                      })
-                    }
-                  >
-                    {open ? 'Show fewer' : `Show all ${all.length}`} <ChevronDown size={14} className={cn('transition-transform', open && 'rotate-180')} />
+                {!q && open && all.length > 3 && (
+                  <button className="mt-2 flex items-center gap-1 self-start text-[12px] font-semibold text-primary" onClick={toggle}>
+                    Show fewer <ChevronDown size={14} className="rotate-180" />
                   </button>
                 )}
               </section>
@@ -217,17 +228,22 @@ export default function ReportsHub() {
       <section className="mt-6">
         <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
           <div className="min-w-0">
-            <div className="text-[11px] font-semibold tracking-wider text-muted">SELECTED REPORT</div>
-            <h2 className="text-[20px] font-semibold">{def.name}</h2>
-            <p className="text-[12px] text-muted">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-[18px] font-semibold">{def.name}</h2>
+              <span className="rounded bg-primary-soft px-1.5 py-0.5 text-[10px] font-semibold tracking-wider text-primary">SELECTED REPORT</span>
+            </div>
+            <p className="mt-1 text-[12px] text-muted">
               {catName} / {def.name} · {rows.length.toLocaleString('en-IN')} records · {def.columns?.length ?? 0} columns · {def.source}
               {' · '}
               {def.dateKey ? `Date range: ${rangeDef.label}` : 'Date range not applicable'}
             </p>
           </div>
-          <Button variant="secondary" icon={<Table2 size={16} />} onClick={() => setModal('grid')}>
-            Open in data grid
-          </Button>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-[12px] text-muted">Sort, filter and export in the Excel-style view</span>
+            <Button icon={<ArrowUpRight size={16} />} onClick={() => setModal('grid')}>
+              Open in data grid
+            </Button>
+          </div>
         </div>
         <ExcelGrid
           key={def.id}
@@ -237,15 +253,32 @@ export default function ReportsHub() {
           columns={columns}
           rowId={(r) => String(r.__id)}
           letters
+          selectable
           searchPlaceholder={def.id === 'franchise-register' ? 'Search ID, name or city' : `Search ${def.name}`}
           exportName={def.id}
           emptyState={`No records in ${rangeDef.label}. Choose a wider date range.`}
-          footerLeft={`Preview · ${Math.min(10, rows.length)} of ${rows.length.toLocaleString('en-IN')} records`}
-          footerRight="All dates in IST · Amounts in INR"
+          bulkActions={(sel, clear) => (
+            <button
+              className="font-semibold text-primary"
+              onClick={() => {
+                const keep = new Set(sel)
+                const cols = def.columns ?? []
+                const pickRows = rows.filter((r) => keep.has(String(r.__id)))
+                downloadCsv(`${def.id}-selection`, cols.map((c) => c.label), pickRows.map((r) => cols.map((c) => String(r[c.key] ?? ''))))
+                toast(`Exported ${pickRows.length} selected rows`)
+                clear()
+              }}
+            >
+              Export selected
+            </button>
+          )}
         />
       </section>
 
-      <p className="mt-6 border-t border-line pt-4 text-center text-[12px] text-muted">{FOOTER}</p>
+      <div className="mt-5 flex flex-wrap justify-between gap-2 text-[12px] text-muted">
+        <span>{FOOTER}</span>
+        <span>All dates in IST · Amounts in INR</span>
+      </div>
 
       {modal === 'schedules' && <ScheduledExportsModal onClose={() => setModal(null)} defaultReport={reportId} />}
       {modal === 'saved' && (

@@ -130,89 +130,124 @@ export function addFranchise(input: Pick<Franchise, 'name' | 'tier' | 'state' | 
 }
 
 // ── Dossier (the WLA application form attached to each franchise) ─────────
-export const dossierStore = createStore<Record<string, ApplicationForm>>('dexter.dossiers.v1', () => ({}))
+/** Dossier-only fields shown in the Figma dossier but not captured by the onboarding wizard. */
+export type DossierForm = ApplicationForm & {
+  permanentMeter: string // "Permanent meter detail" (35)
+  siteSourcedBy: string // Office use · "Site Sourced By"
+}
 
-export function dossierFor(fr: Franchise): ApplicationForm {
-  const saved = dossierStore.get()[fr.id]
-  if (saved) return saved
+export const dossierStore = createStore<Record<string, Partial<DossierForm>>>('dexter.dossiers.v1', () => ({}))
+
+export const RBI_LABEL: Record<string, string> = {
+  'Tier 1': 'Metropolitan', 'Tier 2': 'Urban', 'Tier 3': 'Semi-urban', 'Tier 4': 'Semi-urban', 'Tier 5': 'Rural', 'Tier 6': 'Rural',
+}
+
+export const DOC_SEED: [string, number][] = [
+  ['', 0],
+  ['PAN_•••4821.pdf', 218_000],
+  ['Aadhar_•••6942.pdf', 412_000],
+  ['Cancelled_cheque_•••4821.pdf', 184_000],
+  ['Bank_statement_Apr–Sep_2026.pdf', 1_240_000],
+  ['GST_certificate_•••7Z2.pdf', 326_000],
+  ['Shop_establishment_certificate.pdf', 296_000],
+  ['', 0],
+]
+
+/** Seed dossier for a franchise (FR-MH-00124 carries the exact Figma values). */
+export function seedDossier(fr: Franchise): DossierForm {
   const circle = LOCATIONS[fr.state]?.circles[0] ?? ''
-  const isDemo = fr.id === 'FR-MH-00124'
+  const demo = fr.id === 'FR-MH-00124'
+  const word = fr.name.split(' ')[0]
+  const code = STATE_CODE[fr.state] ?? 'XX'
+  const city2 = fr.city.slice(0, 2).toUpperCase()
+  const atm = (atmId: string, bank: string, siteType: 'Onsite' | 'Offsite', distance: string, direction: string, avgTxn: string) => ({ atmId, bank, siteType, distance, direction, avgTxn })
+  const cc = fr.city.slice(0, 2).toUpperCase()
   return {
     ...emptyForm(),
-    siteName: isDemo ? 'Shree Sai · Kothrud Market' : `${fr.name.split(' ')[0]} · ${fr.city} Main Road`,
+    siteName: demo ? 'Shree Sai · Kothrud Market' : `${word} · ${fr.city} Main Road`,
     state: fr.state,
     city: fr.city,
-    circle,
+    circle: demo ? 'West / Pune Circle' : circle,
     district: fr.city,
-    pinCode: isDemo ? '411038' : '400001',
-    landmark: isDemo ? 'Near Kothrud bus depot' : 'Near main market',
+    pinCode: demo ? '411038' : '400001',
+    landmark: demo ? 'Near Kothrud bus depot' : 'Near main market',
     rbiCategory: 'Tier 1',
-    siteAddress: isDemo ? 'Shop 4, Sai Plaza, Paud Road, Kothrud, Pune, Maharashtra – 411038' : `Shop 2, Market Complex, ${fr.city}, ${fr.state}`,
+    siteAddress: demo ? 'Shop 4, Sai Plaza, Paud Road, Kothrud, Pune, Maharashtra – 411038' : `Shop 2, Market Complex, ${fr.city}, ${fr.state}`,
     latitude: '18.5074',
     longitude: '73.8077',
     siteType: 'Full Shop',
     tisType: 'Full TIS',
     projectType: 'WLA Franchise Model',
-    businessType: 'Private Limited',
+    businessType: 'Financial services & retail banking',
     plan: 'Sapphire',
     existingAtmId: 'Not assigned · Proposed new site',
     franchiseName: fr.name,
-    nameOnCheque: `${fr.name} Pvt. Ltd.`,
-    contactNumber: '98220 41765',
-    alternateNumber: '98220 41766',
-    email: `accounts@${fr.name.split(' ')[0].toLowerCase()}fin.in`,
-    corrAddress: isDemo ? 'Shop 4, Sai Plaza, Paud Road, Kothrud' : `Shop 2, Market Complex, ${fr.city}`,
-    corrLandmark: 'Near main market',
+    nameOnCheque: fr.name,
+    contactNumber: '98220 41421',
+    alternateNumber: '97310 52638',
+    email: demo ? 'operations@shreesai.example' : `operations@${word.toLowerCase()}.example`,
+    corrAddress: demo ? 'Office 12, Sai Plaza, Paud Road, Kothrud, Pune' : `Office 2, Market Complex, ${fr.city}`,
+    corrLandmark: demo ? 'Near Kothrud bus depot' : 'Near main market',
     corrDistrict: fr.city,
     corrState: fr.state,
-    corrPin: isDemo ? '411038' : '400001',
+    corrPin: demo ? '411038' : '400001',
     bankName: 'HDFC Bank',
-    branchName: `${fr.city} Main Branch`,
-    accountNumber: '50200012347316',
-    ifsc: 'HDFC0001234',
-    shopOwnerName: 'Rahul Mehta',
-    shopOwnerNumber: '98765 43210',
+    branchName: demo ? 'Kothrud, Pune' : `${fr.city} Main Branch`,
+    accountNumber: '50100293124821',
+    ifsc: 'HDFC0000821',
+    shopOwnerName: demo ? 'Prakash Deshmukh' : 'Rahul Mehta',
+    shopOwnerNumber: '98450 63706',
     totalArea: '240',
     offeredArea: '120',
-    carpetArea: '110',
-    depth: '12 ft',
-    width: '10 ft',
-    height: '10 ft',
-    totalFrontage: '20 ft',
-    frontageOffered: '10 ft',
+    carpetArea: '108',
+    depth: '12',
+    width: '10',
+    height: '10',
+    totalFrontage: '20',
+    frontageOffered: '10',
     lSignage: 'Yes',
     vsat: 'Yes',
     acOdu: 'Yes',
     powerAvailable: 'Yes',
     meterType: 'Permanent',
     meterDetail: 'Single phase · 230 V · 32 A · 5 kW',
+    permanentMeter: demo ? 'Dedicated MSEDCL meter · 170207316' : 'Dedicated DISCOM meter · 170207316',
     powerHours: '24',
-    signageWidth: '10 ft',
-    signageHeight: '3 ft',
+    signageWidth: '10',
+    signageHeight: '3',
     shopStatus: 'Rented',
     shutter: 'Yes',
     craCoverage: 'Yes',
-    craAgency: 'CMS Info Systems',
-    proposedBranch: `${fr.city} Main Branch`,
-    branchManager: 'Sanjay Kulkarni',
-    branchManagerNumber: '98200 11223',
-    solIfsc: 'HDFC0001234',
-    branchDistance: '1.2',
+    craAgency: `CMS Info Systems · ${fr.city}`,
+    proposedBranch: demo ? 'HDFC Bank · Kothrud, Pune' : `HDFC Bank · ${fr.city}`,
+    branchManager: 'Rohit Kulkarni',
+    branchManagerNumber: '98230 77512',
+    solIfsc: 'SOL 0821 / HDFC0000821',
+    branchDistance: '0.6',
     nearestAtms: [
-      { atmId: 'SBI-PN-1824', bank: 'State Bank of India', siteType: 'Onsite', distance: '0.4', direction: 'East', avgTxn: '185' },
-      { atmId: 'HDFC-PN-0931', bank: 'HDFC Bank', siteType: 'Offsite', distance: '0.7', direction: 'North', avgTxn: '142' },
-      { atmId: 'ICICI-PN-2210', bank: 'ICICI Bank', siteType: 'Onsite', distance: '1.1', direction: 'West', avgTxn: '128' },
-      { atmId: '', bank: '', siteType: '', distance: '', direction: '', avgTxn: '' },
-      { atmId: '', bank: '', siteType: '', distance: '', direction: '', avgTxn: '' },
-    ],
-    documents: emptyForm().documents.map((d, i) => (i === 0 || i === 7 ? d : { status: 'Yes', file: { name: `${['PPT', 'PAN', 'Aadhar', 'Cheque', 'Statement', 'GST', 'Business_proof', 'Rent'][i]}_${fr.id}.pdf`, size: 218_000 } })),
-    siteNumber: `WLA-${STATE_CODE[fr.state] ?? 'XX'}-${fr.city.slice(0, 2).toUpperCase()}-0264`,
-    sourcedBy: 'SSE: Amit Patil (EMP-0418) / SSM: Neha Joshi (EMP-0206)',
+      atm(`SBI-${cc}-1824`, 'State Bank of India', 'Onsite', '0.4', 'East', '185'),
+      atm(`HDF-${cc}-0832`, 'HDFC Bank', 'Offsite', '0.6', 'North-east', '160'),
+      atm(`ICI-${cc}-0291`, 'ICICI Bank', 'Offsite', '0.9', 'West', '145'),
+      atm(`AXI-${cc}-0146`, 'Axis Bank', 'Onsite', '1.2', 'South', '125'),
+      atm(`BOB-${cc}-0618`, 'Bank of Baroda', 'Offsite', '1.5', 'North', '110'),
+    ].map((a) => (demo ? { ...a, atmId: a.atmId.replace(`-${cc}-`, '-PN-') } : a)),
+    hitachiAtms: [
+      atm(`HIT-${cc}-1042`, 'Hitachi Money Spot', 'Offsite', '1.8', 'South-east', '135'),
+      atm(`HIT-${cc}-1187`, 'Hitachi Money Spot', 'Offsite', '2.4', 'West', '120'),
+    ].map((a) => (demo ? { ...a, atmId: a.atmId.replace(`-${cc}-`, '-PN-') } : a)),
+    documents: DOC_SEED.map(([name, size]) => (name ? { status: 'Yes', file: { name, size } } : { status: 'No', file: null })),
+    siteNumber: demo ? 'WLA-MH-PN-0264' : `WLA-${code}-${city2}-0264`,
+    sourcedBy: 'SSE: Amit Patil (EMP-0418)  /  SSM: Neha Joshi (EMP-0206)',
+    siteSourcedBy: 'Amit Patil · West Region SSE',
     sourcingCode: 'SRC-WEST-2026-0842',
   }
 }
 
-export function saveDossier(id: string, form: ApplicationForm) {
+export function dossierFor(fr: Franchise): DossierForm {
+  return { ...seedDossier(fr), ...dossierStore.get()[fr.id] }
+}
+
+export function saveDossier(id: string, form: DossierForm) {
   dossierStore.set((m) => ({ ...m, [id]: form }))
   updateFranchises([id], {})
 }

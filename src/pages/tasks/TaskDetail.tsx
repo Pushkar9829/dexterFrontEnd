@@ -4,7 +4,6 @@ import { Link, useParams } from 'react-router-dom'
 import {
   ArrowLeft,
   ArrowRight,
-  AtSign,
   Bell,
   Check,
   CheckCircle2,
@@ -426,7 +425,7 @@ function Dependencies({ t, all }: { t: Task; all: Task[] }) {
           <span className="min-w-0 flex-1 truncate">
             Parent Task ID: {parent.id} · {parent.title}
           </span>
-          <span className="text-[11px] font-semibold text-primary">{parent.status}</span>
+          <StatusBadge s={parent.status} />
         </Link>
       )}
       {subs.map((x) => (
@@ -597,10 +596,10 @@ function Comments({ t, actor, inputRef }: { t: Task; actor: string; inputRef: Re
           </div>
         ))}
       </div>
-      <div className="relative mt-4 rounded-lg border border-line p-2 focus-within:border-primary">
+      <div className="relative mt-4 flex items-center gap-2 rounded-lg border border-line p-2 focus-within:border-primary">
         <textarea
           ref={inputRef}
-          rows={2}
+          rows={1}
           value={text}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={(e) => {
@@ -608,16 +607,11 @@ function Comments({ t, actor, inputRef }: { t: Task; actor: string; inputRef: Re
             if (e.key === 'Escape') setQ(null)
           }}
           placeholder="Add a comment or @mention a colleague..."
-          className="w-full resize-none bg-transparent px-1 text-[13px] outline-none placeholder:text-muted"
+          className="min-h-9 min-w-0 flex-1 resize-none bg-transparent px-2 py-2 text-[13px] outline-none placeholder:text-muted"
         />
-        <div className="flex items-center justify-between">
-          <button onClick={() => onChange(text + (text.endsWith(' ') || !text ? '@' : ' @'))} className="flex items-center gap-1 text-[12px] text-muted hover:text-primary">
-            <AtSign size={13} /> Mention
-          </button>
-          <Button variant="secondary" size="sm" onClick={post}>
-            Post comment
-          </Button>
-        </div>
+        <Button variant="secondary" size="sm" onClick={post} className="shrink-0">
+          Post comment
+        </Button>
         {sugg.length > 0 && (
           <div className="absolute bottom-full left-2 z-20 mb-1 w-64 rounded-lg border border-line bg-white p-1 shadow-lg">
             {sugg.map((p) => (

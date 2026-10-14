@@ -24,6 +24,8 @@ import {
   MessageSquare,
   Minimize2,
   Minus,
+  MoreVertical,
+  Paperclip,
   PenLine,
   Redo2,
   Scissors,
@@ -32,6 +34,7 @@ import {
   ShieldX,
   SpellCheck,
   Sparkles,
+  Table,
   Underline,
   Undo2,
   Wand2,
@@ -204,6 +207,7 @@ export default function ComposeDialog() {
   const [prevOpen, setPrevOpen] = useState(false)
   const [mini, setMini] = useState(false)
   const [maxi, setMaxi] = useState(false)
+  const [meetPop, setMeetPop] = useState(false)
   const editor = useRef<HTMLDivElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -264,7 +268,8 @@ export default function ComposeDialog() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [save, from, tracker, to, cc, bcc, subject, html, attachments])
 
-  const close = () => nav(orig ? `/email/${orig.folder}?m=${orig.id}` : init.draftId ? '/email/drafts' : '/email/inbox')
+  const fromCase = !orig && !init.draftId && trackerById(params.get('tracker') ?? '') ? params.get('tracker') : null
+  const close = () => nav(orig ? `/email/${orig.folder}?m=${orig.id}` : init.draftId ? '/email/drafts' : fromCase ? `/email/case/${fromCase}` : '/email/inbox')
   const cancel = () => {
     if (save === 'dirty' && (text || subject.trim() || to.length)) persistDraft(true)
     if (save === 'dirty' || draftId) toast('Draft kept in Drafts.', 'info')
@@ -449,57 +454,67 @@ export default function ComposeDialog() {
             {/* LEFT */}
             <div className="min-w-0 space-y-4">
               {/* Account / tracker / permission */}
-              <div className="grid gap-4 rounded-xl border border-line bg-surface/60 p-4 md:grid-cols-[1.3fr_1fr_1fr]">
-                <div className="min-w-0">
-                  <div className="text-[12px] font-semibold text-primary">From (Authorized Account)</div>
-                  <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                    <select
-                      aria-label="From account"
-                      value={from}
-                      onChange={(e) => {
-                        setFrom(e.target.value)
-                        touch()
-                      }}
-                      className="h-9 min-w-0 rounded-md border border-line bg-white px-2 text-[13px]"
-                    >
-                      {ACCOUNTS.map((a) => (
-                        <option key={a.email} value={a.email}>
-                          {a.email}
-                        </option>
-                      ))}
-                    </select>
-                    {account.authorized ? (
-                      <span className="flex items-center gap-1 rounded bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700">
-                        <Check size={12} /> Authorized
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1 rounded bg-red-50 px-2 py-1 text-[11px] font-semibold text-red-700">
-                        <X size={12} /> Not authorized
-                      </span>
-                    )}
+              <div className="grid gap-4 rounded-xl border border-line bg-surface/60 p-4 md:grid-cols-[1.35fr_auto_1fr_auto_1fr] md:items-center">
+                <div className="flex min-w-0 gap-3">
+                  <MailIcon size={20} className="mt-6 shrink-0 text-primary" />
+                  <div className="min-w-0">
+                    <div className="text-[11px] font-semibold text-primary">From (Authorized Account)</div>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                      <select
+                        aria-label="From account"
+                        value={from}
+                        onChange={(e) => {
+                          setFrom(e.target.value)
+                          touch()
+                        }}
+                        className="h-8 min-w-0 rounded-md border border-line bg-white px-2 text-[12px]"
+                      >
+                        {ACCOUNTS.map((a) => (
+                          <option key={a.email} value={a.email}>
+                            {a.email}
+                          </option>
+                        ))}
+                      </select>
+                      {account.authorized ? (
+                        <span className="flex items-center gap-1 rounded bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700">
+                          <Check size={12} /> Authorized
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 rounded bg-red-50 px-2 py-1 text-[11px] font-semibold text-red-700">
+                          <X size={12} /> Not authorized
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-1.5 text-[10.5px] text-muted">{account.label}</div>
+                    {errors.from && <p className="mt-1 text-[11px] text-brand-red">{errors.from}</p>}
                   </div>
-                  <div className="mt-1 text-[11px] text-muted">{account.label}</div>
-                  {errors.from && <p className="mt-1 text-[11px] text-brand-red">{errors.from}</p>}
                 </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5 text-[12px] font-semibold text-ink">
-                    <FileText size={14} className="text-primary" /> Linked Tracker
+                <span className="hidden h-14 w-px bg-line md:block" />
+                <div className="flex min-w-0 gap-2.5">
+                  <FileText size={18} className="mt-0.5 shrink-0 text-primary" />
+                  <div className="min-w-0">
+                    <div className="text-[11px] font-semibold text-ink">Linked Tracker</div>
+                    <label className="relative mt-1 inline-flex items-center">
+                      <select aria-label="Linked tracker" value={tracker} onChange={(e) => changeTracker(e.target.value)} className="cursor-pointer appearance-none bg-transparent pr-4 text-[13px] font-semibold text-primary outline-none">
+                        <option value="">No tracker</option>
+                        {TRACKERS.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.id}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown size={12} className="pointer-events-none absolute right-0 text-primary" />
+                    </label>
+                    <div className="mt-1 text-[10.5px] text-muted">{tracker ? 'This email will be saved in the tracker history.' : 'Not linked to a case.'}</div>
                   </div>
-                  <select aria-label="Linked tracker" value={tracker} onChange={(e) => changeTracker(e.target.value)} className="mt-1.5 h-9 w-full rounded-md border border-line bg-white px-2 text-[13px] font-semibold text-primary">
-                    <option value="">No tracker</option>
-                    {TRACKERS.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.id}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="mt-1 text-[11px] text-muted">{tracker ? 'This email will be saved in the tracker history.' : 'Not linked to a case.'}</div>
                 </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5 text-[12px] font-semibold text-ink">
-                    {account.authorized ? <ShieldCheck size={15} className="text-emerald-600" /> : <ShieldX size={15} className="text-red-600" />} Permission
+                <span className="hidden h-14 w-px bg-line md:block" />
+                <div className="flex min-w-0 gap-2.5">
+                  {account.authorized ? <ShieldCheck size={18} className="mt-0.5 shrink-0 text-emerald-600" /> : <ShieldX size={18} className="mt-0.5 shrink-0 text-red-600" />}
+                  <div className="min-w-0">
+                    <div className="text-[11px] font-semibold text-ink">Permission</div>
+                    <p className="mt-1 text-[10.5px] text-muted">{account.authorized ? 'You are authorized to send from this account.' : 'You are not authorized to send from this account. Choose another account or request access from the Legal head.'}</p>
                   </div>
-                  <p className="mt-1.5 text-[11px] text-muted">{account.authorized ? 'You are authorized to send from this account.' : 'You are not authorized to send from this account. Choose another account or request access from the Legal head.'}</p>
                 </div>
               </div>
 
@@ -601,6 +616,12 @@ export default function ComposeDialog() {
                   <Tool label="Attach image" onClick={() => fileRef.current?.click()}>
                     <ImageIcon size={14} />
                   </Tool>
+                  <Tool
+                    label="Insert table"
+                    onClick={() => exec('insertHTML', '<table style="border-collapse:collapse;width:100%"><tbody><tr><td style="border:1px solid #d6dce8;padding:4px">&nbsp;</td><td style="border:1px solid #d6dce8;padding:4px">&nbsp;</td></tr><tr><td style="border:1px solid #d6dce8;padding:4px">&nbsp;</td><td style="border:1px solid #d6dce8;padding:4px">&nbsp;</td></tr></tbody></table><p><br></p>')}
+                  >
+                    <Table size={14} />
+                  </Tool>
                   <Tool label="Undo" onClick={() => exec('undo')}>
                     <Undo2 size={14} />
                   </Tool>
@@ -620,7 +641,7 @@ export default function ComposeDialog() {
                   className="min-h-[200px] px-4 py-3 text-[13px] leading-relaxed text-ink outline-none empty:before:text-muted empty:before:content-[attr(data-placeholder)] [&_a]:text-primary [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-line [&_blockquote]:pl-3 [&_blockquote]:text-ink-2 [&_h3]:text-[15px] [&_h3]:font-semibold [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-5"
                 />
                 {errors.body && <p className="px-4 pb-2 text-[11px] text-brand-red">{errors.body}</p>}
-                <div className="flex flex-wrap justify-center gap-2 border-t border-line-soft px-3 py-3">
+                <div className="flex flex-wrap justify-center gap-2 px-3 pt-1 pb-3">
                   <AiBtn icon={<SpellCheck size={14} />} onClick={() => ai('Fix Grammar', fixGrammar)}>
                     Fix Grammar
                   </AiBtn>
@@ -643,8 +664,10 @@ export default function ComposeDialog() {
               <div className="grid gap-4 md:grid-cols-[1.3fr_1fr_1fr]">
                 <div className="min-w-0">
                   <div className="flex items-center justify-between text-[12px]">
-                    <span className="font-semibold">Attachments ({attachments.length})</span>
-                    <button onClick={() => fileRef.current?.click()} className="font-semibold text-primary hover:underline">
+                    <span className="flex items-center gap-1.5 font-semibold">
+                      <Paperclip size={13} className="text-muted" /> Attachments ({attachments.length})
+                    </span>
+                    <button onClick={() => fileRef.current?.click()} className="text-[11px] text-primary hover:underline">
                       + Add Files
                     </button>
                     <input
@@ -667,7 +690,7 @@ export default function ComposeDialog() {
                   </div>
                   <div className="mt-2 grid gap-2 sm:grid-cols-2">
                     {attachments.map((a, i) => (
-                      <div key={a.name + i} className="flex items-center gap-2 rounded-lg border border-line px-2.5 py-2">
+                      <div key={a.name + i} className="relative flex items-center gap-2 rounded-lg border border-line px-2.5 py-2">
                         <span className={cn('grid h-8 w-8 shrink-0 place-items-center rounded', /\.(png|jpe?g)$/i.test(a.name) ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600')}>
                           {/\.(png|jpe?g)$/i.test(a.name) ? <ImageIcon size={14} /> : <FileText size={14} />}
                         </span>
@@ -675,16 +698,13 @@ export default function ComposeDialog() {
                           <span className="block truncate text-[12px] font-medium">{a.name}</span>
                           <span className="block text-[11px] text-muted">{fmtBytes(a.size)}</span>
                         </span>
-                        <button
-                          aria-label={`Remove ${a.name}`}
-                          onClick={() => {
+                        <AttachmentMenu
+                          name={a.name}
+                          onRemove={() => {
                             setAttachments((x) => x.filter((_, j) => j !== i))
                             touch()
                           }}
-                          className="text-muted hover:text-brand-red"
-                        >
-                          <X size={14} />
-                        </button>
+                        />
                       </div>
                     ))}
                     {!attachments.length && <p className="text-[11px] text-muted">No files attached · up to 20 MB each.</p>}
@@ -737,49 +757,61 @@ export default function ComposeDialog() {
                   <Check2 checked={follow.on} onChange={(v) => setFollow({ ...follow, on: v })}>
                     Follow-up Task
                   </Check2>
-                  {follow.on && (
-                    <>
-                      <DateInput label="Follow-up date" value={follow.date} onChange={(v) => setFollow({ ...follow, date: v })} />
-                      <input aria-label="Follow-up task" value={follow.text} onChange={(e) => setFollow({ ...follow, text: e.target.value })} className={cn('h-9 min-w-0 flex-1 rounded-md border px-2 text-[12px] sm:max-w-[240px]', errors.follow ? 'border-brand-red' : 'border-line')} />
-                    </>
-                  )}
-                  <span className="mx-1 hidden h-5 w-px bg-line sm:block" />
+                  <DateInput label="Follow-up date" disabled={!follow.on} value={follow.date} onChange={(v) => setFollow({ ...follow, date: v })} />
+                  <input
+                    aria-label="Follow-up task"
+                    disabled={!follow.on}
+                    value={follow.text}
+                    onChange={(e) => setFollow({ ...follow, text: e.target.value })}
+                    className={cn('h-9 w-[170px] min-w-0 rounded-md border px-2 text-[11px] disabled:opacity-50', errors.follow ? 'border-brand-red' : 'border-line')}
+                  />
                   <Check2 checked={meet.on} onChange={(v) => setMeet({ ...meet, on: v, added: false })}>
                     Create Meeting
                   </Check2>
-                  {meet.on && (
-                    <>
-                      <DateInput label="Meeting date" value={meet.date} onChange={(v) => setMeet({ ...meet, date: v, added: false })} />
-                      <input aria-label="Meeting time" type="time" value={meet.time} onChange={(e) => setMeet({ ...meet, time: e.target.value, added: false })} className="h-9 rounded-md border border-line px-2 text-[12px]" />
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        icon={meet.added ? <Check size={13} className="text-emerald-600" /> : <CalendarPlus size={13} className="text-primary" />}
-                        onClick={() => {
-                          setMeet({ ...meet, added: true })
-                          toast(`Meeting added to calendar · ${fullTime(new Date(toIstMs(meet.date, meet.time)).toISOString())} IST${to.length ? ` · invite to ${to.join(', ')}` : ''}.`)
-                        }}
-                      >
-                        {meet.added ? 'Added to Calendar' : 'Add to Calendar'}
-                      </Button>
-                    </>
-                  )}
+                  <div className="relative">
+                    <button
+                      type="button"
+                      disabled={!meet.on}
+                      onClick={() => setMeetPop((v) => !v)}
+                      className="flex h-9 items-center gap-1.5 rounded-md border border-primary/20 bg-primary-soft px-3 text-[11px] font-semibold text-primary disabled:opacity-50"
+                    >
+                      {meet.added ? <Check size={13} className="text-emerald-600" /> : <CalendarPlus size={13} />}
+                      {meet.added ? `Added · ${fullTime(new Date(toIstMs(meet.date, meet.time)).toISOString())}` : 'Add to Calendar'}
+                    </button>
+                    {meetPop && meet.on && (
+                      <div className="absolute bottom-11 left-0 z-20 w-64 space-y-2 rounded-lg border border-line bg-white p-3 shadow-lg">
+                        <div className="text-[12px] font-semibold">Meeting slot (IST)</div>
+                        <div className="flex gap-2">
+                          <input aria-label="Meeting date" type="date" value={meet.date} onChange={(e) => setMeet({ ...meet, date: e.target.value, added: false })} className="h-8 min-w-0 flex-1 rounded-md border border-line px-2 text-[12px]" />
+                          <input aria-label="Meeting time" type="time" value={meet.time} onChange={(e) => setMeet({ ...meet, time: e.target.value, added: false })} className="h-8 rounded-md border border-line px-2 text-[12px]" />
+                        </div>
+                        <div className="flex justify-end gap-2">
+                          <Button size="sm" variant="secondary" onClick={() => setMeetPop(false)}>
+                            Cancel
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              setMeet({ ...meet, added: true })
+                              setMeetPop(false)
+                              toast(`Meeting added to calendar · ${fullTime(new Date(toIstMs(meet.date, meet.time)).toISOString())} IST${to.length ? ` · invite to ${to.join(', ')}` : ''}.`)
+                            }}
+                          >
+                            Add
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 {errors.follow && <p className="text-[11px] text-brand-red">{errors.follow}</p>}
                 <div className="flex flex-wrap items-center gap-2">
                   <Check2 checked={sched.on} onChange={(v) => setSched({ ...sched, on: v })}>
                     Schedule Send
                   </Check2>
-                  {sched.on && (
-                    <>
-                      <DateInput label="Schedule date" value={sched.date} onChange={(v) => setSched({ ...sched, date: v })} />
-                      <label className="flex h-9 items-center gap-1.5 rounded-md border border-line px-2 text-[12px]">
-                        <Clock3 size={13} className="text-primary" />
-                        <input aria-label="Schedule time" type="time" value={sched.time} onChange={(e) => setSched({ ...sched, time: e.target.value })} className="outline-none" />
-                      </label>
-                      <span className="text-[11px] text-muted">India Standard Time (IST)</span>
-                    </>
-                  )}
+                  <DateInput label="Schedule date" disabled={!sched.on} value={sched.date} onChange={(v) => setSched({ ...sched, date: v })} />
+                  <TimeInput label="Schedule time" disabled={!sched.on} value={sched.time} onChange={(v) => setSched({ ...sched, time: v })} />
+                  <span className="text-[10.5px] text-muted">India Standard Time (IST)</span>
                 </div>
                 {errors.sched && <p className="text-[11px] text-brand-red">{errors.sched}</p>}
               </div>
@@ -817,9 +849,13 @@ export default function ComposeDialog() {
                 <span className="text-[14px] font-semibold text-primary">AI Email Assistant</span>
                 <span className="ml-auto rounded bg-primary-soft px-1.5 py-0.5 text-[10px] font-semibold text-primary">BETA</span>
               </div>
-              <p className="px-1 text-[11px] text-muted">Suggestions to improve your email. You stay in control. AI-generated (demo).</p>
+              <p className="px-1 text-[11px] text-muted">
+                Suggestions to improve your email.
+                <br />
+                You stay in control.
+              </p>
 
-              <AiCard icon={<CheckCircle2 size={15} className="text-emerald-600" />} title="Grammar & Spelling">
+              <AiCard icon={<CheckCircle2 size={15} className="text-emerald-700" />} title="Grammar & Spelling">
                 {issues.length ? (
                   <>
                     <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-semibold text-amber-700">
@@ -829,12 +865,8 @@ export default function ComposeDialog() {
                     <ArrowDown size={13} className="my-1 text-emerald-600" />
                     <p className="text-[12px] text-emerald-700">“{issues[0].after}”</p>
                     <div className="mt-2 flex justify-end gap-2">
-                      <Button size="sm" variant="secondary" onClick={() => applyIssue(issues[0])}>
-                        Apply
-                      </Button>
-                      <Button size="sm" variant="secondary" onClick={() => setIgnored((x) => [...x, issues[0].key])}>
-                        Ignore
-                      </Button>
+                      <MiniBtn onClick={() => applyIssue(issues[0])}>Apply</MiniBtn>
+                      <MiniBtn onClick={() => setIgnored((x) => [...x, issues[0].key])}>Ignore</MiniBtn>
                     </div>
                   </>
                 ) : (
@@ -842,7 +874,7 @@ export default function ComposeDialog() {
                 )}
               </AiCard>
 
-              <AiCard icon={<Sparkles size={15} className="text-violet-600" />} title="Tone Suggestion">
+              <AiCard icon={<Sparkles size={15} className="text-primary" />} title="Tone Suggestion">
                 {toneDiff ? (
                   <>
                     <span className="rounded bg-primary-soft px-1.5 py-0.5 text-[11px] font-semibold text-primary">More Professional</span>
@@ -1011,11 +1043,59 @@ function Check2({ checked, onChange, children }: { checked: boolean; onChange: (
     </label>
   )
 }
-function DateInput({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+function DateInput({ label, value, onChange, disabled }: { label: string; value: string; onChange: (v: string) => void; disabled?: boolean }) {
+  const ref = useRef<HTMLInputElement>(null)
+  const txt = value ? new Date(`${value}T00:00:00`).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Pick date'
   return (
-    <label className="flex h-9 items-center gap-1.5 rounded-md border border-line px-2 text-[12px]">
-      <CalendarDays size={13} className="text-primary" />
-      <input aria-label={label} type="date" value={value} onChange={(e) => onChange(e.target.value)} className="outline-none" />
-    </label>
+    <span className={cn('relative inline-flex', disabled && 'opacity-50')}>
+      <button type="button" disabled={disabled} onClick={() => ref.current?.showPicker?.()} className="flex h-9 items-center gap-1.5 rounded-md border border-line bg-white px-2.5 text-[11px] font-semibold text-primary">
+        <CalendarDays size={13} /> {txt}
+      </button>
+      <input ref={ref} aria-label={label} type="date" disabled={disabled} value={value} onChange={(e) => onChange(e.target.value)} tabIndex={-1} className="pointer-events-none absolute inset-0 opacity-0" />
+    </span>
+  )
+}
+function TimeInput({ label, value, onChange, disabled }: { label: string; value: string; onChange: (v: string) => void; disabled?: boolean }) {
+  const ref = useRef<HTMLInputElement>(null)
+  const [h, m] = (value || '00:00').split(':').map(Number)
+  const txt = `${String(((h + 11) % 12) + 1).padStart(2, '0')}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`
+  return (
+    <span className={cn('relative inline-flex', disabled && 'opacity-50')}>
+      <button type="button" disabled={disabled} onClick={() => ref.current?.showPicker?.()} className="flex h-9 items-center gap-1.5 rounded-md border border-line bg-white px-2.5 text-[11px] font-semibold text-primary">
+        <Clock3 size={13} /> {txt}
+      </button>
+      <input ref={ref} aria-label={label} type="time" disabled={disabled} value={value} onChange={(e) => onChange(e.target.value)} tabIndex={-1} className="pointer-events-none absolute inset-0 opacity-0" />
+    </span>
+  )
+}
+function MiniBtn({ onClick, children }: { onClick: () => void; children: ReactNode }) {
+  return (
+    <button type="button" onClick={onClick} className="h-7 rounded-md border border-line bg-white px-2.5 text-[11px] font-semibold text-primary hover:border-primary/40">
+      {children}
+    </button>
+  )
+}
+function AttachmentMenu({ name, onRemove }: { name: string; onRemove: () => void }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <span className="relative">
+      <button type="button" aria-label={`Options for ${name}`} onClick={() => setOpen((v) => !v)} className="grid h-6 w-6 place-items-center text-muted hover:text-primary">
+        <MoreVertical size={14} />
+      </button>
+      {open && (
+        <span className="absolute top-7 right-0 z-20 w-32 rounded-md border border-line bg-white p-1 shadow-lg" onMouseLeave={() => setOpen(false)}>
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false)
+              onRemove()
+            }}
+            className="w-full rounded px-2 py-1.5 text-left text-[12px] text-brand-red hover:bg-surface"
+          >
+            Remove
+          </button>
+        </span>
+      )}
+    </span>
   )
 }

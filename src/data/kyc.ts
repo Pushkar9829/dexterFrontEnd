@@ -17,7 +17,7 @@ export type KycCase = {
   region: string
   status: KycCaseStatus
   docs: KycDoc[]
-  fields: { pan: string; entityType: string; nameOnPan: string; dob: string; aadhaarLast4: string; address: string }
+  fields: { pan: string; entityType: string; nameOnPan: string; fatherName?: string; dob: string; aadhaarLast4: string; address: string }
   note: string
   checklist: { panActive: boolean; aadhaarConsent: boolean; addressLegible: boolean; rentValid: boolean }
   api: null | { at: string; nameMatch: number }
@@ -54,6 +54,7 @@ function caseFor(fr: Franchise, i: number): KycCase {
       pan: demo ? 'ABCDE1234F' : `${first.slice(0, 3)}PK${String(1000 + i * 7).slice(-4)}L`,
       entityType: 'Proprietorship',
       nameOnPan: person,
+      fatherName: demo ? 'Mahesh Kumar Agarwal' : `${PEOPLE[(i + 3) % PEOPLE.length].split(' ')[0]} ${person.split(' ').slice(-1)[0]}`,
       dob: demo ? '1982-08-14' : `198${i % 10}-0${(i % 9) + 1}-1${i % 9}`,
       aadhaarLast4: demo ? '4826' : String(1000 + ((i * 373) % 9000)),
       address: demo ? '18 Laxmi Road, Sadashiv Peth, Pune 411030' : `12 Station Road, ${fr.city}`,

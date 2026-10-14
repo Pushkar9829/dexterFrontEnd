@@ -16,7 +16,7 @@ function SubItem({ item, depth }: { item: NavItem; depth: number }) {
         <button
           onClick={() => setOpen((o) => !o)}
           className={cn(
-            'flex w-full items-center justify-between rounded-md py-2 pr-3 text-left text-[13px] text-white/75 hover:bg-white/5 hover:text-white',
+            'flex min-h-8 w-full items-center justify-between rounded-md py-1.5 pr-3 text-left text-[13px] text-white/75 hover:bg-white/5 hover:text-white',
             pad,
           )}
         >
@@ -34,7 +34,7 @@ function SubItem({ item, depth }: { item: NavItem; depth: number }) {
       end
       className={() =>
         cn(
-          'flex items-center justify-between rounded-md py-2 pr-3 text-[13px] transition-colors',
+          'flex min-h-8 items-center justify-between rounded-md py-1.5 pr-3 text-[13px] transition-colors',
           pad,
           activeRoute(pathname) === item.to ? 'bg-navy-700 font-semibold text-white' : 'text-white/75 hover:bg-white/5 hover:text-white',
         )
@@ -42,7 +42,14 @@ function SubItem({ item, depth }: { item: NavItem; depth: number }) {
     >
       <span className="truncate">{item.label}</span>
       {item.badge != null && (
-        <span className="ml-2 rounded bg-white/10 px-1.5 py-0.5 text-[11px] font-medium text-white/80">{item.badge}</span>
+        <span
+          className={cn(
+            'ml-2 rounded px-1.5 py-0.5 text-[11px] font-medium',
+            activeRoute(pathname) === item.to ? 'bg-white/10 text-white' : 'text-white/70',
+          )}
+        >
+          {item.badge}
+        </span>
       )}
     </NavLink>
   )
@@ -88,20 +95,20 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
                 <button
                   onClick={() => setExpanded(isOpen ? null : g.label)}
                   className={cn(
-                    'flex w-full items-center gap-3 rounded-md px-2.5 py-2.5 text-[14px] font-semibold hover:bg-white/5',
+                    'flex w-full items-center gap-3 rounded-md px-2.5 py-3 text-[14px] font-semibold hover:bg-white/5',
                     active ? 'text-white' : 'text-white/85',
                   )}
                 >
                   <g.icon size={18} strokeWidth={1.8} />
                   <span className="flex-1 text-left">{g.label}</span>
                   {isOpen ? (
-                    <ChevronDown size={16} className="text-white/70" />
+                    <ChevronDown size={20} strokeWidth={1.4} className="text-white/80" />
                   ) : (
                     <ChevronRight size={16} className="text-white/70" />
                   )}
                 </button>
                 {isOpen && (
-                  <div className="space-y-0.5 pb-1">
+                  <div className="space-y-1 pb-1.5">
                     {g.children?.map((c) => <SubItem key={c.label} item={c} depth={1} />)}
                   </div>
                 )}

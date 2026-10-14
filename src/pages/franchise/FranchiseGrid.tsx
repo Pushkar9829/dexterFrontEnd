@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Eye } from 'lucide-react'
+import { Eye, ShieldCheck } from 'lucide-react'
 import { ExcelGrid, type GridColumn } from '@/components/grid/ExcelGrid'
 import { Badge, toneFor } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -30,7 +30,7 @@ export function FranchiseGrid({ rows, mode, scope }: { rows: Franchise[]; mode: 
     { key: 'kyc', header: 'KYC status', width: 120, sortable: true, filterable: true, editable: false, render: (f) => <Badge tone={toneFor(f.kyc)}>{f.kyc}</Badge> },
     mode === 'master'
       ? {
-          key: 'sd', header: 'SD', label: 'SD', width: 90, editable: false, value: () => '',
+          key: 'sd', header: 'SD', label: 'SD', width: 100, editable: false, value: () => '',
           render: (f) => (
             <Link to={`${dossierLink(f.id)}/sd`} className="inline-flex items-center gap-1.5 rounded bg-primary-soft px-2 py-0.5 text-[12px] text-primary hover:underline">
               <Eye size={13} /> View
@@ -96,9 +96,13 @@ export function FranchiseGrid({ rows, mode, scope }: { rows: Franchise[]; mode: 
           </>
         )}
         exportName={mode === 'master' ? 'franchise-master-data' : 'franchise-list'}
-        footerLeft="All edits are versioned and recorded in Governance → Audit."
-        footerRight="Source: Franchise registry · Synced every 15 minutes"
       />
+      <div className="mt-3 flex flex-wrap justify-between gap-2 text-[12px] text-muted">
+        <span className="flex items-center gap-1.5">
+          <ShieldCheck size={14} className="text-primary" /> All edits are versioned and recorded in Governance → Audit.
+        </span>
+        <span>Source: Franchise registry · Synced every 15 minutes</span>
+      </div>
       {ownerFor && (
         <Modal title="Assign owner" sub={`${ownerFor.length} franchise${ownerFor.length > 1 ? 's' : ''} selected`} onClose={() => setOwnerFor(null)}>
           <div className="space-y-1">

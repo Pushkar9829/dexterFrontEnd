@@ -154,9 +154,13 @@ const SEGMENT_LABEL: Record<string, string> = { new: 'New', sd: 'SD Management',
  * Breadcrumb trail for a path. Detail routes (e.g. /onboarding/applications/APP-2026-0248)
  * use the closest parent route plus the last segment.
  */
+const PREFIX_TRAIL: Record<string, string[]> = { '/email/case': ['Email', 'Cases'] }
+
 export function trailFor(pathname: string): string[] {
   const exact = trailOf(pathname)
   if (exact) return exact
+  for (const [prefix, trail] of Object.entries(PREFIX_TRAIL))
+    if (pathname.startsWith(prefix + '/')) return [...trail, ...pathname.slice(prefix.length + 1).split('/').map(decodeURIComponent)]
   const parts = pathname.split('/').filter(Boolean)
   for (let i = parts.length - 1; i > 0; i--) {
     const hit = trailOf('/' + parts.slice(0, i).join('/'))

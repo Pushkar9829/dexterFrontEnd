@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowRight, CalendarDays, Table2, UserRound } from 'lucide-react'
+import { ArrowRight, CalendarDays, UserRound } from 'lucide-react'
 import { ExcelGrid, type GridColumn } from '@/components/grid/ExcelGrid'
 import { toneFor } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -30,9 +30,13 @@ import {
   type CVisit,
   type Priority,
 } from '@/data/complaints'
-import { Banner, ComplaintsShell, Dropdown, Entry, Kpi, LinkBtn, Panel, PriorityBadge, SlaText, StatusBadge, ViewAll, BASE, useNow } from './shared'
+import { Banner, ComplaintsShell, Dropdown, Entry, GridCard, Kpi, LinkBtn, Panel, ViewAll, BASE, useNow } from './shared'
+import { complaintCsv } from './ManagementDashboard'
 
 const PRI_RANK: Record<Priority, number> = { Critical: 0, High: 1, Medium: 2, Low: 3 }
+const WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten']
+const words = (n: number) => WORDS[n] ?? String(n)
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 const short = (iso: string, now: number) => (istDay(iso) === istDay(now) ? `Today, ${fmtTime(iso)}` : fmtDT(iso))
 
 export default function OperationsDashboard() {
@@ -111,7 +115,7 @@ export default function OperationsDashboard() {
 
   // Next commitments (today, after now)
   const commitments = [
-    ...d.vendors.filter(({ v }) => v.expectedBy && Date.parse(v.expectedBy) >= now - 3_600_000).map(({ v, c }) => ({ at: v.expectedBy!, title: `${v.vendor} follow-up`, meta: `${c.id} · Escalate if ${v.item.toLowerCase()} is not confirmed` })),
+    ...d.vendors.filter(({ v }) => v.expectedBy && Date.parse(v.expectedBy) >= now - 3_600_000).map(({ v, c }) => ({ at: v.expectedBy!, title: 'Vendor follow-up', meta: `${first} · ${c.id} · Escalate if ${v.item.toLowerCase().includes('dispatch') ? 'dispatch' : v.item.toLowerCase()} is not confirmed` })),
     ...d.tasks.filter(({ t }) => Date.parse(t.due) >= now && istDay(t.due) === istDay(now)).map(({ t, c }) => ({ at: t.due, title: t.title, meta: `${c.id} · ${t.id}` })),
     ...d.visitsToday.filter(({ v }) => Date.parse(v.at) >= now).map(({ v, c }) => ({ at: v.at, title: `Field visit · ${v.purpose}`, meta: `${c.id} · ${v.engineer}` })),
     { at: `${istDay(now)}T17:30:00+05:30`, title: 'Team handover', meta: 'Record ETAs for all unresolved critical complaints' },
@@ -120,10 +124,10 @@ export default function OperationsDashboard() {
   const cols: GridColumn<Complaint>[] = [
     { key: 'id', header: 'Complaint ID', width: 120, render: (c) => <Link to={`${BASE}/${c.id}`} className="font-medium text-primary hover:underline">{c.id}</Link> },
     { key: 'issue', header: 'Issue / ATM', width: 240, value: (c) => `${c.subcategory} · ${c.atmId}` },
-    { key: 'priority', header: 'Priority', width: 100, value: (c) => c.priority, render: (c) => <PriorityBadge p={c.priority} /> },
+    { key: 'priority', header: 'Priority', width: 100, value: (c) => c.priority },
     { key: 'next', header: 'Next action', width: 200, value: (c) => c.tasks.filter((t) => !t.done).sort((a, b) => Date.parse(a.due) - Date.parse(b.due))[0]?.title ?? c.lastAction },
-    { key: 'due', header: 'Due / SLA', width: 150, value: (c) => sla(c, now).label, render: (c) => <SlaText c={c} now={now} /> },
-    { key: 'status', header: 'Status', width: 100, value: statusLabel, render: (c) => <StatusBadge c={c} /> },
+    { key: 'due', header: 'Due / SLA', width: 150, value: (c) => sla(c, now).label },
+    { key: 'status', header: 'Status', width: 100, value: statusLabel },
   ]
   const shown = showAll ? d.mine : d.mine.slice(0, 6)
 
@@ -211,17 +215,15 @@ export default function OperationsDashboard() {
         </Banner>
       )}
 
-      <section className="mb-5 overflow-hidden rounded-xl border border-line bg-white">
-        <div className="flex flex-wrap items-center gap-3 px-5 py-4">
-          <Table2 size={18} className="text-primary" />
-          <h3 className="text-[15px] font-semibold">{user === CURRENT_USER ? 'My complaints' : `${first}'s complaints`}</h3>
-          <span className="text-[12px] text-muted">
-            Showing {shown.length} of {d.mine.length} assigned · Priority order
-          </span>
-          <div className="ml-auto">{d.mine.length > 6 && <ViewAll label={showAll ? 'Show fewer' : 'View all'} onClick={() => setShowAll((s) => !s)} />}</div>
-        </div>
-        <ExcelGrid title="My complaints" hideToolbar rowNumbers={false} rows={shown} columns={cols} rowId={(c) => c.id} pageSize={showAll ? 25 : 6} noun="complaints" emptyState="No open complaints assigned." />
-      </section>
+      <GridCard
+        title={user === CURRENT_USER ? 'My complaints' : `${first}'s complaints`}
+        sub={`Showing ${shown.length} of ${d.mine.length} assigned · Priority order`}
+        onExport={() => complaintCsv(`complaints-${user.replace(' ', '-')}`, d.mine, now)}
+        viewAll={d.mine.length > 6 && <ViewAll label={showAll ? 'Show fewer' : 'View all'} onClick={() => setShowAll((s) => !s)} />}
+        footer={`Showing ${shown.length} priority records`}
+      >
+        <ExcelGrid title="My complaints" hideToolbar hidePagination={!showAll} rowNumbers={false} rows={shown} columns={cols} rowId={(c) => c.id} pageSize={showAll ? 25 : 6} noun="complaints" emptyState="No open complaints assigned." />
+      </GridCard>
 
       <div className="mb-5 grid gap-4 lg:grid-cols-2">
         <Panel title="My tasks · due & overdue" action={<ViewAll to="/tasks/my" label={`View all ${d.tasks.length}`} />}>
@@ -247,7 +249,7 @@ export default function OperationsDashboard() {
                     <Link to={`${BASE}/${c.id}`} className="hover:text-primary">
                       {c.id}
                     </Link>{' '}
-                    · {t.dependency} · Due {short(t.due, now)}
+                    · {t.dependency} · Due {short(t.due, now).replace(/^Today/, 'today')}
                   </>
                 }
                 action={<LinkBtn onClick={() => taskDone(c, t)}>Mark done</LinkBtn>}
@@ -273,7 +275,7 @@ export default function OperationsDashboard() {
           })}
           <p className="mt-2 text-[12px] text-muted">
             {d.pendingVisits.length
-              ? `${d.pendingVisits.length} pending visit${d.pendingVisits.length > 1 ? 's are' : ' is'} included in your ${ext} external dependencies.`
+              ? `${cap(words(d.pendingVisits.length))} pending visit${d.pendingVisits.length > 1 ? 's are' : ' is'} included in your ${words(ext)} external dependencies.`
               : 'No visits are waiting on confirmation.'}{' '}
             {d.visitsToday.some(({ v }) => v.status === 'Confirmed') && 'The confirmed visit is ready to proceed.'}
           </p>
@@ -286,7 +288,7 @@ export default function OperationsDashboard() {
           {d.vendors.map(({ v, c }) => (
             <Entry
               key={v.id}
-              title={`${v.vendor} · ${v.item}`}
+              title={`${v.vendor.replace(/ service desk$/, '')} · ${v.item}`}
               status={v.status}
               tone="amber"
               meta={

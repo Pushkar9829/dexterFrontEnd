@@ -1,6 +1,6 @@
 // Finance · Payout details — Pay-out Account master (Figma 98:9841 list, 98:10848 view, 211:19638 edit).
 // 11 fields: S.N. (system), LOI Code, ATM ID, Pan name, PAN NO | Acc. Name / Acc. No. / Bank Name / IFSC (Settlement) | Email Subject, Status.
-// The design supplies no Status options — we use Active | Pending verification | Inactive (to be confirmed by the client).
+// The design supplies no Status options — Status is a free-text field; Active | Pending verification | Inactive are offered as suggestions only.
 import { createStore } from '@/lib/store'
 import { SITES, getFranchisee } from './cbrSites'
 
@@ -19,7 +19,7 @@ export type PayoutRecord = {
   bankName: string
   ifsc: string
   emailSubject: string
-  status: PayoutStatus | ''
+  status: string
   updatedAt: string
   updatedBy: string
 }
@@ -48,7 +48,7 @@ export const PAYOUT_SECTIONS: { title: string; sub: string; fields: { key: keyof
   },
   {
     title: 'Email subject & status',
-    sub: 'Email Subject is a subject field, not an email address.',
+    sub: 'Email Subject is a subject field, not an email address. Status is unspecified; no options are supplied.',
     fields: [
       { key: 'emailSubject', label: 'Email Subject' },
       { key: 'status', label: 'Status' },
@@ -78,7 +78,7 @@ function seed(): PayoutRecord[] {
     const site = SITES.find((s) => s.siteId === siteId)!
     const fr = getFranchisee(site.franchiseId)!
     const sn = i + 1
-    const status: PayoutRecord['status'] = i === 9 ? 'Inactive' : i >= 14 ? 'Pending verification' : i === 11 ? '' : 'Active'
+    const status: string = i === 9 ? 'Inactive' : i >= 14 ? 'Pending verification' : i === 11 ? '' : 'Active'
     out.push({
       id: `PAY-${String(sn).padStart(4, '0')}`,
       sn,

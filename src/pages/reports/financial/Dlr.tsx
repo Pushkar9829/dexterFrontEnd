@@ -1,13 +1,12 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
-import { ArrowLeft, ArrowRight } from 'lucide-react'
-import { SheetNote } from '@/components/grid/BandedSheet'
+import { ArrowRight } from 'lucide-react'
 import { ExcelGrid, type GridColumn } from '@/components/grid/ExcelGrid'
 import { Badge } from '@/components/ui/Badge'
 import { DENOS, dlrDetailStores, dlrRowsFor, dlrSummaryStores, saveDlr, withTotals, type DlrKind, type DlrSummaryRow } from '@/data/reportsDlr'
 import { SITES, dmy, inr, type Row } from '@/data/reportsFinancial'
 import { ReportSheet, type SheetBand, type SheetCol } from './ReportSheet'
-import { FinancialShell, HeaderSelect, newId, useDraft } from './Shell'
+import { EditActions, FinancialShell, HeaderSelect, InfoNote, newId, useDraft } from './Shell'
 
 const SUB: Record<DlrKind, string> = {
   dlr2: 'View funds received, ATM cash balances, dispensing and loading details across source dates.',
@@ -58,7 +57,7 @@ export function DlrSummary({ kind }: { kind: DlrKind }) {
       name={NAME[kind]}
       chip="Summary"
       meta={`${all.length} ATMs · ${uploaded} CBR uploaded · ${all.length - uploaded} pending`}
-      controls={
+      metaRight={
         <HeaderSelect
           label="CBR Uploaded"
           value={status}
@@ -72,8 +71,8 @@ export function DlrSummary({ kind }: { kind: DlrKind }) {
       }
       notes={
         <>
-          <SheetNote title="Open an ATM sheet">Select an ATM ID to open its full {NAME[kind]} sheet. Saving a sheet marks its CBR as Uploaded with the latest sheet date.</SheetNote>
-          <SheetNote title="Source format corrected">The source summary listed ATM IDs under “Franchise Name”; ATM ID and Franchise Name are separate columns here.</SheetNote>
+          <InfoNote title="Open an ATM sheet">Select an ATM ID to open its full {NAME[kind]} sheet. Saving a sheet marks its CBR as Uploaded with the latest sheet date.</InfoNote>
+          <InfoNote title="Source format corrected">The source summary listed ATM IDs under “Franchise Name”; ATM ID and Franchise Name are separate columns here.</InfoNote>
         </>
       }
     >
@@ -96,6 +95,7 @@ export function DlrSummary({ kind }: { kind: DlrKind }) {
 const DLR2_BANDS: SheetBand[] = [
   {
     title: 'Funds received and ATM cash',
+    toolbarTitle: 'DLR2 · Funds received and ATM cash',
     cols: [
       { key: 'totalFund', label: 'Total Fund', hi: 'फ्रैंचाइज़ी धनराशि', kind: 'money', width: 140 },
       { key: 'fundsDate', label: 'Funds received date', hi: 'इंडेंट / WLA खाते में प्राप्त धनराशि दिनांक', kind: 'date', width: 170 },
@@ -107,6 +107,7 @@ const DLR2_BANDS: SheetBand[] = [
   },
   {
     title: 'Dispensing, settlement and loading',
+    extra: 'S.N. repeated from A',
     cols: [
       { key: 'counterDispense', label: 'Dispense as per machine counters', hi: 'एटीएम मशीन काउंटर के अनुसार कुल धनराशि', kind: 'money', width: 190 },
       { key: 'rejectPurge', label: 'Actual Amount in Reject Box / Purge Bin at the time every loading', hi: 'रिजेक्ट बॉक्स / बिन में प्राप्त कुल धनराशि (रात्रि 11.00 बजे) (नोटों के प्रकार के साथ)', kind: 'deno', width: 230 },
@@ -123,7 +124,8 @@ const m3 = (key: string, label: string, hi: string, group?: string, width = 170)
 const DLR3_BANDS: SheetBand[] = [
   {
     title: 'Counter and Physical',
-    note: 'Counter: D–E · Physical: F–H',
+    extra: 'Counter: D–E · Physical: F–H',
+    toolbarTitle: 'DLR3 · Counter and physical cash',
     cols: [
       m3('opening', 'Opening Balance', 'प्रारंभिक शेष', 'Counter', 150),
       m3('dispensed', 'Cash Dispensed', 'नकद वितरण', 'Counter', 150),
@@ -136,6 +138,8 @@ const DLR3_BANDS: SheetBand[] = [
   },
   {
     title: 'Closing balances and settlement',
+    extra: 'S.N., Date and Deno repeated from A–C',
+    toolbarTitle: 'DLR3 · Settlement and cash balances',
     cols: [
       m3('closing', 'Closing Balance', 'समापन शेष', undefined, 150),
       m3('fundsReceived', 'Funds received in Indent / Settlement in WLA Account / SR received', 'इंडेंट / WLA खाते में प्राप्त कुल धनराशि / HPY Given Fund', undefined, 220),
@@ -154,11 +158,23 @@ const nextDay = (isoDate: string) => {
   return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`
 }
 
-// ── Detail sheet ──────────────────────────────────────────────────────────
+// ── Detail sheet (Figma 211:13259 / 211:14730 DLR2, 211:13087 / 211:16754 DLR3) ──
 export function DlrDetail({ kind }: { kind: DlrKind }) {
   const { atmId = '' } = useParams()
   return <DlrSheet key={`${kind}-${atmId}`} kind={kind} atmId={atmId} />
 }
+
+const Banner = ({ children }: { children: ReactNode }) => (
+  <div className="rounded-xl border border-blue-200 bg-primary-soft/60 px-4 py-3 text-[13px] text-primary">{children}</div>
+)
+const WideLine = ({ left, right }: { left: string; right: string }) => (
+  <div className="mb-3 flex flex-wrap justify-between gap-2 text-[12px]">
+    <span className="text-muted">{left}</span>
+    <span className="font-semibold text-primary">{right}</span>
+  </div>
+)
+const monthOf = (dates: string[]) =>
+  dates.length ? new Date(`${dates[dates.length - 1]}T00:00`).toLocaleString('en-US', { month: 'long', year: 'numeric' }) : 'not supplied'
 
 function DlrSheet({ kind, atmId }: { kind: DlrKind; atmId: string }) {
   const map = dlrDetailStores[kind].use()
@@ -169,62 +185,64 @@ function DlrSheet({ kind, atmId }: { kind: DlrKind; atmId: string }) {
   const sum = summary.find((s) => s.atmId === atmId)
   if (!site && !sum) return <Navigate to={`/reports/financial/${kind}`} replace />
 
-  const back = (
-    <Link to={`/reports/financial/${kind}`} className="mb-3 inline-flex items-center gap-1.5 text-[13px] font-medium text-primary hover:underline">
-      <ArrowLeft size={15} /> Back to {NAME[kind]} summary
-    </Link>
-  )
   const status = sum ? <Badge tone={sum.uploaded === 'Uploaded' ? 'green' : 'amber'}>CBR {sum.uploaded}</Badge> : null
-  const who = `${site?.franchise ?? sum?.franchise ?? ''}${site ? ` · ${site.location}, ${site.city}` : ''}`
+  const who = `ATM ID ${atmId} · ${site?.franchise ?? sum?.franchise ?? ''}`
+  const name = (
+    <span className="flex flex-wrap items-center gap-2">
+      {NAME[kind]} {status}
+    </span>
+  )
 
   if (kind === 'dlr2') {
-    const dates = d.rows.map((r) => r.fundsDate).filter(Boolean).sort()
-    const sn: SheetCol = { key: 'sn', label: 'S.N.', hi: 'क्र.स.', width: 64, editable: false, value: (r) => String(d.rows.indexOf(r) + 1) }
+    const funds = d.rows.map((r) => r.fundsDate).filter(Boolean).sort()
+    const loads = d.rows.map((r) => r.loadingDate).filter(Boolean).sort()
+    const sn: SheetCol = { key: 'sn', label: 'S.N.', hi: 'क्र.स.', width: 60, editable: false, value: (r) => String(d.rows.indexOf(r) + 1) }
     const diffRows = d.rows.filter((r) => Number(r.settlementDiff)).length
+    const n = d.rows.length
+    const bands = DLR2_BANDS.map((b, i) => ({ ...b, footer: `${n} source rows · Source columns ${i === 0 ? 'A–G' : 'H–N'} · Blank cells preserved` }))
     return (
       <FinancialShell
-        back={back}
         sub={SUB.dlr2}
-        name={
-          <span className="flex flex-wrap items-center gap-2">
-            DLR2 · {atmId} {status}
-          </span>
+        only="dlr2"
+        tabRight={
+          <EditActions
+            editing={d.editing}
+            onUpdate={d.start}
+            onCancel={d.cancel}
+            onSave={d.save}
+            addLabel="Add day"
+            onAdd={() =>
+              d.setRows((rows) => {
+                const last = rows.map((r) => r.fundsDate).filter(Boolean).sort().pop() ?? ''
+                const day = nextDay(last)
+                return [...rows, { id: newId(`${atmId}-D2`), totalFund: '', fundsDate: day, fundsReceived: '', wlaBalance: '', physical2300: '', actualDispense: '', counterDispense: '', rejectPurge: '', excessPurge: '', settlementDiff: '', loadingDate: day, amountLoaded: '', remark: '' }]
+              })
+            }
+          />
         }
-        chip="Wrapped column view · All fields visible in two bands"
-        meta={`${who} · ${d.rows.length} rows · 14 source columns${dates.length ? ` · ${dmy(dates[0])} to ${dmy(dates[dates.length - 1])}` : ''}`}
-        editing={d.editing}
-        onUpdate={d.start}
-        onCancel={d.cancel}
-        onSave={d.save}
-        onAdd={() =>
-          d.setRows((rows) => {
-            const last = rows.map((r) => r.fundsDate).filter(Boolean).sort().pop() ?? ''
-            const day = nextDay(last)
-            return [...rows, { id: newId(`${atmId}-D2`), totalFund: '', fundsDate: day, fundsReceived: '', wlaBalance: '', physical2300: '', actualDispense: '', counterDispense: '', rejectPurge: '', excessPurge: '', settlementDiff: '', loadingDate: day, amountLoaded: '', remark: '' }]
-          })
-        }
-        addLabel="Add day"
-        notes={
-          <>
-            <SheetNote title="Note denominations">
-              Cash columns marked “with note deno” take note × count, e.g. 100×12 / 200×5 / 500×20 — the total is calculated below each entry ({inr(11200)} for that example).
-            </SheetNote>
-            <SheetNote title={`${diffRows} settlement difference${diffRows === 1 ? '' : 's'}`}>
-              Difference (Excess / Shortage) is positive for excess and negative for shortage received in settlement; shortages show in red.
-            </SheetNote>
-          </>
+        name={name}
+        chip="Source data"
+        meta={`14 source columns · ${n} source rows · Funds received: ${monthOf(funds)} · Loading: ${monthOf(loads)} · ${who}`}
+        banner={
+          <Banner>
+            Cash columns “with note deno” take note × count, e.g. 100×12 / 200×5 / 500×20 — the total ({inr(11200)} for that example) is calculated below each entry. Difference (Excess / Shortage) is
+            positive for excess and negative for shortage ({diffRows} this period, shown in red). Received dates and loading dates are shown exactly as supplied; blank cells remain blank.
+          </Banner>
         }
       >
+        <WideLine left="Wide source table shown in two consecutive column bands; S.N. repeats for row alignment." right={`All 14 fields · All ${n} rows`} />
         <ReportSheet
-          title={`DLR2 · ${atmId}`}
-          countLabel={`${d.rows.length} rows`}
+          title="DLR2"
           rows={d.rows}
           lead={[sn]}
-          bands={DLR2_BANDS}
+          bands={bands}
           editing={d.editing}
           onCellChange={d.change}
           exportName={`dlr2-${atmId}`}
           searchPlaceholder="Search source rows"
+          layout="cards"
+          toolbar="first"
+          noun="source rows"
         />
       </FinancialShell>
     )
@@ -234,9 +252,9 @@ function DlrSheet({ kind, atmId }: { kind: DlrKind; atmId: string }) {
   const display = withTotals(d.rows)
   const groups = [...new Set(d.rows.map((r) => r.group))]
   const lead: SheetCol[] = [
-    { key: 'sn', label: 'S.N.', hi: 'क्र.स.', width: 64, editable: false, value: (r) => (r.deno === '100' ? String(groups.indexOf(r.group) + 1) : '') },
+    { key: 'sn', label: 'S.N.', hi: 'क्र.स.', width: 60, editable: false, value: (r) => (r.deno === '100' ? String(groups.indexOf(r.group) + 1) : '') },
     { key: 'date', label: 'Date', hi: 'तारीख', kind: 'date', width: 130, render: (r) => (r.deno === '100' ? dmy(r.date) : '') },
-    { key: 'deno', label: 'Deno', hi: 'मूल्यवर्ग / नोटों के प्रकार', width: 120, editable: false, render: (r) => (r.isTotal ? <b>Total=</b> : `₹ ${r.deno}`) },
+    { key: 'deno', label: 'Deno', hi: 'मूल्यवर्ग / नोटों के प्रकार', width: 130, editable: false, render: (r) => (r.isTotal ? <b>Total=</b> : r.deno) },
   ]
   const change = (id: string, key: string, value: string) => {
     if (key === 'date') {
@@ -246,49 +264,56 @@ function DlrSheet({ kind, atmId }: { kind: DlrKind; atmId: string }) {
     d.change(id, key, value)
   }
   const dates = d.rows.map((r) => r.date).filter(Boolean).sort()
+  const bands = DLR3_BANDS.map((b, i) => ({
+    ...b,
+    footer: i === 0 ? `${groups.length} dates · Denominations 100 / 200 / 500 / Total=` : `${groups.length} dates · Source columns K–Q · Total= rows are calculated`,
+  }))
 
   return (
     <FinancialShell
-      back={back}
       sub={SUB.dlr3}
-      name={
-        <span className="flex flex-wrap items-center gap-2">
-          DLR3 · {atmId} {status}
-        </span>
+      only="dlr3"
+      tabRight={
+        <EditActions
+          editing={d.editing}
+          onUpdate={d.start}
+          onCancel={d.cancel}
+          onSave={d.save}
+          addLabel="Add date"
+          onAdd={() =>
+            d.setRows((rows) => {
+              const day = nextDay(rows.map((r) => r.date).filter(Boolean).sort().pop() ?? '')
+              const group = newId(`${atmId}-G`)
+              return [...rows, ...DENOS.map((deno) => ({ id: `${group}-${deno}`, group, sn: '', date: day, deno }) as Row)]
+            })
+          }
+        />
       }
-      chip="Wrapped column view · All fields visible in two bands"
-      meta={`${who} · ${groups.length} dates · 17 source columns · Denominations 100, 200, 500 and Total=${dates.length ? ` · ${dmy(dates[0])} to ${dmy(dates[dates.length - 1])}` : ''}`}
-      editing={d.editing}
-      onUpdate={d.start}
-      onCancel={d.cancel}
-      onSave={d.save}
-      addLabel="Add date"
-      onAdd={() =>
-        d.setRows((rows) => {
-          const day = nextDay(rows.map((r) => r.date).filter(Boolean).sort().pop() ?? '')
-          const group = newId(`${atmId}-G`)
-          return [...rows, ...DENOS.map((deno) => ({ id: `${group}-${deno}`, group, sn: '', date: day, deno }) as Row)]
-        })
-      }
-      notes={
-        <>
-          <SheetNote title="Total= rows are calculated">Each date has one row per denomination (₹100, ₹200, ₹500). The Total= row adds the three and is read-only; edit the denomination rows instead.</SheetNote>
-          <SheetNote title="Dates">Changing the Date on any denomination row moves the whole date group. Add date creates the next day with blank 100 / 200 / 500 rows.</SheetNote>
-        </>
+      name={name}
+      chip="Source data"
+      meta={`17 source columns · ${groups.length} source entries · Denominations: 100, 200, 500 and Total= · ${dates.length ? `${dmy(dates[0])} to ${dmy(dates[dates.length - 1])}` : 'Date not supplied'} · ${who}`}
+      banner={
+        <Banner>
+          Each date has one row per denomination (100, 200, 500); the Total= row adds the three and is read-only — edit the denomination rows instead. Changing the Date on any denomination row moves the whole
+          date group; Add date creates the next day with blank 100 / 200 / 500 rows.
+        </Banner>
       }
     >
+      <WideLine left="Wide source table shown in two column bands; S.N., Date and Deno repeat for alignment." right={`All 17 fields · ${display.length} rows`} />
       <ReportSheet
-        title={`DLR3 · ${atmId}`}
-        countLabel={`${groups.length} dates · ${display.length} rows`}
+        title="DLR3"
         rows={display}
         lead={lead}
-        bands={DLR3_BANDS}
+        bands={bands}
         editing={d.editing}
         onCellChange={change}
         readOnlyRow={(r) => (r.isTotal ? 'Total= is calculated from the 100 / 200 / 500 rows' : false)}
         rowClassName={(r) => (r.isTotal ? 'bg-surface font-semibold' : undefined)}
         exportName={`dlr3-${atmId}`}
         searchPlaceholder="Search source rows"
+        layout="cards"
+        toolbar="each"
+        noun="source rows"
       />
     </FinancialShell>
   )

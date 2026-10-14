@@ -85,8 +85,13 @@ function DocPreview({ c, doc, zoom }: { c: KycCase; doc: string; zoom: number })
               <div className="text-[11px]">
                 <div className="text-[9px] text-muted">Name</div>
                 <div className="font-bold uppercase">{c.fields.nameOnPan}</div>
-                <div className="mt-2 text-[9px] text-muted">Date of Birth</div>
-                <div>{c.fields.dob.split('-').reverse().join(' / ')}</div>
+                {c.fields.fatherName && (
+                  <>
+                    <div className="mt-2 text-[9px] text-muted">Father’s Name</div>
+                    <div className="uppercase">{c.fields.fatherName}</div>
+                  </>
+                )}
+                <div className="mt-2">DOB: {c.fields.dob.split('-').reverse().join(' / ')}</div>
               </div>
             </div>
             <div className="mt-4 text-[17px] font-bold tracking-wider">{c.fields.pan}</div>
@@ -120,6 +125,7 @@ export function KycWorkspace() {
   const [verifying, setVerifying] = useState(false)
   const [rejecting, setRejecting] = useState(false)
   const [reason, setReason] = useState('')
+  const [openedAt] = useState(() => new Date().toISOString())
   if (!c) return <Navigate to="/kyc/verification" replace />
 
   const locked = c.status !== 'Under Verification'
@@ -144,10 +150,13 @@ export function KycWorkspace() {
   }
 
   const input = 'h-9 w-full rounded-md border border-line bg-white px-3 text-[13px] outline-none focus:border-primary disabled:bg-surface'
-  const field = (label: string, k: keyof KycCase['fields'], type = 'text') => (
+  const field = (label: string, k: keyof KycCase['fields'], type = 'text', prefix?: string) => (
     <label className="block text-[11px] text-muted">
       {label}
-      <input type={type} disabled={locked} value={c.fields[k]} onChange={(e) => setField(k, e.target.value)} className={cn(input, 'mt-1 text-ink')} />
+      <span className="relative mt-1 block">
+        {prefix && <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[13px] text-ink">{prefix}</span>}
+        <input type={type} disabled={locked} value={c.fields[k] ?? ''} onChange={(e) => setField(k, e.target.value)} className={cn(input, 'text-ink', prefix && 'pl-12')} />
+      </span>
     </label>
   )
 
@@ -161,7 +170,7 @@ export function KycWorkspace() {
             <Badge tone={tone[c.status]}>{c.status}</Badge>
           </div>
           <div className="mt-1 font-mono text-[12px] text-muted">
-            Site / LOI Number: {c.loi} · {c.region} · {c.franchiseId}
+            Site / LOI Number: {c.loi} · {c.region}
           </div>
         </div>
         <Button variant="secondary" icon={<ArrowLeft size={15} />} onClick={() => navigate('/kyc/verification')}>
@@ -211,8 +220,14 @@ export function KycWorkspace() {
               <ChevronLeft size={13} className="opacity-50" /> Page 1 / 1 <ChevronRight size={13} className="opacity-50" />
             </span>
           </div>
-          <div className="mx-4 mb-4">
+          <div className="relative mx-4 mb-4">
             <DocPreview c={c} doc={doc} zoom={zoom} />
+            {/* viewer watermark: [User Name] | [Company Name] | [Timestamp] */}
+            <div aria-hidden className="pointer-events-none absolute inset-0 grid place-items-center overflow-hidden">
+              <span className="-rotate-[24deg] font-mono text-[13px] whitespace-nowrap text-ink/10 select-none">
+                Ananya Sharma | Dexter India | {fmt(openedAt)} IST
+              </span>
+            </div>
           </div>
         </section>
 
@@ -245,7 +260,7 @@ export function KycWorkspace() {
           {field('Name on PAN', 'nameOnPan')}
           <div className="grid grid-cols-2 gap-3">
             {field('Date of birth', 'dob', 'date')}
-            {field('Aadhaar last 4', 'aadhaarLast4')}
+            {field('Aadhaar last 4', 'aadhaarLast4', 'text', '••••')}
           </div>
           {field('Registered address', 'address')}
           <label className="block text-[11px] text-muted">
@@ -278,12 +293,15 @@ export function KycWorkspace() {
               </span>
             </div>
             {current.versions.map((v, i) => (
-              <div key={v.v} className="mb-2 flex items-center justify-between rounded-md border border-line px-3 py-2 text-[11px]">
+              <div key={v.v} className="mb-2 flex items-center justify-between gap-2 rounded-md border border-line px-3 py-2 text-[11px]">
                 <div>
-                  <div className="font-medium text-ink">v{v.v} · {fmt(v.at)}</div>
+                  <div className="font-medium text-ink">{fmt(v.at).replace(',', ' ·')}</div>
                   <div className="text-muted">{v.by}</div>
                 </div>
-                <Badge tone={i === 0 ? 'green' : 'gray'} dot={false}>{i === 0 ? 'Current' : 'Superseded'}</Badge>
+                <span className="flex items-center gap-2">
+                  <span className="text-muted">v{v.v}</span>
+                  <Badge tone={i === 0 ? 'green' : 'gray'} dot={false}>{i === 0 ? 'Current' : 'Superseded'}</Badge>
+                </span>
               </div>
             ))}
           </div>

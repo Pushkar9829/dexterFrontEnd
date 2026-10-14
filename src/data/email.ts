@@ -76,9 +76,9 @@ export const TRACKERS: Tracker[] = [
     priority: 'High',
     category: 'ATM Issue',
     customer: { name: 'Rohit Sharma', email: 'rohit.sharma@example.com', phone: '+91 98765 43210', role: 'Branch Manager', org: 'ABC Bank', location: 'Connaught Place, New Delhi' },
-    createdOn: at('2025-08-25T14:15:00'),
+    createdOn: at('2025-08-26T14:15:00'),
     assignedTo: 'Amit Kumar (Support)',
-    events: [{ at: at('2025-08-25T14:15:00'), title: 'Case Created', detail: 'ATM Complaint Logged' }],
+    events: [{ at: at('2025-08-26T14:15:00'), title: 'Case Created', detail: 'ATM Complaint Logged' }],
   },
   {
     id: 'FIN-2026-00078',

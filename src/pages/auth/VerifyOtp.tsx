@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { ShieldCheck } from 'lucide-react'
+import { LoaderCircle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { OtpInput } from '@/components/ui/Field'
 import { signIn } from '@/lib/auth'
@@ -55,7 +55,7 @@ export default function VerifyOtp() {
   }
 
   return (
-    <AuthLayout>
+    <AuthLayout panel={isReset ? 'intro' : 'showcase'}>
       <AuthTitle
         title={isReset ? 'Verify your identity' : 'Enter verification code'}
         sub={
@@ -89,12 +89,13 @@ export default function VerifyOtp() {
           <span className="text-muted">
             {seconds > 0 ? `Resend code in 00:${String(seconds).padStart(2, '0')}` : 'Didn’t get the code?'}
           </span>
-          <button type="button" disabled={seconds > 0} onClick={resend} className="font-semibold text-primary disabled:text-muted/60">
+          <button type="button" disabled={seconds > 0 && !expired} onClick={resend} className="font-semibold text-primary disabled:font-medium disabled:text-muted/60">
             Resend OTP
           </button>
         </div>
 
-        <Button type="submit" size="lg" block disabled={code.length < 6 || busy || expired}>
+        <Button type="submit" size="lg" block disabled={code.length < 6 || busy || expired} className={busy ? 'disabled:bg-primary' : undefined}>
+          {busy && <LoaderCircle size={18} className="animate-spin" />}
           {busy ? 'Verifying OTP...' : 'Verify & Continue'}
         </Button>
         <div className="text-center">
@@ -102,13 +103,7 @@ export default function VerifyOtp() {
             Change {state.channel === 'phone' ? 'phone number' : 'email'}
           </Link>
         </div>
-        <div className="flex gap-3 rounded-lg bg-surface px-4 py-3 text-[13px]">
-          <ShieldCheck size={18} className="mt-0.5 shrink-0 text-primary" />
-          <div>
-            <div className="font-semibold">Protected verification</div>
-            <div className="text-muted">Never share this OTP. Dexter India support will never ask for your code.</div>
-          </div>
-        </div>
+        <Alert title="Protected verification">Never share this OTP. Dexter India support will never ask for your code.</Alert>
       </form>
     </AuthLayout>
   )
