@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/Button'
 import { SectionTitle, SelectField, TextAreaField, TextField, fmtSize } from '@/components/ui/Form'
 import { toast } from '@/components/ui/Toast'
 import { cn } from '@/lib/cn'
-import { downloadCsv } from '@/lib/export'
 import {
   ATM_MASTER,
   CATEGORIES,
@@ -387,30 +386,10 @@ export default function CreateComplaint() {
     nav(`${BASE}/${id}`)
   }
 
-  const exportForm = () =>
-    downloadCsv('complaint-draft', ['Field', 'Value'], [
-      ['Reporting Authority', f.reportingAuthority],
-      ['ATM ID', f.atmId],
-      ['Site ID', atm?.siteId ?? ''],
-      ['Franchise / Complainant', atm ? `${atm.franchise} / ${atm.complainant}` : ''],
-      ['State', atm?.state ?? ''],
-      ['Complaint Receiving Date', f.receivedDate],
-      ['Issue category', f.issue],
-      ['Component', f.component],
-      ['Priority', f.priority],
-      ['Issue title', f.title],
-      ['Issue details', f.details],
-      ['Concerned department', f.department],
-      ['Docket Number', f.docket],
-      ['Complaint Status', f.status],
-      ['Date of Reminder', f.reminderDate],
-      ['Remark', f.remark],
-    ])
-
   return (
-    <ComplaintsShell title="Create Complaint" sub="Register a complaint and route it to the responsible team. Fields marked * are required." onExport={exportForm} >
-      <div className="mb-5 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-blue-200 bg-primary-soft px-5 py-3.5 text-[13px]">
-        <span className="font-semibold text-primary">New registration · Draft</span>
+    <ComplaintsShell title="Create Complaint" sub="Register a complaint and route it to the responsible team. Fields marked * are required.">
+      <div className="mb-5 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl bg-primary-soft px-5 py-3.5 text-[12px]">
+        <span className="font-medium text-primary">New registration · Draft</span>
         <span className="text-ink-2">Master data fills linked site and contact information. Calculated fields are read-only. Closure details can be added after resolution.</span>
       </div>
 

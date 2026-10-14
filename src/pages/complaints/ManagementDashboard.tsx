@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight } from 'lucide-react'
-import { Bar, BarChart, CartesianGrid, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Bar, BarChart, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { ExcelGrid, type GridColumn } from '@/components/grid/ExcelGrid'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -128,7 +128,7 @@ export default function ManagementDashboard() {
 
   const priorityCols: GridColumn<Complaint>[] = [
     { key: 'id', header: 'Complaint ID', width: 120, render: (c) => <Link to={`${BASE}/${c.id}`} className="font-medium text-primary hover:underline">{c.id}</Link> },
-    { key: 'issue', header: 'Issue / ATM', width: 280, value: (c) => `${c.subcategory} · ${c.atmId}` },
+    { key: 'issue', header: 'Issue / ATM', width: 520, value: (c) => `${c.subcategory} · ${c.atmId}` },
     { key: 'priority', header: 'Priority', width: 100 },
     { key: 'owner', header: 'Owner', width: 140 },
     { key: 'sla', header: 'SLA / next step', width: 150, value: (c) => d.slas.get(c.id)!.label },
@@ -155,7 +155,7 @@ export default function ManagementDashboard() {
     <ComplaintsShell title="Management Dashboard" sub="Complaint performance, service exposure and priorities across India operations." onExport={() => complaintCsv('complaints-management', d.period, now)}>
       <FilterBar value={filter} onChange={filterStore.set} summary={`${d.period.length} complaints received in period · ${d.open.length} currently open`} />
 
-      <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+      <div className="mb-5 grid grid-cols-2 items-start gap-3 md:grid-cols-3 xl:grid-cols-6">
         <Kpi label="Total complaints" value={d.period.length} caption={`${shortRange(filter)} · ${d.closed.length} closed (${pct(d.closed.length, d.period.length)})`} />
         <Kpi label="Open complaints" value={d.open.length} caption={`${d.open.length - d.pending.length} active · ${d.pending.length} pending dependencies`} />
         <Kpi label="Critical complaints" value={d.open.filter((c) => c.priority === 'Critical').length} tone="red" caption={`Subset of ${d.open.length} open complaints`} />
@@ -178,17 +178,16 @@ export default function ManagementDashboard() {
               <span className="h-2 w-2" style={{ background: CHART.green }} /> Closed · {d.daily.reduce((s, x) => s + x.Closed, 0)}
             </span>
           </div>
-          <div className="h-[210px]">
+          <div className="h-[180px]">
             <ResponsiveContainer>
-              <BarChart data={d.daily} margin={{ top: 18, right: 4, left: -28, bottom: 0 }} barGap={4}>
-                <CartesianGrid vertical={false} stroke={CHART.grid} />
-                <XAxis dataKey="day" tick={{ fontSize: 11, fill: CHART.muted }} axisLine={false} tickLine={false} />
-                <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: CHART.muted }} axisLine={false} tickLine={false} />
+              <BarChart data={d.daily} margin={{ top: 18, right: 4, left: 4, bottom: 0 }} barGap={4}>
+                <XAxis dataKey="day" tick={{ fontSize: 10, fill: CHART.muted }} axisLine={{ stroke: CHART.grid }} tickLine={false} />
+                <YAxis hide />
                 <Tooltip cursor={{ fill: '#f6f8fc' }} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
-                <Bar dataKey="Received" fill={CHART.navy} radius={[3, 3, 0, 0]} maxBarSize={22}>
-                  <LabelList dataKey="Received" position="top" style={{ fontSize: 11, fill: CHART.navy }} />
+                <Bar dataKey="Received" fill={CHART.navy} radius={[3, 3, 0, 0]} maxBarSize={22} isAnimationActive={false}>
+                  <LabelList dataKey="Received" position="top" style={{ fontSize: 10, fill: CHART.navy }} />
                 </Bar>
-                <Bar dataKey="Closed" fill={CHART.green} radius={[3, 3, 0, 0]} maxBarSize={22} />
+                <Bar dataKey="Closed" fill={CHART.green} radius={[3, 3, 0, 0]} maxBarSize={22} isAnimationActive={false} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -209,7 +208,7 @@ export default function ManagementDashboard() {
             <BarRow key={cat} label={RECURRING_LABEL[cat] ?? cat} value={n} max={d.catRows[0][1]} />
           ))}
           {d.repeats.length > 0 && powerShare > 0 && (
-            <p className="mt-2 text-[12px] text-amber-700">{powerShare}% of repeats involve power backup. Review the battery replacement process.</p>
+            <p className="mt-2 text-[11px] leading-4 text-amber-700">{powerShare}% of repeats involve power backup. Review the battery replacement process.</p>
           )}
         </Panel>
       </div>
@@ -247,7 +246,7 @@ export default function ManagementDashboard() {
             const o = d.oldest(lvl)
             const n = d.esc.filter((c) => c.escalationLevel === lvl).length
             return (
-              <p key={lvl} className="py-1.5 text-[13px] text-ink-2">
+              <p key={lvl} className="py-1 text-[12px] leading-[17px] text-ink-2">
                 <span className="text-ink">L{lvl} · {lvl === 2 ? 'Regional Managers' : 'Operations Head'}</span>
                 <span className="mx-1.5 text-muted">·</span>
                 {n} active
@@ -264,12 +263,12 @@ export default function ManagementDashboard() {
           })}
         </Panel>
         <Panel title="Turnaround performance">
-          <p className="py-1.5 text-[13px] text-ink-2">
+          <p className="py-1 text-[12px] leading-[17px] text-ink-2">
             <span className="text-ink">Median / P90 TAT</span>
             <span className="mx-1.5 text-muted">·</span>
             {fmtHours(percentile(d.tats, 0.5))} / {fmtHours(percentile(d.tats, 0.9))} · Closed complaints only
           </p>
-          <p className="py-1.5 text-[13px] text-ink-2">
+          <p className="py-1 text-[12px] leading-[17px] text-ink-2">
             <span className="text-ink">Resolution within SLA</span>
             <span className="mx-1.5 text-muted">·</span>
             {d.within} of {d.closed.length} closures · {pct(d.within, d.closed.length)}

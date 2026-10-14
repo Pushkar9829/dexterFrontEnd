@@ -12,8 +12,8 @@ import { cn } from '@/lib/cn'
 import { activities, dashboardNotices, finance, inr, kpis, moduleTiles, projects, quickAccess, tickets } from '@/data/dashboard'
 import { DEMO_USER, getSession } from '@/lib/auth'
 
-const kpiIcons = { users: <Users size={18} />, franchises: <Store size={18} />, approvals: <UserCheck size={18} />, complaints: <TicketCheck size={18} /> }
-const financeIcon = { amber: <Wallet size={16} />, purple: <Receipt size={16} />, green: <ShieldCheck size={16} />, blue: <CircleDollarSign size={16} /> }
+const kpiIcons = { users: <Users size={16} />, franchises: <Store size={16} />, approvals: <UserCheck size={16} />, complaints: <TicketCheck size={16} /> }
+const financeIcon = { amber: <Wallet size={14} />, purple: <Receipt size={14} />, green: <ShieldCheck size={14} />, blue: <CircleDollarSign size={14} /> }
 const financeBg = { amber: 'bg-amber-50 text-amber-600', purple: 'bg-violet-50 text-violet-600', green: 'bg-emerald-50 text-emerald-600', blue: 'bg-blue-50 text-blue-600' }
 const quickIcons = [Users, Store, IdCard, Building, TicketCheck, ListChecks, BarChart3]
 const tileStyle = {
@@ -30,61 +30,61 @@ export default function Dashboard() {
   const today = 'Tuesday, 06 October 2026' // business date of the demo data (matches "Last updated 06 Oct 2026")
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       {/* Banner */}
-      <section className="relative overflow-hidden rounded-xl bg-banner px-6 py-7 text-white sm:px-7">
-        <div className="pointer-events-none absolute inset-y-0 right-[22%] hidden w-64 -skew-x-[35deg] bg-white/5 md:block" />
-        <div className="pointer-events-none absolute inset-y-0 right-[18%] hidden w-3 -skew-x-[35deg] bg-brand-red md:block" />
+      <section className="relative overflow-hidden rounded-xl bg-banner px-6 py-[19px] text-white">
+        <div className="pointer-events-none absolute inset-y-0 right-[15%] hidden w-[340px] -skew-x-[38deg] bg-white/[0.06] md:block" />
+        <div className="pointer-events-none absolute inset-y-0 right-[15%] hidden w-[11px] -skew-x-[38deg] bg-brand-red md:block" />
         <div className="relative flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-[28px] font-semibold">Dashboard</h1>
-            <p className="mt-1.5 text-[15px] text-white/85">Welcome back, {firstName}. Here’s your operations at a glance.</p>
+            <h1 className="text-[28px] leading-tight font-semibold">Dashboard</h1>
+            <p className="mt-1.5 text-[14px] text-white/90">Welcome back, {firstName}. Here’s your operations at a glance.</p>
           </div>
           <div className="sm:text-right">
-            <div className="text-[20px] font-semibold">Dexter India</div>
-            <div className="mt-1 text-[12px] text-white/80">{today}</div>
-            <div className="mt-1.5 text-[10px] font-semibold tracking-wider text-white/80">INDIA OPERATIONS</div>
+            <div className="text-[18px] font-semibold">Dexter India</div>
+            <div className="mt-1 text-[11.5px] text-white/85">{today}</div>
+            <div className="mt-1.5 text-[9px] font-medium tracking-wide text-white/85">INDIA OPERATIONS</div>
           </div>
         </div>
       </section>
 
-      <div className="grid gap-5 xl:grid-cols-[1fr_316px]">
+      <div className="grid gap-5 xl:grid-cols-[1fr_312px]">
         {/* Left column */}
-        <div className="min-w-0 space-y-5">
-          <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
+        <div className="min-w-0 space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-4">
             {kpis.map((k) => (
               <KpiCard key={k.key} icon={kpiIcons[k.key as keyof typeof kpiIcons]} color={k.color} title={k.title} value={k.value} trend={k.trend} up={k.up} caption={k.caption} />
             ))}
           </div>
 
-          <div className="grid gap-5 md:grid-cols-2 2xl:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
             {/* Project status */}
             <Card>
-              <CardHeader title="Project Status" icon={<ClipboardList size={18} />} viewAll="/projects/active" />
-              <div className="space-y-5 px-5 pt-2 pb-5">
+              <CardHeader title="Project Status" icon={<ClipboardList size={16} />} viewAll="/projects/active" />
+              <div className="space-y-[22px] px-4 pt-2 pb-4">
                 {projects.map((p) => (
                   <div key={p.name}>
-                    <div className="mb-2 flex justify-between text-[12px] text-ink-2">
+                    <div className="mb-2.5 flex justify-between text-[10.5px] text-ink">
                       <span>{p.name}</span>
-                      <span className="text-muted">{p.pct}%</span>
+                      <span className="text-ink-2">{p.pct}%</span>
                     </div>
-                    <div className="h-1.5 rounded-full bg-line-soft">
+                    <div className="h-[5px] rounded-full bg-line-soft">
                       <div className={cn('h-full rounded-full', p.color)} style={{ width: `${p.pct}%` }} />
                     </div>
                   </div>
                 ))}
-                <p className="pt-2 text-[11px] text-muted">{projects.length} active projects · Implementation progress</p>
+                <p className="pt-1 text-[10px] text-muted">{projects.length} active projects · Implementation progress</p>
               </div>
             </Card>
 
             {/* Operations overview */}
             <Card>
               <CardHeader title="Operations Overview" viewAll="/operations/complaints" />
-              <div className="flex items-center gap-4 px-5">
-                <div className="relative h-[130px] w-[130px] shrink-0">
+              <div className="flex items-center gap-4 px-4 pt-1">
+                <div className="relative h-[124px] w-[124px] shrink-0">
                   <ResponsiveContainer>
                     <PieChart>
-                      <Pie data={tickets} dataKey="value" innerRadius={44} outerRadius={62} startAngle={90} endAngle={-270} stroke="none">
+                      <Pie data={tickets} dataKey="value" innerRadius={44} outerRadius={61} startAngle={90} endAngle={-270} stroke="none" isAnimationActive={false}>
                         {tickets.map((t) => (
                           <Cell key={t.name} fill={t.color} />
                         ))}
@@ -94,38 +94,38 @@ export default function Dashboard() {
                   <div className="absolute inset-0 grid place-items-center text-center">
                     <div>
                       <div className="text-[10px] text-muted">Total tickets</div>
-                      <div className="text-[26px] font-semibold leading-none">{totalTickets}</div>
+                      <div className="mt-0.5 text-[26px] font-semibold leading-none">{totalTickets}</div>
                     </div>
                   </div>
                 </div>
-                <ul className="flex-1 space-y-2.5 text-[11px]">
+                <ul className="flex-1 space-y-3 text-[10px]">
                   {tickets.map((t) => (
-                    <li key={t.name} className="flex items-center gap-2 text-muted">
+                    <li key={t.name} className="flex items-center gap-2 text-ink-2">
                       <span className="h-1.5 w-1.5 rounded-full" style={{ background: t.color }} />
                       <span className="flex-1">{t.name}</span>
-                      <span className="font-medium text-ink">{t.value}</span>
+                      <span className="text-[11px] font-medium text-ink">{t.value}</span>
                     </li>
                   ))}
                 </ul>
               </div>
-              <div className="m-5 mt-4 flex items-center gap-2 rounded-md bg-red-50 px-3 py-2 text-[11px] text-brand-red">
-                <AlertCircle size={13} /> {tickets[0].value} complaints need follow-up
+              <div className="mx-4 mt-5 mb-4 flex h-[27px] items-center gap-2 rounded-md bg-red-50 px-3 text-[10px] text-brand-red">
+                <AlertCircle size={12} /> {tickets[0].value} complaints need follow-up
               </div>
             </Card>
 
             {/* Financial summary */}
             <Card>
               <CardHeader title="Financial Summary" viewAll="/finance/gst" />
-              <ul className="px-5 pb-3">
+              <ul className="px-4 pb-2">
                 {finance.map((f) => (
-                  <li key={f.label} className="flex items-center gap-3 border-b border-line-soft py-2.5 last:border-0">
-                    <span className={cn('grid h-7 w-7 place-items-center rounded-md', financeBg[f.tone])}>{financeIcon[f.tone]}</span>
+                  <li key={f.label} className="flex items-center gap-3 border-b border-line-soft py-[5px] last:border-0">
+                    <span className={cn('grid h-[26px] w-[26px] place-items-center rounded-md', financeBg[f.tone])}>{financeIcon[f.tone]}</span>
                     <div className="flex-1">
-                      <div className="text-[11px] text-muted">{f.label}</div>
-                      <div className="text-[14px] font-semibold">{inr(f.amount)}</div>
+                      <div className="text-[10px] text-muted">{f.label}</div>
+                      <div className="text-[13.5px] font-semibold">{inr(f.amount)}</div>
                     </div>
-                    <span className="flex items-center text-[10px] text-emerald-600">
-                      <ArrowUp size={11} /> {f.trend}
+                    <span className="flex items-center gap-0.5 text-[10px] text-emerald-600">
+                      <ArrowUp size={10} /> {f.trend}
                     </span>
                   </li>
                 ))}
@@ -135,28 +135,28 @@ export default function Dashboard() {
 
           {/* Recent activities */}
           <Card className="overflow-hidden">
-            <CardHeader title="Recent Activities" sub="Latest updates" icon={<Landmark size={18} />} viewAll="/governance/audit" />
+            <CardHeader title="Recent Activities" sub="Latest updates" icon={<Landmark size={16} />} viewAll="/governance/audit" className="pr-6 pb-3.5" />
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[640px] text-[12px]">
-                <thead className="bg-surface text-left text-[11px] text-ink">
+              <table className="w-full min-w-[640px] text-[11px]">
+                <thead className="bg-surface text-left text-[10px] text-ink">
                   <tr>
-                    <th className="px-4 py-3 font-semibold">Date &amp; Time</th>
-                    <th className="px-4 py-3 font-semibold">Activity</th>
-                    <th className="px-4 py-3 font-semibold">Module</th>
-                    <th className="px-4 py-3 font-semibold">Status</th>
+                    <th className="w-[131px] px-2 py-3 font-semibold">Date &amp; Time</th>
+                    <th className="px-2 py-3 font-semibold">Activity</th>
+                    <th className="w-[129px] px-2 py-3 font-semibold">Module</th>
+                    <th className="w-[106px] px-2 py-3 font-semibold">Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {activities.map((a, i) => (
-                    <tr key={i} className="border-t border-line-soft">
-                      <td className="px-4 py-2 leading-tight text-ink-2">
+                    <tr key={i} className="h-[33.5px] border-t border-line-soft">
+                      <td className="px-2 py-0.5 text-[10px] leading-[11px] text-muted">
                         {a.when}
                         <br />
                         {a.time}
                       </td>
-                      <td className="px-4 py-2 text-ink">{a.activity}</td>
-                      <td className="px-4 py-2 text-primary">{a.module}</td>
-                      <td className="px-4 py-2">
+                      <td className="px-2 py-0.5 text-ink">{a.activity}</td>
+                      <td className="px-2 py-0.5 text-primary">{a.module}</td>
+                      <td className="px-2 py-0.5">
                         <Badge tone={toneFor(a.status)}>{a.status}</Badge>
                       </td>
                     </tr>
@@ -167,20 +167,20 @@ export default function Dashboard() {
           </Card>
 
           {/* Module tiles */}
-          <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-4">
             {moduleTiles.map((t) => {
               const s = tileStyle[t.tone]
               return (
-                <Link key={t.title} to={t.to} className={cn('group rounded-xl border p-4 transition-shadow hover:shadow-md', s.box)}>
+                <Link key={t.title} to={t.to} className={cn('group flex h-[92px] flex-col justify-between rounded-xl border p-3 transition-shadow hover:shadow-md', s.box)}>
                   <div className="flex items-center gap-2.5">
-                    <span className={cn('grid h-8 w-8 place-items-center rounded-lg text-white', s.icon)}>
-                      <s.Icon size={16} />
+                    <span className={cn('grid h-[26px] w-[26px] place-items-center rounded-md text-white', s.icon)}>
+                      <s.Icon size={14} />
                     </span>
-                    <span className="text-[14px] font-semibold">{t.title}</span>
+                    <span className="text-[12.5px] font-semibold">{t.title}</span>
                   </div>
-                  <div className={cn('mt-5 flex items-center justify-between text-[11px]', s.link)}>
+                  <div className={cn('flex items-center justify-between pb-2.5 text-[9.5px]', s.link)}>
                     {t.sub}
-                    <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" />
+                    <ArrowRight size={12} className="transition-transform group-hover:translate-x-0.5" />
                   </div>
                 </Link>
               )
@@ -189,18 +189,18 @@ export default function Dashboard() {
         </div>
 
         {/* Right column */}
-        <div className="space-y-5">
+        <div className="space-y-4">
           <Card>
-            <CardHeader title="Quick Access" icon={<Zap size={18} />} />
-            <ul className="space-y-2.5 px-4 pb-4">
+            <CardHeader title="Quick Access" icon={<Zap size={16} />} className="pb-3.5" />
+            <ul className="space-y-2 px-4 pb-4">
               {quickAccess.map((q, i) => {
                 const Icon = quickIcons[i]
                 return (
                   <li key={q.label}>
-                    <Link to={q.to} className="flex items-center gap-3 rounded-lg bg-primary-soft/60 px-3 py-2.5 text-[12px] font-medium text-primary hover:bg-primary-soft">
-                      <Icon size={15} />
+                    <Link to={q.to} className="flex h-[33.5px] items-center gap-3 rounded-md bg-primary-soft/70 px-3 text-[11px] font-medium text-primary hover:bg-primary-soft">
+                      <Icon size={14} />
                       <span className="flex-1">{q.label}</span>
-                      <ChevronRight size={14} />
+                      <ChevronRight size={13} />
                     </Link>
                   </li>
                 )
@@ -209,16 +209,16 @@ export default function Dashboard() {
           </Card>
 
           <Card>
-            <CardHeader title="Notices" icon={<Megaphone size={18} />} viewAll="/notices" />
-            <ul className="px-5 pb-3">
+            <CardHeader title="Notices" icon={<Megaphone size={16} />} viewAll="/notices" className="pb-1" />
+            <ul className="px-4 pb-2">
               {dashboardNotices.map((n) => (
-                <li key={n.title} className="border-b border-line-soft py-3 last:border-0">
+                <li key={n.title} className="border-b border-line-soft py-2.5 last:border-0">
                   <div className="flex items-start gap-2">
-                    <span className={cn('mt-1 h-1.5 w-1.5 shrink-0 rounded-full', n.color)} />
+                    <span className={cn('mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full', n.color)} />
                     <div>
-                      <div className="text-[12px] font-semibold">{n.title}</div>
-                      <div className="mt-1 text-[11px] text-muted">{n.body}</div>
-                      <div className="mt-1.5 text-[10px] text-muted">{n.date}</div>
+                      <div className="text-[11px] font-semibold">{n.title}</div>
+                      <div className="mt-1 text-[10px] text-muted">{n.body}</div>
+                      <div className="mt-1 text-[9px] text-muted">{n.date}</div>
                     </div>
                   </div>
                 </li>
@@ -226,20 +226,25 @@ export default function Dashboard() {
             </ul>
           </Card>
 
-          <div className="relative overflow-hidden rounded-xl bg-navy-900 p-5 text-white">
-            <div className="pointer-events-none absolute -right-6 -bottom-6 h-40 w-40 rounded-full bg-white/5" />
-            <div className="text-[16px] font-semibold">Dexter India</div>
-            <div className="mt-5 text-[13px] font-semibold leading-snug">
-              Smart Solutions
-              <br />
-              for a Growing Network
+          {/* Promo card: Figma uses a building photo on the right; a navy gradient with simple tower shapes stands in for it */}
+          <div className="relative h-[142px] overflow-hidden rounded-xl bg-navy-900 p-4 text-white">
+            <div className="pointer-events-none absolute inset-y-0 right-0 w-[56%] bg-gradient-to-br from-[#4a6aa3] via-[#22396a] to-navy-900" />
+            <div className="pointer-events-none absolute right-7 bottom-0 h-[112px] w-[64px] rounded-t-sm bg-white/10" />
+            <div className="pointer-events-none absolute right-[100px] bottom-0 h-[72px] w-[44px] rounded-t-sm bg-white/[0.07]" />
+            <div className="relative">
+              <div className="text-[15px] font-semibold">Dexter India</div>
+              <div className="mt-[18px] text-[12.5px] leading-[18px] font-semibold">
+                Smart Solutions
+                <br />
+                for a Growing Network
+              </div>
+              <div className="mt-3 text-[9.5px] text-white/80">Stronger together. Every day.</div>
             </div>
-            <div className="mt-4 text-[11px] text-white/75">Stronger together. Every day.</div>
           </div>
         </div>
       </div>
 
-      <div className="flex flex-wrap justify-between gap-2 text-[11px] text-muted">
+      <div className="flex flex-wrap justify-between gap-2 pt-1 text-[11px] text-muted">
         <span>India operations · All figures across active franchises</span>
         <span>Last updated 06 Oct 2026, 09:14 IST</span>
       </div>

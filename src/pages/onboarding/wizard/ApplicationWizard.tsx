@@ -23,7 +23,11 @@ export function ApplicationWizard({ app, onClose }: { app: Application | null; o
   const readOnly = !!app && app.status !== 'Draft'
   const [id, setId] = useState<string | null>(app?.id ?? null)
   const [form, setForm] = useState<ApplicationForm>(() => app?.form ?? emptyForm())
-  const [step, setStep] = useState(readOnly ? 7 : 1)
+  // dev/QA aid: ?step=N opens the wizard on step N (1-7) so each step can be screenshotted
+  const [step, setStep] = useState(() => {
+    const q = Number(new URLSearchParams(window.location.search).get('step'))
+    return q >= 1 && q <= 7 ? q : readOnly ? 7 : 1
+  })
   const [errors, setErrors] = useState<Errors>({})
   const [savedAt, setSavedAt] = useState<string | null>(app ? timeNow() : null)
   const dirty = useRef(false)
@@ -99,7 +103,6 @@ export function ApplicationWizard({ app, onClose }: { app: Application | null; o
   }
 
   const View = STEP_VIEWS[step - 1]
-  const modal = step === 1 && !readOnly
   const props: StepProps = { form, set, errors, readOnly }
   const title = readOnly ? `${app!.id} · ${app!.applicantName}` : 'WLA Franchise Application Form'
   const subtitle = readOnly
@@ -108,29 +111,29 @@ export function ApplicationWizard({ app, onClose }: { app: Application | null; o
 
   return (
     <div
-      className={cn('fixed inset-0 z-50 flex bg-black/45', modal ? 'items-center justify-center p-3 sm:p-6' : 'justify-end lg:pl-[264px]')}
+      className="fixed inset-0 z-50 flex justify-end bg-black/45 lg:pl-[264px]"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >
-      {/* Figma: step 1 is a centred modal (201:11033); steps 2–7 are a large right-hand panel */}
+      {/* Figma (56:4702 / 201:11033 / 56:1505…): every step is a full-height panel to the right of the sidebar */}
       <div
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className={cn('flex w-full flex-col bg-white shadow-2xl', modal ? 'h-full max-h-[1030px] max-w-[1320px] overflow-hidden rounded-xl' : 'h-full')}
+        className="flex h-full w-full flex-col bg-white shadow-2xl"
       >
         {/* header */}
-        <header className="flex items-start justify-between gap-4 border-b border-line px-5 pt-5 pb-4 sm:px-6">
+        <header className="flex items-start justify-between gap-4 border-b border-line px-5 pt-[21px] pb-[15px] sm:px-6">
           <div className="min-w-0">
-            <h2 className="truncate text-[20px] font-semibold">{title}</h2>
-            <p className="mt-1 text-[12px] text-muted">{subtitle}</p>
+            <h2 className="truncate text-[18px] leading-[26px] font-semibold">{title}</h2>
+            <p className="mt-1 text-[11px] text-muted">{subtitle}</p>
           </div>
-          <button onClick={onClose} className="grid h-8 w-8 place-items-center rounded-md bg-surface text-ink-2 hover:bg-line-soft" aria-label="Close">
-            <X size={18} />
+          <button onClick={onClose} className="grid h-7 w-7 place-items-center rounded-md bg-surface text-ink hover:bg-line-soft" aria-label="Close">
+            <X size={16} />
           </button>
         </header>
 
         {/* stepper */}
-        <nav className="scroll-thin flex gap-2 overflow-x-auto border-b border-line bg-surface/50 px-5 py-3 sm:px-6">
+        <nav className="scroll-thin flex gap-2 overflow-x-auto border-b border-line bg-white px-5 py-3.5 sm:px-6">
           {STEPS.map((s, i) => {
             const n = i + 1
             const active = n === step
@@ -139,11 +142,11 @@ export function ApplicationWizard({ app, onClose }: { app: Application | null; o
                 key={s}
                 onClick={() => (readOnly || n < step ? go(n) : n === step + 1 ? next() : undefined)}
                 className={cn(
-                  'flex min-h-16 min-w-[118px] flex-1 flex-col items-center justify-center gap-1.5 rounded-lg border px-2 py-2.5 text-[11px] transition-colors',
+                  'flex min-h-[65px] min-w-[118px] flex-1 flex-col items-center justify-center gap-1.5 rounded-md border px-2 py-2 text-[10px] transition-colors',
                   active ? 'border-primary bg-primary-soft text-primary' : 'border-line bg-white text-muted hover:border-primary/40',
                 )}
               >
-                <span className={cn('grid h-5 min-w-5 place-items-center rounded px-1 text-[10px] font-semibold', active ? 'bg-primary text-white' : 'bg-primary-soft text-primary')}>
+                <span className={cn('grid h-[18px] min-w-5 place-items-center rounded px-1 text-[10px] font-semibold', active ? 'bg-primary text-white' : 'bg-primary-soft text-primary')}>
                   {String(n).padStart(2, '0')}
                 </span>
                 <span className={active ? 'font-semibold' : ''}>{s}</span>
@@ -153,15 +156,15 @@ export function ApplicationWizard({ app, onClose }: { app: Application | null; o
         </nav>
 
         {/* body */}
-        <div ref={body} className="scroll-thin flex-1 overflow-y-auto px-5 py-6 sm:px-6">
-          <div className="mx-auto max-w-[1240px]">
+        <div ref={body} className="scroll-thin flex-1 overflow-y-auto px-5 pt-5 pb-6 sm:px-6">
+          <div>
             {step <= 6 ? <View {...props} /> : <Review form={form} status={app?.status ?? 'Draft'} onEdit={readOnly ? undefined : go} />}
           </div>
         </div>
 
         {/* footer */}
-        <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-5 py-3.5 sm:px-6">
-          <div className="text-[12px] leading-tight">
+        <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-5 py-4 sm:px-6">
+          <div className="text-[11px] leading-tight">
             {readOnly ? (
               <span className="text-muted">Submitted applications are read only.</span>
             ) : (
@@ -170,13 +173,13 @@ export function ApplicationWizard({ app, onClose }: { app: Application | null; o
                   <span className={cn('h-1.5 w-1.5 rounded-full', savedAt ? 'bg-emerald-600' : 'bg-line')} />
                   {savedAt ? 'Draft saved automatically' : 'Not saved yet'}
                 </div>
-                {savedAt && <div className="mt-0.5 text-muted">Last saved at {savedAt}</div>}
+                {savedAt && <div className="mt-0.5 pl-3 text-[10px] text-muted">Last saved at {savedAt}</div>}
               </>
             )}
           </div>
           <div className="flex gap-2">
             {step === 1 || readOnly ? (
-              <Button variant="secondary" onClick={onClose}>
+              <Button variant="secondary" className="text-muted" onClick={onClose}>
                 Close
               </Button>
             ) : null}
@@ -192,12 +195,12 @@ export function ApplicationWizard({ app, onClose }: { app: Application | null; o
             )}
             {step < 7 ? (
               <Button onClick={readOnly ? () => go(step + 1) : next}>
-                Continue <ArrowRight size={16} />
+                Continue <ArrowRight size={15} />
               </Button>
             ) : (
               !readOnly && (
                 <Button onClick={submit}>
-                  Submit Application <ArrowRight size={16} />
+                  Submit Application <ArrowRight size={15} />
                 </Button>
               )
             )}

@@ -56,7 +56,7 @@ export default function SiteRecord() {
         </div>
       </div>
 
-      <Card className="mb-5 p-5">
+      <Card className="mb-5 px-5 py-4">
         <div className="flex flex-wrap items-start gap-4">
           <Monogram text={site.franchiseName} />
           <div className="min-w-0 flex-1">
@@ -88,7 +88,10 @@ export default function SiteRecord() {
 function Summary({ state, site, docs }: { state: LegalState; site: LegalSite; docs: LegalDoc[] }) {
   const r = readiness(state, site.id)
   const required = docs.filter((d) => DOC_META[d.kind].required)
-  const pending = docs.filter((d) => d.status === 'Action Required' || d.status === 'Resubmission Required')
+  // Figma lists the signing task (Action Required) before resubmissions
+  const pending = docs
+    .filter((d) => d.status === 'Action Required' || d.status === 'Resubmission Required')
+    .sort((a, b) => Number(a.status !== 'Action Required') - Number(b.status !== 'Action Required'))
   const latest = eventsForSite(state, site.id)[0]
   const latestDoc = latest && docs.find((d) => d.id === latest.ref)
   const loi = docs.find((d) => d.kind === 'LOI')
@@ -100,9 +103,9 @@ function Summary({ state, site, docs }: { state: LegalState; site: LegalSite; do
   return (
     <div>
       <div className="grid gap-5 lg:grid-cols-[300px_minmax(0,1fr)]">
-        <Card className="p-5">
+        <Card className="px-5 pt-5 pb-4">
           <div className="text-[12px] tracking-wide text-muted">LEGAL READINESS</div>
-          <div className="mt-2 text-[30px] font-semibold tracking-tight">
+          <div className="mt-1.5 text-[30px] font-semibold tracking-tight">
             {r.approved} of {r.total} approved
           </div>
           <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-surface">
@@ -135,7 +138,7 @@ function Summary({ state, site, docs }: { state: LegalState; site: LegalSite; do
         </Card>
       </div>
 
-      <div className="mt-6 mb-3 flex flex-wrap items-baseline justify-between gap-2">
+      <div className="mt-5 mb-2.5 flex flex-wrap items-baseline justify-between gap-2">
         <h3 className="text-[17px] font-semibold">Legal documents</h3>
         <span className="text-[12px] text-muted">{r.total} required documents · Latest versions</span>
       </div>
@@ -145,7 +148,7 @@ function Summary({ state, site, docs }: { state: LegalState; site: LegalSite; do
         ))}
       </div>
 
-      <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+      <div className="mt-5 grid gap-5 lg:grid-cols-2">
         <div className={cn('rounded-xl p-5', pending.length ? 'bg-amber-50' : 'border border-line bg-white')}>
           <h3 className={cn('text-[15px] font-semibold', pending.length ? 'text-amber-800' : 'text-ink')}>Pending with the franchisee</h3>
           {pending.length ? (
@@ -201,7 +204,7 @@ function Summary({ state, site, docs }: { state: LegalState; site: LegalSite; do
 function DocCard({ doc, siteId }: { doc: LegalDoc; siteId: string }) {
   const m = DOC_META[doc.kind]
   return (
-    <div className="flex flex-col rounded-xl border border-line bg-white p-5">
+    <div className="flex flex-col rounded-xl border border-line bg-white px-5 pt-4 pb-3.5">
       <div className="flex items-center gap-3">
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary">
           <FileText size={17} />
@@ -209,12 +212,12 @@ function DocCard({ doc, siteId }: { doc: LegalDoc; siteId: string }) {
         <span className="min-w-0 flex-1 text-[15px] font-semibold">{m.title}</span>
         <span className="text-[12px] text-muted">{doc.version}</span>
       </div>
-      <div className="mt-3">
+      <div className="mt-2.5">
         <StatusBadge status={doc.status} />
       </div>
       <p className="mt-3 flex-1 text-[13px] text-ink-2">{cardNote(doc)}</p>
-      <div className="mt-3 text-[12px] text-muted">{doc.id}</div>
-      <Link to={`/legal/${siteId}/documents/${doc.id}`} className="mt-3 flex items-center justify-between border-t border-line pt-3 text-[13px] font-semibold text-primary hover:underline">
+      <div className="mt-2 text-[12px] text-muted">{doc.id}</div>
+      <Link to={`/legal/${siteId}/documents/${doc.id}`} className="mt-2.5 flex items-center justify-between border-t border-line pt-2.5 text-[13px] font-semibold text-primary hover:underline">
         Open document <ArrowUpRight size={15} />
       </Link>
     </div>

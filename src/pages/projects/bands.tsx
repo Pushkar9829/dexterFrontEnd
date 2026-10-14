@@ -51,14 +51,14 @@ const stageOk = (p: Project, stage: string) =>
 
 export type Sheet = ReturnType<typeof useSheet>
 
-export function useSheet(base: Project[]) {
+export function useSheet(base: Project[], initialSelected: string[] = []) {
   const [q, setQ] = useState('')
   const [model, setModel] = useState('')
   const [stage, setStage] = useState('')
   const [colFilter, setColFilter] = useState<Record<string, string>>({})
   const [sort, setSort] = useState<{ key: string; dir: 'asc' | 'desc' }>({ key: 'siteLoi', dir: 'asc' })
   const [hidden, setHidden] = useState<Set<string>>(new Set())
-  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [selected, setSelected] = useState<Set<string>>(() => new Set(initialSelected))
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
 
@@ -97,7 +97,11 @@ export function useSheet(base: Project[]) {
 // ───────────────────────── Register card ─────────────────────────
 
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-const btn = 'flex h-9 items-center gap-2 rounded-lg border border-line bg-white px-3 text-[13px] font-semibold text-ink hover:border-primary/50'
+const btn = 'flex h-[30px] items-center gap-1.5 rounded-md border border-line bg-white px-2.5 text-[11px] font-semibold text-ink hover:border-primary/50'
+/** running-number / checkbox column widths and the minimum data-column width (Figma: 38 / 34 / ~135 shared equally) */
+const NUM_W = 38
+const CHK_W = 34
+const MIN_COL = 118
 
 /**
  * Figma register card: tabs → band A–I (with the register toolbar) → J–R → S–Z → pagination → status bar.
@@ -143,28 +147,28 @@ export function ProjectSheet({
   const starts = PROJECT_BANDS.map((_, i) => PROJECT_BANDS.slice(0, i).reduce((n, b) => n + b.fields.length, 0))
   return (
     <section className="overflow-hidden rounded-xl border border-line bg-white">
-      <div className="flex flex-wrap items-center gap-x-4 border-b border-line px-4">
+      <div className="flex flex-wrap items-center gap-x-6 border-b border-line px-4">
         {tabs.map((t) => (
           <Link
             key={t.to}
             to={t.to}
-            className={cn('-mb-px border-b-2 py-3 text-[13px]', t.active ? 'border-primary font-semibold text-primary' : 'border-transparent text-muted hover:text-ink')}
+            className={cn('-mb-px border-b-2 py-3 text-[12px]', t.active ? 'border-primary font-semibold text-primary' : 'border-transparent text-muted hover:text-ink')}
           >
             {t.label}
           </Link>
         ))}
-        <span className="ml-auto py-3 text-[11px] text-muted">{tabNote}</span>
+        <span className="ml-auto py-3 text-[10.5px] text-muted">{tabNote}</span>
       </div>
 
       {bands.map((bi, i) => {
         const b = PROJECT_BANDS[bi]
         return (
           <div key={b.title}>
-            <div className={cn('flex flex-wrap items-center gap-x-2.5 gap-y-1 border-b border-line bg-primary-soft/60 px-4 py-2.5 text-[12px]', i > 0 && 'border-t')}>
+            <div className={cn('flex flex-wrap items-center gap-x-2.5 gap-y-1 border-b border-line bg-primary-soft/60 px-3.5 py-2 text-[11px]', i > 0 && 'border-t')}>
               <span className="font-semibold text-primary">{b.range}</span>
               <span className="font-semibold text-ink">{b.title}</span>
-              <span className="text-muted">{b.sub}</span>
-              <span className="ml-auto text-[11px] text-muted">{bandNote}</span>
+              <span className="text-[10.5px] text-muted">{b.sub}</span>
+              <span className="ml-auto text-[10.5px] text-muted">{bandNote}</span>
             </div>
             {i === 0 && <Toolbar sheet={sheet} title={title} models={models} onExport={onExport} />}
             <BandGrid
@@ -190,7 +194,7 @@ export function ProjectSheet({
         </div>
       )}
       {(footerLeft || footerRight) && (
-        <div className="flex flex-wrap items-center justify-between gap-2 bg-surface/60 px-4 py-2.5 text-[11px] text-muted">
+        <div className="flex flex-wrap items-center justify-between gap-2 bg-surface/60 px-3.5 py-2 text-[10.5px] text-muted">
           <span>{footerLeft}</span>
           <span className="text-primary">{footerRight}</span>
         </div>
@@ -201,25 +205,25 @@ export function ProjectSheet({
 
 function Toolbar({ sheet, title, models, onExport }: { sheet: Sheet; title: string; models: string[]; onExport: (rows: Project[]) => void }) {
   const [panel, setPanel] = useState<null | 'filters' | 'columns'>(null)
-  const sel = 'h-9 w-full rounded-lg border border-line bg-white px-3 text-[13px] text-ink outline-none focus:border-primary'
+  const sel = 'h-8 w-full rounded-md border border-line bg-white px-2.5 text-[12px] text-ink outline-none focus:border-primary'
   return (
-    <div className="relative flex flex-wrap items-center gap-3 border-b border-line px-4 py-3">
-      <Table2 size={18} className="text-primary" />
-      <span className="text-[14px] font-semibold">{title}</span>
-      <span className="text-[12px] text-muted">
+    <div className="relative flex min-h-12 flex-wrap items-center gap-2.5 border-b border-line px-3.5 py-1.5">
+      <Table2 size={15} className="text-primary" />
+      <span className="text-[12px] font-semibold">{title}</span>
+      <span className="text-[11px] text-muted">
         {sheet.rows.length} record{sheet.rows.length === 1 ? '' : 's'}
       </span>
-      <label className="flex h-9 w-full items-center gap-2 rounded-lg border border-line px-3 text-[13px] text-muted sm:w-[228px]">
-        <Search size={15} />
+      <label className="flex h-[34px] w-full items-center gap-2 rounded-md border border-line px-3 text-[11px] text-muted sm:w-[224px]">
+        <Search size={14} />
         <input value={sheet.q} onChange={(e) => sheet.setQ(e.target.value)} placeholder="Search site, name or model" className="w-full bg-transparent text-ink outline-none placeholder:text-muted" />
       </label>
       <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
         <button className={btn} onClick={() => setPanel(panel === 'filters' ? null : 'filters')}>
-          <ListFilter size={15} /> Filters
+          <ListFilter size={13} /> Filters
           {sheet.filterCount > 0 && <span className="rounded bg-primary px-1.5 text-[11px] text-white">{sheet.filterCount}</span>}
         </button>
         <button className={btn} onClick={() => setPanel(panel === 'columns' ? null : 'columns')}>
-          <Columns3 size={15} /> Columns
+          <Columns3 size={13} /> Columns
         </button>
         <button
           className={btn}
@@ -228,7 +232,7 @@ function Toolbar({ sheet, title, models, onExport }: { sheet: Sheet; title: stri
             onExport(pick)
           }}
         >
-          <Download size={15} /> Export .xlsx
+          <Download size={13} /> Export .xlsx
         </button>
       </div>
       {panel === 'filters' && (
@@ -309,7 +313,9 @@ function BandGrid({
   const cols = fields.map((f, i) => ({ f, letter: LETTERS[offset + i] })).filter(({ f }) => !sheet.hidden.has(f.key))
   const allSel = rows.length > 0 && rows.every((p) => sheet.selected.has(p.id))
   const someSel = rows.some((p) => sheet.selected.has(p.id))
-  const pinLeft = 48 + (selectable ? 36 : 0)
+  const pinLeft = NUM_W + (selectable ? CHK_W : 0)
+  const fixed = { width: NUM_W, minWidth: NUM_W, maxWidth: NUM_W }
+  const fixedChk = { width: CHK_W, minWidth: CHK_W, maxWidth: CHK_W, left: NUM_W }
 
   const commit = () => {
     if (!cell) return
@@ -322,21 +328,24 @@ function BandGrid({
   if (!rows.length) return null
   return (
     <div className="scroll-thin overflow-x-auto">
-      <table className="w-full border-collapse text-[13px]">
+      {/* fixed layout: data columns share the width equally, as in the Figma bands */}
+      <table className="w-full table-fixed border-collapse text-[11px]" style={{ minWidth: NUM_W + (selectable ? CHK_W : 0) + cols.length * MIN_COL }}>
         <thead>
-          <tr className="bg-surface text-[10px] text-muted">
-            <th className="sticky left-0 z-10 w-12 border-r border-b border-line bg-surface" />
-            {selectable && <th className="sticky left-12 z-10 w-9 border-r border-b border-line bg-surface" />}
+          <tr className="bg-surface text-[9px] leading-[17px] text-muted">
+            <th className="sticky left-0 z-10 border-r border-b border-line bg-surface" style={fixed} />
+            {selectable && <th className="sticky z-10 border-r border-b border-line bg-surface" style={fixedChk} />}
             {cols.map(({ f, letter }, i) => (
-              <th key={f.key} className={cn('border-r border-b border-line py-1 font-medium', first && i === 0 && 'sticky z-10 bg-surface')} style={first && i === 0 ? { left: pinLeft } : undefined}>
+              <th key={f.key} className={cn('border-r border-b border-line py-0 font-normal', first && i === 0 && 'sticky z-10 bg-surface')} style={first && i === 0 ? { left: pinLeft } : undefined}>
                 {letter}
               </th>
             ))}
           </tr>
           <tr className="bg-surface text-left">
-            <th className="sticky left-0 z-10 w-12 border-r border-b border-line bg-surface px-3 py-3 font-semibold">#</th>
+            <th className="sticky left-0 z-10 border-r border-b border-line bg-surface px-2.5 py-2.5 font-semibold" style={fixed}>
+              #
+            </th>
             {selectable && (
-              <th className="sticky left-12 z-10 w-9 border-r border-b border-line bg-surface px-2.5">
+              <th className="sticky z-10 border-r border-b border-line bg-surface px-2.5" style={fixedChk}>
                 <input
                   type="checkbox"
                   aria-label="Select all rows"
@@ -360,23 +369,26 @@ function BandGrid({
               return (
                 <th
                   key={f.key}
-                  className={cn('relative border-r border-b border-line px-3 py-2.5 text-[12px] font-semibold text-ink', pinned && 'sticky z-10 bg-surface')}
-                  style={{ minWidth: f.width, ...(pinned ? { left: pinLeft } : {}) }}
+                  className={cn('relative border-r border-b border-line px-2.5 py-2.5 font-semibold text-ink', pinned && 'sticky z-10 bg-surface')}
+                  style={pinned ? { left: pinLeft, width: 150 } : undefined}
                 >
-                  <div className="flex items-center gap-2">
-                    <span className="leading-tight">{f.label}</span>
-                    <span className="ml-auto flex items-center gap-1 text-muted">
-                      {pinned && <Pin size={12} className="text-primary" />}
+                  <div className="flex items-center gap-1.5">
+                    <span className={cn('leading-tight', pinned && 'whitespace-nowrap')}>{f.label}</span>
+                    <span className="ml-auto flex shrink-0 items-center gap-1 text-ink-2">
+                      {pinned && <Pin size={11} className="text-primary" />}
                       <button onClick={() => sheet.toggleSort(f.key)} aria-label={`Sort by ${f.label}`} className={s ? 'text-primary' : ''}>
-                        {s === 'asc' ? <ArrowDown size={13} /> : s === 'desc' ? <ArrowUp size={13} /> : <ArrowDownUp size={13} />}
+                        {s === 'asc' ? <ArrowDown size={11} /> : s === 'desc' ? <ArrowUp size={11} /> : <ArrowDownUp size={11} />}
                       </button>
-                      <button
-                        onClick={() => setOpenFilter(openFilter === f.key ? null : f.key)}
-                        aria-label={`Filter ${f.label}`}
-                        className={sheet.colFilter[f.key] ? 'text-primary' : ''}
-                      >
-                        <ListFilter size={13} />
-                      </button>
+                      {/* pinned Site/LOI column: pin + sort only (Figma); it is covered by the register search */}
+                      {!pinned && (
+                        <button
+                          onClick={() => setOpenFilter(openFilter === f.key ? null : f.key)}
+                          aria-label={`Filter ${f.label}`}
+                          className={sheet.colFilter[f.key] ? 'text-primary' : ''}
+                        >
+                          <ListFilter size={11} />
+                        </button>
+                      )}
                     </span>
                   </div>
                   {openFilter === f.key && (
@@ -419,9 +431,11 @@ function BandGrid({
                 }}
                 className={cn('group', isSel || editing ? 'bg-primary-soft/40' : 'hover:bg-surface/70', onRowClick && !editing && 'cursor-pointer')}
               >
-                <td className="sticky left-0 z-[1] border-r border-b border-line-soft bg-white px-3 py-3 text-muted group-hover:bg-surface">{n}</td>
+                <td className="sticky left-0 z-[1] border-r border-b border-line-soft bg-white px-2.5 py-2 text-muted group-hover:bg-surface" style={fixed}>
+                  {n}
+                </td>
                 {selectable && (
-                  <td className="sticky left-12 z-[1] border-r border-b border-line-soft bg-white px-2.5 group-hover:bg-surface">
+                  <td className="sticky z-[1] border-r border-b border-line-soft bg-white px-2.5 group-hover:bg-surface" style={fixedChk}>
                     <input
                       type="checkbox"
                       aria-label={`Select row ${n}`}
@@ -452,7 +466,7 @@ function BandGrid({
                       }}
                       title={canEdit ? 'Double-click to edit' : undefined}
                       className={cn(
-                        'border-r border-b border-line-soft px-3 py-3 align-middle',
+                        'border-r border-b border-line-soft px-2.5 py-2.5 align-middle break-words',
                         pinned && 'sticky z-[1] bg-white group-hover:bg-surface',
                         canEdit && 'cursor-cell bg-blue-50/40',
                       )}
@@ -517,15 +531,15 @@ export function StatusReference() {
   return (
     <div>
       <div className="mb-2.5 flex flex-wrap items-baseline justify-between gap-2">
-        <h3 className="text-[14px] font-semibold">Status reference</h3>
-        <span className="text-[11px] text-muted">Examples from the spreadsheet · Not additional project records</span>
+        <h3 className="text-[13px] font-semibold">Status reference</h3>
+        <span className="text-[10.5px] text-muted">Examples from the spreadsheet · Not additional project records</span>
       </div>
       <div className="grid gap-3 md:grid-cols-3">
         {items.map(([title, sub, values]) => (
-          <div key={title} className="rounded-xl border border-line bg-white p-4">
-            <div className="text-[13px] font-semibold text-ink">{title}</div>
-            <div className="mt-1.5 text-[11px] text-muted">{sub}</div>
-            <div className="mt-2 text-[12px] text-primary">{values.join(' · ')}</div>
+          <div key={title} className="rounded-xl border border-line bg-white px-3.5 pt-3.5 pb-4">
+            <div className="text-[12px] font-semibold text-ink">{title}</div>
+            <div className="mt-1.5 text-[10.5px] text-muted">{sub}</div>
+            <div className="mt-2 text-[11px] text-primary">{values.join(' · ')}</div>
           </div>
         ))}
       </div>
@@ -535,7 +549,7 @@ export function StatusReference() {
 
 export function SheetFooter({ left }: { left?: ReactNode }) {
   return (
-    <div className="mt-3 flex flex-wrap justify-between gap-2 text-[11px] text-muted">
+    <div className="mt-3 flex flex-wrap justify-between gap-2 text-[10.5px] text-muted">
       <span>{left ?? 'Project updates respect workspace permissions. Exports are recorded in the audit trail.'}</span>
       <span>Dates preserved as supplied · DD.MM.YYYY</span>
     </div>

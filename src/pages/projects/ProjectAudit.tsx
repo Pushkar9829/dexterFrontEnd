@@ -26,13 +26,19 @@ export default function ProjectAudit() {
         </Link>
       }
       context={
-        <div className="flex flex-wrap items-start gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <div className="min-w-0 flex-1">
             <div className="text-[18px] font-semibold">
               {p.f.siteLoi} · {p.f.siteLocation}
             </div>
             <div className="mt-1 text-[13px] text-ink-2">
-              {p.id} / {p.f.franchisee} / {p.f.model} / {pr.done} of {pr.total} milestones done
+              {p.id}
+              <span className="mx-2 text-muted">/</span>
+              {p.f.franchisee}
+              <span className="mx-2 text-muted">/</span>
+              {p.f.model}
+              <span className="mx-2 text-muted">/</span>
+              {pr.done} of {pr.total} milestones done
             </div>
           </div>
           <Badge tone={p.archived ? 'gray' : 'blue'}>{p.archived ? 'Archived' : 'Active'}</Badge>

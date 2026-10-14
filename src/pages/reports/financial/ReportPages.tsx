@@ -48,8 +48,8 @@ export function ReportList({ def }: { def: ReportDef }) {
     virtual: true,
     width: 110,
     render: (r) => (
-      <Link to={`${base}/${enc(r.id)}`} className="inline-flex items-center gap-1.5 rounded-md bg-primary-soft px-3 py-1.5 text-[12px] font-semibold text-primary hover:bg-primary hover:text-white">
-        <Eye size={14} /> View
+      <Link to={`${base}/${enc(r.id)}`} className="inline-flex h-[22px] items-center gap-1 rounded-md bg-primary-soft px-2.5 text-[11px] font-medium text-primary hover:bg-primary hover:text-white">
+        <Eye size={11} /> View
       </Link>
     ),
   }
@@ -125,10 +125,13 @@ export function ReportList({ def }: { def: ReportDef }) {
               : undefined
           }
           toolbarExtra={
-            <button type="button" onClick={addRecord} className="flex h-9 items-center gap-1.5 rounded-lg border border-line bg-white px-3 text-[13px] font-semibold text-primary hover:bg-primary-soft">
-              <Plus size={15} /> Add record
+            // not in the Figma list frames — kept (creating a record needs an entry point) as a borderless text button
+            <button type="button" onClick={addRecord} className="flex h-[30px] items-center gap-1 rounded-md px-2 text-[11px] font-semibold text-primary hover:bg-primary-soft">
+              <Plus size={13} /> Add record
             </button>
           }
+          strip={def.listStrip ? { left: `${rows.length} ${rows.length === 1 ? def.noun[0] : def.noun[1]}`, right: 'Select View to open a record · Update to edit' } : undefined}
+          footer={def.listStrip ? { left: `${rows.length} ${rows.length === 1 ? def.noun[0] : def.noun[1]} · ${def.sourceCols} source columns`, right: 'Editable grid · Update on the record page' } : undefined}
         />
       </FinancialShell>
       {viewing && <AttachmentModal file={viewing} onClose={() => setViewing(null)} />}
@@ -204,6 +207,10 @@ function RecordView({ def, recordId }: { def: ReportDef; recordId: string }) {
           hideBandHeader={def.hideBandHeader}
           bandRight={(b) => b.note}
           noun={def.noun[0]}
+          editToolbar={def.editToolbar}
+          rowHeight={56}
+          strip={def.slug === 'overage-deposit' ? { left: '1 deposit record', right: editing ? 'Editable grid · Save to apply' : 'Editable grid · Update to edit' } : undefined}
+          footer={def.slug === 'overage-deposit' ? { left: `1 record · ${def.sourceCols} source columns`, right: editing ? 'Editing · Save to apply' : 'Editable grid · Update to edit' } : undefined}
         />
       </FinancialShell>
       {viewing && <AttachmentModal file={viewing} onClose={() => setViewing(null)} />}

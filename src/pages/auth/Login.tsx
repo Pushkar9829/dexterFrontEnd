@@ -56,7 +56,7 @@ export default function Login() {
   return (
     <AuthLayout>
       <AuthTitle title="Welcome back" sub="Sign in to monitor ATM uptime, cash operations and franchise performance." />
-      <form onSubmit={submit} className="space-y-5" noValidate>
+      <form onSubmit={submit} className="space-y-[17px]" noValidate>
         <Segmented
           value={channel}
           onChange={(v) => {
@@ -69,7 +69,7 @@ export default function Login() {
           ]}
         />
         <div>
-          <div className="mb-2 text-[12px] font-medium tracking-wide text-ink-2">AUTHENTICATION METHOD</div>
+          <div className="mb-1.5 text-[11px] font-medium tracking-wide text-ink-2">AUTHENTICATION METHOD</div>
           <Segmented
             value={method}
             onChange={setMethod}
@@ -98,7 +98,7 @@ export default function Login() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="ops.manager@dexterindia.in"
-            leading={<Mail size={18} className="text-muted" />}
+            leading={<Mail size={17} className="text-muted" />}
             error={errors.email}
             autoComplete="email"
           />
@@ -122,7 +122,7 @@ export default function Login() {
             )}
             <div className="flex items-center justify-between">
               <Checkbox checked={remember} onChange={setRemember} label="Remember me" />
-              <Link to="/forgot-password" className="text-[14px] font-semibold text-primary hover:underline">
+              <Link to="/forgot-password" className="text-[12.5px] font-semibold text-primary hover:underline">
                 Forgot password?
               </Link>
             </div>
@@ -140,7 +140,7 @@ export default function Login() {
 
         {method === 'password' && (
           <>
-            <div className="flex items-center gap-4 text-[12px] text-muted">
+            <div className="flex items-center gap-4 text-[11px] text-muted">
               <span className="h-px flex-1 bg-line" />
               or
               <span className="h-px flex-1 bg-line" />
@@ -150,7 +150,7 @@ export default function Login() {
             </Button>
           </>
         )}
-        <p className="text-center text-[12px] text-muted">Access is monitored under Dexter India security and compliance policy.</p>
+        <p className="text-center text-[10px] text-muted">Access is monitored under Dexter India security and compliance policy.</p>
       </form>
     </AuthLayout>
   )

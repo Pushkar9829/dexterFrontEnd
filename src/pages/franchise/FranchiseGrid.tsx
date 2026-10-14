@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Eye, ShieldCheck } from 'lucide-react'
+import { Eye, MousePointer2, ShieldCheck } from 'lucide-react'
 import { ExcelGrid, type GridColumn } from '@/components/grid/ExcelGrid'
 import { Badge, toneFor } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -13,6 +13,12 @@ import { OWNERS, TIERS, addFranchise, franchiseStore, updateFranchises, type Fra
 const fmtUpdated = (iso: string) =>
   new Date(iso).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false }).replace(',', ',')
 
+/** "09:14 IST" — time of the most recent edit in the register */
+const savedAt = (rows: Franchise[]) => {
+  const last = rows.reduce((m, f) => (f.updatedAt > m ? f.updatedAt : m), '')
+  return last ? `${new Date(last).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Kolkata' })} IST` : undefined
+}
+
 export const dossierLink = (id: string) => `/franchise/master-data/${id}`
 
 /** Excel-style franchise register used by Master Data (all tiers) and the three tier lists. */
@@ -23,25 +29,25 @@ export function FranchiseGrid({ rows, mode, scope }: { rows: Franchise[]; mode: 
       render: (f) => <Link to={dossierLink(f.id)} className="text-primary hover:underline">{f.id}</Link>,
     },
     { key: 'name', header: 'Franchise name', width: 230, sortable: true, filterable: true },
-    { key: 'tier', header: 'Tier', width: 120, sortable: true, filterable: true, editable: false },
-    { key: 'state', header: 'State', width: 140, sortable: true, filterable: true, options: STATES },
-    { key: 'city', header: 'City', width: 130, sortable: true, filterable: true },
-    { key: 'atms', header: 'ATMs', width: 70, sortable: true, inputType: 'number', value: (f) => f.atms },
-    { key: 'kyc', header: 'KYC status', width: 120, sortable: true, filterable: true, editable: false, render: (f) => <Badge tone={toneFor(f.kyc)}>{f.kyc}</Badge> },
+    { key: 'tier', header: 'Tier', width: 130, sortable: true, filterable: true, editable: false },
+    { key: 'state', header: 'State', width: 145, sortable: true, filterable: true, options: STATES },
+    { key: 'city', header: 'City', width: 153, sortable: true, filterable: true },
+    { key: 'atms', header: 'ATMs', width: 60, sortable: true, inputType: 'number', value: (f) => f.atms },
+    { key: 'kyc', header: 'KYC status', width: 118, sortable: true, filterable: true, editable: false, render: (f) => <Badge tone={toneFor(f.kyc)} className="-my-[2px] align-middle">{f.kyc}</Badge> },
     mode === 'master'
       ? {
-          key: 'sd', header: 'SD', label: 'SD', width: 100, editable: false, value: () => '',
+          key: 'sd', header: 'SD', label: 'SD', width: 103, sortable: true, filterable: true, editable: false, value: () => 'View',
           render: (f) => (
-            <Link to={`${dossierLink(f.id)}/sd`} className="inline-flex items-center gap-1.5 rounded bg-primary-soft px-2 py-0.5 text-[12px] text-primary hover:underline">
-              <Eye size={13} /> View
+            <Link to={`${dossierLink(f.id)}/sd`} className="-my-[2px] inline-flex h-5 w-16 items-center gap-1.5 align-middle rounded bg-primary-soft px-2 text-[11px] leading-none text-primary hover:underline">
+              <Eye size={12} /> View
             </Link>
           ),
         }
       : {
-          key: 'status', header: 'Status', width: 100, sortable: true, filterable: true, editable: false,
+          key: 'status', header: 'Status', width: 103, sortable: true, filterable: true, editable: false,
           render: (f) => <span className={f.status === 'Active' ? 'text-emerald-700' : 'text-muted'}>{f.status}</span>,
         },
-    { key: 'updatedAt', header: 'Updated', width: 120, sortable: true, editable: false, render: (f) => fmtUpdated(f.updatedAt) },
+    { key: 'updatedAt', header: 'Updated', width: 133, sortable: true, filterable: true, editable: false, render: (f) => fmtUpdated(f.updatedAt) },
   ]
 
   const [ownerFor, setOwnerFor] = useState<string[] | null>(null)
@@ -60,6 +66,22 @@ export function FranchiseGrid({ rows, mode, scope }: { rows: Franchise[]; mode: 
         formulaBar
         editing
         scope={scope}
+        scopeRight={mode === 'tier' ? 'Supplied master-data records only' : undefined}
+        bulkHint={
+          <span className="inline-flex items-center gap-1.5">
+            <MousePointer2 size={12} /> Double-click a cell to edit
+          </span>
+        }
+        savedAt={savedAt(rows)}
+        selectionLabel={(n) =>
+          n === 0 && mode === 'tier' ? (
+            <>
+              0 rows selected<span className="ml-4">Select rows to access bulk actions</span>
+            </>
+          ) : (
+            `${n} ${n === 1 ? 'row' : 'rows'} selected`
+          )
+        }
         onCellChange={(id, key, value) => {
           const patch = key === 'atms' ? { atms: Math.max(0, Number(value) || 0) } : { [key]: value }
           updateFranchises([id], patch as Partial<Franchise>)

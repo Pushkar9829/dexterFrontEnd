@@ -4,7 +4,7 @@ import { cn } from '@/lib/cn'
 
 export function Label({ children, required, htmlFor }: { children: ReactNode; required?: boolean; htmlFor?: string }) {
   return (
-    <label htmlFor={htmlFor} className="mb-2 block text-[13px] font-semibold text-ink">
+    <label htmlFor={htmlFor} className="mb-1.5 block text-[13px] font-semibold text-ink">
       {children}
       {required && <span className="ml-0.5 text-brand-red">*</span>}
     </label>
@@ -37,12 +37,12 @@ export function Input({ label, required, error, hint, leading, trailing, classNa
       )}
       <div
         className={cn(
-          'flex h-12 items-center gap-3 rounded-lg border bg-white px-3.5 transition-shadow focus-within:ring-3',
+          'flex h-[45px] items-center gap-3 rounded-lg border bg-white px-3.5 transition-shadow focus-within:ring-3',
           error ? 'border-brand-red focus-within:ring-red-100' : 'border-line focus-within:border-primary focus-within:ring-primary/10',
         )}
       >
         {leading}
-        <input id={fieldId} {...rest} className="h-full w-full bg-transparent text-[15px] text-ink outline-none placeholder:text-muted/70" />
+        <input id={fieldId} {...rest} className="h-full w-full bg-transparent text-[14px] text-ink outline-none placeholder:text-muted/70" />
         {trailing ?? (error ? <CircleAlert size={18} className="shrink-0 text-brand-red" aria-hidden /> : null)}
       </div>
       <FieldMessage error={error} hint={hint} />
@@ -72,7 +72,7 @@ export function PhoneInput(props: Omit<InputProps, 'leading' | 'type'>) {
       type="tel"
       inputMode="numeric"
       maxLength={11}
-      leading={<span className="border-r border-line pr-3 text-[15px] font-medium text-ink">+91</span>}
+      leading={<span className="border-r border-line pr-2.5 text-[14px] font-medium text-ink">+91</span>}
     />
   )
 }
@@ -97,8 +97,8 @@ export function Segmented<T extends string>({
           type="button"
           onClick={() => onChange(o.value)}
           className={cn(
-            'h-9 rounded-md text-[14px] transition-colors',
-            value === o.value ? 'bg-white font-semibold text-primary shadow-sm' : 'text-muted hover:text-ink',
+            'h-8 rounded-md text-[13px] transition-colors',
+            value === o.value ? 'bg-white font-semibold text-primary shadow-[0_2px_8px_-2px_rgba(16,24,40,0.18)]' : 'text-muted hover:text-ink',
           )}
         >
           {o.label}
@@ -110,14 +110,14 @@ export function Segmented<T extends string>({
 
 export function Checkbox({ checked, onChange, label, className }: { checked: boolean; onChange: (v: boolean) => void; label?: ReactNode; className?: string }) {
   return (
-    <label className={cn('inline-flex cursor-pointer items-center gap-2.5 text-[14px] text-ink-2 select-none', className)}>
+    <label className={cn('inline-flex cursor-pointer items-center gap-2.5 text-[12.5px] text-muted select-none', className)}>
       <span
         className={cn(
-          'grid h-[18px] w-[18px] place-items-center rounded border transition-colors',
+          'grid h-4 w-4 place-items-center rounded border transition-colors',
           checked ? 'border-primary bg-primary text-white' : 'border-line bg-white',
         )}
       >
-        {checked && <Check size={12} strokeWidth={3} />}
+        {checked && <Check size={11} strokeWidth={3} />}
       </span>
       <input type="checkbox" className="sr-only" checked={checked} onChange={(e) => onChange(e.target.checked)} />
       {label}
@@ -191,7 +191,7 @@ export function OtpInput({ value, onChange, error, length = 6 }: { value: string
             }
           }}
           className={cn(
-            'h-12 w-full min-w-0 rounded-lg border bg-white text-center text-[20px] font-semibold outline-none transition-shadow focus:ring-3 sm:h-14',
+            'h-12 w-full min-w-0 rounded-lg border bg-white text-center text-[20px] font-semibold outline-none transition-shadow focus:ring-3 sm:h-[50px]',
             error ? 'border-brand-red bg-red-50/40 focus:ring-red-100' : 'border-line focus:border-primary focus:ring-primary/10',
           )}
         />

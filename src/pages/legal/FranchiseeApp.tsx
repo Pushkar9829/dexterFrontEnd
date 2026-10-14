@@ -50,7 +50,7 @@ export default function FranchiseeApp() {
 
   return (
     <div>
-      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-3 max-sm:hidden">
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">Franchisee App</h1>
           <p className="mt-1 text-[14px] text-muted">Mobile preview · signed in as {persona.name} · uploads and downloads sync to Legal Data and the document audit log</p>
@@ -135,7 +135,7 @@ function Dashboard({ site, sites, docs, persona, onSite, onOpen }: { site: Legal
   const attention = docs.filter((d) => d.status === 'Action Required' || d.status === 'Resubmission Required').length
   return (
     <div>
-      <h2 className="text-[26px] font-bold tracking-tight">Your documents</h2>
+      <h2 className="text-[24px] font-bold tracking-tight">Your documents</h2>
       <p className="mt-1 text-[13px] text-ink-2">
         {persona} · {site.franchiseName}
       </p>
@@ -170,7 +170,7 @@ function Dashboard({ site, sites, docs, persona, onSite, onOpen }: { site: Legal
           <section key={st} className="mt-5">
             <div className="mb-2 flex items-center justify-between">
               <h3 className="text-[14px] font-semibold text-ink">{st}</h3>
-              <span className="grid h-6 min-w-6 place-items-center rounded-md bg-surface px-1.5 text-[11px] text-ink-2">{group.length}</span>
+              <span className="grid h-6 min-w-6 place-items-center rounded-md bg-slate-100 px-1.5 text-[11px] text-ink-2">{group.length}</span>
             </div>
             <div className="space-y-2">
               {group.map((d) => (

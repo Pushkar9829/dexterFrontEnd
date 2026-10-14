@@ -8,7 +8,7 @@ import { downloadCsv } from '@/lib/export'
 import { LEGAL_STATUSES, agreementOf, docsForSite, legalStore, readiness, sendReminder, useLegal, type LegalSite, type LegalState } from '@/data/legal'
 import { legalTone } from './ui'
 
-const sel = 'h-10 w-full appearance-none rounded-lg border border-line bg-white pr-9 pl-3 text-[13px] font-medium text-ink outline-none focus:border-primary sm:w-auto'
+const sel = 'h-[34px] w-full appearance-none rounded-md border border-line bg-white pr-8 pl-3 text-[12px] font-medium text-ink outline-none [field-sizing:content] focus:border-primary sm:w-auto'
 
 const AGR_CELL: Record<string, string> = {
   amber: 'bg-amber-50 text-amber-700',
@@ -56,7 +56,7 @@ export default function LegalData() {
 
   const columns: GridColumn<Row>[] = [
     {
-      key: 'id', header: 'Site/LOI Number', width: 170, pinned: true, sortable: true,
+      key: 'id', header: 'Site/LOI Number', width: 148, pinned: true, sortable: true,
       render: (r) => (
         <Link to={`/legal/${r.id}`} className="block leading-snug font-medium text-primary underline underline-offset-2">
           {r.id}
@@ -65,9 +65,9 @@ export default function LegalData() {
       ),
     },
     {
-      key: 'location', header: 'Location', width: 200, sortable: true, filterable: true,
+      key: 'location', header: 'Location', width: 148, sortable: true, filterable: true,
       render: (r) => (
-        <span className="leading-snug">
+        <span className="block leading-snug whitespace-normal">
           {r.location}
           <span className="block">
             {r.city}, {r.state}
@@ -75,12 +75,12 @@ export default function LegalData() {
         </span>
       ),
     },
-    { key: 'franchiseName', header: 'Name of Franchisee', width: 190, sortable: true, filterable: true, render: (r) => <span className="block whitespace-normal">{r.franchiseName}</span> },
-    { key: 'contactNumber', header: 'Contact Number', width: 160, sortable: true, filterable: true },
-    { key: 'model', header: 'Model', width: 130, sortable: true, filterable: true },
-    { key: 'mf', header: 'MF', label: 'MF (Master Franchise)', width: 190, sortable: true, render: (r) => (r.mf ? <span className="block whitespace-normal">{r.mf}</span> : <span className="text-muted">—</span>) },
+    { key: 'franchiseName', header: <span className="block leading-tight whitespace-normal">Name of<br />Franchisee</span>, label: 'Name of Franchisee', width: 148, sortable: true, filterable: true, render: (r) => <span className="block whitespace-normal">{r.franchiseName}</span> },
+    { key: 'contactNumber', header: 'Contact Number', width: 148, sortable: true, filterable: true },
+    { key: 'model', header: 'Model', width: 148, sortable: true, filterable: true },
+    { key: 'mf', header: 'MF', label: 'MF (Master Franchise)', width: 148, sortable: true, render: (r) => (r.mf ? <span className="block whitespace-normal">{r.mf}</span> : <span className="text-muted">—</span>) },
     {
-      key: 'agreement', header: 'Agreement Status', width: 170, sortable: true, filterable: true,
+      key: 'agreement', header: 'Agreement Status', width: 148, sortable: true, filterable: true,
       render: (r) => (
         <span className={`block rounded-md px-2 py-1.5 leading-snug ${AGR_CELL[legalTone(r.agreement)] ?? 'bg-surface text-ink-2'}`}>
           {r.agreement}
@@ -89,7 +89,7 @@ export default function LegalData() {
       ),
     },
     {
-      key: 'record', header: 'Record', width: 150, value: () => '',
+      key: 'record', header: 'Record', width: 148, value: () => '',
       render: (r) => (
         <Link to={`/legal/${r.id}`} className="block leading-snug text-primary hover:underline">
           View Master
@@ -207,7 +207,7 @@ export default function LegalData() {
           noun={rows.length === 1 ? 'existing site record' : 'existing site records'}
           exportName="legal-data-register"
           emptyState="No site records match these filters."
-          footerLeft="7 core columns · Site/LOI Number pinned"
+          footerLeft={(sel) => `Selected: ${sel.length} record${sel.length === 1 ? '' : 's'} · 7 core columns · Site/LOI Number pinned`}
           footerRight="Open a row to view its Master Site Record"
         />
       </div>
@@ -225,7 +225,7 @@ function Dropdown({ label, value, onChange, children }: { label: string; value: 
       <select aria-label={label} className={sel} value={value} onChange={(e) => onChange(e.target.value)}>
         {children}
       </select>
-      <ChevronDown size={14} className="pointer-events-none absolute top-3 right-3 text-ink-2" />
+      <ChevronDown size={14} className="pointer-events-none absolute top-[10px] right-2.5 text-ink-2" />
     </label>
   )
 }

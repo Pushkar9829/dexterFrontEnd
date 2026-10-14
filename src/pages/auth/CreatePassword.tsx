@@ -12,7 +12,9 @@ const COLORS = ['bg-line', 'bg-brand-red', 'bg-accent-amber', 'bg-accent-blue', 
 
 export default function CreatePassword() {
   const navigate = useNavigate()
-  const state = useLocation().state
+  const loc = useLocation()
+  // QA aid: /forgot-password/reset?qa=1 renders the step directly (for screenshots)
+  const state = loc.state ?? (new URLSearchParams(loc.search).get('qa') ? { qa: true } : null)
   const [pw, setPw] = useState('')
   const [confirm, setConfirm] = useState('')
   const [touched, setTouched] = useState(false)

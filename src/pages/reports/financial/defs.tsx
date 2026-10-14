@@ -52,6 +52,12 @@ export type ReportDef = {
   footerLeft?: (scope: string, mode: Mode) => string | undefined
   footerRight: (scope: string) => string
   empty?: { title: string; text: string }
+  /** list page: Figma shows a slim hint strip under the toolbar and a status line under the pagination */
+  listStrip?: boolean
+  /** Figma edit frame keeps the toolbar */
+  editToolbar?: boolean
+  /** number of source columns, for the list status line */
+  sourceCols?: number
 }
 
 const sum = (rows: Row[], key: string) => rows.reduce((s, r) => s + (Number(r[key]) || 0), 0)
@@ -74,6 +80,7 @@ const bsFranchise = (months: string[]): SheetCol[] => [
 
 const BS: ReportDef = {
   slug: 'bs',
+  editToolbar: true,
   label: 'BS',
   sub: () => 'View the supplied franchise account statement and Apna App upload fields.',
   store: bsStore,
@@ -127,6 +134,7 @@ const AXIS_COLS: SheetCol[] = [
 ]
 const AXIS: ReportDef = {
   slug: 'axis-icd',
+  editToolbar: true,
   label: 'Axis & ICD',
   sub: () => 'View the supplied Axis & ICD franchise report fields.',
   store: axisStore,
@@ -162,6 +170,8 @@ const CLF_IDENTITY: SheetCol[] = [
 ]
 const CLF: ReportDef = {
   slug: 'clf',
+  listStrip: true,
+  sourceCols: 15,
   label: 'CLF',
   sub: () => 'View the supplied CLF payment fields and FR / Sender Details.',
   store: clfStore,
@@ -229,6 +239,8 @@ const SD_IDENTITY: SheetCol[] = [
 ]
 const SD: ReportDef = {
   slug: 'sd',
+  listStrip: true,
+  sourceCols: 16,
   label: 'SD',
   sub: () => 'View the supplied SD payment fields and franchise bank details.',
   store: sdReportStore,
@@ -310,6 +322,8 @@ const ffmOpening = (o: string): SheetCol[] => [
 ]
 const FFM: ReportDef = {
   slug: 'ffm-eod',
+  listStrip: true,
+  sourceCols: 13,
   label: 'FFM EOD',
   sub: (m) => `View opening balances, ${monthLabel(m).split(' ')[0]} funding and month-end positions for full funding sites.`,
   store: ffmStore,
@@ -379,6 +393,8 @@ const overageCols = (ctx: DefCtx): SheetCol[] => [
 ]
 const OVERAGE: ReportDef = {
   slug: 'overage-deposit',
+  listStrip: true,
+  sourceCols: 9,
   label: 'Overage deposit',
   sub: () => 'View overage deposits, payment references and supporting details across franchise sites.',
   store: overageStore,

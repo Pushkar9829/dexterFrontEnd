@@ -24,8 +24,8 @@ export type SectionProps = {
 }
 
 const YN: YesNo[] = ['Yes', 'No']
-const grid3 = 'grid gap-x-5 gap-y-5 sm:grid-cols-2 lg:grid-cols-3'
-const grid4 = 'grid gap-x-5 gap-y-5 sm:grid-cols-2 lg:grid-cols-4'
+const grid3 = 'grid gap-x-5 gap-y-[18px] sm:grid-cols-2 lg:grid-cols-3'
+const grid4 = 'grid gap-x-5 gap-y-[18px] sm:grid-cols-2 lg:grid-cols-4'
 
 async function pickOne(accept: string): Promise<FileRef | undefined> {
   const [f] = await pickFiles(accept)
@@ -47,8 +47,8 @@ export function SiteDetailsSection({ form: f, set, attach, errors: e, readOnly: 
   return (
     <div className="space-y-5">
       <SectionCard title="Site Details" sub="Location, applicant photograph and geographic coordinates" badge="Site profile">
-        <div className="grid gap-x-5 gap-y-5 lg:grid-cols-4">
-          <div className="space-y-5 lg:col-span-3">
+        <div className="grid gap-x-7 gap-y-[18px] lg:grid-cols-[minmax(0,1fr)_232px]">
+          <div className="space-y-[18px]">
             <div className={grid3}>
               <Field label="1. Proposed Site Location Name" value={f.siteName} readOnly={ro} onChange={(v) => set({ siteName: v })} error={e.siteName} />
               <Field label="State" value={f.state} readOnly={ro} options={STATES} onChange={(v) => set({ state: v, city: '', circle: '' })} error={e.state} />
@@ -57,7 +57,7 @@ export function SiteDetailsSection({ form: f, set, attach, errors: e, readOnly: 
               <Field label="District" value={f.district} readOnly={ro} onChange={(v) => set({ district: v })} error={e.district} />
               <Field label="2. Pin Code" value={f.pinCode} readOnly={ro} inputMode="numeric" onChange={(v) => set({ pinCode: v })} error={e.pinCode} />
             </div>
-            <div className="grid gap-x-5 gap-y-5 sm:grid-cols-2">
+            <div className="grid gap-x-5 gap-y-[18px] sm:grid-cols-2">
               <Field label="3. Landmark" value={f.landmark} readOnly={ro} onChange={(v) => set({ landmark: v })} error={e.landmark} />
               <Field
                 label="4. RBI Category"
@@ -70,14 +70,14 @@ export function SiteDetailsSection({ form: f, set, attach, errors: e, readOnly: 
               />
             </div>
             <Field label="5. Site Complete Address" value={f.siteAddress} readOnly={ro} onChange={(v) => set({ siteAddress: v })} error={e.siteAddress} />
-            <div className="grid gap-x-5 gap-y-5 sm:grid-cols-2">
+            <div className="grid gap-x-5 gap-y-[18px] sm:grid-cols-2">
               <Field label="6. Site Latitude" value={f.latitude} display={fmt.lat(f.latitude)} readOnly={ro} inputMode="decimal" onChange={(v) => set({ latitude: v })} error={e.latitude} />
               <Field label="7. Site Longitude" value={f.longitude} display={fmt.lng(f.longitude)} readOnly={ro} inputMode="decimal" onChange={(v) => set({ longitude: v })} error={e.longitude} />
             </div>
           </div>
 
           <div>
-            <div className="mb-2 text-[13px] text-ink-2">Latest Color Photograph of Applicant</div>
+            <div className="mb-[15px] text-[12px] leading-4 text-muted">Latest Color Photograph of Applicant</div>
             <div className="grid h-[172px] place-items-center rounded-lg border border-dashed border-line bg-surface/60 px-4 text-center">
               {f.applicantPhoto ? (
                 <div>
@@ -131,8 +131,8 @@ export function FranchiseBankSection({ fr, form: f, set, errors: e, readOnly: ro
   return (
     <div className="space-y-5">
       <SectionCard title="Franchise Details" sub="Legal name and primary communication channels" badge={`${fr.tier} tier`}>
-        <div className="space-y-5">
-          <div className="grid gap-x-5 gap-y-5 sm:grid-cols-2">
+        <div className="space-y-[18px]">
+          <div className="grid gap-x-5 gap-y-[18px] sm:grid-cols-2">
             <Field label="14. Franchise Name" value={f.franchiseName} readOnly={ro} onChange={(v) => set({ franchiseName: v })} />
             <Field label="15. Franchise Name on Cheque" value={f.nameOnCheque} readOnly={ro} onChange={(v) => set({ nameOnCheque: v })} />
           </div>
@@ -145,8 +145,8 @@ export function FranchiseBankSection({ fr, form: f, set, errors: e, readOnly: ro
       </SectionCard>
 
       <SectionCard title="19. Correspondence Address" sub="Address for franchise communication and correspondence">
-        <div className="space-y-5">
-          <div className="grid gap-x-5 gap-y-5 sm:grid-cols-2">
+        <div className="space-y-[18px]">
+          <div className="grid gap-x-5 gap-y-[18px] sm:grid-cols-2">
             <Field label="Correspondence Address" value={f.corrAddress} readOnly={ro} onChange={(v) => set({ corrAddress: v })} />
             <Field label="Landmark" value={f.corrLandmark} readOnly={ro} onChange={(v) => set({ corrLandmark: v })} />
           </div>
@@ -194,7 +194,7 @@ export function ShopDimensionsSection({ form: f, set, errors: e, readOnly: ro }:
             <Field label="37. Signage Dimension" value="" display={`Width: ${ft(f.signageWidth) || '—'}  /  Height: ${ft(f.signageHeight) || '—'}`} readOnly onChange={() => {}} />
           ) : (
             <div>
-              <div className="mb-2 text-[13px] text-ink-2">37. Signage Dimension</div>
+              <div className="mb-2 text-[12px] leading-4 text-muted">37. Signage Dimension</div>
               <div className="grid grid-cols-2 gap-2">
                 <Field label={<span className="text-[11px] text-muted">Width (ft.)</span>} value={f.signageWidth} readOnly={false} onChange={(v) => set({ signageWidth: v })} />
                 <Field label={<span className="text-[11px] text-muted">Height (ft.)</span>} value={f.signageHeight} readOnly={false} onChange={(v) => set({ signageHeight: v })} />
@@ -214,7 +214,7 @@ export function ShopDimensionsSection({ form: f, set, errors: e, readOnly: ro }:
       </SectionCard>
 
       <SectionCard title="Power availability" sub="35. Power Availability (confirm permanent meter and rating)">
-        <div className="space-y-5">
+        <div className="space-y-[18px]">
           <div className={grid3}>
             <Radios label="35. Power Availability" value={f.powerAvailable} options={YN} readOnly={ro} onChange={(v) => set({ powerAvailable: v as YesNo })} />
             <Radios label="Meter type" value={f.meterType} options={['Permanent', 'Temporary']} readOnly={ro} onChange={(v) => set({ meterType: v as DossierForm['meterType'] })} />
@@ -228,7 +228,7 @@ export function ShopDimensionsSection({ form: f, set, errors: e, readOnly: ro }:
               error={e.powerHours}
             />
           </div>
-          <div className="grid gap-x-5 gap-y-5 sm:grid-cols-2">
+          <div className="grid gap-x-5 gap-y-[18px] sm:grid-cols-2">
             <Field label={`${f.meterType || 'Permanent'} meter detail`} value={f.permanentMeter} display={fmt.meter(f.permanentMeter)} readOnly={ro} onChange={(v) => set({ permanentMeter: v })} />
             <Field label="Meter / rating detail" value={f.meterDetail} readOnly={ro} onChange={(v) => set({ meterDetail: v })} />
           </div>
@@ -242,33 +242,33 @@ export function ShopDimensionsSection({ form: f, set, errors: e, readOnly: ro }:
 // ── 04 · CRA & Nearby ATMs (56:2402) ────────────────────────────────────
 function AtmTable({ title, rows, readOnly: ro, onChange, city }: { title: string; rows: AtmRow[]; readOnly: boolean; onChange: (rows: AtmRow[]) => void; city: string }) {
   const filled = rows.filter((r) => r.atmId || r.bank).length
-  const cell = 'border-r border-b border-line-soft px-2.5 py-2 last:border-r-0'
-  const input = 'h-8 w-full min-w-20 rounded border border-line bg-white px-2 text-[13px] outline-none focus:border-primary'
+  const cell = 'h-[34px] border-r border-b border-line-soft px-2.5 py-0 last:border-r-0'
+  const input = 'h-7 w-full min-w-20 rounded border border-line bg-white px-2 text-[12px] outline-none focus:border-primary'
   const put = (i: number, p: Partial<AtmRow>) => onChange(rows.map((r, k) => (k === i ? { ...r, ...p } : r)))
   const cols: { k: keyof AtmRow; h: string; w: number }[] = [
-    { k: 'atmId', h: 'ATM ID', w: 130 },
-    { k: 'bank', h: 'Bank Name', w: 220 },
-    { k: 'siteType', h: 'Onsite / Offsite', w: 200 },
-    { k: 'distance', h: 'Distance', w: 200 },
-    { k: 'direction', h: 'Direction', w: 200 },
-    { k: 'avgTxn', h: 'Per day Avg. Approx TXN', w: 200 },
+    { k: 'atmId', h: 'ATM ID', w: 131 },
+    { k: 'bank', h: 'Bank Name', w: 233 },
+    { k: 'siteType', h: 'Onsite / Offsite', w: 218 },
+    { k: 'distance', h: 'Distance', w: 216 },
+    { k: 'direction', h: 'Direction', w: 220 },
+    { k: 'avgTxn', h: 'Per day Avg. Approx TXN', w: 220 },
   ]
   return (
     <section className="overflow-hidden rounded-xl border border-line bg-white">
-      <header className="flex flex-wrap items-center gap-3 px-4 py-3.5">
-        <Table2 size={17} className="text-primary" />
-        <h2 className="text-[15px] font-semibold">{title}</h2>
-        <span className="text-[12px] text-muted">
+      <header className="flex min-h-12 flex-wrap items-center gap-3 px-4 py-2">
+        <Table2 size={16} className="text-primary" />
+        <h2 className="text-[13px] font-semibold">{title}</h2>
+        <span className="text-[11px] text-muted">
           {filled} location{filled === 1 ? '' : 's'} · Illustrative survey
         </span>
       </header>
       <div className="scroll-thin overflow-x-auto">
-        <table className="w-full border-collapse text-[13px]">
+        <table className="w-full border-collapse text-[12px]">
           <thead>
-            <tr className="bg-surface text-left">
-              <th className="w-10 border-r border-b border-line-soft px-2.5 py-2 text-[12px] font-semibold">S.N.</th>
+            <tr className="bg-surface text-left text-[11px] leading-[13px]">
+              <th className="h-[37px] w-[38px] border-r border-b border-line-soft px-2.5 py-0 font-semibold">S.N.</th>
               {cols.map((c) => (
-                <th key={c.k} className="border-r border-b border-line-soft px-2.5 py-2 font-semibold last:border-r-0" style={{ minWidth: c.w }}>
+                <th key={c.k} className={cn('h-[37px] border-r border-b border-line-soft px-2.5 py-0 font-semibold last:border-r-0', c.k === 'atmId' && 'bg-primary-soft/70')} style={{ minWidth: c.w }}>
                   {c.k === 'avgTxn' ? (
                     <>
                       Per day Avg.
@@ -318,7 +318,7 @@ function AtmTable({ title, rows, readOnly: ro, onChange, city }: { title: string
           </tbody>
         </table>
       </div>
-      <footer className="flex flex-wrap justify-between gap-2 px-4 py-2.5 text-[11px] text-muted">
+      <footer className="flex flex-wrap justify-between gap-2 px-4 py-2 text-[10px] text-muted">
         <span>Distances and daily transactions are illustrative estimates.</span>
         <span className="text-primary">Site survey · {city}</span>
       </footer>
@@ -334,7 +334,7 @@ export function CraAtmsSection({ form: f, set, attach, errors: e, readOnly: ro }
   return (
     <div className="space-y-5">
       <SectionCard title="CRA / Nearest Branch Details" sub="Cash replenishment coverage and proposed servicing branch">
-        <div className="space-y-5">
+        <div className="space-y-[18px]">
           <div className={grid3}>
             <Radios label="40. CRA Coverage" value={f.craCoverage} options={YN} readOnly={ro} onChange={(v) => set({ craCoverage: v as YesNo })} />
             <Field label="41. CRA Agency Name" value={f.craAgency} readOnly={ro} onChange={(v) => set({ craAgency: v })} />
@@ -404,14 +404,14 @@ export function DocumentsSection({ form: f, set, attach, readOnly: ro }: Section
     <SectionCard title="Checklist for WLA Site" sub="Please find the below mentioned checklist of documents for approval of WLA site:" badge={`${yes} of ${f.documents.length} · Yes`}>
       <Note className="mb-5">Note: All documents should be a self-attested photocopy.</Note>
       <div className="scroll-thin overflow-x-auto rounded-lg border border-line">
-        <table className="w-full min-w-[860px] border-collapse text-[13px]">
+        <table className="w-full min-w-[860px] table-fixed border-collapse text-[13px]">
           <thead>
             <tr className="bg-surface text-left text-[12px] text-ink-2">
-              <th className="w-14 px-4 py-3 font-semibold">S.N.</th>
-              <th className="px-4 py-3 font-semibold">Documents</th>
-              <th className="w-44 px-4 py-3 font-semibold">Status (Mark Yes /No)</th>
+              <th className="w-[49px] px-4 py-3 font-semibold">S.N.</th>
+              <th className="w-[404px] px-4 py-3 font-semibold">Documents</th>
+              <th className="w-[169px] px-4 py-3 font-semibold">Status (Mark Yes /No)</th>
               <th className="px-4 py-3 font-semibold">Attachments / upload</th>
-              <th className="w-28 px-4 py-3 font-semibold">Action</th>
+              <th className="w-[127px] px-4 py-3 font-semibold">Action</th>
             </tr>
           </thead>
           <tbody>
@@ -420,12 +420,12 @@ export function DocumentsSection({ form: f, set, attach, readOnly: ro }: Section
               const seeded = d.file && DOC_SEED[i]?.[0] === d.file.name
               return (
                 <tr key={name} className="border-t border-line">
-                  <td className="px-4 py-5 text-muted">{i + 1}</td>
-                  <td className="max-w-[360px] px-4 py-5 text-[14px] text-ink">{name}</td>
-                  <td className="px-4 py-5">
+                  <td className="px-4 py-[21px] text-muted">{i + 1}</td>
+                  <td className="px-4 py-[21px] text-[14px] text-ink">{name}</td>
+                  <td className="px-4 py-[21px]">
                     <Radios value={d.status} options={YN} readOnly={ro} onChange={(v) => set({ documents: f.documents.map((x, k) => (k === i ? { ...x, status: v as YesNo } : x)) })} />
                   </td>
-                  <td className="px-4 py-5">
+                  <td className="px-4 py-[21px]">
                     {d.file ? (
                       <div>
                         <div className="flex items-center gap-2 text-primary">
@@ -450,7 +450,7 @@ export function DocumentsSection({ form: f, set, attach, readOnly: ro }: Section
                       </div>
                     )}
                   </td>
-                  <td className="px-4 py-5">
+                  <td className="px-4 py-[21px]">
                     <Button variant="secondary" icon={<Upload size={15} />} onClick={() => upload(i)}>
                       {d.file ? 'Replace' : 'Upload'}
                     </Button>
@@ -527,7 +527,7 @@ export function ImagesOfficeSection({ form: f, set, attach, readOnly: ro }: Sect
               <div key={slot} className="rounded-lg border border-line bg-white p-3.5">
                 <div className="mb-4 flex items-start gap-2.5">
                   <span className="mt-1 grid h-6 min-w-6 place-items-center rounded bg-primary-soft px-1 text-[12px] font-semibold text-primary">{i + 1}</span>
-                  <span className="text-[13px] text-ink">{slot}</span>
+                  <span className="text-[12px] font-medium text-ink">{slot}</span>
                 </div>
                 <button
                   type="button"
@@ -562,7 +562,7 @@ export function ImagesOfficeSection({ form: f, set, attach, readOnly: ro }: Sect
       </SectionCard>
 
       <SectionCard title="Office Use Only" sub="Internal sourcing record · Not part of the applicant’s public dossier" badge="Internal use">
-        <div className="space-y-5">
+        <div className="space-y-[18px]">
           <Field label="Site Sourcing SSE / SSM Details" value={f.sourcedBy} readOnly={ro} onChange={(v) => set({ sourcedBy: v })} />
           <div className={grid3}>
             <Field label="Site Number" value={f.siteNumber} readOnly={ro} onChange={(v) => set({ siteNumber: v })} />

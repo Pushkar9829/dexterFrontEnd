@@ -4,14 +4,14 @@ import { cn } from '@/lib/cn'
 
 // Compact (36px) form controls used by data-entry screens. Auth screens use the larger Field.tsx.
 
-const box = 'h-9 w-full rounded-md border bg-white px-3 text-[13px] text-ink outline-none transition-shadow placeholder:text-muted/70 focus:border-primary focus:ring-3 focus:ring-primary/10 disabled:bg-surface disabled:text-muted'
+const box = 'h-9 w-full rounded-md border bg-white px-[11px] text-[12.5px] text-ink outline-none transition-shadow placeholder:text-muted/70 focus:border-primary focus:ring-3 focus:ring-primary/10 disabled:bg-surface disabled:text-muted'
 
 function FieldLabel({ label, required, num, htmlFor }: { label: string; required?: boolean; num?: number | string; htmlFor?: string }) {
   return (
-    <label htmlFor={htmlFor} className="mb-1.5 block text-[12px] font-semibold text-ink">
+    <label htmlFor={htmlFor} className="mb-1.5 block text-[11px] font-semibold text-ink">
       {num != null && <span className="text-ink">{num} · </span>}
       {label}
-      {required && <span className="ml-0.5 text-ink"> *</span>}
+      {required && <span className="text-ink"> *</span>}
     </label>
   )
 }
@@ -85,7 +85,7 @@ export function RadioGroup<T extends string>({
             aria-checked={value === o}
             onClick={() => onChange(o)}
             className={cn(
-              'flex h-9 items-center gap-2 rounded-md border px-3 text-[13px] transition-colors',
+              'flex h-9 items-center gap-2 rounded-md border px-3 text-[12px] transition-colors',
               value === o ? 'border-primary bg-primary-soft font-medium text-primary' : 'border-line bg-white text-ink-2 hover:border-primary/40',
             )}
           >
@@ -166,7 +166,7 @@ export function SectionTitle({ num, title, sub }: { num?: string; title: string;
     <div className="mb-4">
       <div className="flex items-center gap-2.5">
         {num && <span className="grid h-6 min-w-6 place-items-center rounded-md bg-primary px-1 text-[11px] font-semibold text-white">{num}</span>}
-        <h3 className="text-[15px] font-semibold text-ink">{title}</h3>
+        <h3 className="text-[14px] font-semibold text-ink">{title}</h3>
       </div>
       {sub && <p className="mt-1 text-[12px] text-muted">{sub}</p>}
     </div>

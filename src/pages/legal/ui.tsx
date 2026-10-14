@@ -51,7 +51,7 @@ export function Tabs<T extends string>({ tabs, value, onChange }: { tabs: readon
           aria-selected={value === t}
           onClick={() => onChange(t)}
           className={cn(
-            'shrink-0 border-b-2 px-6 py-3.5 text-[13px] whitespace-nowrap transition-colors first:rounded-tl-xl',
+            'shrink-0 border-b-2 px-6 py-3 text-[13px] whitespace-nowrap transition-colors first:rounded-tl-xl',
             value === t ? 'border-primary bg-primary-soft font-semibold text-primary' : 'border-transparent text-ink-2 hover:text-ink',
           )}
         >
@@ -67,7 +67,7 @@ export function Fact({ label, children, className }: { label: string; children: 
   return (
     <div className={cn('min-w-0', className)}>
       <div className="text-[12px] text-muted">{label}</div>
-      <div className="mt-1.5 text-[14px] font-semibold break-words text-ink">{children || <span className="text-muted">—</span>}</div>
+      <div className="mt-1 text-[14px] font-semibold break-words text-ink">{children || <span className="text-muted">—</span>}</div>
     </div>
   )
 }

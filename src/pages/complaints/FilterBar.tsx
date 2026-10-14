@@ -59,7 +59,7 @@ export function FilterBar({ value, onChange, summary }: { value: DashFilter; onC
   const stateLabel = value.states.length === 0 ? 'All states' : value.states.length === 1 ? value.states[0] : `${value.states.length} states`
   const dirty = JSON.stringify(value) !== JSON.stringify(DEFAULT_FILTER)
   return (
-    <div className="mb-5 flex flex-wrap items-center gap-3">
+    <div className="mb-[18px] flex flex-wrap items-center gap-3">
       <Dropdown
         width={300}
         label={
@@ -79,7 +79,7 @@ export function FilterBar({ value, onChange, summary }: { value: DashFilter; onC
           Reset filters
         </button>
       )}
-      {summary && <span className="text-[12px] text-muted">{summary}</span>}
+      {summary && <span className="text-[11px] text-muted">{summary}</span>}
     </div>
   )
 }

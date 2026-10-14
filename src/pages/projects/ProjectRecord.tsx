@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Download, PenSquare, RotateCcw, Table2, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
@@ -28,11 +28,13 @@ export default function ProjectRecord() {
 
 function RecordView({ p, path }: { p: Project; path: string }) {
   const navigate = useNavigate()
-  const [draft, setDraft] = useState<Record<string, string> | null>(null)
+  // ?edit=1 opens the record straight in the editable grid (same as pressing Update project)
+  const [params] = useSearchParams()
+  const [draft, setDraft] = useState<Record<string, string> | null>(() => (params.get('edit') === '1' && !p.archived ? { ...p.f } : null))
   const [confirm, setConfirm] = useState(false)
   const editing = draft !== null
   const row: Project = draft ? { ...p, f: draft } : p
-  const sheet = useSheet([row])
+  const sheet = useSheet([row], editing ? [p.id] : [])
 
   const save = () => {
     if (!draft) return
@@ -83,7 +85,7 @@ function RecordView({ p, path }: { p: Project; path: string }) {
               </Button>
               <button
                 onClick={() => setConfirm(true)}
-                className="inline-flex h-10 items-center gap-2 rounded-lg bg-brand-red px-4 text-[13px] font-semibold text-white hover:bg-brand-red/90"
+                className="inline-flex h-[38px] items-center gap-2 rounded-lg bg-brand-red px-4 text-[12px] font-semibold text-white hover:bg-brand-red/90"
               >
                 <Trash2 size={16} /> Delete
               </button>

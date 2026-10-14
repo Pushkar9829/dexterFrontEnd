@@ -26,7 +26,7 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
     <button
       onClick={onClick}
       className={cn(
-        'h-8 rounded-full border px-3 text-[13px] transition-colors',
+        'h-7 rounded-full border px-2.5 text-[11px] transition-colors',
         active ? 'border-primary bg-primary font-semibold text-white' : 'border-line bg-white text-ink-2 hover:border-primary/40',
       )}
     >
@@ -65,13 +65,13 @@ export default function Notices() {
         )
       },
     },
-    { key: 'type', header: 'Type', width: 120, filterable: true, render: (n) => <span className="text-primary">{n.type}</span> },
-    { key: 'title', header: 'Title', width: 320, render: (n) => <span className={n.read ? 'text-ink-2' : 'font-semibold'}>{n.title}</span> },
-    { key: 'details', header: 'Details', width: 300, render: (n) => <span className="text-muted">{n.details}</span> },
+    { key: 'type', header: 'Type', width: 128, render: (n) => <span className="text-primary">{n.type}</span> },
+    { key: 'title', header: 'Title', width: 418, render: (n) => <span className={n.read ? 'text-ink-2' : 'font-semibold'}>{n.title}</span> },
+    { key: 'details', header: 'Details', width: 400, render: (n) => <span className="text-muted">{n.details}</span> },
     {
-      key: 'actions', header: 'Actions', label: 'Actions', width: 130, value: () => '',
+      key: 'actions', header: 'Actions', label: 'Actions', width: 124, value: () => '',
       render: (n) => (
-        <span className="flex items-center gap-3 text-[12px]">
+        <span className="flex items-center gap-3 text-[10px]">
           <Link to={n.link} onClick={() => markRead([n.id])} className="font-semibold text-primary hover:underline">
             Open ›
           </Link>
@@ -79,7 +79,7 @@ export default function Notices() {
             <span className="text-primary/70">Read</span>
           ) : (
             <button onClick={() => markRead([n.id])} className="flex items-center gap-1 text-primary hover:underline">
-              <Check size={12} /> Mark read
+              <Check size={10} /> Mark read
             </button>
           )}
         </span>
@@ -94,20 +94,20 @@ export default function Notices() {
         sub="Stay on top of KYC, daily reporting and tasks that need your attention."
         actions={
           <>
-            <Button variant="secondary" icon={<RefreshCw size={16} />} onClick={() => {
+            <Button variant="secondary" icon={<RefreshCw size={15} />} onClick={() => {
               setItems([...items])
               toast(`Notices refreshed · ${items.filter((n) => !n.read).length} unread`, 'info')
             }}>
               Refresh
             </Button>
-            <Button icon={<CheckCheck size={16} />} onClick={() => markRead(items.map((n) => n.id))} disabled={unread === 0}>
+            <Button icon={<CheckCheck size={15} />} onClick={() => markRead(items.map((n) => n.id))} disabled={unread === 0}>
               Mark all read
             </Button>
           </>
         }
       />
 
-      <div className="mb-5 rounded-xl border border-line bg-white p-4">
+      <div className="mb-5 rounded-xl border border-line bg-white px-4 pt-4 pb-3.5">
         <div className="flex flex-wrap items-center gap-2">
           <Chip active={readFilter === 'all'} onClick={() => setReadFilter('all')}>
             All <b className="ml-1">{items.length}</b>
@@ -115,12 +115,12 @@ export default function Notices() {
           <Chip active={readFilter === 'unread'} onClick={() => setReadFilter('unread')}>
             Unread <b className="ml-1">{unread}</b>
           </Chip>
-          <span className="ml-auto flex items-center gap-2 text-[12px] text-muted">
+          <span className="ml-auto flex items-center gap-2 text-[10.5px] text-muted">
             <span className="h-1.5 w-1.5 rounded-full bg-primary" />
             {unread} unread · {items.length - unread} read
           </span>
         </div>
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className="mt-4 flex flex-wrap gap-2">
           <Chip active={type === 'any'} onClick={() => setType('any')}>
             Any type
           </Chip>
@@ -157,7 +157,7 @@ export default function Notices() {
               }}
               className="flex items-center gap-1 font-medium text-primary"
             >
-              <Check size={13} /> Mark selected read
+              <Check size={11} /> Mark selected read
             </button>
             <button onClick={clear} className="text-muted">
               Clear selection
@@ -168,14 +168,14 @@ export default function Notices() {
         footerRight="Newest first · All notice types"
       />
 
-      <div className="mt-3 flex flex-wrap justify-between gap-2 text-[12px] text-muted">
+      <div className="mt-3 flex flex-wrap justify-between gap-2 text-[10px] text-muted">
         <span className="flex items-center gap-2">
           <span className="h-1.5 w-1.5 rounded-full bg-primary" /> Blue-edged rows are unread. Open a notice to view the related record.
         </span>
         <span>All times in IST</span>
       </div>
 
-      <div className="mt-6 flex flex-wrap justify-between gap-2 text-[12px] text-muted">
+      <div className="mt-5 flex flex-wrap justify-between gap-2 text-[11px] text-muted">
         <span>India operations · Notices across your workspace</span>
         <span>Last refreshed 06 Oct 2026, 09:14 IST</span>
       </div>

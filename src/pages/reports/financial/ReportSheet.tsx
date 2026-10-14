@@ -102,7 +102,7 @@ function defaultRender(c: SheetCol, r: Row): ReactNode {
       return dmy(v)
     case 'multi':
       return (
-        <span className="flex flex-col gap-2 py-1">
+        <span className="flex flex-col gap-3 py-1.5">
           {v.split(MULTI_SEP).map((x) => (
             <span key={x}>{x}</span>
           ))}
@@ -113,7 +113,7 @@ function defaultRender(c: SheetCol, r: Row): ReactNode {
       return (
         <span className="block whitespace-normal">
           {v}
-          {t !== null && <span className="block text-[11px] text-muted">= {inr(t)}</span>}
+          {t !== null && <span className="block text-[10px] text-muted">= {inr(t)}</span>}
         </span>
       )
     }
@@ -128,13 +128,15 @@ function defaultRender(c: SheetCol, r: Row): ReactNode {
 function EditCell({ col, row, onCommit }: { col: SheetCol; row: Row; onCommit: (value: string) => boolean }) {
   const raw = rawOf(col, row)
   const [v, setV] = useState(raw)
-  const base = 'h-8 w-full min-w-24 rounded-md border border-blue-200 bg-white px-2 text-[13px] text-ink outline-none focus:border-primary'
+  // Figma edit frames look like the view grid: cells stay plain, the input only shows a border on hover / focus.
+  const base =
+    '-mx-1.5 h-7 w-[calc(100%+12px)] min-w-0 rounded border border-transparent bg-transparent px-1.5 text-[11px] text-ink outline-none hover:border-blue-200 focus:border-primary focus:bg-white'
   if (col.kind === 'multi' && col.options) {
     const set = new Set(raw.split(MULTI_SEP).filter(Boolean))
     return (
       <span className="flex flex-col gap-1.5 py-1">
         {col.options.map((o) => (
-          <label key={o} className="flex items-center gap-2 text-[13px]">
+          <label key={o} className="flex items-center gap-2 text-[11px]">
             <input
               type="checkbox"
               checked={set.has(o)}
@@ -176,22 +178,43 @@ function EditCell({ col, row, onCommit }: { col: SheetCol; row: Row; onCommit: (
   )
 }
 
-function Head({ c, groupInHeader, sort, onSort }: { c: SheetCol; groupInHeader: boolean; sort: 'asc' | 'desc' | null; onSort?: () => void }) {
+function Head({
+  c,
+  groupInHeader,
+  sort,
+  onSort,
+  filter,
+}: {
+  c: SheetCol
+  groupInHeader: boolean
+  sort: 'asc' | 'desc' | null
+  onSort?: () => void
+  filter?: { active: boolean; open: boolean; toggle: () => void }
+}) {
   return (
-    <div className={cn('flex items-start gap-2', isNum(c) && 'justify-between')}>
-      <div className="leading-snug whitespace-normal">
-        {groupInHeader && c.group && <div className="mb-1 text-[12px] font-semibold text-primary">{c.group}</div>}
+    <div className="flex items-center gap-1">
+      <div className="min-w-0 leading-[1.35] whitespace-normal">
+        {groupInHeader && c.group && <div className="mb-0.5 text-[10px] font-semibold text-primary">{c.group}</div>}
         <div className="font-semibold text-ink">{c.label}</div>
         {c.hi && (
-          <div lang="hi" className="mt-1.5 text-[11px] font-normal text-muted">
+          <div lang="hi" className="mt-1 text-[10px] font-normal text-muted">
             {c.hi}
           </div>
         )}
       </div>
-      {onSort && (
-        <button type="button" onClick={onSort} aria-label={`Sort by ${c.label}`} className={cn('mt-0.5 ml-auto shrink-0', sort ? 'text-primary' : 'text-muted')}>
-          {sort === 'asc' ? <ArrowUp size={13} /> : sort === 'desc' ? <ArrowDown size={13} /> : <ArrowDownUp size={13} />}
-        </button>
+      {(onSort || filter) && (
+        <span className="ml-auto flex shrink-0 items-center gap-0.5 text-ink-2">
+          {onSort && (
+            <button type="button" onClick={onSort} aria-label={`Sort by ${c.label}`} className={cn(sort && 'text-primary')}>
+              {sort === 'asc' ? <ArrowUp size={11} /> : sort === 'desc' ? <ArrowDown size={11} /> : <ArrowDownUp size={11} />}
+            </button>
+          )}
+          {filter && (
+            <button type="button" onClick={filter.toggle} aria-label={`Filter ${c.label}`} aria-expanded={filter.open} className={cn(filter.active && 'text-primary')}>
+              <ListFilter size={11} />
+            </button>
+          )}
+        </span>
       )}
     </div>
   )
@@ -199,9 +222,15 @@ function Head({ c, groupInHeader, sort, onSort }: { c: SheetCol; groupInHeader: 
 
 type Ctx = {
   editing: boolean
+  fit: boolean
+  rowHeight: number
   hidden: Set<string>
   sort: { key: string; dir: 'asc' | 'desc' } | null
   setSort: (s: { key: string; dir: 'asc' | 'desc' } | null) => void
+  colFilters: Record<string, string>
+  setColFilter: (key: string, value: string) => void
+  openFilter: string | null
+  setOpenFilter: (key: string | null) => void
   handle: (rowId: string, col: SheetCol, value: string) => boolean
   rowClassName?: (r: Row) => string | undefined
   readOnlyRow?: (r: Row) => string | false
@@ -224,21 +253,30 @@ function BandTable({ band, lead, leadLetters, start, rows, ctx, locked }: { band
       } else groups.push({ label: g, span: 1, first: x.l, last: x.l })
     }
   }
+  // fit: the design-width grid — fixed layout, S.N. narrow, every other column shares the card width equally
+  const narrow = (c: SheetCol) => c.key === 'sn'
   return (
     <div className="scroll-thin overflow-x-auto">
-      <table className="w-full border-collapse text-[13px]">
+      <table className={cn('w-full border-collapse text-[11px] text-ink', ctx.fit && 'table-fixed')}>
+        {ctx.fit && (
+          <colgroup>
+            {cols.map((x) => (
+              <col key={x.c.key} style={narrow(x.c) ? { width: 40 } : undefined} />
+            ))}
+          </colgroup>
+        )}
         <thead>
           {groups.length > 0 && (
-            <tr className="text-[12px]">
+            <tr className="text-[10px]">
               {groups.map((g, i) => (
                 <th
                   key={i}
                   colSpan={g.span}
-                  className={cn('border-b border-line px-3 py-2 text-left font-normal', i % 2 ? 'bg-primary-soft/70 text-primary' : 'bg-surface text-muted')}
+                  className={cn('border-b border-line px-2.5 py-2 text-left font-normal', i % 2 ? 'bg-primary-soft/70 text-primary' : 'bg-surface text-muted')}
                 >
                   {g.label && (
                     <span className="flex justify-between gap-2">
-                      <span className={i % 2 ? 'font-semibold' : ''}>{i % 2 ? g.label : `${g.label} · ${g.first}–${g.last}`}</span>
+                      <span className={i % 2 ? 'text-[11px] font-semibold' : ''}>{i % 2 ? g.label : `${g.label} · ${g.first}–${g.last}`}</span>
                       {i % 2 ? <span className="text-muted">{`${g.first}–${g.last}`}</span> : null}
                     </span>
                   )}
@@ -247,26 +285,58 @@ function BandTable({ band, lead, leadLetters, start, rows, ctx, locked }: { band
             </tr>
           )}
           {leadLetters && (
-            <tr className="bg-surface text-[10px] text-muted">
+            <tr className="bg-surface text-[9px] leading-[20px] text-muted">
               {cols.map((x) => (
-                <th key={x.c.key} className="border-r border-b border-line py-1 text-center font-medium last:border-r-0">
+                <th key={x.c.key} className="border-r border-b border-line py-0 text-center font-normal last:border-r-0">
                   {x.l}
                 </th>
               ))}
             </tr>
           )}
-          <tr className="bg-white text-left align-top">
+          <tr className="bg-white text-left">
             {cols.map((x) => {
               const s = ctx.sort?.key === x.c.key ? ctx.sort.dir : null
-              const sortable = !ctx.editing && !x.c.virtual && x.c.key !== 'sn'
+              const sortable = !x.c.virtual && !narrow(x.c)
+              const k = x.c.key
               return (
-                <th key={x.c.key} className="border-r border-b border-line px-3 py-3 font-semibold last:border-r-0" style={{ minWidth: x.c.width ?? 140 }}>
+                <th
+                  key={k}
+                  className={cn('relative h-[41px] border-r border-b border-line py-2 font-semibold last:border-r-0', narrow(x.c) ? 'px-2' : 'px-2.5')}
+                  style={ctx.fit ? undefined : { minWidth: x.c.width ?? 140 }}
+                >
                   <Head
                     c={x.c}
                     groupInHeader={!band.groupRow}
                     sort={s}
-                    onSort={sortable ? () => ctx.setSort(s === null ? { key: x.c.key, dir: 'asc' } : s === 'asc' ? { key: x.c.key, dir: 'desc' } : null) : undefined}
+                    onSort={sortable ? () => ctx.setSort(s === null ? { key: k, dir: 'asc' } : s === 'asc' ? { key: k, dir: 'desc' } : null) : undefined}
+                    filter={
+                      sortable && x.c.kind !== 'phone'
+                        ? { active: !!ctx.colFilters[k], open: ctx.openFilter === k, toggle: () => ctx.setOpenFilter(ctx.openFilter === k ? null : k) }
+                        : undefined
+                    }
                   />
+                  {ctx.openFilter === k && (
+                    <div className="absolute top-full right-0 z-30 mt-1 w-56 rounded-lg border border-line bg-white p-2.5 text-left font-normal shadow-lg">
+                      <div className="mb-1.5 text-[11px] text-muted">Filter · {x.c.label}</div>
+                      <input
+                        autoFocus
+                        aria-label={`Filter ${x.c.label}`}
+                        value={ctx.colFilters[k] ?? ''}
+                        onChange={(e) => ctx.setColFilter(k, e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && ctx.setOpenFilter(null)}
+                        placeholder="Contains…"
+                        className="h-8 w-full rounded-md border border-line px-2 text-[12px] outline-none focus:border-primary"
+                      />
+                      <div className="mt-2 flex justify-between">
+                        <button type="button" className="text-[12px] text-muted" onClick={() => ctx.setColFilter(k, '')}>
+                          Clear
+                        </button>
+                        <button type="button" className="text-[12px] font-semibold text-primary" onClick={() => ctx.setOpenFilter(null)}>
+                          Done
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </th>
               )
             })}
@@ -280,13 +350,19 @@ function BandTable({ band, lead, leadLetters, start, rows, ctx, locked }: { band
                 {cols.map((x) => {
                   const c = x.c
                   const canEdit = ctx.editing && !ro && !(x.lead && locked) && c.editable !== false && !c.virtual
+                  const wraps = c.kind === 'multi' || c.kind === 'deno'
+                  const plain = !canEdit && !c.render && !wraps ? textOf(c, r) : undefined
                   return (
                     <td
                       key={c.key}
+                      title={ctx.fit && plain ? plain : undefined}
+                      style={{ height: ctx.rowHeight }}
                       className={cn(
-                        'border-r border-b border-line-soft px-3 py-3 whitespace-nowrap last:border-r-0',
+                        'border-r border-b border-line-soft py-1.5 last:border-r-0',
+                        narrow(c) ? 'px-2' : 'px-2.5',
+                        wraps ? 'whitespace-normal' : 'whitespace-nowrap',
+                        ctx.fit && !wraps && 'overflow-hidden text-ellipsis',
                         isNum(c) && 'text-right',
-                        canEdit && 'bg-blue-50/40 px-2 py-2',
                       )}
                     >
                       {canEdit ? <EditCell key={rawOf(c, r)} col={c} row={r} onCommit={(v) => ctx.handle(r.id, c, v)} /> : c.render ? c.render(r) : defaultRender(c, r)}
@@ -304,8 +380,8 @@ function BandTable({ band, lead, leadLetters, start, rows, ctx, locked }: { band
 
 function BandHeader({ band, range, right }: { band: SheetBand; range: string; right?: string }) {
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line bg-primary-soft/60 px-4 py-2.5 text-[12px]">
-      <span className="font-semibold text-primary">{band.title}</span>
+    <div className="flex min-h-[36px] flex-wrap items-center gap-x-3 gap-y-1 border-b border-line bg-primary-soft/60 px-3.5 py-2 text-[10px]">
+      <span className="text-[11px] font-semibold text-primary">{band.title}</span>
       <span className="text-muted">{[band.pre, `Source columns ${range}`, band.extra].filter(Boolean).join(' · ')}</span>
       {right && <span className="text-muted sm:ml-auto">{right}</span>}
     </div>
@@ -343,6 +419,10 @@ export function ReportSheet({
   bandRight,
   paginate = true,
   footer,
+  strip,
+  fit,
+  editToolbar = false,
+  rowHeight = 34,
 }: {
   title: string
   countLabel?: string
@@ -369,6 +449,14 @@ export function ReportSheet({
   paginate?: boolean
   /** footer line of the single-layout card */
   footer?: { left?: ReactNode; right?: ReactNode }
+  /** slim info strip under the toolbar (Figma: "Double-click a cell to edit" bar) */
+  strip?: { left?: ReactNode; right?: ReactNode }
+  /** fixed-layout grid that fits the card width (default: on for the single layout) */
+  fit?: boolean
+  /** keep the toolbar in edit mode (Figma BS / Axis & ICD edit frames) */
+  editToolbar?: boolean
+  /** min data-row height (34 on lists, 56 on single-record pages) */
+  rowHeight?: number
 }) {
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<{ key: string; dir: 'asc' | 'desc' } | null>(null)
@@ -376,13 +464,23 @@ export function ReportSheet({
   const [panel, setPanel] = useState<'filters' | 'columns' | null>(null)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
+  const [colFilters, setColFilters] = useState<Record<string, string>>({})
+  const [openFilter, setOpenFilter] = useState<string | null>(null)
 
   const allCols = useMemo(() => [...lead, ...bands.flatMap((b) => b.cols)].filter((c) => !c.virtual), [lead, bands])
 
   const processed = useMemo(() => {
     const q = query.trim().toLowerCase()
-    let out = !q || editing ? rows : rows.filter((r) => allCols.some((c) => textOf(c, r).toLowerCase().includes(q)))
-    const c = sort && !editing ? allCols.find((x) => x.key === sort.key) : undefined
+    let out = !q ? rows : rows.filter((r) => allCols.some((c) => textOf(c, r).toLowerCase().includes(q)))
+    const active = Object.entries(colFilters).filter(([, v]) => v.trim())
+    if (active.length)
+      out = out.filter((r) =>
+        active.every(([k, v]) => {
+          const c = allCols.find((x) => x.key === k)
+          return !c || textOf(c, r).toLowerCase().includes(v.trim().toLowerCase())
+        }),
+      )
+    const c = sort ? allCols.find((x) => x.key === sort.key) : undefined
     if (c && sort) {
       out = [...out].sort((a, b) => {
         const av = rawOf(c, a)
@@ -392,7 +490,7 @@ export function ReportSheet({
       })
     }
     return out
-  }, [rows, query, allCols, editing, sort])
+  }, [rows, query, allCols, editing, sort, colFilters])
 
   const pages = Math.max(1, Math.ceil(processed.length / pageSize))
   const current = Math.min(page, pages)
@@ -415,7 +513,24 @@ export function ReportSheet({
     onCellChange(rowId, col.key, res.value)
     return true
   }
-  const ctx: Ctx = { editing, hidden, sort, setSort, handle, rowClassName, readOnlyRow }
+  const ctx: Ctx = {
+    editing,
+    fit: fit ?? layout === 'single',
+    rowHeight,
+    hidden,
+    sort,
+    setSort,
+    colFilters,
+    setColFilter: (key, value) => {
+      setColFilters((f) => ({ ...f, [key]: value }))
+      setPage(1)
+    },
+    openFilter,
+    setOpenFilter,
+    handle,
+    rowClassName,
+    readOnlyRow,
+  }
 
   const onExport = () => {
     downloadCsv(
@@ -426,12 +541,14 @@ export function ReportSheet({
     toast(`Exported ${processed.length} ${noun} · recorded in the audit trail`)
   }
 
+  const btn = (on: boolean) =>
+    cn('flex h-[30px] items-center gap-1.5 rounded-md border bg-white px-2.5 text-[11px] font-semibold hover:bg-surface', on ? 'border-primary text-primary' : 'border-line text-ink')
   const toolbarEl = (label: string) => (
-    <div className="relative flex flex-wrap items-center gap-3 border-b border-line bg-white px-4 py-3">
-      <Table2 size={18} className="text-primary" />
-      <span className="text-[14px] font-semibold">{label}</span>
-      {countLabel && <span className="text-[12px] text-muted">{countLabel}</span>}
-      <label className="flex h-9 w-full items-center gap-2 rounded-lg border border-line px-3 text-[13px] text-muted sm:w-[228px]">
+    <div className="relative flex min-h-12 flex-wrap items-center gap-2.5 border-b border-line bg-white px-3.5 py-1.5">
+      <Table2 size={16} className="text-primary" />
+      <span className="text-[12px] font-semibold text-ink">{label}</span>
+      {countLabel && <span className="text-[11px] text-muted">{countLabel}</span>}
+      <label className="flex h-9 w-full items-center gap-2 rounded-lg border border-line px-3 text-[11px] text-muted sm:w-[225px]">
         <Search size={15} />
         <input
           value={query}
@@ -445,23 +562,15 @@ export function ReportSheet({
       </label>
       <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
         {toolbarExtra}
-        <button
-          type="button"
-          onClick={() => setPanel(panel === 'filters' ? null : 'filters')}
-          className={cn('flex h-9 items-center gap-2 rounded-lg border px-3 text-[13px] font-semibold', panel === 'filters' ? 'border-primary text-primary' : 'border-line')}
-        >
-          <ListFilter size={15} /> Filters
-          {filterCount > 0 && <span className="rounded bg-primary px-1.5 text-[11px] text-white">{filterCount}</span>}
+        <button type="button" onClick={() => setPanel(panel === 'filters' ? null : 'filters')} className={btn(panel === 'filters')}>
+          <ListFilter size={14} /> Filters
+          {filterCount > 0 && <span className="rounded bg-primary px-1.5 text-[10px] text-white">{filterCount}</span>}
         </button>
-        <button
-          type="button"
-          onClick={() => setPanel(panel === 'columns' ? null : 'columns')}
-          className={cn('flex h-9 items-center gap-2 rounded-lg border px-3 text-[13px] font-semibold', panel === 'columns' ? 'border-primary text-primary' : 'border-line')}
-        >
-          <Columns3 size={15} /> Columns
+        <button type="button" onClick={() => setPanel(panel === 'columns' ? null : 'columns')} className={btn(panel === 'columns')}>
+          <Columns3 size={14} /> Columns
         </button>
-        <button type="button" onClick={onExport} className="flex h-9 items-center gap-2 rounded-lg border border-line bg-white px-3 text-[13px] font-semibold hover:bg-surface">
-          <Download size={15} /> Export .xlsx
+        <button type="button" onClick={onExport} className={btn(false)}>
+          <Download size={14} /> Export .xlsx
         </button>
       </div>
       {panel === 'filters' && (
@@ -502,22 +611,22 @@ export function ReportSheet({
   }
   const emptyBlock =
     processed.length === 0 ? (
-      <div className="px-6 py-14 text-center">
+      <div className="px-6 py-[88px] text-center">
         {empty && !query ? (
           <>
-            <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-primary-soft text-primary">
-              <Table2 size={20} />
+            <span className="mx-auto grid h-[46px] w-[46px] place-items-center rounded-full bg-primary-soft text-primary">
+              <Table2 size={19} />
             </span>
-            <div className="mt-4 text-[16px] font-semibold text-ink">{empty.title}</div>
-            <p className="mt-2 text-[13px] text-muted">{empty.text}</p>
+            <div className="mt-[18px] text-[16px] font-semibold text-ink">{empty.title}</div>
+            <p className="mt-2.5 text-[12px] text-muted">{empty.text}</p>
           </>
         ) : (
-          <p className="text-[13px] text-muted">{query ? 'No rows match your search.' : 'No rows yet.'}</p>
+          <p className="text-[12px] text-muted">{query || Object.values(colFilters).some(Boolean) ? 'No rows match your search.' : 'No rows yet.'}</p>
         )}
       </div>
     ) : null
 
-  const showToolbar = (i: number) => !editing && (toolbar === 'each' || (toolbar === 'first' && i === 0))
+  const showToolbar = (i: number) => (!editing || editToolbar) && (toolbar === 'each' || (toolbar === 'first' && i === 0))
 
   if (layout === 'cards')
     return (
@@ -554,6 +663,14 @@ export function ReportSheet({
         <div key={b.title}>
           {!hideBandHeader && <BandHeader band={b} range={rangeOf(b, i)} right={bandRight?.(b, i)} />}
           {showToolbar(i) && toolbarEl(b.toolbarTitle ?? title)}
+          {i === 0 && strip && (
+            <div className="flex min-h-[33px] flex-wrap items-center justify-between gap-2 border-b border-line bg-primary-soft/60 px-3.5 py-1.5 text-[11px]">
+              <span className="font-semibold text-primary">{strip.left}</span>
+              <span className="flex items-center gap-1.5 text-[10.5px] text-muted">
+                <MousePointer2 size={12} /> {strip.right}
+              </span>
+            </div>
+          )}
           <BandTable band={b} lead={i === 0 || repeatLead ? lead : []} leadLetters start={starts[i]} rows={visible} ctx={ctx} locked={i > 0} />
           {i === 0 && bands.length === 1 && emptyBlock}
         </div>
@@ -575,7 +692,7 @@ export function ReportSheet({
         </div>
       )}
       {footer && (
-        <div className="flex flex-wrap justify-between gap-2 border-t border-line px-4 py-2.5 text-[12px] text-muted">
+        <div className="flex min-h-8 flex-wrap items-center justify-between gap-2 border-t border-line bg-surface/60 px-3.5 py-1.5 text-[10px] text-muted">
           <span>{footer.left}</span>
           <span className="text-primary">{footer.right}</span>
         </div>

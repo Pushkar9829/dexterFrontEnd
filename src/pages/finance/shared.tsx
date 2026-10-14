@@ -1,6 +1,6 @@
 import { useMemo, useState, type MouseEvent, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowDown, ArrowDownUp, ArrowUp, ChevronLeft, ChevronRight, Columns3, Download, Eye, Info, ListFilter, Lock, Search, Table2 } from 'lucide-react'
+import { ArrowDown, ArrowDownUp, ArrowUp, ChevronLeft, ChevronRight, Columns3, Download, Info, ListFilter, Lock, Search, Table2 } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { downloadCsv } from '@/lib/export'
 
@@ -12,7 +12,7 @@ export function Chip({ active, onClick, children, count }: { active: boolean; on
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        'flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-[12px] whitespace-nowrap transition-colors',
+        'flex h-[26px] items-center gap-1.5 rounded-md border px-2.5 text-[12px] whitespace-nowrap transition-colors',
         active ? 'border-primary bg-primary-soft font-semibold text-primary' : 'border-line bg-white text-ink-2 hover:border-primary/40',
       )}
     >
@@ -154,11 +154,11 @@ export function WrappedBands<T>({
             </div>
 
             {bi === 0 && (
-              <div className="relative flex flex-wrap items-center gap-3 border-b border-line px-4 py-3">
-                <Table2 size={18} className="text-primary" />
-                <span className="text-[14px] font-semibold">{title}</span>
-                <span className="text-[12px] text-muted">{label}</span>
-                <label className="flex h-9 w-full items-center gap-2 rounded-lg border border-line px-3 text-[13px] text-muted sm:w-[228px]">
+              <div className="relative flex flex-wrap items-center gap-3 border-b border-line px-4 py-1.5">
+                <Table2 size={16} className="text-primary" />
+                <span className="text-[13px] font-semibold">{title}</span>
+                <span className="text-[11px] text-muted">{label}</span>
+                <label className="flex h-9 w-full items-center gap-2 rounded-lg border border-line px-3 text-[13px] text-muted sm:w-[226px]">
                   <Search size={15} />
                   <input
                     value={q}
@@ -171,19 +171,19 @@ export function WrappedBands<T>({
                   />
                 </label>
                 <div className="flex items-center gap-2 sm:ml-auto">
-                  <button type="button" onClick={() => setPanel(panel === 'filters' ? null : 'filters')} className="flex h-9 items-center gap-2 rounded-lg border border-line px-3 text-[13px] font-semibold">
-                    <ListFilter size={15} /> Filters
+                  <button type="button" onClick={() => setPanel(panel === 'filters' ? null : 'filters')} className="flex h-[30px] items-center gap-2 rounded-md border border-line bg-white px-2.5 text-[12px] font-semibold">
+                    <ListFilter size={14} /> Filters
                     {activeFilters > 0 && <span className="rounded bg-primary px-1.5 text-[11px] text-white">{activeFilters}</span>}
                   </button>
-                  <button type="button" onClick={() => setPanel(panel === 'columns' ? null : 'columns')} className="flex h-9 items-center gap-2 rounded-lg border border-line px-3 text-[13px] font-semibold">
-                    <Columns3 size={15} /> Columns
+                  <button type="button" onClick={() => setPanel(panel === 'columns' ? null : 'columns')} className="flex h-[30px] items-center gap-2 rounded-md border border-line bg-white px-2.5 text-[12px] font-semibold">
+                    <Columns3 size={14} /> Columns
                   </button>
                   <button
                     type="button"
                     onClick={() => downloadCsv(exportName, all.map((c) => c.header), processed.map((r) => all.map((c) => raw(c, r))))}
-                    className="flex h-9 items-center gap-2 rounded-lg border border-line px-3 text-[13px] font-semibold"
+                    className="flex h-[30px] items-center gap-2 rounded-md border border-line bg-white px-2.5 text-[12px] font-semibold"
                   >
-                    <Download size={15} /> Export .xlsx
+                    <Download size={14} /> Export .xlsx
                   </button>
                 </div>
                 {panel && (
@@ -245,59 +245,60 @@ export function WrappedBands<T>({
             )}
 
             <div className="scroll-thin overflow-x-auto">
-              <table className="w-full border-collapse text-[13px]">
+              {/* Figma: equal-width source columns, sort + filter glyphs in each header, 34px rows; rows open the record (click / Enter). */}
+              <table className="w-full table-fixed border-collapse text-[12px]" style={{ minWidth: cols.length * 170 }}>
                 <thead>
                   <tr className="bg-surface text-[10px] text-muted">
                     {b.columns.map((c, i) =>
                       hidden.has(c.key) ? null : (
-                        <th key={c.key} className="border-r border-b border-line py-1 font-medium">
+                        <th key={c.key} className="border-r border-b border-line py-[3px] font-medium last:border-r-0">
                           {letter(start + i)}
                         </th>
                       ),
                     )}
-                    {bi === 0 && <th className="border-b border-line" />}
                   </tr>
-                  <tr className="bg-surface text-left">
+                  <tr className="bg-surface/60 text-left">
                     {cols.map((c) => {
                       const s = sort?.key === c.key ? sort.dir : null
                       return (
-                        <th key={c.key} className="border-r border-b border-line px-3 py-3 font-semibold whitespace-nowrap text-ink" style={{ minWidth: c.width }}>
-                          <div className={cn('flex items-center gap-2', c.align === 'right' && 'justify-end')}>
-                            <span>{c.header}</span>
-                            {c.sortable !== false && (
-                              <button type="button" onClick={() => toggleSort(c.key)} aria-label={`Sort by ${c.header}`} className={cn('ml-auto text-muted', s && 'text-primary')}>
-                                {s === 'asc' ? <ArrowUp size={13} /> : s === 'desc' ? <ArrowDown size={13} /> : <ArrowDownUp size={13} />}
-                              </button>
-                            )}
+                        <th key={c.key} className="h-11 border-r border-b border-line px-3 font-semibold whitespace-nowrap text-ink last:border-r-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="truncate">{c.header}</span>
+                            <span className="ml-auto flex shrink-0 items-center gap-1 text-muted">
+                              {c.sortable !== false && (
+                                <button type="button" onClick={() => toggleSort(c.key)} aria-label={`Sort by ${c.header}`} className={cn(s && 'text-primary')}>
+                                  {s === 'asc' ? <ArrowUp size={12} /> : s === 'desc' ? <ArrowDown size={12} /> : <ArrowDownUp size={12} />}
+                                </button>
+                              )}
+                              {c.filterable && (
+                                <button type="button" onClick={() => setPanel('filters')} aria-label={`Filter ${c.header}`} className={cn(filters[c.key]?.trim() && 'text-primary')}>
+                                  <ListFilter size={12} />
+                                </button>
+                              )}
+                            </span>
                           </div>
                         </th>
                       )
                     })}
-                    {bi === 0 && <th className="w-20 border-b border-line px-3 py-3 text-right font-semibold whitespace-nowrap text-ink">Action</th>}
                   </tr>
                 </thead>
                 <tbody>
                   {visible.map((r) => {
                     const id = rowId(r)
                     return (
-                      <tr key={id} data-rid={id} className="cursor-pointer hover:bg-surface/70">
+                      <tr
+                        key={id}
+                        data-rid={id}
+                        tabIndex={bi === 0 ? 0 : -1}
+                        aria-label={bi === 0 ? `${openLabel} ${id}` : undefined}
+                        onKeyDown={(e) => e.key === 'Enter' && navigate(onOpen(id))}
+                        className="cursor-pointer outline-none hover:bg-surface/70 focus-visible:bg-primary-soft/50"
+                      >
                         {cols.map((c) => (
-                          <td key={c.key} className={cn('border-r border-b border-line-soft px-3 py-3 whitespace-nowrap', c.align === 'right' && 'text-right')}>
+                          <td key={c.key} className={cn('truncate border-r border-b border-line-soft px-3 py-2 last:border-r-0', c.align === 'right' && 'text-right')}>
                             {c.render ? c.render(r) : raw(c, r) || <span className="text-muted">—</span>}
                           </td>
                         ))}
-                        {bi === 0 && (
-                          <td className="border-b border-line-soft px-3 py-3 text-right whitespace-nowrap">
-                            <button
-                              type="button"
-                              onClick={() => navigate(onOpen(id))}
-                              className="inline-flex items-center gap-1 text-[12px] font-semibold text-primary hover:underline"
-                              aria-label={`${openLabel} ${id}`}
-                            >
-                              <Eye size={13} /> {openLabel}
-                            </button>
-                          </td>
-                        )}
                       </tr>
                     )
                   })}
@@ -307,7 +308,7 @@ export function WrappedBands<T>({
             </div>
 
             {last && (
-              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-4 py-3 text-[12px] text-muted">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-4 py-2.5 text-[11px] text-muted">
                 <span>
                   {processed.length
                     ? `Showing ${(cur - 1) * size + 1}–${Math.min(processed.length, cur * size)} of ${processed.length} ${noun}`
@@ -318,10 +319,10 @@ export function WrappedBands<T>({
                   <span>
                     Page {cur} of {pages}
                   </span>
-                  <button type="button" disabled={cur <= 1} onClick={() => setPage(cur - 1)} className="flex h-8 items-center gap-1 rounded-md border border-line bg-white px-2.5 text-ink-2 disabled:text-muted/60">
+                  <button type="button" disabled={cur <= 1} onClick={() => setPage(cur - 1)} className="flex h-7 items-center gap-1 rounded-md border border-line bg-white px-2.5 text-[11px] text-ink-2 disabled:text-muted/60">
                     <ChevronLeft size={14} /> Previous
                   </button>
-                  <button type="button" disabled={cur >= pages} onClick={() => setPage(cur + 1)} className="flex h-8 items-center gap-1 rounded-md border border-line bg-white px-2.5 text-ink-2 disabled:text-muted/60">
+                  <button type="button" disabled={cur >= pages} onClick={() => setPage(cur + 1)} className="flex h-7 items-center gap-1 rounded-md border border-line bg-white px-2.5 text-[11px] text-ink-2 disabled:text-muted/60">
                     Next <ChevronRight size={14} />
                   </button>
                 </div>
@@ -430,7 +431,7 @@ export function RecordFooter({ title, sub, children }: { title: ReactNode; sub: 
 export function FLabel({ label, note, htmlFor }: { label: string; note?: ReactNode; htmlFor?: string }) {
   return (
     <div className="mb-1.5 flex items-baseline justify-between gap-2">
-      <label htmlFor={htmlFor} className="text-[12px] font-semibold text-ink">
+      <label htmlFor={htmlFor} className="text-[12px] font-medium text-ink">
         {label}
       </label>
       {note && <span className="text-[11px] text-muted">{note}</span>}

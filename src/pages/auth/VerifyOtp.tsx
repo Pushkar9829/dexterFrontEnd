@@ -13,7 +13,10 @@ const RESEND_SECONDS = 30
 /** OTP step for both sign-in (screen 03) and password recovery (screen 05). */
 export default function VerifyOtp() {
   const navigate = useNavigate()
-  const state = useLocation().state as State | null
+  const loc = useLocation()
+  // QA aid: /verify-otp?qa=login|reset renders the step without walking the flow (for screenshots)
+  const qa = new URLSearchParams(loc.search).get('qa')
+  const state = (loc.state as State | null) ?? (qa ? { channel: 'phone' as const, identity: '9876543242', flow: qa === 'reset' ? ('reset' as const) : ('login' as const) } : null)
   const [code, setCode] = useState('')
   const [seconds, setSeconds] = useState(RESEND_SECONDS)
   const [expired, setExpired] = useState(false)

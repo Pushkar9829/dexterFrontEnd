@@ -72,9 +72,15 @@ type Props<T> = {
   rowNumberLabel?: string
   /** formula bar: save time shown as "All changes saved · <savedAt>" */
   savedAt?: string
+  /** vertical cell borders (default true); false = row lines only, sort icons sit next to the header text (Applications list) */
+  columnLines?: boolean
 }
 
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+/** running-number / checkbox column widths (Figma: 38 / 34) */
+const NUM_W = 38
+const SEL_W = 34
+const CHECK = 'm-0 h-3.5 w-3.5 cursor-pointer rounded accent-primary align-middle'
 const letter = (i: number) => (i < 26 ? LETTERS[i] : LETTERS[Math.floor(i / 26) - 1] + LETTERS[i % 26])
 
 export function ExcelGrid<T>({
@@ -110,6 +116,7 @@ export function ExcelGrid<T>({
   bulkHint,
   savedAt,
   rowNumberLabel = '#',
+  columnLines = true,
 }: Props<T>) {
   const rightHint = scopeRight ?? selectionHint
   const [query, setQuery] = useState('')
@@ -189,17 +196,17 @@ export function ExcelGrid<T>({
       processed.map((r) => columns.map((c) => raw(c, r))),
     )
 
-  const pinnedLeft = (rowNumbers ? 48 : 0) + (selectable ? 36 : 0)
+  const pinnedLeft = (rowNumbers ? NUM_W : 0) + (selectable ? SEL_W : 0)
 
   return (
     <section className="overflow-hidden rounded-xl border border-line bg-white">
       {!hideToolbar && (
-        <div className="flex flex-wrap items-center gap-3 border-b border-line px-4 py-3">
-          <Table2 size={18} className="text-primary" />
-          <span className="text-[14px] font-semibold">{title}</span>
-          {countLabel && <span className="text-[12px] text-muted">{countLabel}</span>}
-          <label className="flex h-9 w-full items-center gap-2 rounded-lg border border-line px-3 text-[13px] text-muted sm:w-[228px]">
-            <Search size={15} />
+        <div className="flex min-h-12 flex-wrap items-center gap-2.5 border-b border-line px-3.5 py-1.5">
+          <Table2 size={16} className="text-primary" />
+          <span className="text-[12px] font-semibold text-ink">{title}</span>
+          {countLabel && <span className="text-[11px] text-muted">{countLabel}</span>}
+          <label className="flex h-9 w-full items-center gap-2 rounded-lg border border-line px-3 text-[11px] text-muted sm:w-[225px]">
+            <Search size={14} />
             <input
               value={query}
               onChange={(e) => {
@@ -214,28 +221,28 @@ export function ExcelGrid<T>({
             {toolbarButtons.includes('filters') && (
             <button
               onClick={() => setOpenFilter(openFilter ? null : cols.find((c) => c.filterable)?.key ?? null)}
-              className="flex h-9 items-center gap-2 rounded-lg border border-line px-3 text-[13px] font-semibold"
+              className="flex h-[30px] items-center gap-1.5 rounded-md border border-line bg-white px-2.5 text-[11px] font-semibold text-ink hover:bg-surface"
             >
-              <ListFilter size={15} /> Filters
+              <ListFilter size={13} /> Filters
               {Object.values(filters).filter(Boolean).length > 0 && (
-                <span className="rounded bg-primary px-1.5 text-[11px] text-white">{Object.values(filters).filter(Boolean).length}</span>
+                <span className="rounded bg-primary px-1.5 text-[10px] text-white">{Object.values(filters).filter(Boolean).length}</span>
               )}
             </button>
             )}
             {toolbarButtons.includes('columns') && (
-              <button onClick={() => setShowColumns((s) => !s)} className="flex h-9 items-center gap-2 rounded-lg border border-line px-3 text-[13px] font-semibold">
-                <Columns3 size={15} /> Columns
+              <button onClick={() => setShowColumns((s) => !s)} className="flex h-[30px] items-center gap-1.5 rounded-md border border-line bg-white px-2.5 text-[11px] font-semibold text-ink hover:bg-surface">
+                <Columns3 size={13} /> Columns
               </button>
             )}
             {toolbarButtons.includes('export') && (
-              <button onClick={onExport} className="flex h-9 items-center gap-2 rounded-lg border border-line px-3 text-[13px] font-semibold">
-                <Download size={15} /> Export .xlsx
+              <button onClick={onExport} className="flex h-[30px] items-center gap-1.5 rounded-md border border-line bg-white px-2.5 text-[11px] font-semibold text-ink hover:bg-surface">
+                <Download size={13} /> Export .xlsx
               </button>
             )}
             {showColumns && (
-              <div className="absolute top-11 right-0 z-30 max-h-72 w-56 overflow-y-auto rounded-lg border border-line bg-white p-2 shadow-lg">
+              <div className="absolute top-9 right-0 z-30 max-h-72 w-56 overflow-y-auto rounded-lg border border-line bg-white p-2 shadow-lg">
                 {columns.map((c) => (
-                  <label key={c.key} className="flex items-center gap-2 rounded px-2 py-1.5 text-[13px] hover:bg-surface">
+                  <label key={c.key} className="flex items-center gap-2 rounded px-2 py-1.5 text-[12px] hover:bg-surface">
                     <input
                       type="checkbox"
                       checked={!hidden.has(c.key)}
@@ -258,10 +265,10 @@ export function ExcelGrid<T>({
       )}
 
       {!hideSelectionBar && (selectable || scope || scopeRight != null) && (
-        <div className="flex flex-wrap items-center gap-4 border-b border-line bg-primary-soft/60 px-4 py-2.5 text-[12px]">
+        <div className="flex min-h-[33px] flex-wrap items-center gap-4 border-b border-line bg-primary-soft/60 px-3.5 py-1.5 text-[11px]">
           {scope && (
             <span className="flex items-center gap-1.5 font-semibold text-primary">
-              <Filter size={13} /> {scope}
+              <Filter size={12} /> {scope}
             </span>
           )}
           {selectable && (
@@ -274,43 +281,43 @@ export function ExcelGrid<T>({
           )}
           {(() => {
             const hint = selectable && selected.size > 0 && bulkHint != null ? bulkHint : rightHint
-            return hint != null ? <span className="ml-auto text-[11px] text-muted">{hint}</span> : null
+            return hint != null ? <span className="ml-auto text-[10.5px] text-muted">{hint}</span> : null
           })()}
         </div>
       )}
 
       {formulaBar && (
-        <div className="flex items-center gap-4 border-b border-line px-4 py-2 text-[12px] text-muted">
-          <span className="w-10 text-center font-medium text-ink-2">{active && activeCol >= 0 ? `${letter(activeCol + letterOffset)}${activeRowIdx + 1}` : '—'}</span>
+        <div className="flex min-h-[30px] items-center gap-4 border-b border-line px-3.5 py-1 text-[11px] text-muted">
+          <span className="w-10 text-center font-semibold text-primary">{active && activeCol >= 0 ? `${letter(activeCol + letterOffset)}${activeRowIdx + 1}` : '—'}</span>
           <span className="italic">fx</span>
           <span className="flex-1 truncate text-ink-2">{active ? activeValue || '(blank)' : 'No cell selected'}</span>
-          <span className="flex items-center gap-1.5 text-emerald-700">
-            <CheckCircle2 size={14} /> All changes saved{savedAt ? ` · ${savedAt}` : ''}
+          <span className="flex items-center gap-1.5 text-[10.5px] text-emerald-700">
+            <CheckCircle2 size={13} /> All changes saved{savedAt ? ` · ${savedAt}` : ''}
           </span>
         </div>
       )}
 
       <div className="scroll-thin overflow-x-auto">
-        <table className="w-full border-collapse text-[13px]">
+        <table className={cn('w-full border-collapse text-[11px] text-ink', !columnLines && '[&_td]:border-r-0 [&_th]:border-r-0')}>
           <thead>
             {letters && (
-              <tr className="bg-surface text-[10px] text-muted">
-                {rowNumbers && <th className="sticky left-0 z-10 w-12 border-r border-b border-line bg-surface" />}
-                {selectable && <th className="sticky z-10 w-9 border-r border-b border-line bg-surface" style={{ left: rowNumbers ? 48 : 0 }} />}
+              <tr className="bg-surface text-[9px] leading-[17px] text-muted">
+                {rowNumbers && <th className="sticky left-0 z-10 w-[38px] border-r border-b border-line bg-surface" />}
+                {selectable && <th className="sticky z-10 w-[34px] border-r border-b border-line bg-surface" style={{ left: rowNumbers ? NUM_W : 0 }} />}
                 {cols.map((c, i) => (
-                  <th key={c.key} className={cn('border-r border-b border-line py-1 font-medium', c.pinned && 'sticky z-10 bg-surface')} style={c.pinned ? { left: pinnedLeft } : undefined}>
+                  <th key={c.key} className={cn('border-r border-b border-line py-0 font-normal', c.pinned && 'sticky z-10 bg-surface')} style={c.pinned ? { left: pinnedLeft } : undefined}>
                     {letter(i + letterOffset)}
                   </th>
                 ))}
               </tr>
             )}
             <tr className="bg-surface text-left">
-              {rowNumbers && <th className="sticky left-0 z-10 w-12 border-r border-b border-line bg-surface px-3 py-3 font-semibold">{rowNumberLabel}</th>}
+              {rowNumbers && <th className="sticky left-0 z-10 w-[38px] border-r border-b border-line bg-surface px-2.5 py-2.5 font-semibold">{rowNumberLabel}</th>}
               {selectable && (
-                <th className="sticky z-10 w-9 border-r border-b border-line bg-surface px-2.5" style={{ left: rowNumbers ? 48 : 0 }}>
+                <th className="sticky z-10 w-[34px] border-r border-b border-line bg-surface px-2.5" style={{ left: rowNumbers ? NUM_W : 0 }}>
                   <input
                     type="checkbox"
-                    className="accent-primary"
+                    className={CHECK}
                     aria-label="Select all on page"
                     checked={allOnPage}
                     onChange={() =>
@@ -328,21 +335,21 @@ export function ExcelGrid<T>({
                 return (
                   <th
                     key={c.key}
-                    className={cn('relative border-r border-b border-line px-3 py-3 font-semibold whitespace-nowrap text-ink', c.pinned && 'sticky z-10 bg-surface')}
+                    className={cn('relative border-r border-b border-line px-2.5 py-2.5 font-semibold whitespace-nowrap text-ink', c.pinned && 'sticky z-10 bg-surface')}
                     style={{ minWidth: c.width, ...(c.pinned ? { left: pinnedLeft } : {}) }}
                   >
-                    <div className={cn('flex items-center gap-2', c.align === 'right' && 'justify-end')}>
+                    <div className={cn('flex items-center gap-1.5', c.align === 'right' && 'justify-end')}>
                       <span>{c.header}</span>
-                      <span className="ml-auto flex items-center gap-1 text-muted">
-                        {c.pinned && <Pin size={12} className="text-primary" />}
+                      <span className={cn('flex items-center gap-1 text-ink-2', columnLines && 'ml-auto')}>
+                        {c.pinned && <Pin size={11} className="text-primary" />}
                         {c.sortable && (
                           <button onClick={() => toggleSort(c.key)} aria-label={`Sort by ${c.label ?? c.key}`} className={s ? 'text-primary' : ''}>
-                            {s === 'asc' ? <ArrowUp size={13} /> : s === 'desc' ? <ArrowDown size={13} /> : <ArrowDownUp size={13} />}
+                            {s === 'asc' ? <ArrowUp size={11} /> : s === 'desc' ? <ArrowDown size={11} /> : <ArrowDownUp size={11} />}
                           </button>
                         )}
                         {c.filterable && (
                           <button onClick={() => setOpenFilter(openFilter === c.key ? null : c.key)} aria-label={`Filter ${c.label ?? c.key}`} className={filters[c.key] ? 'text-primary' : ''}>
-                            <ListFilter size={13} />
+                            <ListFilter size={11} />
                           </button>
                         )}
                       </span>
@@ -359,7 +366,7 @@ export function ExcelGrid<T>({
                           }}
                           onKeyDown={(e) => e.key === 'Enter' && setOpenFilter(null)}
                           placeholder="Contains…"
-                          className="h-8 w-full rounded-md border border-line px-2 text-[13px] outline-none focus:border-primary"
+                          className="h-8 w-full rounded-md border border-line px-2 text-[12px] outline-none focus:border-primary"
                         />
                         <div className="mt-2 flex justify-between">
                           <button className="text-[12px] text-muted" onClick={() => setFilters((f) => ({ ...f, [c.key]: '' }))}>
@@ -383,10 +390,10 @@ export function ExcelGrid<T>({
               const n = (current - 1) * pageSize + ri + 1
               return (
                 <tr key={id} className={cn('group', isSel ? 'bg-primary-soft/50' : 'hover:bg-surface/70', rowClassName?.(r))}>
-                  {rowNumbers && <td className="sticky left-0 z-[1] border-r border-b border-line-soft bg-inherit px-3 py-3 text-muted">{n}</td>}
+                  {rowNumbers && <td className="sticky left-0 z-[1] border-r border-b border-line-soft bg-inherit px-2.5 py-2 text-muted">{n}</td>}
                   {selectable && (
-                    <td className="sticky z-[1] border-r border-b border-line-soft bg-inherit px-2.5" style={{ left: rowNumbers ? 48 : 0 }}>
-                      <input type="checkbox" className="accent-primary" aria-label={`Select row ${n}`} checked={isSel} onChange={() => toggleRow(id)} />
+                    <td className="sticky z-[1] border-r border-b border-line-soft bg-inherit px-2.5" style={{ left: rowNumbers ? NUM_W : 0 }}>
+                      <input type="checkbox" className={CHECK} aria-label={`Select row ${n}`} checked={isSel} onChange={() => toggleRow(id)} />
                     </td>
                   )}
                   {cols.map((c) => {
@@ -403,7 +410,7 @@ export function ExcelGrid<T>({
                           setDraft(raw(c, r))
                         }}
                         className={cn(
-                          'border-r border-b border-line-soft px-3 py-3 whitespace-nowrap',
+                          'border-r border-b border-line-soft px-2.5 py-2 whitespace-nowrap',
                           c.align === 'right' && 'text-right',
                           c.pinned && 'sticky z-[1] bg-white group-hover:bg-surface',
                           isActive && 'outline-2 -outline-offset-2 outline-primary',
@@ -457,7 +464,7 @@ export function ExcelGrid<T>({
           </tbody>
         </table>
         {processed.length === 0 && (
-          <div className="px-6 py-14 text-center text-[13px] text-muted">{emptyState ?? 'No matching records.'}</div>
+          <div className="px-6 py-14 text-center text-[12px] text-muted">{emptyState ?? 'No matching records.'}</div>
         )}
       </div>
 
@@ -467,7 +474,7 @@ export function ExcelGrid<T>({
         </div>
       )}
       {(footerLeft || footerRight) && (
-        <div className="flex flex-wrap justify-between gap-2 border-t border-line px-4 py-2.5 text-[12px] text-muted">
+        <div className="flex flex-wrap justify-between gap-2 border-t border-line px-3.5 py-2 text-[10.5px] text-muted">
           <span>{typeof footerLeft === 'function' ? footerLeft([...selected]) : footerLeft}</span>
           <span className="text-primary">{footerRight}</span>
         </div>

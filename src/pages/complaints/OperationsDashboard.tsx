@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom'
 import { ArrowRight, CalendarDays, UserRound } from 'lucide-react'
 import { ExcelGrid, type GridColumn } from '@/components/grid/ExcelGrid'
 import { toneFor } from '@/components/ui/Badge'
-import { Button } from '@/components/ui/Button'
 import { toast } from '@/components/ui/Toast'
 import { downloadCsv } from '@/lib/export'
 import {
@@ -123,9 +122,9 @@ export default function OperationsDashboard() {
 
   const cols: GridColumn<Complaint>[] = [
     { key: 'id', header: 'Complaint ID', width: 120, render: (c) => <Link to={`${BASE}/${c.id}`} className="font-medium text-primary hover:underline">{c.id}</Link> },
-    { key: 'issue', header: 'Issue / ATM', width: 240, value: (c) => `${c.subcategory} · ${c.atmId}` },
+    { key: 'issue', header: 'Issue / ATM', width: 440, value: (c) => `${c.subcategory} · ${c.atmId}` },
     { key: 'priority', header: 'Priority', width: 100, value: (c) => c.priority },
-    { key: 'next', header: 'Next action', width: 200, value: (c) => c.tasks.filter((t) => !t.done).sort((a, b) => Date.parse(a.due) - Date.parse(b.due))[0]?.title ?? c.lastAction },
+    { key: 'next', header: 'Next action', width: 220, value: (c) => c.tasks.filter((t) => !t.done).sort((a, b) => Date.parse(a.due) - Date.parse(b.due))[0]?.title ?? c.lastAction },
     { key: 'due', header: 'Due / SLA', width: 150, value: (c) => sla(c, now).label },
     { key: 'status', header: 'Status', width: 100, value: statusLabel },
   ]
@@ -146,7 +145,7 @@ export default function OperationsDashboard() {
 
   return (
     <ComplaintsShell title="Operations Dashboard" sub={`${first}'s work queues, commitments and external dependencies for today.`} onExport={exportAll}>
-      <div className="mb-5 flex flex-wrap items-center gap-3">
+      <div className="mb-[18px] flex flex-wrap items-center gap-3">
         <Dropdown
           width={240}
           label={
@@ -175,19 +174,34 @@ export default function OperationsDashboard() {
             </div>
           )}
         </Dropdown>
-        <span className="flex h-10 items-center gap-2 rounded-lg border border-line bg-white px-4 text-[13px] font-semibold">
+        <span className="flex h-[38px] items-center gap-2 rounded-lg border border-line bg-white px-4 text-[12px] font-semibold">
           <CalendarDays size={15} className="text-primary" /> Today · {fmtDate(now)}
         </span>
-        <select value={pri} onChange={(e) => setPri(e.target.value as Priority | '')} aria-label="Priority" className="h-10 rounded-lg border border-line bg-white px-3 text-[13px] font-semibold">
-          <option value="">All priorities</option>
-          {PRIORITIES.map((p) => (
-            <option key={p}>{p}</option>
-          ))}
-        </select>
-        <span className="text-[12px] text-muted">{user === CURRENT_USER ? 'Your assigned work' : `${user}'s assigned work`} · India operations</span>
+        <Dropdown width={180} label={pri ? `${pri} priority` : 'All priorities'}>
+          {(close) => (
+            <div role="listbox" aria-label="Priority">
+              {(['', ...PRIORITIES] as (Priority | '')[]).map((p) => (
+                <button
+                  key={p || 'all'}
+                  type="button"
+                  role="option"
+                  aria-selected={pri === p}
+                  onClick={() => {
+                    setPri(p)
+                    close()
+                  }}
+                  className={`flex w-full rounded px-2 py-1.5 text-left text-[13px] hover:bg-surface ${pri === p ? 'bg-primary-soft font-semibold text-primary' : ''}`}
+                >
+                  {p || 'All priorities'}
+                </button>
+              ))}
+            </div>
+          )}
+        </Dropdown>
+        <span className="text-[11px] text-muted">{user === CURRENT_USER ? 'Your assigned work' : `${user}'s assigned work`} · India operations</span>
       </div>
 
-      <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+      <div className="mb-5 grid grid-cols-2 items-start gap-3 md:grid-cols-3 xl:grid-cols-5">
         <Kpi label={user === CURRENT_USER ? 'My complaints' : 'Assigned complaints'} value={d.mine.length} caption={`${d.mine.length - pendingMine} active · ${pendingMine} pending dependencies`} />
         <Kpi label="My open tasks" value={d.tasks.length} caption={`Across ${new Set(d.tasks.map((x) => x.c.id)).size} assigned complaints`} />
         <Kpi label="Due today" value={d.dueToday.length} caption="Tasks not yet overdue" />
@@ -197,6 +211,7 @@ export default function OperationsDashboard() {
 
       {top && (top.s.breached || top.s.atRisk) ? (
         <Banner
+          tone="amber"
           lead="Action required"
           action={
             <Link to={`${BASE}/${top.c.id}`} className="flex items-center gap-1 text-[12px] font-semibold text-primary hover:underline">
@@ -226,7 +241,7 @@ export default function OperationsDashboard() {
       </GridCard>
 
       <div className="mb-5 grid gap-4 lg:grid-cols-2">
-        <Panel title="My tasks · due & overdue" action={<ViewAll to="/tasks/my" label={`View all ${d.tasks.length}`} />}>
+        <Panel title="My tasks · due & overdue" action={<LinkBtn to="/tasks/my">View all {d.tasks.length}</LinkBtn>}>
           {d.tasks.length === 0 && <p className="text-[12px] text-muted">No open tasks.</p>}
           {d.tasks.slice(0, 6).map(({ t, c }) => {
             const st = taskStatus(t, now)
@@ -236,7 +251,7 @@ export default function OperationsDashboard() {
                 key={t.id}
                 title={
                   <>
-                    <Link to={`/tasks/my/${t.id}`} className="font-medium text-primary hover:underline">
+                    <Link to={`/tasks/my/${t.id}`} className="hover:text-primary hover:underline">
                       {t.id}
                     </Link>{' '}
                     · {t.title}
@@ -273,7 +288,7 @@ export default function OperationsDashboard() {
               />
             )
           })}
-          <p className="mt-2 text-[12px] text-muted">
+          <p className="mt-2 text-[11px] leading-4 text-muted">
             {d.pendingVisits.length
               ? `${cap(words(d.pendingVisits.length))} pending visit${d.pendingVisits.length > 1 ? 's are' : ' is'} included in your ${words(ext)} external dependencies.`
               : 'No visits are waiting on confirmation.'}{' '}
@@ -292,15 +307,16 @@ export default function OperationsDashboard() {
               status={v.status}
               tone="amber"
               meta={
-                <>
+                <span title={v.log.length > 0 ? `Log: ${v.log.at(-1)}` : undefined}>
                   {c.id} · {v.lastChased ? `Last chased ${fmtTime(v.lastChased)}` : 'Not chased yet'}
                   {v.expectedBy && ` · Expected by ${fmtTime(v.expectedBy)}`}
-                  {v.log.length > 0 && <span className="block text-[11px]">Log: {v.log.at(-1)}</span>}
-                  <span className="mt-1 flex gap-3">
-                    <LinkBtn onClick={() => chase(c, v)}>Chase vendor</LinkBtn>
-                    <LinkBtn onClick={() => vendorReceived(c, v)}>Mark received</LinkBtn>
-                  </span>
-                </>
+                </span>
+              }
+              action={
+                <span className="flex gap-3">
+                  <LinkBtn onClick={() => chase(c, v)}>Chase</LinkBtn>
+                  <LinkBtn onClick={() => vendorReceived(c, v)}>Received</LinkBtn>
+                </span>
               }
             />
           ))}
@@ -318,17 +334,9 @@ export default function OperationsDashboard() {
                   {c.id} · {s.depot}
                   {s.eta && ` · ETA ${short(s.eta, now)}`}
                   {s.cost && ` · ${inr(s.cost)}`}
-                  <span className="mt-1 flex">
-                    {s.status === 'Awaiting approval' ? (
-                      <Button size="sm" onClick={() => spareStep(c, s)}>
-                        Approve spare
-                      </Button>
-                    ) : (
-                      <LinkBtn onClick={() => spareStep(c, s)}>{s.status === 'Approved' ? 'Mark dispatched' : 'Mark delivered'}</LinkBtn>
-                    )}
-                  </span>
                 </>
               }
+              action={<LinkBtn onClick={() => spareStep(c, s)}>{s.status === 'Awaiting approval' ? 'Approve' : s.status === 'Approved' ? 'Dispatched' : 'Delivered'}</LinkBtn>}
             />
           ))}
         </Panel>

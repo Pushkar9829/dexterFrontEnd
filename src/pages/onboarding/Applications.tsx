@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowUpRight, CalendarDays, ChevronDown, ClipboardList, Clock, Copy, Download, MoreHorizontal, Plus, Search, ShieldCheck, CircleCheck, SlidersHorizontal, X } from 'lucide-react'
+import { ArrowUpRight, CalendarDays, ChevronDown, ClipboardList, Clock, Copy, Download, MoreHorizontal, Search, ShieldCheck, CircleCheck, ListFilter, X } from 'lucide-react'
 import { ExcelGrid, type GridColumn } from '@/components/grid/ExcelGrid'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -151,30 +151,29 @@ export default function Applications() {
   ]
 
   const columns: GridColumn<Application>[] = [
-    { key: 'id', header: 'App ID', width: 150, sortable: true, render: (a) => <button onClick={() => open(a)} className="font-medium text-primary hover:underline">{a.id}</button> },
+    { key: 'id', header: 'App ID', width: 162, sortable: true, render: (a) => <button onClick={() => open(a)} className="font-medium text-primary hover:underline">{a.id}</button> },
     {
-      key: 'applicantName', header: 'Applicant Name', width: 380, sortable: true,
+      key: 'applicantName', header: 'Applicant Name', width: 407, sortable: true,
       render: (a) => (
-        <div className="flex items-center gap-3">
-          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-surface text-[10px] font-semibold text-ink-2">{initials(a.applicantName)}</span>
-          <div className="min-w-0 flex-1 leading-tight">
-            <div className="text-[13px] text-ink">{a.applicantName}</div>
-            <div className="text-[11px] text-muted">{a.applicantEmail}</div>
+        <div className="flex items-center gap-2.5">
+          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-surface text-[8.5px] font-semibold text-ink-2">{initials(a.applicantName)}</span>
+          <div className="min-w-0 flex-1 leading-[15px]">
+            <div className="text-[12px] font-medium text-ink">{a.applicantName}</div>
+            <div className="mt-0.5 text-[10px] text-muted">{a.applicantEmail}</div>
           </div>
-          <span className="hidden text-[10px] text-muted md:inline">{a.type}</span>
+          <span className="hidden text-[9px] text-muted md:inline">{a.type}</span>
         </div>
       ),
     },
-    { key: 'status', header: 'Status', width: 150, sortable: true, render: (a) => <Badge tone={statusTone[a.status]}>{a.status}</Badge> },
+    { key: 'status', header: 'Status', width: 208, sortable: true, render: (a) => <Badge tone={statusTone[a.status]}>{a.status}</Badge> },
     {
-      key: 'submittedAt', header: 'Date Submitted', width: 150, sortable: true,
+      key: 'submittedAt', header: 'Date Submitted', width: 208, sortable: true,
       render: (a) => {
         const d = fmtDate(a.submittedAt)
         return (
-          <span className="leading-tight">
+          <span className="block leading-[14px]">
             {d.date}
-            <br />
-            <span className="text-[11px] text-muted">{d.time}</span>
+            <span className="block text-[9px] leading-[12px] text-muted">{d.time}</span>
           </span>
         )
       },
@@ -183,8 +182,8 @@ export default function Applications() {
       key: 'actions', header: 'Actions', label: 'Actions', width: 200, value: () => '',
       render: (a) => (
         <div className="flex items-center gap-4">
-          <button onClick={() => open(a)} className="flex items-center gap-1.5 text-[12px] font-semibold text-primary hover:underline">
-            {a.status === 'Draft' ? 'Resume draft' : 'View application'} <ArrowUpRight size={14} />
+          <button onClick={() => open(a)} className="flex items-center gap-6 text-[11px] font-semibold text-primary hover:underline">
+            {a.status === 'Draft' ? 'Resume draft' : 'View application'} <ArrowUpRight size={13} />
           </button>
           <RowMenu app={a} onOpen={() => open(a)} />
         </div>
@@ -208,28 +207,28 @@ export default function Applications() {
         sub="Manage franchise applications from submission to approval."
         actions={
           <>
-            <Button variant="secondary" icon={<Download size={16} />} onClick={exportRows}>
+            <Button variant="secondary" icon={<Download size={15} />} onClick={exportRows}>
               Export
             </Button>
-            <Button icon={<Plus size={16} />} onClick={() => navigate('/onboarding/applications/new')}>
-              New Application
+            <Button onClick={() => navigate('/onboarding/applications/new')}>
+              + New Application
             </Button>
           </>
         }
       />
 
-      <div className="mb-5 grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
+      <div className="mb-[22px] grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
         {kpis.map((k) => (
-          <div key={k.label} className="rounded-xl border border-line bg-white p-5">
-            <div className="flex items-start justify-between text-[13px] text-muted">
+          <div key={k.label} className="rounded-xl border border-line bg-white px-[15px] pt-[15px] pb-3.5">
+            <div className="flex items-start justify-between text-[12px] text-muted">
               {k.label}
               <span className="text-primary">{k.icon}</span>
             </div>
-            <div className="mt-2 flex items-end justify-between gap-2">
+            <div className="mt-1.5 flex items-end justify-between gap-2">
               <span className="text-[28px] font-semibold leading-none">{k.value}</span>
               <Sparkline points={k.pts} color={k.color} />
             </div>
-            <div className={cn('mt-3 text-[12px]', k.capCls)}>{k.cap}</div>
+            <div className={cn('mt-2 text-[11px]', k.capCls)}>{k.cap}</div>
           </div>
         ))}
       </div>
@@ -241,37 +240,37 @@ export default function Applications() {
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className={cn('-mb-px border-b-2 py-3.5 text-[13px] whitespace-nowrap', tab === t.key ? 'border-primary font-semibold text-primary' : 'border-transparent text-muted hover:text-ink')}
+              className={cn('-mb-px border-b-2 py-3 text-[12px] whitespace-nowrap', tab === t.key ? 'border-primary font-semibold text-primary' : 'border-transparent text-muted hover:text-ink')}
             >
-              {t.label} <span className="ml-1.5">{counts[t.key] ?? 0}</span>
+              {t.label} <span className="ml-1">{counts[t.key] ?? 0}</span>
             </button>
           ))}
         </div>
 
         {/* filters */}
-        <div className="relative flex flex-wrap items-center gap-3 px-4 py-3">
-          <label className="flex h-10 w-full items-center gap-2 rounded-lg border border-line px-3 text-[13px] text-muted sm:w-[300px]">
-            <Search size={16} />
+        <div className="relative flex flex-wrap items-center gap-2.5 px-4 py-2.5">
+          <label className="flex h-9 w-full items-center gap-2 rounded-lg border border-line px-3 text-[12px] text-muted sm:w-[296px]">
+            <Search size={15} />
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search applicant or App ID" className="w-full bg-transparent text-ink outline-none placeholder:text-muted" />
           </label>
           <label className="relative">
             <select
               value={status}
               onChange={(e) => setStatusFilter(e.target.value as AppStatus | '')}
-              className="h-10 appearance-none rounded-lg border border-line bg-white pr-4 pl-9 text-[13px] font-semibold outline-none"
+              className="h-9 appearance-none rounded-lg border border-line bg-white pr-4 pl-9 text-[12px] font-semibold outline-none"
             >
               <option value="">All statuses</option>
               {STATUSES.map((s) => (
                 <option key={s}>{s}</option>
               ))}
             </select>
-            <ChevronDown size={15} className="pointer-events-none absolute top-3 left-3 text-ink-2" />
+            <ChevronDown size={14} className="pointer-events-none absolute top-[11px] left-3 text-ink-2" />
           </label>
-          <button onClick={() => setShowDates((s) => !s)} className={cn('flex h-10 items-center gap-2 rounded-lg border px-3 text-[13px] font-semibold', from || to ? 'border-primary text-primary' : 'border-line')}>
-            <CalendarDays size={15} /> {from || to ? `${from || '…'} → ${to || '…'}` : 'Date submitted'}
+          <button onClick={() => setShowDates((s) => !s)} className={cn('flex h-9 items-center gap-2 rounded-lg border px-3 text-[12px] font-semibold', from || to ? 'border-primary text-primary' : 'border-line')}>
+            <CalendarDays size={14} /> {from || to ? `${from || '…'} → ${to || '…'}` : 'Date submitted'}
           </button>
-          <button onClick={() => setShowMore((s) => !s)} className={cn('flex h-10 items-center gap-2 rounded-lg border px-3 text-[13px] font-semibold', type ? 'border-primary text-primary' : 'border-line')}>
-            <SlidersHorizontal size={15} /> More filters
+          <button onClick={() => setShowMore((s) => !s)} className={cn('flex h-9 items-center gap-2 rounded-lg border px-3 text-[12px] font-semibold', type ? 'border-primary text-primary' : 'border-line')}>
+            <ListFilter size={14} /> More filters
           </button>
           {activeFilters > 0 && (
             <button
@@ -286,7 +285,7 @@ export default function Applications() {
               <X size={13} /> Clear filters
             </button>
           )}
-          <span className="ml-auto text-[12px] text-muted">{rows.length} applications</span>
+          <span className="ml-auto text-[11px] text-muted">{rows.length} applications</span>
 
           {showDates && (
             <div className="absolute top-14 left-4 z-20 flex flex-wrap items-end gap-3 rounded-lg border border-line bg-white p-3 shadow-lg sm:left-[480px]">
@@ -328,6 +327,8 @@ export default function Applications() {
             rowNumbers={false}
             selectable
             hideToolbar
+            hideSelectionBar
+            columnLines={false}
             pageSize={8}
             noun="applications"
             bulkActions={(ids, clear) => (
@@ -348,9 +349,9 @@ export default function Applications() {
         </div>
       </section>
 
-      <div className="mt-4 flex flex-wrap justify-between gap-2 text-[12px] text-muted">
+      <div className="mt-6 flex flex-wrap justify-between gap-2 text-[11px] text-muted">
         <span className="flex items-center gap-2">
-          <Clock size={14} /> Review SLA: 48 hours · {overdueReview} applications need your attention
+          <Clock size={13} /> Review SLA: 48 hours · {overdueReview} applications need your attention
         </span>
         <span>Last updated 06 Oct 2026, 09:14 IST</span>
       </div>

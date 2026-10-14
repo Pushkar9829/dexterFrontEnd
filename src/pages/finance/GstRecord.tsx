@@ -1,12 +1,26 @@
 import { useState } from 'react'
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, Pencil } from 'lucide-react'
+import { ArrowLeft, ChevronDown, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { toast } from '@/components/ui/Toast'
 import { cn } from '@/lib/cn'
+import { dmy } from '@/data/cbrSites'
 import {
-  AMOUNT_KEYS, FIN_YEARS, FY_MONTHS, GSTIN_RE, GST_INVOICE_STATUSES, GST_PAYMENT_STATUSES, GST_SECTIONS, MOBILE_RE, UTR_RE,
-  emptyGst, getGst, gstStore, gstViewStore, saveGst, type GstRecord,
+  AMOUNT_KEYS,
+  FIN_YEARS,
+  FY_MONTHS,
+  GSTIN_RE,
+  GST_INVOICE_STATUSES,
+  GST_PAYMENT_STATUSES,
+  GST_SECTIONS,
+  MOBILE_RE,
+  UTR_RE,
+  emptyGst,
+  getGst,
+  gstStore,
+  gstViewStore,
+  saveGst,
+  type GstRecord,
 } from '@/data/financeGst'
 import { Err, FLabel, InfoBanner, LockedInput, RadioCards, RecordFooter, RecordSection, TInput } from './shared'
 
@@ -31,13 +45,38 @@ function validate(r: GstRecord, isNew: boolean): Errors {
 }
 
 const PLACEHOLDER: Partial<Record<keyof GstRecord, string>> = {
-  siteId: 'Enter site ID', atmId: 'Enter ATM ID', sapCode: 'Enter SAP code', franchiseeName: 'Enter franchisee name', contactNo: 'Enter contact number',
-  locationName: 'Enter location name', gstNumber: 'Enter GST number', invoiceNumber: 'Enter invoice number', utrNumber: 'Enter UTR number',
+  siteId: 'Enter site ID',
+  atmId: 'Enter ATM ID',
+  sapCode: 'Enter SAP code',
+  franchiseeName: 'Enter franchisee name',
+  contactNo: 'Enter contact number',
+  locationName: 'Enter location name',
+  gstNumber: 'Enter GST number',
+  invoiceNumber: 'Enter invoice number',
+  utrNumber: 'Enter UTR number',
 }
 const UPPER = new Set<keyof GstRecord>(['siteId', 'atmId', 'gstNumber', 'utrNumber'])
 
-function SelectBox({ label, name, value, options, placeholder, readOnly, onChange, error, fmt = (o: string) => o }: {
-  label: string; name: string; value: string; options: readonly string[]; placeholder: string; readOnly: boolean; onChange: (v: string) => void; error?: string; fmt?: (o: string) => string
+function SelectBox({
+  label,
+  name,
+  value,
+  options,
+  placeholder,
+  readOnly,
+  onChange,
+  error,
+  fmt = (o: string) => o,
+}: {
+  label: string
+  name: string
+  value: string
+  options: readonly string[]
+  placeholder: string
+  readOnly: boolean
+  onChange: (v: string) => void
+  error?: string
+  fmt?: (o: string) => string
 }) {
   return (
     <div className="min-w-0">
@@ -45,19 +84,26 @@ function SelectBox({ label, name, value, options, placeholder, readOnly, onChang
       {readOnly ? (
         <div className="flex h-10 items-center rounded-md border border-line bg-surface/60 px-3 text-[13px]">{value ? fmt(value) : <span className="text-muted">—</span>}</div>
       ) : (
-        <select
-          id={name}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className={cn('h-10 w-full rounded-md border bg-white px-3 text-[13px] outline-none focus:border-primary', !value && 'text-muted', error ? 'border-brand-red' : 'border-line')}
-        >
-          <option value="">{placeholder}</option>
-          {options.map((o) => (
-            <option key={o} value={o}>
-              {fmt(o)}
-            </option>
-          ))}
-        </select>
+        <div className="relative">
+          <select
+            id={name}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            className={cn(
+              'h-10 w-full appearance-none rounded-md border bg-white pr-9 pl-3 text-[13px] outline-none focus:border-primary',
+              !value && 'text-muted',
+              error ? 'border-brand-red' : 'border-line',
+            )}
+          >
+            <option value="">{placeholder}</option>
+            {options.map((o) => (
+              <option key={o} value={o}>
+                {fmt(o)}
+              </option>
+            ))}
+          </select>
+          <ChevronDown size={16} className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-ink-2" />
+        </div>
       )}
       <Err msg={error} />
     </div>
@@ -86,7 +132,11 @@ export default function GstRecordPage() {
   }
 
   const save = () => {
-    const clean: GstRecord = { ...form, gstNumber: form.gstNumber.trim().toUpperCase(), utrNumber: form.utrNumber.trim().toUpperCase() }
+    const clean: GstRecord = {
+      ...form,
+      gstNumber: form.gstNumber.trim().toUpperCase(),
+      utrNumber: form.utrNumber.trim().toUpperCase(),
+    }
     const e = validate(clean, isNew)
     setErrors(e)
     if (Object.values(e).some(Boolean)) return toast('Fix the highlighted fields before saving', 'info')
@@ -110,13 +160,51 @@ export default function GstRecordPage() {
       case 'sn':
         return <LockedInput key={k} label={label} value={isNew ? '' : String(rec.sn)} />
       case 'fYear':
-        return <SelectBox key={k} label={label} name={k} value={v} options={FIN_YEARS} placeholder="Select financial year" readOnly={ro} onChange={(x) => set('fYear', x)} error={errors.fYear} fmt={(o) => `F.Y. ${o}`} />
+        return (
+          <SelectBox
+            key={k}
+            label={label}
+            name={k}
+            value={v}
+            options={FIN_YEARS}
+            placeholder="Select financial year"
+            readOnly={ro}
+            onChange={(x) => set('fYear', x)}
+            error={errors.fYear}
+            fmt={(o) => `F.Y. ${o}`}
+          />
+        )
       case 'month':
         return <SelectBox key={k} label={label} name={k} value={v} options={FY_MONTHS} placeholder="Select month" readOnly={ro} onChange={(x) => set('month', x)} />
       case 'contactNo':
-        return <TInput key={k} label={label} name={k} value={v} readOnly={ro} inputMode="numeric" maxLength={10} placeholder={PLACEHOLDER[k]} onChange={(x) => set('contactNo', x.replace(/\D/g, ''))} error={errors.contactNo} />
+        return (
+          <TInput
+            key={k}
+            label={label}
+            name={k}
+            value={v}
+            readOnly={ro}
+            inputMode="numeric"
+            maxLength={10}
+            placeholder={PLACEHOLDER[k]}
+            onChange={(x) => set('contactNo', x.replace(/\D/g, ''))}
+            error={errors.contactNo}
+          />
+        )
       case 'paymentDate':
-        return <TInput key={k} label={label} name={k} type="date" value={v} readOnly={ro} placeholder="DD / MM / YYYY" onChange={(x) => set('paymentDate', x)} error={errors.paymentDate} />
+        return (
+          <TInput
+            key={k}
+            label={label}
+            name={k}
+            type={ro ? 'text' : 'date'}
+            value={ro ? dmy(v) : v}
+            readOnly={ro}
+            placeholder="DD / MM / YYYY"
+            onChange={(x) => set('paymentDate', x)}
+            error={errors.paymentDate}
+          />
+        )
       case 'invoiceStatus':
         return <RadioCards key={k} label={label} value={v} options={GST_INVOICE_STATUSES} readOnly={ro} onChange={(x) => set('invoiceStatus', x as GstRecord['invoiceStatus'])} />
       case 'paymentStatus':
@@ -139,7 +227,18 @@ export default function GstRecordPage() {
       default:
         if (AMOUNT_KEYS.includes(k))
           return (
-            <TInput key={k} label={label} name={k} prefix="₹" inputMode="decimal" value={v} readOnly={ro} placeholder="Enter amount" onChange={(x) => set(k, x.replace(/[,₹\s]/g, '') as never)} error={errors[k]} />
+            <TInput
+              key={k}
+              label={label}
+              name={k}
+              prefix="₹"
+              inputMode="decimal"
+              value={v}
+              readOnly={ro}
+              placeholder="Enter amount"
+              onChange={(x) => set(k, x.replace(/[,₹\s]/g, '') as never)}
+              error={errors[k]}
+            />
           )
         return (
           <TInput
@@ -180,7 +279,13 @@ export default function GstRecordPage() {
             <div className="text-[11px] text-muted">{ctxMonth}</div>
           </div>
         ) : (
-          <Button icon={<Pencil size={16} />} onClick={() => { setForm(existing!); setEditing(true) }}>
+          <Button
+            icon={<Pencil size={16} />}
+            onClick={() => {
+              setForm(existing!)
+              setEditing(true)
+            }}
+          >
             Edit record
           </Button>
         )}
@@ -208,10 +313,7 @@ export default function GstRecordPage() {
             )}
           </RecordSection>
         ))}
-        <RecordFooter
-          title={`24 source fields · ${isNew ? 'Blank record format' : 'Record format'}`}
-          sub={isNew ? 'No transaction values have been prefilled.' : updated}
-        >
+        <RecordFooter title={`24 source fields · ${isNew ? 'Blank record format' : 'Record format'}`} sub={isNew ? 'No transaction values have been prefilled.' : updated}>
           {editing && (
             <>
               <Button variant="secondary" onClick={cancel}>

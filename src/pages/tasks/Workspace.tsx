@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { AlertTriangle, ArrowDownUp, ArrowRight, CalendarDays, Filter } from 'lucide-react'
+import { AlertTriangle, ArrowDownUp, ArrowRight, CalendarDays, ChevronDown } from 'lucide-react'
 import { ExcelGrid, type GridColumn } from '@/components/grid/ExcelGrid'
 import { toast } from '@/components/ui/Toast'
 import { cn } from '@/lib/cn'
@@ -122,13 +122,13 @@ export default function Workspace({ view }: { view: WorkspaceView }) {
   const alertBlocks = alertTask ? blocksOf(alertTask, tasks).filter(isOpen) : []
 
   const columns: GridColumn<Task>[] = [
-    { key: 'id', header: 'Task ID', width: 110, sortable: true, render: (t) => <Link to={`/tasks/my/${t.id}`} className="font-medium text-primary hover:underline">{t.id}</Link> },
+    { key: 'id', header: 'Task ID', width: 132, render: (t) => <Link to={`/tasks/my/${t.id}`} className="text-primary hover:underline">{t.id}</Link> },
     {
-      key: 'title', header: 'Task Name', width: 300, value: (t) => `${t.title} ${t.entityLabel} ${t.source}`,
+      key: 'title', header: 'Task Name', width: 378, value: (t) => `${t.title} ${t.entityLabel} ${t.source}`,
       render: (t) => (
-        <Link to={`/tasks/my/${t.id}`} className="block leading-tight">
-          <span className="text-[13px] text-ink">{t.title}</span>
-          <span className="mt-0.5 block text-[12px] text-ink-2">
+        <Link to={`/tasks/my/${t.id}`} className="block py-[2.5px] leading-[14px]">
+          <span className="text-[11px] text-ink">{t.title}</span>
+          <span className="block text-[11px] text-ink-2">
             {t.entityLabel} · {t.source}
           </span>
         </Link>
@@ -157,10 +157,10 @@ export default function Workspace({ view }: { view: WorkspaceView }) {
           } satisfies GridColumn<Task>,
         ]
       : []),
-    { key: 'priority', header: 'Priority', width: 110, value: (t) => PRIORITIES.indexOf(t.priority), render: (t) => <PriorityLabel p={t.priority} /> },
-    { key: 'sla', header: 'Target TAT / SLA', label: 'Target TAT / SLA', width: 150, sortable: true, filterable: true, value: (t) => (slaOf(t).closed ? 1e9 : slaOf(t).remainingMin), render: (t) => <SlaCell t={t} /> },
-    { key: 'status', header: 'Status', width: 150, filterable: true, render: (t) => <StatusBadge s={t.status} /> },
-    { key: 'expectedOutcome', header: 'Expected Outcome', width: 300, sortable: true, filterable: true },
+    { key: 'priority', header: 'Priority', width: 130, value: (t) => PRIORITIES.indexOf(t.priority), render: (t) => <PriorityLabel p={t.priority} className="text-[11px]!" /> },
+    { key: 'sla', header: 'Target TAT / SLA', label: 'Target TAT / SLA', width: 146, sortable: true, filterable: true, value: (t) => (slaOf(t).closed ? 1e9 : slaOf(t).remainingMin), render: (t) => <SlaCell t={t} small /> },
+    { key: 'status', header: 'Status', width: 116, render: (t) => <StatusBadge s={t.status} className="gap-1! px-1.5! text-[9px]! leading-[14px]!" /> },
+    { key: 'expectedOutcome', header: 'Expected Outcome', width: 380, sortable: true, filterable: true },
   ]
 
   const monthly = mine.filter((t) => t.kind === 'Monthly')
@@ -178,11 +178,11 @@ export default function Workspace({ view }: { view: WorkspaceView }) {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <HeroBanner title={cfg.title} sub={cfg.sub(me.split(' ')[0])} code="CRM-06" />
 
       {/* Summary metrics */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Metric value={m.open} label="My open tasks" caption={`${m.assigned} assigned to you`} onClick={() => nav('/tasks/my')} />
         <Metric value={m.today} label="Due today" caption={`${m.approaching} approaching SLA`} onClick={() => nav('/tasks/today')} />
         <Metric value={m.overdue} label="Overdue" caption={m.overdue ? 'Escalation required' : 'No escalations'} red={m.overdue > 0} onClick={() => nav('/tasks/overdue')} />
@@ -190,7 +190,7 @@ export default function Workspace({ view }: { view: WorkspaceView }) {
       </div>
 
       {/* Tabs + filters */}
-      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-line">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div role="tablist" className="flex">
           <TabBtn active={tab === 'my'} onClick={() => setTab('my')}>
             My Tasks · {top.filter((t) => t.assignee === CURRENT_EMPLOYEE && isOpen(t)).length}
@@ -199,9 +199,9 @@ export default function Workspace({ view }: { view: WorkspaceView }) {
             Team Tasks · {team.length}
           </TabBtn>
         </div>
-        <div className="mb-2 flex flex-wrap gap-2">
-          <PillSelect label="Priority" icon={<Filter size={13} />} value={priority} onChange={setPriority} options={[{ value: 'all', label: 'All priorities' }, ...PRIORITIES.map((p) => ({ value: p, label: p }))]} />
-          <PillSelect label="Status" icon={<Filter size={13} />} value={status} onChange={setStatus} options={[{ value: 'all', label: 'All statuses' }, ...STATUSES.map((p) => ({ value: p, label: p }))]} />
+        <div className="flex flex-wrap gap-2">
+          <PillSelect label="Priority" icon={<ChevronDown size={14} />} value={priority} onChange={setPriority} options={[{ value: 'all', label: 'All priorities' }, ...PRIORITIES.map((p) => ({ value: p, label: p }))]} />
+          <PillSelect label="Status" icon={<ChevronDown size={14} />} value={status} onChange={setStatus} options={[{ value: 'all', label: 'All statuses' }, ...STATUSES.map((p) => ({ value: p, label: p }))]} />
           <PillSelect
             label="Due date"
             icon={<CalendarDays size={13} />}
@@ -231,14 +231,14 @@ export default function Workspace({ view }: { view: WorkspaceView }) {
       </div>
 
       {alertTask && (
-        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
-          <AlertTriangle size={18} className="shrink-0 text-amber-600" />
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-[#f3e3c0] bg-[#fff4df] py-2 pr-3 pl-4 text-[11px] text-[#98620a]">
+          <AlertTriangle size={17} className="shrink-0 text-[#98620a]" />
           <span className="min-w-0 flex-1">
             {alertTask.id} needs attention: {alertTask.alertNote ?? alertTask.status.toLowerCase()} · {slaOf(alertTask).line} · AI risk {riskOf(alertTask)}%.
             {alertBlocks.length > 0 && ` ${alertBlocks[0].department} ${/release/i.test(alertBlocks[0].title) ? 'release' : 'handoff'} remains blocked.`}
           </span>
-          <Link to={`/tasks/my/${alertTask.id}`} className="flex h-8 items-center gap-1 rounded-lg border border-line bg-white px-3 text-[12px] font-semibold text-ink hover:bg-surface">
-            Open task <ArrowRight size={13} />
+          <Link to={`/tasks/my/${alertTask.id}`} className="flex h-8 items-center gap-1 rounded-md border border-line bg-white px-3 text-[11px] font-semibold text-ink hover:bg-surface">
+            Open task <ArrowRight size={12} />
           </Link>
         </div>
       )}
@@ -254,7 +254,8 @@ export default function Workspace({ view }: { view: WorkspaceView }) {
         rowNumbers={false}
         noun="tasks"
         exportName={`${cfg.title} ${tab === 'team' ? 'team' : me}`}
-        rowClassName={(t) => (t.id === alertTask?.id ? 'bg-primary-soft/40' : undefined)}
+        columnLines={false}
+        rowClassName={(t) => (t.id === alertTask?.id ? 'bg-[#edf2ff]' : undefined)}
         emptyState={<span>No tasks match these filters. <button className="font-semibold text-primary" onClick={() => { setPriority('all'); setStatus('all'); setDue('any') }}>Clear filters</button></span>}
       />
 
@@ -262,23 +263,23 @@ export default function Workspace({ view }: { view: WorkspaceView }) {
       <div className="grid gap-4 lg:grid-cols-3">
         <QueueCard title="Daily Routine" sub={`Today · ${routineDone} of ${routine.length} completed`} chip={`${routine.length - routineDone} remaining`} chipTone="amber" link={{ to: '/tasks/daily', label: 'Open routine' }}>
           {nextRoutine ? (
-            <label className="flex cursor-pointer items-start gap-2 text-[13px] text-ink" title="Tick when done">
-              <input type="checkbox" checked={false} onChange={() => toggleRoutine(nextRoutine.id)} className="mt-0.5 accent-[#1e3f95]" />
+            <label className="flex cursor-pointer items-center gap-2 text-[11px] text-ink" title="Tick when done">
+              <input type="checkbox" checked={false} onChange={() => toggleRoutine(nextRoutine.id)} className="h-3 w-3 accent-[#1e3f95] opacity-60" />
               <span>
                 {nextRoutine.time} · {nextRoutine.text}
               </span>
             </label>
           ) : (
-            <p className="text-[13px] text-emerald-700">All {routine.length} routine checks done for today.</p>
+            <p className="text-[11px] text-emerald-700">All {routine.length} routine checks done for today.</p>
           )}
         </QueueCard>
         <QueueCard title="Monthly Tasks" sub={`October · ${monthly.filter((t) => !isOpen(t)).length} of ${monthly.length} completed`} chip={`${monthly.filter(isOpen).length} scheduled`} chipTone="blue" link={{ to: '/tasks/monthly', label: 'View monthly tasks' }}>
           {nextMonthly ? (
-            <Link to={`/tasks/my/${nextMonthly.id}`} className="text-[13px] text-ink hover:text-primary">
+            <Link to={`/tasks/my/${nextMonthly.id}`} className="text-[11px] text-ink hover:text-primary">
               {nextMonthly.title} · Due {new Date(slaOf(nextMonthly).due).toLocaleString('en-GB', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false })}
             </Link>
           ) : (
-            <p className="text-[13px] text-muted">All monthly tasks completed.</p>
+            <p className="text-[11px] text-muted">All monthly tasks completed.</p>
           )}
         </QueueCard>
         <QueueCard
@@ -294,7 +295,7 @@ export default function Workspace({ view }: { view: WorkspaceView }) {
             },
           }}
         >
-          <p className="text-[13px] text-ink">
+          <p className="text-[11px] text-ink">
             {teamUnassigned} unassigned · {teamReview} awaiting review · {teamRisk} SLA risks
           </p>
         </QueueCard>
@@ -308,11 +309,11 @@ export default function Workspace({ view }: { view: WorkspaceView }) {
 
 function Metric({ value, label, caption, red, onClick }: { value: number; label: string; caption: string; red?: boolean; onClick: () => void }) {
   return (
-    <button onClick={onClick} className="flex items-center gap-4 rounded-xl border border-line bg-white px-5 py-4 text-left transition-colors hover:border-primary/40">
-      <span className={cn('text-[30px] leading-none font-semibold', red ? 'text-brand-red' : 'text-ink')}>{value}</span>
+    <button onClick={onClick} className="flex items-center gap-3 rounded-xl border border-line bg-white px-4 py-3.5 text-left transition-colors hover:border-primary/40">
+      <span className={cn('text-[26px] leading-none font-semibold', red ? 'text-brand-red' : 'text-ink')}>{value}</span>
       <span>
-        <span className="block text-[13px] font-semibold text-ink">{label}</span>
-        <span className="block text-[12px] text-muted">{caption}</span>
+        <span className="block text-[11px] leading-[15px] font-semibold text-ink">{label}</span>
+        <span className="mt-1 block text-[10px] leading-[14px] text-muted">{caption}</span>
       </span>
     </button>
   )
@@ -320,7 +321,7 @@ function Metric({ value, label, caption, red, onClick }: { value: number; label:
 
 function TabBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <button role="tab" aria-selected={active} onClick={onClick} className={cn('-mb-px border-b-2 px-4 py-2.5 text-[13px]', active ? 'border-primary bg-primary-soft/60 font-semibold text-primary' : 'border-transparent text-muted hover:text-ink')}>
+    <button role="tab" aria-selected={active} onClick={onClick} className={cn('border-b-2 px-4 py-[11px] text-[11px]', active ? 'border-primary bg-primary-soft/60 font-semibold text-primary' : 'border-transparent text-muted hover:text-ink')}>
       {children}
     </button>
   )
@@ -343,19 +344,19 @@ function QueueCard({
 }) {
   const chipCls = { amber: 'bg-amber-50 text-amber-700', blue: 'bg-primary-soft text-primary', gray: 'bg-slate-100 text-slate-600' }[chipTone]
   return (
-    <section className="flex flex-col rounded-xl border border-line bg-white p-5">
-      <h3 className="text-[15px] font-semibold text-ink">{title}</h3>
-      <p className="mt-0.5 text-[12px] text-muted">{sub}</p>
+    <section className="flex flex-col rounded-xl border border-line bg-white px-4 pt-4 pb-3.5">
+      <h3 className="text-[14px] font-semibold text-ink">{title}</h3>
+      <p className="mt-1 text-[11px] text-muted">{sub}</p>
       <div className="mt-3 flex-1">{children}</div>
       <div className="mt-3 flex items-center justify-between gap-2">
-        <span className={cn('rounded px-2 py-0.5 text-[11px] font-semibold', chipCls)}>{chip}</span>
+        <span className={cn('rounded px-2 py-1 text-[10px] font-semibold', chipCls)}>{chip}</span>
         {link.to ? (
-          <Link to={link.to} className="flex items-center gap-1 text-[12px] font-medium text-primary hover:underline">
-            {link.label} <ArrowRight size={13} />
+          <Link to={link.to} className="flex items-center gap-1 text-[11px] font-medium text-primary hover:underline">
+            {link.label} <ArrowRight size={12} />
           </Link>
         ) : (
-          <button onClick={link.onClick} className="flex items-center gap-1 text-[12px] font-medium text-primary hover:underline">
-            {link.label} <ArrowRight size={13} />
+          <button onClick={link.onClick} className="flex items-center gap-1 text-[11px] font-medium text-primary hover:underline">
+            {link.label} <ArrowRight size={12} />
           </button>
         )}
       </div>

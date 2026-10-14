@@ -19,12 +19,12 @@ export function AuthLayout({ children, panel = 'intro' }: { children: ReactNode;
   return (
     <div className="flex min-h-full flex-col bg-white lg:flex-row lg:bg-surface">
       {/* desktop brand panel */}
-      <aside className="relative hidden w-[458px] shrink-0 overflow-hidden bg-auth px-10 py-12 text-white lg:flex lg:flex-col">
+      <aside className="relative hidden w-[458px] shrink-0 overflow-hidden bg-auth px-10 py-8 text-white lg:flex lg:flex-col">
         <Brand tag="OPERATIONS CRM" />
         <div className="pointer-events-none absolute -right-28 top-16 h-[300px] w-[300px] rounded-full border border-white/10" />
         <div className="pointer-events-none absolute -right-10 bottom-10 h-[190px] w-[190px] rotate-[28deg] rounded-[28px] border border-white/10" />
 
-        <div className={cn('relative my-auto max-w-[380px]', panel === 'intro' && 'pt-40', panel === 'showcase' && 'pt-14')}>
+        <div className={cn('relative my-auto max-w-[380px]', panel === 'intro' && 'pt-0', panel === 'showcase' && 'pt-14')}>
           {panel !== 'status' && <Chip />}
           {panel === 'showcase' && (
             <h2 className="mt-4 text-[30px] leading-[1.15] font-bold tracking-tight">One secure view of every ATM, cash route and franchise operation.</h2>
@@ -52,7 +52,7 @@ export function AuthLayout({ children, panel = 'intro' }: { children: ReactNode;
       </header>
 
       <main className="flex flex-1 items-start justify-center px-6 pt-5 pb-10 lg:items-center lg:px-6 lg:py-12">
-        <div className="w-full max-w-[490px] lg:rounded-2xl lg:border lg:border-line lg:bg-white lg:p-8 lg:shadow-[0_10px_40px_-12px_rgba(16,24,40,0.12)]">
+        <div className="w-full max-w-[490px] lg:rounded-2xl lg:border lg:border-line lg:bg-white lg:p-[33px] lg:shadow-[0_10px_40px_-12px_rgba(16,24,40,0.12)]">
           {children}
         </div>
       </main>
@@ -120,8 +120,8 @@ function Trust({ icon, title, sub }: { icon: ReactNode; title: string; sub: stri
 export function AuthTitle({ title, sub }: { title: string; sub?: ReactNode }) {
   return (
     <div className="mb-5">
-      <h1 className="text-[24px] font-bold tracking-tight text-ink">{title}</h1>
-      {sub && <p className="mt-2 text-[14px] leading-relaxed text-muted">{sub}</p>}
+      <h1 className="text-[22px] leading-[30px] font-bold tracking-tight text-ink">{title}</h1>
+      {sub && <p className="mt-1.5 text-[13px] leading-[21px] text-muted">{sub}</p>}
     </div>
   )
 }

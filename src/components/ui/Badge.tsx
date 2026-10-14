@@ -25,7 +25,7 @@ const dots: Record<Tone, string> = {
 
 export function Badge({ tone = 'gray', dot = true, children, className }: { tone?: Tone; dot?: boolean; children: ReactNode; className?: string }) {
   return (
-    <span className={cn('inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-[12px] font-medium whitespace-nowrap', tones[tone], className)}>
+    <span className={cn('inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-[11px] leading-[15px] font-medium whitespace-nowrap', tones[tone], className)}>
       {dot && <span className={cn('h-1.5 w-1.5 rounded-full', dots[tone])} />}
       {children}
     </span>

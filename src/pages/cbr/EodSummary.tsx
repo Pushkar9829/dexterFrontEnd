@@ -1,8 +1,7 @@
 import { useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { CheckCheck, Eye, Pencil, Printer, RotateCcw, Upload } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { CheckCheck, Pencil, Printer, RotateCcw, Upload } from 'lucide-react'
 import { ExcelGrid, type GridColumn } from '@/components/grid/ExcelGrid'
-import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { PageHeader } from '@/components/ui/Card'
 import { Modal } from '@/components/ui/Modal'
@@ -11,7 +10,7 @@ import { toast } from '@/components/ui/Toast'
 import { cn } from '@/lib/cn'
 import { SITES, dmy } from '@/data/cbrSites'
 import { CBR_END, EOD_DATES, counterStore, uploadKey, uploadStore, type CounterClear } from '@/data/cbr'
-import { Chip, rowMark, useRowNav } from '../finance/shared'
+import { rowMark, useRowNav } from '../finance/shared'
 
 const PRINT_CSS = `
 @media print {
@@ -37,9 +36,6 @@ const markId = (r: UploadRow) => `${r.siteId}~${r.date}`
 export default function EodSummary() {
   const uploads = uploadStore.use()
   const counters = counterStore.use()
-  const navigate = useNavigate()
-  const [date, setDate] = useState('')
-  const [status, setStatus] = useState<'all' | 'up' | 'not'>('all')
   const [editing, setEditing] = useState(false)
   const [clearing, setClearing] = useState<{ atmId: string; at: string } | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -57,9 +53,8 @@ export default function EodSummary() {
         return { id, atmId: s.atmId, siteId: s.siteId, date: d, ...(uploads[id] ?? { uploaded: false }) }
       }),
     )
-  const byDate = all.filter((r) => !date || r.date === date)
-  const rows = byDate.filter((r) => status === 'all' || (status === 'up' ? r.uploaded : !r.uploaded))
-  const notCount = byDate.filter((r) => !r.uploaded).length
+  const rows = all
+  const notCount = all.filter((r) => !r.uploaded).length
 
   const mark = (ids: string[], fileName?: string) => {
     const at = new Date().toISOString()
@@ -83,11 +78,22 @@ export default function EodSummary() {
   }
 
   const upCols: GridColumn<UploadRow>[] = [
-    { key: 'atmId', header: 'ATM ID', width: 160, sortable: true, filterable: true },
-    { key: 'date', header: 'CBR Date', width: 140, sortable: true, align: 'right', value: (r) => r.date, render: (r) => dmy(r.date) },
+    // Figma 209:12015: plain three-column table, no header glyphs; date / status filtering lives in the toolbar's Filters panel.
     {
-      key: 'uploaded', header: 'CBR Uploaded', width: 160, filterable: true, align: 'right', value: (r) => (r.uploaded ? 'Uploaded' : 'Not uploaded'),
-      render: (r) => <Badge tone={r.uploaded ? 'green' : 'red'}>{r.uploaded ? 'Uploaded' : 'Not uploaded'}</Badge>,
+      key: 'atmId', header: 'ATM ID', label: 'ATM ID', width: 160, filterable: true,
+      render: (r) =>
+        editing ? (
+          r.atmId
+        ) : (
+          <Link to={dailyPath(r.siteId, r.date)} className="hover:text-primary hover:underline" aria-label={`Open CBR ${r.atmId} ${dmy(r.date)}`}>
+            {r.atmId}
+          </Link>
+        ),
+    },
+    { key: 'date', header: 'CBR Date', label: 'CBR Date', width: 140, filterable: true, align: 'right', value: (r) => dmy(r.date) },
+    {
+      key: 'uploaded', header: 'CBR Uploaded', label: 'CBR Uploaded', width: 160, filterable: true, align: 'right', value: (r) => (r.uploaded ? 'Uploaded' : 'Not uploaded'),
+      render: (r) => (r.uploaded ? 'Uploaded' : <span className="text-brand-red">Not uploaded</span>),
     },
     ...(editing
       ? ([
@@ -111,29 +117,21 @@ export default function EodSummary() {
               ),
           },
         ] as GridColumn<UploadRow>[])
-      : ([
-          {
-            key: 'open', header: 'Action', label: 'Action', width: 120, value: () => '',
-            render: (r) => (
-              <button onClick={() => navigate(dailyPath(r.siteId, r.date))} className="flex items-center gap-1 text-[12px] font-semibold text-primary hover:underline">
-                <Eye size={13} /> Open CBR
-              </button>
-            ),
-          },
-        ] as GridColumn<UploadRow>[])),
+      : []),
+
   ]
 
   const ctrCols: GridColumn<CounterClear>[] = [
-    { key: 'atmId', header: 'ATM ID', width: 160, sortable: true, filterable: true },
-    { key: 'eodAt', header: 'EOD Date & Time', width: 170, sortable: true, align: 'right', value: (c) => fmtDT(c.eodAt) },
-    { key: 'make', header: 'Make', width: 150, filterable: true, align: 'right' },
+    { key: 'atmId', header: 'ATM ID', width: 160 },
+    { key: 'eodAt', header: 'EOD Date & Time', width: 170, align: 'right', value: (c) => fmtDT(c.eodAt) },
+    { key: 'make', header: 'Make', width: 150, align: 'right' },
     {
-      key: 'lastClear', header: 'Last Clear Date Time', width: 200, sortable: true, align: 'right', value: (c) => c.lastClear,
+      key: 'lastClear', header: 'Last Clear Date Time', width: 200, align: 'right', value: (c) => c.lastClear,
       render: (c) => {
         const days = Math.round((Date.parse(`${CBR_END}T23:59`) - Date.parse(c.lastClear)) / 86400000)
         return (
           <span className="flex items-center justify-end gap-2">
-            {days > 7 && <Badge tone="amber">{days} days</Badge>}
+            {days > 7 && <span className="text-[10.5px] text-amber-700" title="Not cleared for over 7 days">{days} days ·</span>}
             {fmtDT(c.lastClear)}
           </span>
         )
@@ -221,38 +219,10 @@ export default function EodSummary() {
           </span>
         </div>
 
-        <div className="no-print flex flex-wrap items-end gap-3 border-t border-line bg-surface/50 px-5 py-3">
-          <label className="block w-full sm:w-48">
-            <span className="mb-1.5 block text-[11px] text-muted">CBR Date</span>
-            <select value={date} onChange={(e) => setDate(e.target.value)} className="h-9 w-full rounded-md border border-line bg-white px-3 text-[13px]">
-              <option value="">All dates (last 7 days)</option>
-              {EOD_DATES.slice()
-                .reverse()
-                .map((d) => (
-                  <option key={d} value={d}>
-                    {dmy(d)}
-                  </option>
-                ))}
-            </select>
-          </label>
-          <div className="flex gap-2 overflow-x-auto pb-0.5">
-            <Chip active={status === 'all'} onClick={() => setStatus('all')} count={byDate.length}>
-              All
-            </Chip>
-            <Chip active={status === 'up'} onClick={() => setStatus('up')} count={byDate.length - notCount}>
-              Uploaded
-            </Chip>
-            <Chip active={status === 'not'} onClick={() => setStatus('not')} count={notCount}>
-              Not uploaded
-            </Chip>
-          </div>
-          <span className="ml-auto text-[12px] text-muted">{notCount ? `${notCount} CBR${notCount > 1 ? 's' : ''} awaiting upload` : 'All CBRs uploaded'}</span>
-        </div>
-
         <div onClick={editing ? undefined : onRow} className="border-t border-line [&>section]:rounded-none [&>section]:border-0">
           <ExcelGrid
             title="CBR EOD Summary"
-            countLabel={`${rows.length} ATM-days`}
+            countLabel={notCount ? `${notCount} awaiting upload` : 'All uploaded'}
             rows={rows}
             columns={upCols}
             rowId={(r) => r.id}
@@ -262,7 +232,7 @@ export default function EodSummary() {
             noun="ATM-days"
             exportName="cbr-eod-summary"
             pageSize={12}
-            rowClassName={(r) => cn(!editing && rowMark(markId(r)), !r.uploaded && 'bg-red-50/30')}
+            rowClassName={(r) => (editing ? undefined : rowMark(markId(r)))}
             bulkActions={(ids, clear) => {
               const open = ids.filter((id) => !uploads[id]?.uploaded)
               return (
@@ -279,12 +249,12 @@ export default function EodSummary() {
           />
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line bg-primary-soft/60 px-5 py-3 text-[12px]">
-          <span className="font-semibold text-ink">CBR LAST COUNTER CLEARED</span>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line bg-primary-soft/60 px-4 py-3.5 text-[11px]">
+          <span className="text-[12px] font-semibold text-ink">CBR LAST COUNTER CLEARED</span>
           <span className="text-muted">Same ATMs · {counters.length} ATMs · Flagged when not cleared for over 7 days</span>
         </div>
         <div className="[&>section]:rounded-none [&>section]:border-0">
-          <ExcelGrid title="CBR LAST COUNTER CLEARED" rows={counters} columns={ctrCols} rowId={(c) => c.atmId} rowNumbers={false} hideToolbar noun="ATMs" exportName="cbr-last-counter-cleared" />
+          <ExcelGrid title="CBR LAST COUNTER CLEARED" rows={counters} columns={ctrCols} rowId={(c) => c.atmId} rowNumbers={false} hideToolbar pageSize={12} noun="ATMs" exportName="cbr-last-counter-cleared" />
         </div>
       </section>
 

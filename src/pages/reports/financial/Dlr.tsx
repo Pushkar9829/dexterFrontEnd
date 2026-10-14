@@ -1,12 +1,11 @@
-import { useMemo, useState, type ReactNode } from 'react'
-import { Link, Navigate, useParams } from 'react-router-dom'
-import { ArrowRight } from 'lucide-react'
+import { useMemo, type ReactNode } from 'react'
+import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom'
 import { ExcelGrid, type GridColumn } from '@/components/grid/ExcelGrid'
 import { Badge } from '@/components/ui/Badge'
 import { DENOS, dlrDetailStores, dlrRowsFor, dlrSummaryStores, saveDlr, withTotals, type DlrKind, type DlrSummaryRow } from '@/data/reportsDlr'
 import { SITES, dmy, inr, type Row } from '@/data/reportsFinancial'
 import { ReportSheet, type SheetBand, type SheetCol } from './ReportSheet'
-import { EditActions, FinancialShell, HeaderSelect, InfoNote, newId, useDraft } from './Shell'
+import { EditActions, FinancialShell, InfoNote, newId, useDraft } from './Shell'
 
 const SUB: Record<DlrKind, string> = {
   dlr2: 'View funds received, ATM cash balances, dispensing and loading details across source dates.',
@@ -17,8 +16,6 @@ const NAME: Record<DlrKind, string> = { dlr2: 'DLR2', dlr3: 'DLR3' }
 // ── Summary (default view) ────────────────────────────────────────────────
 export function DlrSummary({ kind }: { kind: DlrKind }) {
   const all = dlrSummaryStores[kind].use()
-  const [status, setStatus] = useState('')
-  const rows = status ? all.filter((r) => r.uploaded === status) : all
   const uploaded = all.filter((r) => r.uploaded === 'Uploaded').length
   const base = `/reports/financial/${kind}`
 
@@ -35,56 +32,41 @@ export function DlrSummary({ kind }: { kind: DlrKind }) {
       ),
     },
     { key: 'franchise', header: 'Franchise Name', width: 240, sortable: true, filterable: true },
-    { key: 'cbrDate', header: 'CBR Date', width: 130, sortable: true, render: (r) => dmy(r.cbrDate) },
-    { key: 'uploaded', header: 'CBR Uploaded', width: 140, filterable: true, render: (r) => <Badge tone={r.uploaded === 'Uploaded' ? 'green' : 'amber'}>{r.uploaded}</Badge> },
+    { key: 'cbrDate', header: 'CBR Date', width: 130, align: 'right', sortable: true, render: (r) => dmy(r.cbrDate) },
     {
-      key: 'open',
-      header: '',
-      label: 'Sheet',
-      width: 130,
-      value: () => '',
-      render: (r) => (
-        <Link to={`${base}/${encodeURIComponent(r.atmId)}`} className="flex items-center gap-1 text-[12px] font-semibold text-primary hover:underline">
-          Open sheet <ArrowRight size={13} />
-        </Link>
-      ),
+      key: 'uploaded',
+      header: 'CBR Uploaded',
+      width: 140,
+      align: 'right',
+      filterable: true,
+      render: (r) => <span className={r.uploaded === 'Pending' ? 'font-medium text-amber-700' : undefined}>{r.uploaded}</span>,
     },
   ]
 
   return (
     <FinancialShell
       sub={SUB[kind]}
+      only={kind}
       name={NAME[kind]}
-      chip="Summary"
-      meta={`${all.length} ATMs · ${uploaded} CBR uploaded · ${all.length - uploaded} pending`}
-      metaRight={
-        <HeaderSelect
-          label="CBR Uploaded"
-          value={status}
-          onChange={setStatus}
-          options={[
-            { value: '', label: 'All' },
-            { value: 'Uploaded', label: 'Uploaded' },
-            { value: 'Pending', label: 'Pending' },
-          ]}
-        />
-      }
+      chip="Source data + examples"
+      meta={`${all.length} ATMs · ${uploaded} CBR uploaded · ${all.length - uploaded} pending · Select an ATM ID to open its ${NAME[kind]} sheet`}
       notes={
-        <>
-          <InfoNote title="Open an ATM sheet">Select an ATM ID to open its full {NAME[kind]} sheet. Saving a sheet marks its CBR as Uploaded with the latest sheet date.</InfoNote>
-          <InfoNote title="Source format corrected">The source summary listed ATM IDs under “Franchise Name”; ATM ID and Franchise Name are separate columns here.</InfoNote>
-        </>
+        <InfoNote title="Source format corrected">
+          The source summary listed ATM IDs under “Franchise Name”; ATM ID and Franchise Name are separate columns here. Saving a sheet marks its CBR as Uploaded with the latest sheet date.
+        </InfoNote>
       }
     >
       <ExcelGrid
         title={`${NAME[kind]} Summary`}
-        countLabel={`${rows.length} ATMs`}
-        rows={rows}
+        rows={all}
         columns={cols}
         rowId={(r) => r.id}
         searchPlaceholder="Search ATM ID"
         noun="ATMs"
         exportName={`${kind}-summary`}
+        rowNumbers={false}
+        pageSize={50}
+        hidePagination={all.length <= 50}
         rowClassName={(r) => (r.uploaded === 'Pending' ? 'bg-amber-50/30' : undefined)}
       />
     </FinancialShell>
@@ -180,7 +162,9 @@ function DlrSheet({ kind, atmId }: { kind: DlrKind; atmId: string }) {
   const map = dlrDetailStores[kind].use()
   const summary = dlrSummaryStores[kind].use()
   const saved = useMemo(() => map[atmId] ?? dlrRowsFor(kind, atmId), [map, atmId, kind])
-  const d = useDraft(saved, (rows) => saveDlr(kind, atmId, rows), `${NAME[kind]} sheet for ${atmId}`)
+  const [params] = useSearchParams()
+  // ?edit=1 opens the sheet in edit mode (same as clicking Update)
+  const d = useDraft(saved, (rows) => saveDlr(kind, atmId, rows), `${NAME[kind]} sheet for ${atmId}`, params.get('edit') === '1')
   const site = SITES.find((s) => s.atmId === atmId)
   const sum = summary.find((s) => s.atmId === atmId)
   if (!site && !sum) return <Navigate to={`/reports/financial/${kind}`} replace />

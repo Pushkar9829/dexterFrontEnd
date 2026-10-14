@@ -58,16 +58,17 @@ export default function DocumentAudit() {
         </Link>
       }
       context={
-        <div className="flex flex-wrap items-start gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <div className="min-w-0 flex-1">
             <div className="text-[18px] font-semibold">
               {m.title} · {doc.version}
             </div>
             <div className="mt-1 text-[13px] text-ink-2">
-              <Link to={`/legal/${site.id}`} className="text-primary hover:underline">
+              <Link to={`/legal/${site.id}`} className="hover:text-primary hover:underline">
                 {site.id}
-              </Link>{' '}
-              <span className="text-muted"> / </span>ATM {site.atmId || 'not mapped'}<span className="text-muted"> / </span>
+              </Link>
+              <span className="mx-2 text-muted">/</span>ATM {site.atmId || 'not mapped'}
+              <span className="mx-2 text-muted">/</span>
               {site.franchiseName}
             </div>
           </div>

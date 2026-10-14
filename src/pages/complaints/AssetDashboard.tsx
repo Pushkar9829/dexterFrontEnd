@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Server, X } from 'lucide-react'
-import { Bar, BarChart, CartesianGrid, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Bar, BarChart, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { ExcelGrid, type GridColumn } from '@/components/grid/ExcelGrid'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -159,7 +159,7 @@ export default function AssetDashboard() {
 
   const cols: GridColumn<Row>[] = [
     { key: 'atm', header: 'ATM ID', width: 120, sortable: true, value: (r) => r.atm.atmId, render: (r) => <LinkBtn onClick={() => setParams({ atm: r.atm.atmId })}>{r.atm.atmId}</LinkBtn> },
-    { key: 'site', header: 'Site / component context', width: 240, value: (r) => `${r.atm.siteId} · ${r.atm.city} · ${COMPONENT_SHORT[r.topCat]}` },
+    { key: 'site', header: 'Site / component context', width: 520, value: (r) => `${r.atm.siteId} · ${r.atm.city} · ${COMPONENT_SHORT[r.topCat]}` },
     { key: 'cases', header: 'Cases / repeats', width: 120, sortable: true, value: (r) => r.cases.length, render: (r) => `${r.cases.length} / ${r.repeats.length}` },
     {
       key: 'repl',
@@ -206,7 +206,7 @@ export default function AssetDashboard() {
           }
         >
           <div className="grid gap-4 md:grid-cols-3">
-            <div className="text-[13px] text-ink-2">
+            <div className="text-[12px] text-ink-2">
               <p className="py-0.5">Site · {sel.siteId} · {sel.siteName}</p>
               <p className="py-0.5">Franchise · {sel.franchise}</p>
               <p className="py-0.5">Project · {sel.project} · {sel.projectId}</p>
@@ -242,17 +242,17 @@ export default function AssetDashboard() {
         </Panel>
       )}
 
-      <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+      <div className="mb-5 grid grid-cols-2 items-start gap-3 md:grid-cols-3 xl:grid-cols-6">
         <Kpi label="ATMs in network" value={NETWORK_ATM_COUNT.toLocaleString('en-IN')} caption="Active commissioned assets" />
         <Kpi label="ATMs with complaints" value={d.rows.length} caption={`${d.period.length} complaints · ${d.rows.length ? (d.period.length / d.rows.length).toFixed(2) : '0'} per affected ATM`} />
-        <Kpi label="Repeat-failure ATMs" value={repeatAtms.length} tone={repeatAtms.length ? 'red' : undefined} caption={`${d.repeats.length} repeat complaints in last 30 days`} />
+        <Kpi label="Repeat-failure ATMs" value={repeatAtms.length} caption={`${d.repeats.length} repeat complaints in last 30 days`} />
         <Kpi label="Replacements" value={d.repl.length} caption={`${batteries} batteries · ${d.repl.length - batteries} other components`} />
         <Kpi
           label="Network downtime"
           value={`${Math.round(d.downtime)}h`}
           caption={`${shortRange(filter)} · ${d.downtime - d.prior <= 0 ? '↓' : '↑'} ${Math.abs(Math.round(d.downtime - d.prior))}h vs prior period`}
         />
-        <Kpi label="Healthy assets" value={pct(d.healthy)} tone="green" caption={`${d.healthy.toLocaleString('en-IN')} healthy · ${d.degraded} degraded · ${d.down} down`} />
+        <Kpi label="Healthy assets" value={pct(d.healthy)} caption={`${d.healthy.toLocaleString('en-IN')} healthy · ${d.degraded} degraded · ${d.down} down`} />
       </div>
 
       <div className="mb-5 grid gap-4 lg:grid-cols-3">
@@ -260,15 +260,14 @@ export default function AssetDashboard() {
           <p className="mb-2 flex items-center gap-1.5 text-[11px] text-primary">
             <span className="h-2 w-2 bg-primary" /> Downtime hours
           </p>
-          <div className="h-[200px]">
+          <div className="h-[180px]">
             <ResponsiveContainer>
               <BarChart data={d.trend} margin={{ top: 18, right: 4, left: 4, bottom: 0 }}>
-                <CartesianGrid vertical={false} stroke={CHART.grid} />
-                <XAxis dataKey="day" tick={{ fontSize: 11, fill: CHART.muted }} axisLine={false} tickLine={false} />
+                <XAxis dataKey="day" tick={{ fontSize: 10, fill: CHART.muted }} axisLine={{ stroke: CHART.grid }} tickLine={false} />
                 <YAxis hide />
                 <Tooltip cursor={{ fill: '#f6f8fc' }} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
-                <Bar dataKey="Downtime hours" fill={CHART.navy} radius={[3, 3, 0, 0]} maxBarSize={22}>
-                  <LabelList dataKey="Downtime hours" position="top" formatter={(v) => Math.round(Number(v))} style={{ fontSize: 11, fill: CHART.navy }} />
+                <Bar dataKey="Downtime hours" fill={CHART.navy} radius={[3, 3, 0, 0]} maxBarSize={22} isAnimationActive={false}>
+                  <LabelList dataKey="Downtime hours" position="top" formatter={(v) => Math.round(Number(v))} style={{ fontSize: 10, fill: CHART.navy }} />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
@@ -321,17 +320,14 @@ export default function AssetDashboard() {
       </GridCard>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Panel title="Repeat-failure watchlist" action={repeatAtms.length > 3 && <ViewAll label={showAllWatch ? 'Show fewer' : `View all ${repeatAtms.length}`} onClick={() => setShowAllWatch((s) => !s)} />}>
+        <Panel title="Repeat-failure watchlist" action={repeatAtms.length > 3 && <LinkBtn onClick={() => setShowAllWatch((s) => !s)}>{showAllWatch ? 'Show fewer' : `View all ${repeatAtms.length}`}</LinkBtn>}>
           {repeatAtms.length === 0 && <p className="text-[12px] text-muted">No repeat failures in this period.</p>}
           {(showAllWatch ? repeatAtms : repeatAtms.slice(0, 3)).map((r) => {
             const c = [...r.repeats].sort((a, b) => Date.parse(b.receivedAt) - Date.parse(a.receivedAt))[0]
             const prev = repeatOf(c, all)!
             const days = Math.round((Date.parse(c.receivedAt) - Date.parse(prev.receivedAt)) / 86_400_000)
             return (
-              <Entry
-                key={r.atm.atmId}
-                title={
-                  <>
+              <div key={r.atm.atmId} className="py-1 text-[12px] leading-[17px] text-ink">
                     <button type="button" onClick={() => setParams({ atm: r.atm.atmId })} className="hover:text-primary hover:underline">
                       {r.atm.atmId}
                     </button>
@@ -344,9 +340,7 @@ export default function AssetDashboard() {
                       {prev.id}
                     </Link>{' '}
                     · {watchText(c.category, days)}
-                  </>
-                }
-              />
+              </div>
             )
           })}
         </Panel>
@@ -357,9 +351,9 @@ export default function AssetDashboard() {
           {!pmTop && <p className="text-[12px] text-muted">No assets need preventive maintenance in this period.</p>}
           {pmTop && (
             <>
-              <p className="text-[13px] font-semibold text-ink">{PM_HEAD[pmTop.topCat] ?? PM_TASK[pmTop.topCat]}</p>
-              <p className="mt-2 text-[13px] leading-relaxed text-ink-2">{pmBody(pmTop)}</p>
-              <p className="mt-3 text-[12px] text-primary">
+              <p className="text-[12px] font-semibold text-ink">{PM_HEAD[pmTop.topCat] ?? PM_TASK[pmTop.topCat]}</p>
+              <p className="mt-2 text-[12px] leading-[18px] text-ink-2">{pmBody(pmTop)}</p>
+              <p className="mt-3 text-[11px] text-primary">
                 {pmLinked && (
                   <>
                     <Link to={`${BASE}/${pmLinked.id}`} className="hover:underline">
@@ -379,7 +373,7 @@ export default function AssetDashboard() {
               )}
             </>
           )}
-          {maint.length > 0 && <p className="mt-2 text-[12px] text-muted">{maint.length} preventive task{maint.length > 1 ? 's' : ''} created · visible in each asset record.</p>}
+          {maint.length > 0 && <p className="mt-2 text-[11px] text-muted">{maint.length} preventive task{maint.length > 1 ? 's' : ''} created · visible in each asset record.</p>}
         </Panel>
       </div>
 

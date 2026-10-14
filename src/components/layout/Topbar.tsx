@@ -28,11 +28,11 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
       <button onClick={onMenu} className="text-muted lg:hidden" aria-label="Open menu">
         <Menu size={20} />
       </button>
-      <PanelLeft size={18} className="hidden shrink-0 text-muted lg:block" />
-      <nav className="flex min-w-0 items-center gap-2 text-[13px]">
+      <PanelLeft size={16} className="hidden shrink-0 text-muted lg:block" />
+      <nav className="flex min-w-0 items-center gap-2.5 text-[11px]">
         {trail.map((t, i) => (
-          <span key={i} className="flex min-w-0 items-center gap-2">
-            {i > 0 && <ChevronRight size={14} className="shrink-0 text-muted" />}
+          <span key={i} className="flex min-w-0 items-center gap-2.5">
+            {i > 0 && <ChevronRight size={12} className="shrink-0 text-muted" />}
             <span className={i === trail.length - 1 ? 'truncate font-semibold text-ink' : 'truncate text-muted'}>{t}</span>
           </span>
         ))}
@@ -42,13 +42,13 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
         {pathname.startsWith('/tasks/') && (
           <button
             onClick={() => navigate(/^\/tasks\/(my|today|daily|monthly|overdue|blocked|approval-pending)$/.test(pathname) ? `${pathname}?create=1` : '/tasks/my?create=1')}
-            className="hidden h-9 shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-[13px] font-semibold text-white hover:bg-primary-hover sm:flex"
+            className="hidden h-9 shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-[12px] font-semibold text-white hover:bg-primary-hover sm:flex"
           >
-            <Plus size={16} /> Create Task
+            <Plus size={15} /> Create Task
           </button>
         )}
-        <label className="hidden h-9 w-[262px] items-center gap-2.5 rounded-lg border border-line-soft bg-surface px-3 text-[13px] text-muted md:flex">
-          <Search size={16} />
+        <label className="hidden h-9 w-[282px] items-center gap-2.5 rounded-lg border border-line bg-surface px-3 text-[11px] text-muted md:flex">
+          <Search size={15} />
           <input
             ref={searchRef}
             placeholder="Search across workspace"
@@ -57,20 +57,20 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
           <span className="text-[10px] whitespace-nowrap">⌘ K</span>
         </label>
         <button className="relative text-ink-2" aria-label="Notifications" onClick={() => navigate('/notices')}>
-          <Bell size={20} />
+          <Bell size={19} />
           <span className="absolute -top-0.5 right-0 h-2 w-2 rounded-full bg-brand-red ring-2 ring-white" />
         </button>
         <div className="hidden h-8 w-px bg-line sm:block" />
         <div className="relative">
           <button onClick={() => setMenu((m) => !m)} className="flex items-center gap-2.5">
-            <span className="grid h-9 w-9 place-items-center rounded-full bg-primary-soft text-[13px] font-medium text-primary">
+            <span className="grid h-8 w-8 place-items-center rounded-full bg-primary-soft text-[12px] font-medium text-primary">
               {user.initials}
             </span>
             <span className="hidden text-left leading-tight sm:block">
-              <span className="block text-[13px] font-semibold">{user.name}</span>
-              <span className="block text-[11px] text-muted">{user.role}</span>
+              <span className="block text-[12px] font-semibold">{user.name}</span>
+              <span className="mt-0.5 block text-[10px] text-muted">{user.role}</span>
             </span>
-            <ChevronDown size={20} strokeWidth={1.4} className="text-muted" />
+            <ChevronDown size={16} className="text-ink-2" />
           </button>
           {menu && (
             <div className="absolute right-0 mt-2 w-44 rounded-lg border border-line bg-white py-1 shadow-lg">

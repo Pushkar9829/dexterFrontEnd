@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
-import { Info, Pencil, PencilLine, Plus, X } from 'lucide-react'
+import { Info, Plus, SquarePen, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { toast } from '@/components/ui/Toast'
 import { cn } from '@/lib/cn'
@@ -59,7 +59,7 @@ export function EditActions({
 }) {
   if (!editing)
     return (
-      <Button icon={<Pencil size={16} />} onClick={onUpdate}>
+      <Button icon={<SquarePen size={16} />} onClick={onUpdate}>
         Update
       </Button>
     )
@@ -70,10 +70,11 @@ export function EditActions({
           {addLabel}
         </Button>
       )}
-      <Button variant="secondary" icon={<X size={16} />} onClick={onCancel}>
-        Cancel
-      </Button>
-      <Button variant="bright" icon={<PencilLine size={16} />} onClick={onSave}>
+      {/* not in the Figma edit frame (Save only) — kept as a quiet text button so an edit can be abandoned */}
+      <button type="button" onClick={onCancel} className="flex h-[38px] items-center gap-1.5 rounded-lg px-3 text-[12px] font-semibold text-muted hover:bg-surface hover:text-ink">
+        <X size={14} /> Cancel
+      </button>
+      <Button variant="bright" icon={<SquarePen size={16} />} onClick={onSave}>
         Save
       </Button>
     </>
@@ -83,11 +84,11 @@ export function EditActions({
 /** Figma info note: ⓘ + bold title + muted text on a soft blue card. */
 export function InfoNote({ title, children }: { title: ReactNode; children: ReactNode }) {
   return (
-    <div className="flex gap-3 rounded-xl bg-primary-soft/70 px-4 py-3.5 text-[12px]">
-      <Info size={16} className="mt-0.5 shrink-0 text-primary" />
+    <div className="flex gap-3 rounded-xl bg-primary-soft/70 px-3.5 py-3 text-[11px]">
+      <Info size={15} className="mt-px shrink-0 text-primary" />
       <div>
-        <div className="text-[13px] font-semibold text-ink">{title}</div>
-        <div className="mt-1 text-muted">{children}</div>
+        <div className="font-semibold text-ink">{title}</div>
+        <div className="mt-1 text-ink-2">{children}</div>
       </div>
     </div>
   )
@@ -96,26 +97,28 @@ export function InfoNote({ title, children }: { title: ReactNode; children: Reac
 /** "Source reference entries" card: allowed values shown as chips. */
 export function SourceEntries({ sub, groups, foot }: { sub: string; groups: { label: string; values: string[] }[]; foot?: ReactNode }) {
   return (
-    <section className="rounded-xl border border-line bg-white px-4 py-4">
+    <section className="rounded-xl border border-line bg-white px-3.5 py-3.5">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h3 className="text-[15px] font-semibold text-ink">Source reference entries</h3>
-        <span className="text-[12px] text-muted">{sub}</span>
+        <h3 className="text-[13px] font-semibold text-ink">Source reference entries</h3>
+        <span className="text-[11px] text-muted">{sub}</span>
       </div>
       <div className="mt-3 grid gap-4 md:grid-cols-2">
         {groups.map((g) => (
-          <div key={g.label} className="flex flex-wrap items-center gap-2">
-            <span className="mr-1 text-[12px] font-semibold text-ink">
+          <div key={g.label}>
+            <div className="mb-2 text-[11px] font-semibold text-ink">
               {g.label} · {g.values.length} entries
-            </span>
-            {g.values.map((v) => (
-              <span key={v} className="rounded-md border border-line bg-surface px-2.5 py-1 text-[12px] text-ink-2">
-                {v}
-              </span>
-            ))}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {g.values.map((v) => (
+                <span key={v} className="rounded-md border border-line bg-surface px-2.5 py-1 text-[11px] text-ink-2">
+                  {v}
+                </span>
+              ))}
+            </div>
           </div>
         ))}
       </div>
-      {foot && <p className="mt-3 text-[12px] text-muted">{foot}</p>}
+      {foot && <p className="mt-3 text-[10px] text-muted">{foot}</p>}
     </section>
   )
 }
@@ -157,17 +160,17 @@ export function FinancialShell({
   return (
     <div className="min-w-0">
       <h1 className="text-[28px] font-semibold tracking-tight text-ink">Financial Report</h1>
-      <p className="mt-1.5 text-[14px] text-muted">{sub}</p>
+      <p className="mt-1 text-[13px] text-muted">{sub}</p>
 
-      <div className="mt-4 mb-6 flex flex-wrap items-end justify-between gap-3 border-b border-line">
-        <nav className="scroll-thin flex min-w-0 overflow-x-auto" aria-label="Financial reports">
+      <div className="mt-1.5 mb-[18px] flex flex-wrap items-center justify-between gap-3 border-b border-line">
+        <nav className="scroll-thin flex min-w-0 gap-6 overflow-x-auto" aria-label="Financial reports">
           {tabs.map((t) => (
             <NavLink
               key={t.slug}
               to={`/reports/financial/${t.slug}`}
               className={({ isActive }) =>
                 cn(
-                  '-mb-px shrink-0 border-b-2 px-4 py-2.5 text-[14px] whitespace-nowrap',
+                  '-mb-px shrink-0 border-b-2 px-4 py-3 text-[13px] whitespace-nowrap',
                   isActive ? 'border-primary font-semibold text-primary' : 'border-transparent font-medium text-ink-2 hover:text-ink',
                 )
               }
@@ -176,16 +179,16 @@ export function FinancialShell({
             </NavLink>
           ))}
         </nav>
-        {tabRight && <div className="mb-1.5 flex flex-wrap items-center gap-2">{tabRight}</div>}
+        {tabRight && <div className="flex flex-wrap items-center gap-2">{tabRight}</div>}
       </div>
 
-      <div className="mb-4">
+      <div className="mb-3.5">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-[20px] font-semibold text-ink">{name}</h2>
-          {chip && <span className="rounded-md bg-primary-soft px-2.5 py-1 text-[12px] font-medium text-primary">{chip}</span>}
+          <h2 className="text-[17px] font-semibold text-ink">{name}</h2>
+          {chip && <span className="rounded-md bg-primary-soft px-2.5 py-1 text-[11px] font-medium text-primary">{chip}</span>}
         </div>
         {(meta || metaRight) && (
-          <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2 text-[12px] text-muted">
+          <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted">
             <span>{meta}</span>
             {metaRight && <span className="flex items-center gap-2">{metaRight}</span>}
           </div>
@@ -197,7 +200,7 @@ export function FinancialShell({
       {children}
 
       {notes && <div className="mt-4 space-y-4">{notes}</div>}
-      <div className="mt-5 flex flex-wrap justify-between gap-2 text-[12px] text-muted">
+      <div className="mt-[18px] flex flex-wrap justify-between gap-2 text-[10px] text-muted">
         <span>{footerLeft}</span>
         {footerRight && <span>{footerRight}</span>}
       </div>
@@ -208,9 +211,9 @@ export function FinancialShell({
 /** compact select styled as the Figma "F.Y. Year 22-23" chip (also used for the FFM EOD month) */
 export function ChipSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: { value: string; label: string }[] }) {
   return (
-    <label className="flex h-8 items-center rounded-md bg-primary-soft px-2.5 text-[12px] font-semibold text-primary">
+    <label className="flex h-[23px] items-center rounded-md bg-primary-soft px-2.5 text-[11px] font-semibold text-primary">
       <span className="sr-only">{label}</span>
-      <select aria-label={label} value={value} onChange={(e) => onChange(e.target.value)} className="cursor-pointer bg-transparent outline-none">
+      <select aria-label={label} value={value} onChange={(e) => onChange(e.target.value)} className="cursor-pointer appearance-none bg-transparent outline-none">
         {options.map((o) => (
           <option key={o.value} value={o.value}>
             {o.label}

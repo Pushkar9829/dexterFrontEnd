@@ -9,7 +9,7 @@ export type Opt = string | { value: string; label: string }
 const optValue = (o: Opt) => (typeof o === 'string' ? o : o.value)
 const optLabel = (o: Opt) => (typeof o === 'string' ? o : o.label)
 
-const box = 'h-10 w-full rounded-md border bg-white px-3 text-[14px] text-ink outline-none transition-shadow'
+const box = 'h-[39px] w-full rounded-md border bg-white px-3 text-[14px] text-ink outline-none transition-shadow'
 
 /** Card with a title row, optional status chip and a divided body (e.g. "Site profile", "Masked"). */
 export function SectionCard({ title, sub, badge, children, className, bodyClassName }: { title: ReactNode; sub?: ReactNode; badge?: ReactNode; children: ReactNode; className?: string; bodyClassName?: string }) {
@@ -17,8 +17,8 @@ export function SectionCard({ title, sub, badge, children, className, bodyClassN
     <section className={cn('rounded-xl border border-line bg-white', className)}>
       <header className="flex flex-wrap items-start justify-between gap-3 border-b border-line px-5 py-4 sm:px-6">
         <div>
-          <h2 className="text-[18px] font-semibold text-ink">{title}</h2>
-          {sub && <p className="mt-0.5 text-[13px] text-muted">{sub}</p>}
+          <h2 className="text-[17px] font-semibold text-ink">{title}</h2>
+          {sub && <p className="mt-0.5 text-[12px] text-muted">{sub}</p>}
         </div>
         {badge && <Chip>{badge}</Chip>}
       </header>
@@ -31,7 +31,7 @@ export function Chip({ children, tone = 'navy' }: { children: ReactNode; tone?: 
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 rounded px-2 py-1 text-[12px] font-medium whitespace-nowrap',
+        'inline-flex items-center gap-1.5 rounded px-2 py-1 text-[11px] font-medium whitespace-nowrap',
         tone === 'navy' ? 'bg-primary-soft text-primary' : 'bg-amber-50 text-amber-700',
       )}
     >
@@ -43,7 +43,7 @@ export function Chip({ children, tone = 'navy' }: { children: ReactNode; tone?: 
 
 export function Note({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className={cn('flex items-start gap-2.5 rounded-md bg-primary-soft px-4 py-3 text-[13px] text-primary', className)}>
+    <div className={cn('flex items-start gap-2.5 rounded-md bg-primary-soft px-4 py-3.5 text-[12px] text-primary', className)}>
       <Info size={16} className="mt-0.5 shrink-0" />
       <span>{children}</span>
     </div>
@@ -51,7 +51,7 @@ export function Note({ children, className }: { children: ReactNode; className?:
 }
 
 function Label({ children }: { children: ReactNode }) {
-  return <div className="mb-2 text-[13px] text-ink-2">{children}</div>
+  return <div className="mb-[21px] text-[12px] leading-4 text-muted">{children}</div>
 }
 
 function Err({ error }: { error?: string }) {
@@ -137,9 +137,9 @@ export function Radios({
               aria-checked={on}
               disabled={readOnly}
               onClick={() => onChange(o)}
-              className={cn('flex items-center gap-2 text-[13px] disabled:cursor-default', on ? 'font-semibold text-primary' : 'text-muted')}
+              className={cn('flex items-center gap-2 text-[12px] disabled:cursor-default', on ? 'font-semibold text-primary' : 'text-muted')}
             >
-              <span className={cn('grid h-4 w-4 place-items-center rounded-full border', on ? 'border-primary bg-primary' : 'border-line bg-white')}>
+              <span className={cn('grid h-3.5 w-3.5 place-items-center rounded-full border', on ? 'border-primary bg-primary' : 'border-line bg-white')}>
                 {on && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
               </span>
               {o}

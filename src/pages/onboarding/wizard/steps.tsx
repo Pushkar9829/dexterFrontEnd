@@ -15,18 +15,18 @@ export type StepProps = {
   readOnly?: boolean
 }
 
-const grid2 = 'grid gap-x-4 gap-y-4 sm:grid-cols-2'
-const grid3 = 'grid gap-x-4 gap-y-4 sm:grid-cols-3'
+const grid2 = 'grid gap-x-3 gap-y-2.5 sm:grid-cols-2'
+const grid3 = 'grid gap-x-3 gap-y-2.5 sm:grid-cols-3'
 
 /** Step section heading as in the WLA form frames: optional filled number badge + 17px title. */
 function SectionTitle({ num, title, sub }: { num?: string; title: string; sub?: string }) {
   return (
-    <div className="mb-4">
+    <div className="mb-3">
       <div className="flex items-center gap-2.5">
         {num && <span className="grid h-[22px] min-w-[22px] place-items-center rounded bg-primary px-1 text-[10px] font-semibold text-white">{num}</span>}
-        <h3 className="text-[17px] font-semibold text-ink">{title}</h3>
+        <h3 className="text-[14.5px] font-semibold text-ink">{title}</h3>
       </div>
-      {sub && <p className={cn('mt-1 text-[12px] text-muted', num && 'pl-8')}>{sub}</p>}
+      {sub && <p className={cn('mt-1 text-[11px] text-muted', num && 'pl-8')}>{sub}</p>}
     </div>
   )
 }
@@ -124,7 +124,7 @@ export function SiteDetails(p: StepProps) {
         <SelectField label="Strategy / Plan / Model Name" required options={PLANS} {...bind(p, 'plan')} />
         <TextField label="Existing ATM ID" placeholder="Not applicable" {...bind(p, 'existingAtmId')} />
         <div className="sm:col-span-2">
-          <div className="mb-1.5 text-[12px] font-semibold">Latest Color Photograph of Applicant *</div>
+          <div className="mb-1.5 text-[11px] font-semibold">Latest Color Photograph of Applicant *</div>
           <FileDrop value={p.form.applicantPhoto} onChange={(f) => p.set({ applicantPhoto: f })} accept="image/png,image/jpeg" hint="JPG or PNG · Up to 5 MB" disabled={p.readOnly} />
           {p.errors.applicantPhoto && <p className="mt-1 text-[11px] text-brand-red">{p.errors.applicantPhoto}</p>}
         </div>
@@ -281,7 +281,7 @@ export function CraAtms(p: StepProps) {
         <AtmTable rows={p.form.hitachiAtms} onChange={(rows) => p.set({ hitachiAtms: rows })} readOnly={p.readOnly} />
       </div>
       <div className="border-t border-line pt-6">
-        <div className="mb-1.5 text-[12px] font-semibold">Franchise Signature</div>
+        <div className="mb-1.5 text-[11px] font-semibold">Franchise Signature</div>
         <FileDrop value={p.form.signature} onChange={(f) => p.set({ signature: f })} accept="image/png,image/jpeg,application/pdf" hint="PNG, JPG or PDF · Up to 5 MB" disabled={p.readOnly} />
       </div>
     </div>

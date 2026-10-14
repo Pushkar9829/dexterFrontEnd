@@ -89,26 +89,25 @@ export default function CommandCenter() {
   const regionLabel = regions.length === REGIONS.length ? 'All regions' : regions.length === 1 ? `${regions[0]} region` : `${regions.length} regions`
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <HeroBanner title="Management Command Center" sub="Organization-wide task performance, dependencies and exceptions." code="CRM-07" />
 
       <div className="flex flex-wrap items-center gap-2">
         <MultiSelect label={deptLabel} all={[...DEPTS]} value={depts} onChange={(v) => setDepts(v as Dept[])} />
-        <label className="relative flex h-9 items-center gap-1.5 rounded-lg border border-line bg-white pr-2 pl-3 text-[13px] font-semibold">
+        <label className="relative flex h-[34px] items-center gap-2 rounded-md border border-line bg-white px-3 text-[11px] font-semibold text-ink hover:border-primary/40">
           <CalendarDays size={14} className="text-primary" />
-          <select aria-label="Date range" value={period} onChange={(e) => setPeriod(e.target.value as Period)} className="h-full cursor-pointer appearance-none bg-transparent pr-4 outline-none">
+          <select aria-label="Date range" value={period} onChange={(e) => setPeriod(e.target.value as Period)} className="h-full cursor-pointer appearance-none bg-transparent outline-none [field-sizing:content]">
             {PERIODS.map((p) => (
               <option key={p.key} value={p.key}>
                 {p.label}
               </option>
             ))}
           </select>
-          <ChevronDown size={13} className="pointer-events-none absolute right-2 text-muted" />
         </label>
         <MultiSelect label={regionLabel} all={[...REGIONS]} value={regions} onChange={(v) => setRegions(v as Region[])} />
         {(depts.length !== DEPTS.length || regions.length !== REGIONS.length || period !== 'month') && (
           <button
-            className="text-[12px] font-semibold text-primary hover:underline"
+            className="text-[11px] font-semibold text-primary hover:underline"
             onClick={() => {
               setDepts([...DEPTS])
               setRegions([...REGIONS])
@@ -118,58 +117,58 @@ export default function CommandCenter() {
             Reset
           </button>
         )}
-        <span className="ml-auto text-[12px] text-muted">Director / Senior Management · {k.total.toLocaleString('en-IN')} tasks in scope</span>
+        <span className="ml-auto text-[11px] text-muted">Director / Senior Management · {k.total.toLocaleString('en-IN')} tasks in scope</span>
       </div>
 
       {/* KPI cards */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Kpi icon={<CircleCheck size={17} />} title="Overall Task Completion" value={pct(k.completion)} caption={`${k.closed.toLocaleString('en-IN')} of ${k.total.toLocaleString('en-IN')} tasks closed`} trend={`${Math.abs(LAST_MONTH.completion)} pp vs last month`} good up />
         <Kpi icon={<ShieldCheck size={17} />} title="SLA Compliance" value={pct(k.sla)} caption={`Target ≥ 95% · ${k.breaches} breaches`} trend={`${LAST_MONTH.sla} pp vs last month`} good={false} up={false} />
         <Kpi icon={<Clock3 size={17} />} title="Average TAT" value={`${k.tat.toFixed(1)}h`} caption="Across all completed tasks" trend={`${LAST_MONTH.tat}h vs last month`} good up={false} />
         <Kpi icon={<Gauge size={17} />} title="Organizational Productivity" value={`${k.score} / 100`} caption={`Aggregated score · ${k.depts} departments`} trend={`${Math.abs(LAST_MONTH.score)} points vs last month`} good up />
       </div>
 
-      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,330px)_minmax(0,316px)]">
+      <div className="grid items-start gap-x-5 gap-y-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,330px)_minmax(0,316px)]">
         {/* Coordination matrix */}
         <Card className="min-w-0 xl:col-start-1 xl:row-start-1">
-          <div className="px-5 pt-5">
-            <h3 className="text-[15px] font-semibold">Department Coordination Matrix</h3>
-            <p className="mt-0.5 text-[12px] text-muted">Active cross-department pipeline · {wfs.length} priority workflows</p>
-            <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-semibold">
+          <div className="px-4 pt-[18px]">
+            <h3 className="text-[14px] font-semibold">Department Coordination Matrix</h3>
+            <p className="mt-1 text-[11px] text-muted">Active cross-department pipeline · {shownWf.length} priority workflows</p>
+            <div className="mt-4 flex flex-wrap gap-2 text-[10px] font-semibold">
               <span className="rounded bg-primary-soft px-2 py-1 text-primary">{scope(WF_TOTALS.active)} active workflows</span>
               <span className="rounded bg-amber-50 px-2 py-1 text-amber-700">{scope(WF_TOTALS.waiting)} waiting</span>
               <span className="rounded bg-red-50 px-2 py-1 text-red-700">{scope(WF_TOTALS.overdue)} overdue</span>
             </div>
           </div>
-          <div className="divide-y divide-line-soft px-5">
+          <div className="px-4 pt-1">
             {shownWf.length === 0 && <p className="py-8 text-center text-[13px] text-muted">No priority workflows for this filter.</p>}
             {shownWf.map((w) => {
               const t = getTask(w.taskId)
               const stages = liveStages(w, t)
               const s = t ? slaOf(t) : undefined
               return (
-                <div key={w.id} className="py-4">
+                <div key={w.id} className="border-b-2 border-line-soft pt-[19px] pb-[5px] leading-[15px]">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="text-[14px] font-semibold text-ink">{w.name}</div>
-                      <Link to={`/tasks/my/${w.taskId}`} className="mt-1 block truncate text-[13px] text-primary hover:underline">
+                      <div className="text-[12px] font-semibold text-ink">{w.name}</div>
+                      <Link to={`/tasks/my/${w.taskId}`} className="mt-[15px] block truncate text-[11px] text-primary hover:underline">
                         {w.taskId} · {w.taskTitle}
                       </Link>
                     </div>
-                    <span className="shrink-0 rounded border border-line px-2 py-0.5 text-[11px] text-muted">{w.id}</span>
+                    <span className="shrink-0 rounded border border-line-soft bg-surface px-2 py-[3px] text-[10px] font-semibold text-muted">{w.id}</span>
                   </div>
-                  <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
                     {STAGES.map((st, i) => (
                       <div key={st}>
-                        <div className="text-[11px] text-muted">
+                        <div className="text-[9px] text-[#8d94a4]">
                           {st}
                           {i < 3 && ' →'}
                         </div>
-                        <span className={cn('mt-1 inline-block rounded px-2 py-0.5 text-[11px] font-semibold', STAGE_CLS[stages[i]])}>{stages[i]}</span>
+                        <span className={cn('mt-1 inline-block rounded px-2 py-[3px] text-[10px] leading-[14px] font-semibold', STAGE_CLS[stages[i]])}>{stages[i]}</span>
                       </div>
                     ))}
                   </div>
-                  <div className="mt-2.5 flex flex-wrap justify-between gap-2 text-[12px]">
+                  <div className="mt-3 flex flex-wrap justify-between gap-2 text-[10px]">
                     <span className="text-muted">
                       {w.owner} · {w.ownerDept}
                     </span>
@@ -180,9 +179,9 @@ export default function CommandCenter() {
             })}
           </div>
           {wfs.length > 4 && (
-            <div className="border-t border-line px-5 py-3">
-              <button onClick={() => setAllWf((v) => !v)} className="flex items-center gap-1 text-[13px] font-semibold text-primary hover:underline">
-                {allWf ? 'Show priority workflows only' : 'View all department workflows'} <ArrowRight size={13} />
+            <div className="px-4 pt-[14px] pb-4">
+              <button onClick={() => setAllWf((v) => !v)} className="flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline">
+                {allWf ? 'Show priority workflows only' : 'View all department workflows'} <ArrowRight size={12} />
               </button>
             </div>
           )}
@@ -190,59 +189,59 @@ export default function CommandCenter() {
 
         {/* Why is work stuck */}
         <Card className="min-w-0 xl:col-start-2 xl:row-start-1">
-          <div className="px-5 pt-5">
-            <h3 className="text-[15px] font-semibold">Why Is Work Stuck?</h3>
-            <p className="mt-0.5 text-[12px] text-muted">{blockTotal} pending tasks · grouped by primary blocker</p>
+          <div className="px-4 pt-[18px]">
+            <h3 className="text-[14px] font-semibold">Why Is Work Stuck?</h3>
+            <p className="mt-1 text-[11px] text-muted">{blockTotal} pending tasks · grouped by primary blocker</p>
           </div>
-          <div className="divide-y divide-line-soft px-5">
+          <div className="mt-1.5 px-4">
             {blockers.map((b) => {
               const p = blockTotal ? Math.round((b.count / blockTotal) * 100) : 0
               return (
-                <div key={b.key} className="py-4">
-                  <div className="flex justify-between text-[13px]">
+                <div key={b.key} className="border-b-2 border-line-soft pt-[18px] pb-3 leading-[15px]">
+                  <div className="flex items-baseline justify-between text-[11px]">
                     <span className="font-semibold text-ink">{b.label}</span>
-                    <span className="font-semibold text-amber-700">
+                    <span className="text-[12px] font-semibold text-[#98620a]">
                       {b.count} · {p}%
                     </span>
                   </div>
-                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
-                    <div className="h-full rounded-full bg-amber-700" style={{ width: `${p}%` }} />
+                  <div className="mt-2.5 h-[5px] overflow-hidden rounded-full bg-[#e6edf6]">
+                    <div className="h-full rounded-full bg-[#9a640c]" style={{ width: `${p}%` }} />
                   </div>
-                  <div className="mt-2 text-[12px] text-muted">{b.who}</div>
-                  <Link to={`/tasks/my/${b.taskId}`} className="mt-1 block text-[12px] text-primary hover:underline">
+                  <div className="mt-2.5 text-[10px] text-muted">{b.who}</div>
+                  <Link to={`/tasks/my/${b.taskId}`} className="mt-2 block text-[10px] text-primary hover:underline">
                     {b.taskId} · {b.taskLabel}
                   </Link>
                 </div>
               )
             })}
           </div>
-          <div className="px-5 pb-5">
+          <div className="px-4 pt-4 pb-4">
             {biggest && biggest.count > 0 && (
-              <div className="rounded-lg bg-amber-50 p-4 text-[12px] text-amber-800">
+              <div className="rounded-md bg-[#fff4df] px-3 py-3.5 text-[11px] leading-[16px] text-[#98620a]">
                 <div className="font-semibold">{biggest.key === 'approval' ? 'Approval queue is the largest bottleneck' : `${biggest.label} is the largest bottleneck`}</div>
-                <p className="mt-1.5">
+                <p className="mt-2">
                   {biggest.key === 'approval'
                     ? '6 approvals reach SLA within 2 hours. Prioritize manager review before finance handoff.'
                     : `${biggest.count} tasks are waiting on ${biggest.label.toLowerCase()}. Escalate the oldest items first.`}
                 </p>
               </div>
             )}
-            <Button variant="secondary" size="sm" className="mt-4" icon={<ArrowRight size={14} />} onClick={() => nav('/tasks/approval-pending')}>
+            <Button variant="secondary" size="sm" className="mt-4 h-[34px] px-3" icon={<ArrowRight size={14} />} onClick={() => nav('/tasks/approval-pending')}>
               Review approval queue
             </Button>
           </div>
         </Card>
 
         {/* AI panel + workload */}
-        <div className="min-w-0 space-y-5 xl:col-start-3 xl:row-span-2 xl:row-start-1">
+        <div className="min-w-0 space-y-4 xl:col-start-3 xl:row-span-2 xl:row-start-1">
           <Card>
-            <div className="px-5 pt-5">
-              <h3 className="text-[15px] font-semibold">AI Intelligence Panel</h3>
-              <p className="mt-0.5 text-[12px] text-muted">Updated 09:14 IST · Organization-wide</p>
-              <span className="mt-3 inline-block rounded bg-primary-soft px-2 py-1 text-[11px] font-semibold text-primary">4 actionable insights</span>
+            <div className="px-4 pt-[18px]">
+              <h3 className="text-[14px] font-semibold">AI Intelligence Panel</h3>
+              <p className="mt-1 text-[11px] text-muted">Updated 09:14 IST · Organization-wide</p>
+              <span className="mt-4 inline-block rounded bg-primary-soft px-2 py-1 text-[10px] font-semibold text-primary">4 actionable insights</span>
             </div>
-            <div className="divide-y divide-line-soft px-5">
-              <Insight icon={<TriangleAlert size={16} className="text-brand-red" />} title="SLA breach risks" link={{ label: 'Open at-risk tasks', to: '/tasks/today' }}>
+            <div className="divide-y-2 divide-line-soft px-4">
+              <Insight icon={<TriangleAlert size={15} className="text-brand-red" />} title="SLA breach risks" link={{ label: 'Open at-risk tasks', to: '/tasks/today' }}>
                 6 tasks are likely to breach in 2 hours.{' '}
                 {t1048 && isOpen(t1048) ? `TSK-1048 has ${slaOf(t1048).line.replace(' left', ' remaining')} and an 82% risk score; manager approval is pending.` : 'TSK-1048 has been closed and no longer contributes to breach risk.'}
               </Insight>
@@ -256,23 +255,23 @@ export default function CommandCenter() {
                 Verification → Finance handoff averages 6.8h, up 2.1h. 18 manager approvals are holding downstream work.
               </Insight>
             </div>
-            <p className="border-t border-line-soft px-5 py-3 text-[11px] text-muted">AI recommendations support decisions; owners remain accountable for actions.</p>
+            <p className="mx-4 border-t-2 border-line-soft py-4 text-[9px] leading-[14px] text-muted">AI recommendations support decisions; owners remain accountable for actions.</p>
           </Card>
 
           <Card>
-            <div className="px-5 pt-5">
-              <h3 className="text-[15px] font-semibold">Department workload</h3>
-              <p className="mt-0.5 text-[12px] text-muted">Active tasks / planned daily capacity</p>
+            <div className="px-4 pt-[18px]">
+              <h3 className="text-[14px] font-semibold">Department workload</h3>
+              <p className="mt-1 text-[11px] text-muted">Active tasks / planned daily capacity</p>
             </div>
-            <div className="space-y-4 px-5 pt-4 pb-5">
+            <div className="space-y-3 px-4 pt-4 pb-5">
               {workload.map((w) => (
                 <div key={w.dept}>
-                  <div className="flex justify-between text-[13px]">
+                  <div className="flex justify-between text-[11px]">
                     <span className="text-ink">{w.dept}</span>
-                    <span className={cn('font-semibold', w.pct > 100 ? 'text-red-600' : w.pct >= 90 ? 'text-bright' : 'text-emerald-700')}>{w.pct}%</span>
+                    <span className={cn('font-semibold', w.pct > 100 ? 'text-[#c32831]' : w.pct >= 90 ? 'text-bright' : 'text-[#16724b]')}>{w.pct}%</span>
                   </div>
-                  <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-100">
-                    <div className={cn('h-full rounded-full', w.pct > 100 ? 'bg-red-600' : w.pct >= 90 ? 'bg-bright' : 'bg-emerald-700')} style={{ width: `${Math.min(100, w.pct)}%` }} />
+                  <div className="mt-2 h-[5px] overflow-hidden rounded-full bg-[#e6edf6]">
+                    <div className={cn('h-full rounded-full', w.pct > 100 ? 'bg-[#c32831]' : w.pct >= 90 ? 'bg-[#1574f8]' : 'bg-[#16724b]')} style={{ width: `${Math.min(100, w.pct)}%` }} />
                   </div>
                 </div>
               ))}
@@ -282,17 +281,17 @@ export default function CommandCenter() {
 
         {/* Management interventions */}
         <Card className="min-w-0 xl:col-span-2 xl:col-start-1 xl:row-start-2">
-          <div className="px-5 pt-5">
-            <h3 className="text-[15px] font-semibold">Management interventions</h3>
-            <p className="mt-0.5 text-[12px] text-muted">Recommended actions requiring department leadership</p>
+          <div className="px-4 pt-[18px]">
+            <h3 className="text-[14px] font-semibold">Management interventions</h3>
+            <p className="mt-1 text-[11px] text-muted">Recommended actions requiring department leadership</p>
           </div>
-          <div className="divide-y divide-line-soft px-5 pb-2">
+          <div className="px-4 pt-2 pb-3">
             {t1048 && isOpen(t1048) ? (
-              <Intervention id="TSK-1048" to="/tasks/my/TSK-1048" what="KYC approval · ABC Franchise" who="Meera Iyer" when="Due 11:00 IST" whenCls="text-red-600" action="Review now" onAction={() => nav('/tasks/my/TSK-1048')} />
+              <Intervention id="TSK-1048" to="/tasks/my/TSK-1048" what="KYC approval · ABC Franchise" who="Meera Iyer" when="Due 11:00 IST" whenCls="text-[#98620a]" action="Review now" onAction={() => nav('/tasks/my/TSK-1048')} />
             ) : (
-              <div className="py-4 text-[13px] text-emerald-700">TSK-1048 closed — KYC approval intervention resolved.</div>
+              <div className="border-b-2 border-line-soft py-5 text-[11px] text-emerald-700">TSK-1048 closed — KYC approval intervention resolved.</div>
             )}
-            <Intervention id="TEAM-VER" what="Rebalance Verification queue" who="Suresh Nair" when={overCap ? `${overCap} tasks above capacity` : 'Within capacity'} whenCls={overCap ? 'text-amber-700' : 'text-emerald-700'} action="Reassign tasks" onAction={() => setRebalance(true)} />
+            <Intervention id="TEAM-VER" what="Rebalance Verification queue" who="Suresh Nair" when={overCap ? `${overCap} tasks above capacity` : 'Within capacity'} whenCls={overCap ? 'text-[#a16f1e]' : 'text-emerald-700'} action="Reassign tasks" onAction={() => setRebalance(true)} />
           </div>
         </Card>
       </div>
@@ -307,14 +306,14 @@ export default function CommandCenter() {
 
 function Kpi({ icon, title, value, caption, trend, up, good }: { icon: ReactNode; title: string; value: string; caption: string; trend: string; up: boolean; good: boolean }) {
   return (
-    <div className="flex gap-3 rounded-xl border border-line bg-white p-4">
+    <div className="flex gap-3 rounded-xl border border-line bg-white px-4 pt-4 pb-3.5">
       <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary">{icon}</span>
-      <div className="min-w-0">
-        <div className="text-[13px] font-semibold text-ink">{title}</div>
-        <div className="mt-1 text-[28px] leading-tight font-semibold text-ink">{value}</div>
-        <div className="mt-1 text-[12px] text-muted">{caption}</div>
-        <div className={cn('mt-1.5 flex items-center gap-1 text-[12px]', good ? 'text-emerald-700' : 'text-red-600')}>
-          {up ? <ArrowUp size={12} /> : <ArrowDown size={12} />}
+      <div className="min-w-0 leading-[14px]">
+        <div className="text-[11px] font-semibold text-ink">{title}</div>
+        <div className="mt-1 text-[28px] leading-[32px] font-semibold text-ink">{value}</div>
+        <div className="mt-1.5 text-[10px] text-muted">{caption}</div>
+        <div className={cn('mt-1.5 flex items-center gap-1 text-[10px]', good ? 'text-emerald-700' : 'text-red-600')}>
+          {up ? <ArrowUp size={11} /> : <ArrowDown size={11} />}
           {trend}
         </div>
       </div>
@@ -324,19 +323,19 @@ function Kpi({ icon, title, value, caption, trend, up, good }: { icon: ReactNode
 
 function Insight({ icon, title, children, link, onClick }: { icon: ReactNode; title: string; children: ReactNode; link: { label: string; to?: string }; onClick?: () => void }) {
   return (
-    <div className="py-4">
-      <div className="flex items-center gap-2 text-[14px] font-semibold text-ink">
+    <div className="pt-3 pb-2.5">
+      <div className="flex items-center gap-2 text-[12px] font-semibold text-ink">
         {icon}
         {title}
       </div>
-      <p className="mt-2 text-[12px] leading-relaxed text-ink-2">{children}</p>
+      <p className="mt-2.5 text-[11px] leading-[16px] text-muted">{children}</p>
       {link.to ? (
-        <Link to={link.to} onClick={onClick} className="mt-2 inline-flex items-center gap-1 text-[12px] font-semibold text-primary hover:underline">
-          {link.label} <ArrowRight size={12} />
+        <Link to={link.to} onClick={onClick} className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline">
+          {link.label} <ArrowRight size={11} />
         </Link>
       ) : (
-        <button onClick={onClick} className="mt-2 inline-flex items-center gap-1 text-[12px] font-semibold text-primary hover:underline">
-          {link.label} <ArrowRight size={12} />
+        <button onClick={onClick} className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline">
+          {link.label} <ArrowRight size={11} />
         </button>
       )}
     </div>
@@ -345,7 +344,7 @@ function Insight({ icon, title, children, link, onClick }: { icon: ReactNode; ti
 
 function Intervention({ id, to, what, who, when, whenCls, action, onAction }: { id: string; to?: string; what: string; who: string; when: string; whenCls: string; action: string; onAction: () => void }) {
   return (
-    <div className="grid grid-cols-2 items-center gap-x-4 gap-y-1 py-4 text-[13px] md:grid-cols-[100px_1fr_140px_180px_auto]">
+    <div className="grid grid-cols-2 items-center gap-x-4 gap-y-1 border-b-2 border-line-soft py-[14px] text-[11px] md:grid-cols-[90px_1fr_110px_150px_auto]">
       {to ? (
         <Link to={to} className="font-semibold text-primary hover:underline">
           {id}
@@ -354,9 +353,9 @@ function Intervention({ id, to, what, who, when, whenCls, action, onAction }: { 
         <span className="font-semibold text-primary">{id}</span>
       )}
       <span className="text-ink">{what}</span>
-      <span className="text-ink-2">{who}</span>
+      <span className="text-muted">{who}</span>
       <span className={whenCls}>{when}</span>
-      <Button variant="secondary" size="sm" onClick={onAction} className="col-span-2 justify-self-start md:col-span-1 md:justify-self-end">
+      <Button variant="secondary" size="sm" onClick={onAction} className="h-[34px] px-3 col-span-2 justify-self-start md:col-span-1 md:justify-self-end">
         {action}
       </Button>
     </div>
@@ -382,8 +381,8 @@ function MultiSelect({ label, all, value, onChange }: { label: string; all: stri
   }
   return (
     <div ref={ref} className="relative">
-      <button onClick={() => setOpen((o) => !o)} aria-expanded={open} className="flex h-9 items-center gap-1.5 rounded-lg border border-line bg-white px-3 text-[13px] font-semibold hover:border-primary/40">
-        <ChevronDown size={14} className="text-primary" />
+      <button onClick={() => setOpen((o) => !o)} aria-expanded={open} className="flex h-[34px] items-center gap-1.5 rounded-md border border-line bg-white px-3 text-[11px] font-semibold text-ink hover:border-primary/40">
+        <ChevronDown size={13} className="text-primary" />
         {label}
       </button>
       {open && (

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Bar, BarChart, CartesianGrid, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Bar, BarChart, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { ExcelGrid, type GridColumn } from '@/components/grid/ExcelGrid'
 import { Badge, type Tone } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -93,7 +93,7 @@ export default function AiDashboard() {
 
   const cols: GridColumn<Complaint>[] = [
     { key: 'id', header: 'Complaint ID', width: 120, render: (c) => <Link to={`${BASE}/${c.id}`} className="font-medium text-primary hover:underline">{c.id}</Link> },
-    { key: 'pred', header: 'Prediction / reason', width: 280, value: (c) => `${c.ai!.prediction} · ${c.ai!.reason}` },
+    { key: 'pred', header: 'Prediction / reason', width: 520, value: (c) => `${c.ai!.prediction} · ${c.ai!.reason}` },
     { key: 'score', header: 'Risk score', width: 110, sortable: true, value: (c) => c.ai!.score, render: (c) => `${c.ai!.score} / 100` },
     { key: 'conf', header: 'Confidence', width: 110, sortable: true, value: (c) => c.ai!.confidence, render: (c) => `${c.ai!.confidence}%` },
     { key: 'horizon', header: 'Horizon', width: 110, value: (c) => c.ai!.horizon },
@@ -123,7 +123,7 @@ export default function AiDashboard() {
         Predictions are not confirmed outcomes. Scores use complaint age, SLA, asset history and dependencies. Human approval is required for every action.
       </Banner>
 
-      <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+      <div className="mb-5 grid grid-cols-2 items-start gap-3 md:grid-cols-3 xl:grid-cols-6">
         <Kpi label="High AI risk" value={d.highRisk.length} caption={`Of ${d.open.length} open · Risk score ≥ 80`} />
         <Kpi label="Predicted SLA breaches" value={d.predBreach.length} tone="red" caption={`Next 24h · Excludes ${d.breached.length} already breached`} />
         <Kpi label="Predicted escalations" value={d.predEsc.length} caption={`Next 24h · Excludes ${d.escalated.length} active escalations`} />
@@ -137,15 +137,14 @@ export default function AiDashboard() {
           <p className="mb-2 flex items-center gap-1.5 text-[11px] text-primary">
             <span className="h-2 w-2 bg-primary" /> Accepted recommendations (%)
           </p>
-          <div className="h-[200px]">
+          <div className="h-[180px]">
             <ResponsiveContainer>
               <BarChart data={trend} margin={{ top: 18, right: 4, left: 4, bottom: 0 }}>
-                <CartesianGrid vertical={false} stroke={CHART.grid} />
-                <XAxis dataKey="day" tick={{ fontSize: 11, fill: CHART.muted }} axisLine={false} tickLine={false} />
+                <XAxis dataKey="day" tick={{ fontSize: 10, fill: CHART.muted }} axisLine={{ stroke: CHART.grid }} tickLine={false} />
                 <YAxis hide domain={[0, 100]} />
                 <Tooltip cursor={{ fill: '#f6f8fc' }} contentStyle={{ fontSize: 12, borderRadius: 8 }} formatter={(v) => `${v}%`} />
-                <Bar dataKey="Accepted recommendations (%)" fill={CHART.navy} radius={[3, 3, 0, 0]} maxBarSize={22}>
-                  <LabelList dataKey="Accepted recommendations (%)" position="top" style={{ fontSize: 11, fill: CHART.navy }} />
+                <Bar dataKey="Accepted recommendations (%)" fill={CHART.navy} radius={[3, 3, 0, 0]} maxBarSize={22} isAnimationActive={false}>
+                  <LabelList dataKey="Accepted recommendations (%)" position="top" style={{ fontSize: 10, fill: CHART.navy }} />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
@@ -178,7 +177,7 @@ export default function AiDashboard() {
       </GridCard>
 
       <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
-        <h2 className="mr-auto text-[17px] font-semibold">Preventive recommendations</h2>
+        <h2 className="mr-auto text-[15px] font-semibold">Preventive recommendations</h2>
         <span className="text-[12px] text-muted">
           {pending.length} awaiting review · {recs.filter((r) => r.highlighted).length} highlighted
         </span>
@@ -206,7 +205,7 @@ export default function AiDashboard() {
               </Badge>
               <span className="text-[12px] text-muted">{r.confidence}% confidence</span>
             </div>
-            <h4 className="mt-3 text-[15px] font-semibold text-ink">{r.title}</h4>
+            <h4 className="mt-3 text-[13px] font-semibold text-ink">{r.title}</h4>
             <p className="mt-1 text-[12px] text-primary">
               {r.complaintId ? (
                 <Link to={`${BASE}/${r.complaintId}`} className="hover:underline">
@@ -216,7 +215,7 @@ export default function AiDashboard() {
                 r.context
               )}
             </p>
-            <p className="mt-2 flex-1 text-[13px] leading-relaxed text-ink-2">{r.body}</p>
+            <p className="mt-2 flex-1 text-[12px] leading-[18px] text-muted">{r.body}</p>
             {r.status === 'Rejected' && r.rejectReason && <p className="mt-2 text-[12px] text-brand-red">Rejected by {r.decidedBy}: {r.rejectReason}</p>}
             <div className="mt-4 flex flex-wrap items-center gap-2">
               {r.status === 'Needs review' && (
@@ -248,7 +247,7 @@ export default function AiDashboard() {
       </div>
 
       <Panel title="Recurring patterns" sub="Observed patterns, not predictions">
-        <div className="flex flex-wrap gap-x-4 gap-y-2 text-[13px] text-ink">
+        <div className="flex flex-wrap gap-x-4 gap-y-2 text-[11px] text-ink">
           {d.patterns.map(([cat, cs]) => (
             <span key={cat} title={`ATMs: ${[...new Set(cs.map((c) => c.atmId))].join(', ')}`}>
               {RECURRING_LABEL[cat]}: {cs.length} repeat{cs.length > 1 ? 's' : ''} · {RECURRING_ADVICE[cat]}

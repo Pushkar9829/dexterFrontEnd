@@ -74,7 +74,7 @@ export default function DocumentDetail() {
         </div>
       </div>
 
-      <Card className="mb-5 p-5">
+      <Card className="mb-5 px-5 py-4">
         <div className="flex flex-wrap items-start gap-4">
           <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary">
             <FileText size={22} />
@@ -88,7 +88,7 @@ export default function DocumentDetail() {
               <StatusBadge status="Current version" />
             </div>
             <p className="mt-1 text-[13px] text-ink-2">
-              {site.franchiseName} <span className="text-muted">/</span> {site.location} <span className="text-muted">/</span> {phrase[doc.status]}
+              {site.franchiseName} <span className="mx-1.5 text-muted">/</span> {site.location} <span className="mx-1.5 text-muted">/</span> {phrase[doc.status]}
             </p>
           </div>
           <div className="sm:text-right">
@@ -107,11 +107,11 @@ export default function DocumentDetail() {
         </div>
       </Card>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_404px]">
         <div className="min-w-0 space-y-5">
           <Card>
             <Head title="Document metadata" sub="Site mapping, ownership and version control" />
-            <div className="space-y-5 px-6 py-6">
+            <div className="space-y-4 px-6 py-5">
               <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
                 <Fact label="Site ID">
                   <Link to={`/legal/${site.id}`} className="hover:text-primary hover:underline">
@@ -233,9 +233,9 @@ export default function DocumentDetail() {
 
 function Head({ title, sub }: { title: string; sub?: string }) {
   return (
-    <div className="border-b border-line px-6 py-5">
+    <div className="border-b border-line px-6 py-4">
       <h3 className="text-[17px] font-semibold text-ink">{title}</h3>
-      {sub && <p className="mt-1.5 text-[13px] text-muted">{sub}</p>}
+      {sub && <p className="mt-1 text-[13px] text-muted">{sub}</p>}
     </div>
   )
 }
@@ -356,10 +356,10 @@ function Workflow({ doc, site }: { doc: LegalDoc; site: LegalSite }) {
   ]
   return (
     <Card>
-      <div className="border-b border-line px-6 py-5">
+      <div className="border-b border-line px-6 py-4">
         <h3 className="text-[17px] font-semibold">Workflow status</h3>
       </div>
-      <ol className="space-y-5 px-6 py-5">
+      <ol className="space-y-4 px-6 py-5">
         {steps.map((st) => (
           <li key={st.title} className="flex gap-3">
             <span

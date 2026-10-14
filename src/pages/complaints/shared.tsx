@@ -25,7 +25,7 @@ export function SubNav() {
   const fixed = TABS.filter((t) => t.to !== '360').map((t) => t.to)
   const isActive = (to: string) => (to === '360' ? pathname.startsWith(`${BASE}/`) && !fixed.includes(pathname) : pathname === to)
   return (
-    <nav aria-label="Complaints sections" className="scroll-thin mb-5 overflow-x-auto rounded-xl border border-line bg-white px-4">
+    <nav aria-label="Complaints sections" className="scroll-thin mb-[18px] overflow-x-auto rounded-xl border border-line bg-white px-4">
       <div className="flex min-w-max gap-6">
         {TABS.map((t) => {
           const to = t.to === '360' ? `${BASE}/${getLastOpened()}` : t.to
@@ -36,7 +36,7 @@ export function SubNav() {
               to={to}
               aria-current={active ? 'page' : undefined}
               className={cn(
-                'border-b-2 py-3.5 text-[13px] whitespace-nowrap transition-colors',
+                'border-b-2 py-3 text-[13px] whitespace-nowrap transition-colors',
                 active ? 'border-primary font-semibold text-primary' : 'border-transparent text-ink-2 hover:text-primary',
               )}
             >
@@ -58,7 +58,7 @@ export function ComplaintsShell({
 }: {
   title: string
   sub: string
-  onExport: () => void
+  onExport?: () => void
   children: ReactNode
   footer?: boolean
 }) {
@@ -69,14 +69,16 @@ export function ComplaintsShell({
         title={title}
         sub={sub}
         actions={
-          <>
+          onExport && (
+            <>
             <Button variant="secondary" icon={<Download size={15} />} onClick={onExport}>
               Export
             </Button>
             <Button icon={<Plus size={15} />} onClick={() => nav(`${BASE}/new`)}>
               Create complaint
             </Button>
-          </>
+            </>
+          )
         }
       />
       <SubNav />
@@ -111,10 +113,10 @@ export function useNow(intervalMs = 30_000) {
 export function Kpi({ label, value, caption, tone }: { label: string; value: ReactNode; caption?: ReactNode; tone?: 'red' | 'amber' | 'green' }) {
   const color = tone === 'red' ? 'text-brand-red' : tone === 'amber' ? 'text-amber-600' : tone === 'green' ? 'text-emerald-700' : 'text-ink'
   return (
-    <div className="min-w-0 rounded-xl border border-line bg-white p-4">
-      <div className="text-[12px] text-muted">{label}</div>
-      <div className={cn('mt-1.5 text-[26px] leading-tight font-semibold', color)}>{value}</div>
-      {caption && <div className={cn('mt-1.5 text-[11px] leading-snug', tone === 'red' ? 'text-brand-red' : 'text-muted')}>{caption}</div>}
+    <div className="min-w-0 rounded-xl border border-line bg-white px-4 pt-4 pb-3.5">
+      <div className="text-[11px] text-muted">{label}</div>
+      <div className={cn('mt-1 text-[28px] leading-[36px] font-semibold', color)}>{value}</div>
+      {caption && <div className={cn('mt-1 text-[10.5px] leading-[15px]', tone === 'red' ? 'text-brand-red' : 'text-muted')}>{caption}</div>}
     </div>
   )
 }
@@ -137,12 +139,12 @@ export function Panel({
   icon?: ReactNode
 }) {
   return (
-    <section id={id} className={cn('min-w-0 scroll-mt-4 rounded-xl border border-line bg-white p-4 sm:p-5', className)}>
-      <div className="mb-3 flex flex-wrap items-start gap-x-3 gap-y-1">
+    <section id={id} className={cn('min-w-0 scroll-mt-4 rounded-xl border border-line bg-white p-4', className)}>
+      <div className="panel-head mb-3 flex flex-wrap items-start gap-x-3 gap-y-1">
         {icon && <span className="mt-0.5 text-primary">{icon}</span>}
         <div className="min-w-0 flex-1">
-          <h3 className="text-[15px] font-semibold text-ink">{title}</h3>
-          {sub && <p className="mt-1 text-[12px] text-muted">{sub}</p>}
+          <h3 className="text-[14px] font-semibold text-ink">{title}</h3>
+          {sub && <p className="mt-2.5 text-[11px] text-muted">{sub}</p>}
         </div>
         {action && <div className="flex shrink-0 flex-wrap items-center gap-3">{action}</div>}
       </div>
@@ -152,7 +154,7 @@ export function Panel({
 }
 
 export function LinkBtn({ onClick, children, to }: { onClick?: () => void; children: ReactNode; to?: string }) {
-  const cls = 'inline-flex items-center gap-1 text-[12px] font-medium text-primary hover:underline'
+  const cls = 'inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline'
   if (to)
     return (
       <Link to={to} className={cls}>
@@ -175,7 +177,7 @@ export const ViewAll = ({ to, onClick, label = 'View all' }: { to?: string; onCl
 /** "Label · value" detail row (design style). */
 export function KV({ k, children }: { k: string; children: ReactNode }) {
   return (
-    <div className="py-1 text-[13px] leading-relaxed text-ink-2">
+    <div className="py-1 text-[12px] leading-[17px] text-ink-2">
       <span className="text-ink">{k}</span>
       <span className="mx-1.5 text-muted">·</span>
       <span>{children}</span>
@@ -186,15 +188,15 @@ export function KV({ k, children }: { k: string; children: ReactNode }) {
 export function BarRow({ label, value, max, color = 'bg-primary', suffix }: { label: string; value: number; max: number; color?: string; suffix?: string }) {
   return (
     <div className="mb-3">
-      <div className="mb-1.5 flex justify-between gap-2 text-[12px] text-ink">
+      <div className="mb-1.5 flex justify-between gap-2 text-[11px] leading-[16px] text-ink">
         <span className="truncate">{label}</span>
         <span className="shrink-0 font-medium">
           {value}
           {suffix}
         </span>
       </div>
-      <div className="h-1.5 rounded-full bg-primary-soft">
-        <div className={cn('h-1.5 rounded-full', color)} style={{ width: `${max ? Math.max(2, (value / max) * 100) : 0}%` }} />
+      <div className="h-[7px] rounded-full bg-line-soft">
+        <div className={cn('h-[7px] rounded-full', color)} style={{ width: `${max ? Math.max(2, (value / max) * 100) : 0}%` }} />
       </div>
     </div>
   )
@@ -242,7 +244,7 @@ export function Dropdown({ label, children, width = 260 }: { label: ReactNode; c
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className="flex h-10 items-center gap-2 rounded-lg border border-line bg-white px-4 text-[13px] font-semibold text-ink hover:border-primary/40"
+        className="flex h-[38px] items-center gap-2 rounded-lg border border-line bg-white px-4 text-[12px] font-semibold text-ink hover:border-primary/40"
       >
         {label}
         <ChevronDown size={14} className="text-muted" />
@@ -276,8 +278,8 @@ export function MultiCheck({ options, value, onChange, allLabel }: { options: st
 /** Simple timeline list item used in Complaint 360 / dashboards. */
 export function Entry({ title, status, meta, tone, action }: { title: ReactNode; status?: string; meta?: ReactNode; tone?: Tone; action?: ReactNode }) {
   return (
-    <div className="border-b border-line-soft py-2.5 last:border-0">
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-ink">
+    <div className="group py-[9px] [.panel-head+&]:pt-0">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] leading-5 text-ink">
         <span className="min-w-0">{title}</span>
         {status && (
           <>
@@ -285,19 +287,19 @@ export function Entry({ title, status, meta, tone, action }: { title: ReactNode;
             <span data-tone={tone ?? 'gray'}>{status}</span>
           </>
         )}
-        {action && <span className="ml-auto">{action}</span>}
+        {action && <span className="ml-auto transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 [@media(hover:hover)]:opacity-0">{action}</span>}
       </div>
-      {meta && <div className="mt-0.5 text-[12px] text-muted">{meta}</div>}
+      {meta && <div className="text-[12px] leading-5 text-ink-2">{meta}</div>}
     </div>
   )
 }
 
 export function Banner({ tone = 'red', lead, children, action }: { tone?: 'red' | 'amber' | 'blue'; lead: ReactNode; children: ReactNode; action?: ReactNode }) {
-  const box = tone === 'red' ? 'border-red-200 bg-red-50' : tone === 'amber' ? 'border-amber-200 bg-amber-50' : 'border-blue-200 bg-primary-soft'
+  const box = tone === 'red' ? 'border-red-200 bg-red-50' : tone === 'amber' ? 'border-amber-100 bg-[#fdf4e3]' : 'border-blue-200 bg-primary-soft'
   const leadCls = tone === 'red' ? 'text-brand-red' : tone === 'amber' ? 'text-amber-700' : 'text-primary'
   return (
-    <div className={cn('mb-5 flex flex-wrap items-center gap-x-5 gap-y-2 rounded-xl border px-5 py-3.5 text-[13px]', box)}>
-      <span className={cn('font-semibold', leadCls)}>{lead}</span>
+    <div className={cn('mb-5 flex flex-wrap items-center gap-x-5 gap-y-2 rounded-xl border px-5 py-3.5 text-[12px]', box)}>
+      <span className={cn('font-medium', leadCls)}>{lead}</span>
       <span className="min-w-0 flex-1 text-ink-2">{children}</span>
       {action}
     </div>
@@ -326,10 +328,10 @@ export function GridCard({
 }) {
   return (
     <section id={id} className={cn('mb-5 scroll-mt-4 overflow-hidden rounded-xl border border-line bg-white', className)}>
-      <div className="flex flex-wrap items-center gap-3 px-4 py-4 sm:px-5">
+      <div className="flex flex-wrap items-center gap-3 px-4 py-3.5">
         <Table2 size={18} className="text-primary" />
-        <h3 className="text-[15px] font-semibold">{title}</h3>
-        {sub && <span className="text-[12px] text-muted">{sub}</span>}
+        <h3 className="text-[14px] font-semibold">{title}</h3>
+        {sub && <span className="text-[11px] text-muted">{sub}</span>}
         <div className="ml-auto flex items-center gap-4">
           {onExport && (
             <button type="button" aria-label={`Export ${typeof title === 'string' ? title.toLowerCase() : 'records'}`} onClick={onExport} className="text-muted hover:text-primary">
@@ -340,7 +342,7 @@ export function GridCard({
         </div>
       </div>
       {children}
-      {footer && <div className="border-t border-line-soft px-4 py-3 text-[12px] text-muted sm:px-5">{footer}</div>}
+      {footer && <div className="border-t border-line-soft px-4 py-3.5 text-[11px] text-muted">{footer}</div>}
     </section>
   )
 }

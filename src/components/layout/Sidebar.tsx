@@ -16,12 +16,12 @@ function SubItem({ item, depth }: { item: NavItem; depth: number }) {
         <button
           onClick={() => setOpen((o) => !o)}
           className={cn(
-            'flex min-h-8 w-full items-center justify-between rounded-md py-1.5 pr-3 text-left text-[13px] text-white/75 hover:bg-white/5 hover:text-white',
+            'flex min-h-8 w-full items-center justify-between rounded-md py-1 pr-3 text-left text-[12px] text-white/75 hover:bg-white/5 hover:text-white',
             pad,
           )}
         >
           <span>{item.label}</span>
-          {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+          {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
         </button>
         {open && item.children.map((c) => <SubItem key={c.label} item={c} depth={depth + 1} />)}
       </div>
@@ -34,7 +34,7 @@ function SubItem({ item, depth }: { item: NavItem; depth: number }) {
       end
       className={() =>
         cn(
-          'flex min-h-8 items-center justify-between rounded-md py-1.5 pr-3 text-[13px] transition-colors',
+          'flex min-h-8 items-center justify-between rounded-md py-1 pr-3 text-[12px] transition-colors',
           pad,
           activeRoute(pathname) === item.to ? 'bg-navy-700 font-semibold text-white' : 'text-white/75 hover:bg-white/5 hover:text-white',
         )
@@ -44,7 +44,7 @@ function SubItem({ item, depth }: { item: NavItem; depth: number }) {
       {item.badge != null && (
         <span
           className={cn(
-            'ml-2 rounded px-1.5 py-0.5 text-[11px] font-medium',
+            'ml-2 rounded px-1.5 py-0.5 text-[10px] font-medium',
             activeRoute(pathname) === item.to ? 'bg-white/10 text-white' : 'text-white/70',
           )}
         >
@@ -78,37 +78,37 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
         </div>
 
         <div className="px-4">
-          <button className="flex h-11 w-full items-center gap-2.5 rounded-lg border border-white/15 bg-navy-800 px-3 text-[13px] text-white">
-            <Building2 size={16} className="text-white/80" />
+          <button className="flex h-11 w-full items-center gap-2.5 rounded-lg border border-white/15 bg-navy-800 px-3 text-[12px] text-white">
+            <Building2 size={15} className="text-white/80" />
             <span className="flex-1 text-left">India operations</span>
             <ChevronsUpDown size={14} className="text-white/70" />
           </button>
         </div>
 
         <nav className="scroll-dark mt-6 flex-1 overflow-y-auto px-3 pb-4">
-          <div className="pb-2 text-[10px] font-semibold tracking-wider text-white/60">WORKSPACE</div>
+          <div className="pb-1 text-[9px] font-medium tracking-wide text-white/80">WORKSPACE</div>
           {NAV.map((g) => {
             const isOpen = expanded === g.label
             const active = containsPath(g, pathname)
             return (
-              <div key={g.label} className="mb-0.5">
+              <div key={g.label}>
                 <button
                   onClick={() => setExpanded(isOpen ? null : g.label)}
                   className={cn(
-                    'flex w-full items-center gap-3 rounded-md px-2.5 py-3 text-[14px] font-semibold hover:bg-white/5',
+                    'flex h-[42px] w-full items-center gap-3 rounded-md px-2.5 text-[13px] font-semibold hover:bg-white/5',
                     active ? 'text-white' : 'text-white/85',
                   )}
                 >
-                  <g.icon size={18} strokeWidth={1.8} />
+                  <g.icon size={17} strokeWidth={1.8} />
                   <span className="flex-1 text-left">{g.label}</span>
                   {isOpen ? (
                     <ChevronDown size={20} strokeWidth={1.4} className="text-white/80" />
                   ) : (
-                    <ChevronRight size={16} className="text-white/70" />
+                    <ChevronRight size={14} className="text-white/70" />
                   )}
                 </button>
                 {isOpen && (
-                  <div className="space-y-1 pb-1.5">
+                  <div className="pb-1">
                     {g.children?.map((c) => <SubItem key={c.label} item={c} depth={1} />)}
                   </div>
                 )}
@@ -117,11 +117,11 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
           })}
         </nav>
 
-        <div className="flex items-center gap-3 border-t border-white/10 px-5 py-4">
-          <CircleHelp size={18} className="text-white/80" />
-          <div className="leading-tight">
-            <div className="text-[13px] font-medium">Help &amp; support</div>
-            <div className="text-[11px] text-white/60">Operator workspace · v2.4</div>
+        <div className="flex items-center gap-3 border-t border-white/10 px-5 py-5">
+          <CircleHelp size={16} className="text-white/80" />
+          <div className="leading-snug">
+            <div className="text-[12px] font-medium">Help &amp; support</div>
+            <div className="text-[10px] text-white/60">Operator workspace · v2.4</div>
           </div>
         </div>
       </aside>

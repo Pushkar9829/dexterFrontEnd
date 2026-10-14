@@ -74,10 +74,10 @@ export default function Dossier() {
       <Link to="/franchise/master-data" className="mb-3 inline-flex items-center gap-1.5 text-[13px] font-medium text-primary hover:underline print:hidden">
         <ArrowLeft size={15} /> Back to Master Data
       </Link>
-      <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
+      <div className="mb-[15px] flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-[28px] font-semibold tracking-tight">WLA Franchise Application Form</h1>
-          <p className="mt-1 text-[14px] text-muted">
+          <h1 className="-mt-1 text-[28.5px] font-semibold tracking-tight">WLA Franchise Application Form</h1>
+          <p className="mt-0.5 text-[13px] leading-4 text-muted">
             Franchise dossier / {SECTIONS[section - 1]} · Section {section} of 6
           </p>
         </div>
@@ -105,7 +105,7 @@ export default function Dossier() {
       </div>
 
       {/* entity card */}
-      <section className="mb-5 flex flex-wrap items-center gap-4 rounded-xl border border-line bg-white px-5 py-5">
+      <section className="mb-[18px] flex flex-wrap items-center gap-4 rounded-xl border border-line bg-white px-5 py-[17px]">
         <span className="grid h-[52px] w-[52px] place-items-center rounded-lg bg-primary-soft text-[18px] font-semibold text-primary">{initials}</span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2.5">
@@ -134,7 +134,7 @@ export default function Dossier() {
               setErrors({})
             }}
             className={cn(
-              'flex-1 border-b-2 px-4 py-3.5 text-[12px] whitespace-nowrap',
+              'flex-1 border-b-2 px-4 py-4 text-[12px] whitespace-nowrap',
               section === i + 1 ? 'border-primary bg-primary-soft/60 font-semibold text-primary' : 'border-transparent text-ink-2 hover:bg-surface',
             )}
           >

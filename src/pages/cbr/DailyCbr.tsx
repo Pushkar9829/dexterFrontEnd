@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Link, Navigate, useParams } from 'react-router-dom'
-import { ArrowLeft, ChevronLeft, ChevronRight, CircleX, Info, Download, Pencil, Printer, Search, Table2 } from 'lucide-react'
+import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom'
+import { ArrowLeft, ChevronLeft, ChevronRight, CircleX, Columns3, Info, Download, ListFilter, Pencil, Printer, Search, Table2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { toast } from '@/components/ui/Toast'
 import { downloadCsv } from '@/lib/export'
@@ -22,36 +22,55 @@ const PRINT_CSS = `
 
 type MetaKey = 'cra' | 'location' | 'bank' | 'indentNo' | 'eodTime'
 
-function GroupTable({ groups, d, editing, onQty, denoFilter }: { groups: GroupKey[]; d: DailyCbr; editing: boolean; onQty: (g: GroupKey, i: number, v: string) => void; denoFilter: string }) {
-  const idxs = DENOS.map((_, i) => i).filter((i) => !denoFilter || String(DENOS[i]).includes(denoFilter))
+function GroupTable({
+  groups,
+  d,
+  editing,
+  onQty,
+  denoFilter,
+  hiddenDenos,
+}: {
+  groups: GroupKey[]
+  d: DailyCbr
+  editing: boolean
+  onQty: (g: GroupKey, i: number, v: string) => void
+  denoFilter: string
+  hiddenDenos: Set<number>
+}) {
+  const idxs = DENOS.map((_, i) => i).filter((i) => !hiddenDenos.has(DENOS[i]) && (!denoFilter || String(DENOS[i]).includes(denoFilter)))
+  // Figma: fixed 140px Denomination column, every balance group the same width (Qty | Amount halves), 34px rows.
   return (
     <div className="scroll-thin overflow-x-auto">
-      <table className="w-full min-w-[640px] border-collapse text-[13px]">
+      <table className="w-full min-w-[640px] table-fixed border-collapse text-[12px]">
+        <colgroup>
+          <col className="w-[140px]" />
+          {groups.map((g) => [<col key={`${g}q`} />, <col key={`${g}a`} />])}
+        </colgroup>
         <thead>
           <tr className="border-b border-line">
-            <th className="w-28 border-r border-line px-3 py-3 text-left font-semibold">Denomination</th>
+            <th className="h-[50px] border-r border-line px-2 text-left text-[11px] font-semibold">Denomination</th>
             {groups.map((g) => (
-              <th key={g} colSpan={2} className="border-r border-line px-3 py-3 text-center font-semibold last:border-r-0">
+              <th key={g} colSpan={2} className="border-r border-line px-2 text-center text-[11px] font-semibold last:border-r-0">
                 {GROUPS[g]}
               </th>
             ))}
           </tr>
-          <tr className="border-b border-line bg-surface text-[12px] text-ink-2">
-            <th className="border-r border-line px-3 py-2 text-left font-medium">Deno</th>
+          <tr className="border-b border-line bg-surface text-[11px] text-ink-2">
+            <th className="border-r border-line px-2 py-2.5 text-left font-normal">Deno</th>
             {groups.map((g) => [
-              <th key={`${g}q`} className="border-r border-line px-3 py-2 text-right font-medium">Qty</th>,
-              <th key={`${g}a`} className="border-r border-line px-3 py-2 text-right font-medium last:border-r-0">Amount</th>,
+              <th key={`${g}q`} className="border-r border-line px-2 py-2.5 text-right font-normal">Qty</th>,
+              <th key={`${g}a`} className="border-r border-line px-2 py-2.5 text-right font-normal last:border-r-0">Amount</th>,
             ])}
           </tr>
         </thead>
         <tbody>
           {idxs.map((i) => (
             <tr key={DENOS[i]} className="border-b border-line-soft">
-              <td className="border-r border-line px-3 py-2.5 font-semibold">{DENOS[i]}</td>
+              <td className="border-r border-line px-2 py-2 font-semibold">{DENOS[i]}</td>
               {groups.map((g) => {
                 const q = d.groups[g][i]
                 return [
-                  <td key={`${g}q`} className={cn('border-r border-line-soft px-3 text-right', editing ? 'bg-blue-50/40 py-1' : 'py-2.5')}>
+                  <td key={`${g}q`} className={cn('border-r border-line-soft px-2 text-right', editing ? 'bg-blue-50/40 py-[3px]' : 'py-2')}>
                     {editing ? (
                       <input
                         aria-label={`${GROUPS[g]} ${DENOS[i]} qty`}
@@ -59,7 +78,7 @@ function GroupTable({ groups, d, editing, onQty, denoFilter }: { groups: GroupKe
                         value={q == null ? '' : String(q)}
                         placeholder="—"
                         onChange={(e) => onQty(g, i, e.target.value)}
-                        className="h-8 w-20 rounded border border-line bg-white px-2 text-right outline-none focus:border-primary"
+                        className="h-7 w-full max-w-24 rounded border border-line bg-white px-2 text-right outline-none focus:border-primary"
                       />
                     ) : q == null ? (
                       <span className="text-muted">—</span>
@@ -67,7 +86,7 @@ function GroupTable({ groups, d, editing, onQty, denoFilter }: { groups: GroupKe
                       q.toLocaleString('en-IN')
                     )}
                   </td>,
-                  <td key={`${g}a`} className="border-r border-line-soft px-3 py-2.5 text-right last:border-r-0">
+                  <td key={`${g}a`} className="border-r border-line-soft px-2 py-2 text-right last:border-r-0">
                     {q == null ? <span className="text-muted">—</span> : <Amt v={q * DENOS[i]} />}
                   </td>,
                 ]
@@ -75,12 +94,12 @@ function GroupTable({ groups, d, editing, onQty, denoFilter }: { groups: GroupKe
             </tr>
           ))}
           <tr className="bg-primary-soft/60 font-semibold">
-            <td className="border-r border-line px-3 py-2.5">Total</td>
+            <td className="border-r border-line px-2 py-2">Total</td>
             {groups.map((g) => [
-              <td key={`${g}q`} className="border-r border-line-soft px-3 py-2.5 text-right">
+              <td key={`${g}q`} className="border-r border-line-soft px-2 py-2 text-right">
                 <Amt v={notesOf(d.groups[g])} />
               </td>,
-              <td key={`${g}a`} className="border-r border-line-soft px-3 py-2.5 text-right last:border-r-0">
+              <td key={`${g}a`} className="border-r border-line-soft px-2 py-2 text-right last:border-r-0">
                 {amountOf(d.groups[g]).toLocaleString('en-IN')}
               </td>,
             ])}
@@ -93,11 +112,23 @@ function GroupTable({ groups, d, editing, onQty, denoFilter }: { groups: GroupKe
 
 export default function DailyCbrPage() {
   const { recordId = '' } = useParams()
+  const [params] = useSearchParams()
   dailyStore.use()
   const saved = getDaily(recordId)
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState<DailyCbr | null>(null)
+  // ?edit=1 opens the record straight in edit mode (Figma 208:11219)
+  const [editing, setEditing] = useState(() => params.get('edit') === '1' && !!saved)
+  const [draft, setDraft] = useState<DailyCbr | null>(() => (params.get('edit') === '1' && saved ? saved : null))
   const [deno, setDeno] = useState('')
+  const [hiddenDenos, setHiddenDenos] = useState<Set<number>>(new Set())
+  const [hiddenGroups, setHiddenGroups] = useState<Set<GroupKey>>(new Set())
+  const [panel, setPanel] = useState<'filters' | 'columns' | null>(null)
+  const toggle = <T,>(set: (f: (s: Set<T>) => Set<T>) => void, v: T) =>
+    set((s) => {
+      const n = new Set(s)
+      if (n.has(v)) n.delete(v)
+      else n.add(v)
+      return n
+    })
   if (!saved) return <Navigate to="/cbr/consolidated" replace />
   const site = getSite(saved.siteId)!
   const d = editing && draft ? draft : saved
@@ -242,7 +273,7 @@ export default function DailyCbrPage() {
         </div>
 
         {meta.map((row, ri) => (
-          <div key={ri} className={cn('grid grid-cols-2 gap-4 border-t border-line bg-surface/50 px-5 py-3', ri === 0 ? 'md:grid-cols-4' : 'md:grid-cols-5')}>
+          <div key={ri} className={cn('grid grid-cols-2 gap-4 border-t border-line px-5 py-3', ri === 0 ? 'bg-surface/60 md:grid-cols-4' : 'bg-white md:grid-cols-5')}>
             {row.map((m) => (
               <div key={m.label} className="min-w-0">
                 <div className="text-[11px] text-muted">{m.label}</div>
@@ -262,38 +293,73 @@ export default function DailyCbrPage() {
           </div>
         ))}
 
-        <div className="no-print flex flex-wrap items-center gap-3 border-t border-line px-5 py-3">
-          <Table2 size={17} className="text-primary" />
-          <span className="text-[14px] font-semibold">Daily CBR register</span>
-          <span className="text-[12px] text-muted">1 ATM · 5 denominations</span>
-          <label className="flex h-9 w-full items-center gap-2 rounded-lg border border-line px-3 text-[13px] text-muted sm:w-[220px]">
+        <div className="no-print relative flex flex-wrap items-center gap-3 border-t border-line px-4 py-1.5">
+          <Table2 size={16} className="text-primary" />
+          <span className="text-[13px] font-semibold">Daily CBR register</span>
+          <span className="text-[11px] text-muted">1 ATM · 5 denominations</span>
+          <label className="flex h-9 w-full items-center gap-2 rounded-lg border border-line px-3 text-[12px] text-muted sm:w-[224px]">
             <Search size={15} />
             <input value={deno} onChange={(e) => setDeno(e.target.value.replace(/\D/g, ''))} placeholder="Search denomination" className="w-full bg-transparent text-ink outline-none placeholder:text-muted" />
           </label>
-          <Button variant="secondary" size="sm" className="ml-auto" icon={<Download size={14} />} onClick={exportCsv}>
-            Export .xlsx
-          </Button>
+          <div className="ml-auto flex gap-2">
+            <Button variant="secondary" size="sm" icon={<ListFilter size={14} />} onClick={() => setPanel(panel === 'filters' ? null : 'filters')}>
+              Filters{hiddenDenos.size > 0 && <span className="ml-1 rounded bg-primary px-1.5 text-[10px] text-white">{hiddenDenos.size}</span>}
+            </Button>
+            <Button variant="secondary" size="sm" icon={<Columns3 size={14} />} onClick={() => setPanel(panel === 'columns' ? null : 'columns')}>
+              Columns
+            </Button>
+            <Button variant="secondary" size="sm" icon={<Download size={14} />} onClick={exportCsv}>
+              Export .xlsx
+            </Button>
+          </div>
+          {panel && (
+            <div className="absolute top-full right-4 z-30 mt-1 w-64 rounded-lg border border-line bg-white p-3 shadow-lg">
+              <div className="mb-1.5 text-[11px] text-muted">{panel === 'filters' ? 'Show denominations' : 'Show balance groups'}</div>
+              {panel === 'filters'
+                ? DENOS.map((dn) => (
+                    <label key={dn} className="flex items-center gap-2 rounded px-1.5 py-1 text-[12px] hover:bg-surface">
+                      <input type="checkbox" checked={!hiddenDenos.has(dn)} onChange={() => toggle(setHiddenDenos, dn)} />₹ {dn}
+                    </label>
+                  ))
+                : (Object.keys(GROUPS) as GroupKey[]).map((g) => (
+                    <label key={g} className="flex items-center gap-2 rounded px-1.5 py-1 text-[12px] hover:bg-surface">
+                      <input type="checkbox" checked={!hiddenGroups.has(g)} onChange={() => toggle(setHiddenGroups, g)} />
+                      {GROUPS[g]}
+                    </label>
+                  ))}
+              <div className="mt-2 flex justify-between">
+                <button type="button" className="text-[12px] text-muted" onClick={() => (panel === 'filters' ? setHiddenDenos(new Set()) : setHiddenGroups(new Set()))}>
+                  Show all
+                </button>
+                <button type="button" className="text-[12px] font-semibold text-primary" onClick={() => setPanel(null)}>
+                  Done
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {BANDS.slice(0, 2).map((b) => (
           <div key={b.title}>
-            <div className="flex flex-wrap justify-between gap-2 border-t border-line bg-primary-soft/60 px-5 py-2 text-[12px]">
+            <div className="flex flex-wrap justify-between gap-2 border-t border-line bg-primary-soft/60 px-4 py-2 text-[11px]">
               <span className="font-semibold text-primary">{b.title}</span>
               <span className="text-muted">Same ATM · Sr. No. {d.srNo} · Five denominations + Total</span>
             </div>
-            <GroupTable groups={b.groups} d={d} editing={editing} onQty={onQty} denoFilter={deno} />
+            {b.groups.some((g) => !hiddenGroups.has(g)) && (
+              <GroupTable groups={b.groups.filter((g) => !hiddenGroups.has(g))} d={d} editing={editing} onQty={onQty} denoFilter={deno} hiddenDenos={hiddenDenos} />
+            )}
           </div>
         ))}
 
         <div className="grid border-t border-line lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
           <div className="border-line lg:border-r">
-            <div className="bg-primary-soft/60 px-5 py-2 text-[12px] font-semibold text-primary">Switch counter</div>
+            <div className="bg-primary-soft/60 px-4 py-2 text-[11px] font-semibold text-primary">Switch counter</div>
             <div className="[&_table]:min-w-0">
-              <GroupTable groups={['switch']} d={d} editing={editing} onQty={onQty} denoFilter={deno} />
+              {!hiddenGroups.has('switch') && <GroupTable groups={['switch']} d={d} editing={editing} onQty={onQty} denoFilter={deno} hiddenDenos={hiddenDenos} />}
             </div>
           </div>
           <div>
-            <div className="bg-primary-soft/60 px-5 py-2 text-[12px] font-semibold text-primary">Remarks</div>
+            <div className="bg-primary-soft/60 px-4 py-2 text-[11px] font-semibold text-primary">Remarks</div>
             <div className="p-5 text-[13px]">
               {editing ? (
                 <textarea
@@ -323,7 +389,7 @@ export default function DailyCbrPage() {
             </div>
           </div>
         </div>
-        <div className="flex flex-wrap justify-between gap-2 border-t border-line px-5 py-2.5 text-[12px] text-muted">
+        <div className="flex flex-wrap justify-between gap-2 border-t border-line bg-surface/60 px-4 py-2.5 text-[11px] text-muted">
           <span>1 ATM group · 5 denominations + Total · All fields shown in three bands</span>
           <span className="text-primary">Totals calculated from denomination quantities</span>
         </div>

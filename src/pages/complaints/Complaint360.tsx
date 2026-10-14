@@ -162,7 +162,7 @@ export default function Complaint360() {
 
   const taskCols: GridColumn<CTask>[] = [
     { key: 'id', header: 'Task ID', width: 100, render: (t) => <Link to={`/tasks/my/${t.id}`} className="font-medium text-primary hover:underline">{t.id}</Link> },
-    { key: 'title', header: 'Task / next action', width: 260 },
+    { key: 'title', header: 'Task / next action', width: 420 },
     { key: 'owner', header: 'Owner', width: 130 },
     { key: 'due', header: 'Due date', width: 120, value: (t) => fmtDT(t.due) },
     { key: 'dependency', header: 'Dependency', width: 120 },
@@ -172,10 +172,10 @@ export default function Complaint360() {
       width: 150,
       value: (t) => taskStatus(t, now),
       render: (t) => (
-        <span className="flex items-center gap-2">
+        <span className="group/cell flex items-center gap-2">
           {taskStatus(t, now)}
           {!t.done && (
-            <button type="button" onClick={() => markTask(t)} className="ml-auto text-[11px] font-medium text-primary hover:underline">
+            <button type="button" onClick={() => markTask(t)} className="ml-auto text-[11px] font-medium text-primary group-hover/cell:opacity-100 hover:underline focus:opacity-100 [@media(hover:hover)]:opacity-0">
               Mark done
             </button>
           )}
@@ -302,10 +302,10 @@ export default function Complaint360() {
           </KV>
         </Panel>
         <Panel title="Issue details" action={<LinkBtn onClick={() => setModal('edit')}>Edit details</LinkBtn>}>
-          <p className="text-[13px] font-semibold text-ink">
+          <p className="text-[12px] font-semibold text-ink">
             {c.category} / {c.subcategory}
           </p>
-          <p className="mt-2 mb-3 text-[13px] leading-relaxed text-ink-2">{c.details}</p>
+          <p className="mt-2 mb-3 text-[12px] leading-[18px] text-ink-2">{c.details}</p>
           <KV k="Pending since">
             {open ? `${pendingDays(c.receivedAt, now)} day${pendingDays(c.receivedAt, now) === 1 ? '' : 's'} · Calculated from receiving date` : `Closed ${fmtDT(c.closedAt)}`}
           </KV>
@@ -323,7 +323,7 @@ export default function Complaint360() {
         >
           <div className="grid gap-5 md:grid-cols-[1fr_300px]">
             <div>
-              <p className="text-[13px] leading-relaxed text-ink-2">{c.ai.summary}</p>
+              <p className="text-[12px] leading-[18px] text-ink-2">{c.ai.summary}</p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <Badge tone="blue" dot={false}>
                   {c.ai.faultLabel} · {c.ai.faultConfidence}% confidence
@@ -340,7 +340,7 @@ export default function Complaint360() {
               </div>
             </div>
             <div>
-              <p className="text-[13px] font-semibold text-ink">Recommended next action</p>
+              <p className="text-[12px] font-semibold text-ink">Recommended next action</p>
               <p className="mt-1 text-[12px] leading-relaxed text-ink-2">{c.ai.nextAction}</p>
               {c.ai.acceptedTask ? (
                 <p className="mt-3 text-[12px] text-emerald-700">

@@ -14,7 +14,7 @@ const EMPTY: F = { loi: '', atm: '', bank: '' }
 
 const mono = (v: string) => (v ? <span className="font-mono text-[12.5px]">{v}</span> : <span className="text-muted">—</span>)
 
-/** 11 source columns wrapped into two bands (Figma 98:9841 shows band A–F). */
+/** 11 source columns wrapped into two bands; band A–F follows Figma 98:9841 (Status is column F). */
 const BANDS: BandDef<PayoutRecord>[] = [
   {
     title: 'Identifiers, PAN & settlement account name',
@@ -24,17 +24,17 @@ const BANDS: BandDef<PayoutRecord>[] = [
       { key: 'atmId', header: 'ATM ID', width: 130, filterable: true },
       { key: 'panName', header: 'Pan name', width: 240, filterable: true },
       { key: 'panNo', header: 'PAN NO', width: 120, render: (p) => mono(p.panNo) },
-      { key: 'accName', header: 'Acc. Name (Settlement)', width: 240 },
+      { key: 'status', header: 'Status', width: 170, render: (p) => (p.status ? <Badge tone={payoutTone(p.status)}>{p.status}</Badge> : <span className="text-muted">—</span>) },
     ],
   },
   {
-    title: 'Settlement account, bank, email subject & status',
+    title: 'Settlement account, bank & email subject',
     columns: [
+      { key: 'accName', header: 'Acc. Name (Settlement)', width: 240 },
       { key: 'accNo', header: 'Acc. No. (Settlement)', width: 170, value: (p) => maskAcc(p.accNo), render: (p) => mono(maskAcc(p.accNo)) },
       { key: 'bankName', header: 'Bank Name', width: 170, filterable: true },
       { key: 'ifsc', header: 'IFSC (Settlement)', width: 140, render: (p) => mono(p.ifsc) },
       { key: 'emailSubject', header: 'Email Subject', width: 320 },
-      { key: 'status', header: 'Status', width: 170, filterable: true, render: (p) => (p.status ? <Badge tone={payoutTone(p.status)}>{p.status}</Badge> : <span className="text-muted">—</span>) },
     ],
   },
 ]
@@ -80,7 +80,7 @@ export default function PayoutList() {
                 value={draft[k]}
                 onChange={(e) => setDraft((d) => ({ ...d, [k]: e.target.value }))}
                 placeholder={ph}
-                className="h-10 w-full rounded-md border border-line px-3 text-[13px] outline-none focus:border-primary"
+                className="h-9 w-full rounded-md border border-line bg-white px-3 text-[13px] outline-none focus:border-primary"
               />
             </label>
           ))}
