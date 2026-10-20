@@ -1,7 +1,27 @@
 import { cn } from '@/lib/cn'
 
-/** "Dexter India" wordmark with the red bar. `tone="dark"` is the navy-on-white variant (mobile auth header). */
-export function Brand({ tag = 'OPERATOR CRM', className, tone = 'light' }: { tag?: string; className?: string; tone?: 'light' | 'dark' }) {
+/** "Dexter India" wordmark. Supports sidebar tone matching the light sidebar screenshot. */
+export function Brand({
+  tag = 'OPERATOR CRM',
+  className,
+  tone = 'light',
+}: {
+  tag?: string
+  className?: string
+  tone?: 'light' | 'dark' | 'sidebar'
+}) {
+  if (tone === 'sidebar') {
+    return (
+      <div className={cn('flex items-center justify-center', className)}>
+        <img
+          src="/dexter-logo.png"
+          alt="Dexter India"
+          className="h-[68px] w-auto max-w-[190px] object-contain drop-shadow-xs"
+        />
+      </div>
+    )
+  }
+
   const dark = tone === 'dark'
   return (
     <div className={cn('flex items-center gap-2.5', className)}>
@@ -13,3 +33,4 @@ export function Brand({ tag = 'OPERATOR CRM', className, tone = 'light' }: { tag
     </div>
   )
 }
+

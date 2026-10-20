@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Download, RotateCcw, Table2 } from 'lucide-react'
+import { ArrowLeft, Download, RotateCcw, Table2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { toast } from '@/components/ui/Toast'
 import { exportProjects, restoreProject, useProjects, type Project } from '@/data/projects'
@@ -32,6 +32,9 @@ function Register({ archived }: { archived: boolean }) {
 
   return (
     <div>
+      <Link to="/projects" className="mb-3 inline-flex items-center gap-1.5 text-[13px] font-medium text-primary hover:underline">
+        <ArrowLeft size={15} /> Back to Projects
+      </Link>
       <div className="mb-3 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">{name}</h1>

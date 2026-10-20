@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Check, CheckCheck, RefreshCw } from 'lucide-react'
+import { ArrowLeft, Check, CheckCheck, RefreshCw } from 'lucide-react'
 import { ExcelGrid, type GridColumn } from '@/components/grid/ExcelGrid'
 import { Button } from '@/components/ui/Button'
 import { PageHeader } from '@/components/ui/Card'
@@ -89,6 +89,9 @@ export default function Notices() {
 
   return (
     <div>
+      <Link to="/dashboard" className="mb-3 inline-flex items-center gap-1.5 text-[13px] font-medium text-primary hover:underline">
+        <ArrowLeft size={15} /> Back to Dashboard
+      </Link>
       <PageHeader
         title="Notices"
         sub="Stay on top of KYC, daily reporting and tasks that need your attention."

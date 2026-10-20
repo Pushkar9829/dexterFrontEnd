@@ -5,6 +5,8 @@ export const kpis = [
   { key: 'franchises', title: 'Franchises', value: '86', trend: '8%', up: true, caption: 'Active franchise partners', color: 'green' as const },
   { key: 'approvals', title: 'Pending Approvals', value: '14', trend: '5%', up: false, caption: 'Requires your attention', color: 'purple' as const },
   { key: 'complaints', title: 'Open Complaints', value: '7', trend: '2%', up: true, caption: 'Tickets raised', color: 'red' as const },
+  { key: 'atms', title: 'Total ATMs', value: '1,284', trend: '14%', up: true, caption: 'Operational nationwide', color: 'navy' as const },
+  { key: 'tasks', title: 'Active Tasks', value: '42', trend: '6%', up: false, caption: 'Assigned to technicians', color: 'purple' as const },
 ]
 
 export const projects = [
@@ -38,7 +40,6 @@ export const activities = [
 ]
 
 export const quickAccess = [
-  { label: 'Users / Employee Management', to: '/onboarding/users' },
   { label: 'Franchise Management', to: '/franchise' },
   { label: 'KYC Management', to: '/kyc/verification' },
   { label: 'Site Installation', to: '/projects/active' },

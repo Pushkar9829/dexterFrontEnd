@@ -1,9 +1,10 @@
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts'
 import {
-  ArrowRight, ArrowUp, BarChart3, ChevronRight, ClipboardList, FileText, FolderKanban, Landmark, Megaphone,
+  ArrowRight, ArrowUp, BarChart3, ChevronLeft, ChevronRight, ClipboardList, FileText, FolderKanban, Landmark, Megaphone,
   Receipt, ShieldCheck, Store, TicketCheck, UserCheck, Users, Wallet, Zap, AlertCircle, CircleDollarSign,
-  ListChecks, IdCard, Building,
+  ListChecks, IdCard, Building, X,
 } from 'lucide-react'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { KpiCard } from '@/components/ui/KpiCard'
@@ -12,7 +13,18 @@ import { cn } from '@/lib/cn'
 import { activities, dashboardNotices, finance, inr, kpis, moduleTiles, projects, quickAccess, tickets } from '@/data/dashboard'
 import { DEMO_USER, getSession } from '@/lib/auth'
 
-const kpiIcons = { users: <Users size={16} />, franchises: <Store size={16} />, approvals: <UserCheck size={16} />, complaints: <TicketCheck size={16} /> }
+import type { ReactNode } from 'react'
+
+const kpiIcons: Record<string, ReactNode> = {
+  users: <Users size={16} />,
+  franchises: <Store size={16} />,
+  approvals: <UserCheck size={16} />,
+  complaints: <TicketCheck size={16} />,
+  atms: <Building size={16} />,
+  revenue: <CircleDollarSign size={16} />,
+  tasks: <ListChecks size={16} />,
+  sla: <ShieldCheck size={16} />,
+}
 const financeIcon = { amber: <Wallet size={14} />, purple: <Receipt size={14} />, green: <ShieldCheck size={14} />, blue: <CircleDollarSign size={14} /> }
 const financeBg = { amber: 'bg-amber-50 text-amber-600', purple: 'bg-violet-50 text-violet-600', green: 'bg-emerald-50 text-emerald-600', blue: 'bg-blue-50 text-blue-600' }
 const quickIcons = [Users, Store, IdCard, Building, TicketCheck, ListChecks, BarChart3]
@@ -24,6 +36,41 @@ const tileStyle = {
 }
 
 export default function Dashboard() {
+  const [showAd, setShowAd] = useState(true)
+  const kpiScrollRef = useRef<HTMLDivElement>(null)
+  const [canScrollLeft, setCanScrollLeft] = useState(false)
+  const [canScrollRight, setCanScrollRight] = useState(false)
+
+  const checkKpiScroll = () => {
+    const el = kpiScrollRef.current
+    if (!el) return
+    setCanScrollLeft(el.scrollLeft > 6)
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 6)
+  }
+
+  useEffect(() => {
+    checkKpiScroll()
+    const handleResize = () => checkKpiScroll()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  const scrollKpis = (direction: 'left' | 'right' = 'right') => {
+    const el = kpiScrollRef.current
+    if (!el) return
+    const isAtEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 10
+    const scrollAmount = (el.clientWidth + 12) / 4
+    if (direction === 'right') {
+      if (isAtEnd) {
+        el.scrollTo({ left: 0, behavior: 'smooth' })
+      } else {
+        el.scrollBy({ left: scrollAmount, behavior: 'smooth' })
+      }
+    } else {
+      el.scrollBy({ left: -scrollAmount, behavior: 'smooth' })
+    }
+  }
+
   const user = getSession() ?? DEMO_USER
   const firstName = user.name.split(' ')[0]
   const totalTickets = tickets.reduce((s, t) => s + t.value, 0)
@@ -33,8 +80,8 @@ export default function Dashboard() {
     <div className="space-y-4">
       {/* Banner */}
       <section className="relative overflow-hidden rounded-xl bg-banner px-6 py-[19px] text-white">
-        <div className="pointer-events-none absolute inset-y-0 right-[15%] hidden w-[340px] -skew-x-[38deg] bg-white/[0.06] md:block" />
-        <div className="pointer-events-none absolute inset-y-0 right-[15%] hidden w-[11px] -skew-x-[38deg] bg-brand-red md:block" />
+        <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[340px] -skew-x-[38deg] bg-white/[0.06] md:block" />
+        <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[11px] -skew-x-[38deg] bg-brand-red md:block" />
         <div className="relative flex flex-wrap items-end justify-between gap-4">
           <div>
             <h1 className="text-[28px] leading-tight font-semibold">Dashboard</h1>
@@ -51,10 +98,50 @@ export default function Dashboard() {
       <div className="grid gap-5 xl:grid-cols-[1fr_312px]">
         {/* Left column */}
         <div className="min-w-0 space-y-4">
-          <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-4">
-            {kpis.map((k) => (
-              <KpiCard key={k.key} icon={kpiIcons[k.key as keyof typeof kpiIcons]} color={k.color} title={k.title} value={k.value} trend={k.trend} up={k.up} caption={k.caption} />
-            ))}
+          {/* Scrollable KPI Carousel */}
+          <div className="relative">
+            {canScrollLeft && (
+              <button
+                type="button"
+                onClick={() => scrollKpis('left')}
+                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 z-20 grid h-8 w-8 place-items-center rounded-full border border-line bg-white shadow-md text-ink hover:bg-[#edf4ff] hover:text-primary transition-all cursor-pointer"
+                title="Scroll previous"
+                aria-label="Scroll left"
+              >
+                <ChevronLeft size={16} />
+              </button>
+            )}
+
+            <div
+              ref={kpiScrollRef}
+              onScroll={checkKpiScroll}
+              className="flex items-center gap-3 overflow-x-auto py-1 scroll-smooth no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden snap-x snap-mandatory"
+            >
+              {kpis.map((k) => (
+                <div key={k.key} className="w-[calc((100%-12px)/2)] sm:w-[calc((100%-36px)/4)] shrink-0 snap-start">
+                  <KpiCard
+                    icon={kpiIcons[k.key as keyof typeof kpiIcons]}
+                    color={k.color}
+                    title={k.title}
+                    value={k.value}
+                    trend={k.trend}
+                    up={k.up}
+                    caption={k.caption}
+                  />
+                </div>
+              ))}
+            </div>
+
+            {/* Circular side arrow overlapping half the last tile and half outside */}
+            <button
+              type="button"
+              onClick={() => scrollKpis('right')}
+              className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-20 grid h-8 w-8 place-items-center rounded-full border border-line bg-white shadow-md text-ink hover:bg-[#edf4ff] hover:text-primary transition-all cursor-pointer"
+              title={canScrollRight ? 'Scroll next' : 'Scroll to start'}
+              aria-label="Scroll right"
+            >
+              <ChevronRight size={16} />
+            </button>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
@@ -191,6 +278,24 @@ export default function Dashboard() {
         {/* Right column */}
         <div className="space-y-4">
           <Card>
+            <CardHeader title="Notices" icon={<Megaphone size={16} />} viewAll="/notices" className="pb-1" />
+            <ul className="px-4 pb-2">
+              {dashboardNotices.slice(0, 2).map((n) => (
+                <li key={n.title} className="border-b border-line-soft py-2.5 last:border-0">
+                  <div className="flex items-start gap-2">
+                    <span className={cn('mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full', n.color)} />
+                    <div>
+                      <div className="text-[11px] font-semibold">{n.title}</div>
+                      <div className="mt-1 text-[10px] text-muted">{n.body}</div>
+                      <div className="mt-1 text-[9px] text-muted">{n.date}</div>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </Card>
+
+          <Card>
             <CardHeader title="Quick Access" icon={<Zap size={16} />} className="pb-3.5" />
             <ul className="space-y-2 px-4 pb-4">
               {quickAccess.map((q, i) => {
@@ -207,40 +312,6 @@ export default function Dashboard() {
               })}
             </ul>
           </Card>
-
-          <Card>
-            <CardHeader title="Notices" icon={<Megaphone size={16} />} viewAll="/notices" className="pb-1" />
-            <ul className="px-4 pb-2">
-              {dashboardNotices.map((n) => (
-                <li key={n.title} className="border-b border-line-soft py-2.5 last:border-0">
-                  <div className="flex items-start gap-2">
-                    <span className={cn('mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full', n.color)} />
-                    <div>
-                      <div className="text-[11px] font-semibold">{n.title}</div>
-                      <div className="mt-1 text-[10px] text-muted">{n.body}</div>
-                      <div className="mt-1 text-[9px] text-muted">{n.date}</div>
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </Card>
-
-          {/* Promo card: Figma uses a building photo on the right; a navy gradient with simple tower shapes stands in for it */}
-          <div className="relative h-[142px] overflow-hidden rounded-xl bg-navy-900 p-4 text-white">
-            <div className="pointer-events-none absolute inset-y-0 right-0 w-[56%] bg-gradient-to-br from-[#4a6aa3] via-[#22396a] to-navy-900" />
-            <div className="pointer-events-none absolute right-7 bottom-0 h-[112px] w-[64px] rounded-t-sm bg-white/10" />
-            <div className="pointer-events-none absolute right-[100px] bottom-0 h-[72px] w-[44px] rounded-t-sm bg-white/[0.07]" />
-            <div className="relative">
-              <div className="text-[15px] font-semibold">Dexter India</div>
-              <div className="mt-[18px] text-[12.5px] leading-[18px] font-semibold">
-                Smart Solutions
-                <br />
-                for a Growing Network
-              </div>
-              <div className="mt-3 text-[9.5px] text-white/80">Stronger together. Every day.</div>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -248,6 +319,46 @@ export default function Dashboard() {
         <span>India operations · All figures across active franchises</span>
         <span>Last updated 06 Oct 2026, 09:14 IST</span>
       </div>
+
+      {/* Sticky Bottom-Right Ad Tile */}
+      {showAd && (
+        <aside
+          role="complementary"
+          aria-label="Promotional Announcement"
+          className="fixed right-4 bottom-4 z-40 w-[240px] sm:w-[255px] overflow-hidden rounded-xl bg-navy-900 p-3 text-white shadow-xl ring-1 ring-white/15 transition-all duration-300 hover:shadow-2xl animate-in fade-in slide-in-from-bottom-3"
+        >
+          <div className="pointer-events-none absolute inset-y-0 right-0 w-[58%] bg-gradient-to-br from-[#4a6aa3] via-[#22396a] to-navy-900" />
+          <div className="pointer-events-none absolute right-4 bottom-0 h-[76px] w-[46px] rounded-t-sm bg-white/10" />
+          <div className="pointer-events-none absolute right-[58px] bottom-0 h-[48px] w-[32px] rounded-t-sm bg-white/[0.07]" />
+
+          <div className="relative">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[13px] font-semibold tracking-tight">Dexter India</span>
+                <span className="rounded bg-white/15 px-1 py-0.5 text-[7.5px] font-semibold tracking-wider text-white/80 uppercase">
+                  Sponsored
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAd(false)}
+                className="grid h-5 w-5 place-items-center rounded-full text-white/60 transition-colors hover:bg-white/15 hover:text-white"
+                title="Dismiss"
+                aria-label="Dismiss advertisement"
+              >
+                <X size={12} />
+              </button>
+            </div>
+
+            <div className="mt-2 text-[11px] leading-[15px] font-semibold">
+              Smart Solutions
+              <br />
+              for a Growing Network
+            </div>
+            <div className="mt-1 text-[8.5px] text-white/75">Stronger together. Every day.</div>
+          </div>
+        </aside>
+      )}
     </div>
   )
 }

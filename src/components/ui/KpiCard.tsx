@@ -29,20 +29,20 @@ export function KpiCard({
   caption?: string
 }) {
   return (
-    <div className="flex gap-3 rounded-xl border border-line bg-white p-3.5">
+    <div className="flex gap-2.5 sm:gap-3 rounded-xl border border-line bg-white p-3 sm:p-3.5 h-[84px] items-center">
       <span className={cn('grid h-8 w-8 shrink-0 place-items-center rounded-lg text-white', iconBg[color])}>{icon}</span>
-      <div className="min-w-0">
-        <div className="text-[11.5px] font-semibold text-ink">{title}</div>
-        <div className="mt-0.5 flex items-baseline gap-2.5">
-          <span className="text-[28px] font-semibold leading-tight text-ink">{value}</span>
+      <div className="min-w-0 flex-1">
+        <div className="text-[11.5px] font-semibold text-ink truncate">{title}</div>
+        <div className="mt-0.5 flex items-baseline gap-2">
+          <span className="text-[25px] sm:text-[27px] font-semibold leading-tight text-ink">{value}</span>
           {trend && (
-            <span className={cn('flex items-center gap-0.5 text-[10px] font-medium', up ? 'text-emerald-600' : 'text-brand-red')}>
+            <span className={cn('flex items-center gap-0.5 text-[10px] font-medium shrink-0', up ? 'text-emerald-600' : 'text-brand-red')}>
               {up ? <ArrowUp size={11} /> : <ArrowDown size={11} />}
               {trend}
             </span>
           )}
         </div>
-        {caption && <div className="mt-1.5 text-[10.5px] text-muted">{caption}</div>}
+        {caption && <div className="mt-0.5 text-[10px] text-muted truncate">{caption}</div>}
       </div>
     </div>
   )

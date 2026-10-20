@@ -9,6 +9,9 @@ import Dashboard from '@/pages/Dashboard'
 import Notices from '@/pages/Notices'
 import Placeholder from '@/pages/Placeholder'
 import Applications from '@/pages/onboarding/Applications'
+import OnboardingHub from '@/pages/onboarding/OnboardingHub'
+import KycHub from '@/pages/onboarding/KycHub'
+import SetupHub, { BusinessSettingsHub, EscalationMatrixHub } from '@/pages/onboarding/SetupHub'
 import { Toaster } from '@/components/ui/Toast'
 import { FranchiseHub, FranchiseRegistration, MasterData, TierList } from '@/pages/franchise/FranchisePages'
 import Dossier from '@/pages/franchise/Dossier'
@@ -40,7 +43,10 @@ export default function App() {
         <Route element={<AppShell />}>
           <Route path="/home" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/dashboard/operations" element={<Dashboard />} />
+          <Route path="/dashboard/view" element={<Dashboard />} />
           <Route path="/notices" element={<Notices />} />
+          <Route path="/onboarding" element={<OnboardingHub />} />
           <Route path="/onboarding/applications" element={<Applications />} />
           <Route path="/onboarding/applications/:appId" element={<Applications />} />
           <Route path="/franchise" element={<FranchiseHub />} />
@@ -50,8 +56,12 @@ export default function App() {
           <Route path="/franchise/master-data/:id/sd" element={<SdManagement />} />
           <Route path="/franchise/apna-app" element={<Placeholder />} />
           <Route path="/franchise/:tier" element={<TierList />} />
+          <Route path="/kyc" element={<KycHub />} />
           <Route path="/kyc/verification" element={<KycQueue />} />
           <Route path="/kyc/verification/:caseId" element={<KycWorkspace />} />
+          <Route path="/setup" element={<SetupHub />} />
+          <Route path="/setup/escalation-matrix" element={<EscalationMatrixHub />} />
+          <Route path="/setup/business-settings" element={<BusinessSettingsHub />} />
           {legalRoutes}
           {projectRoutes}
           {reportRoutes}

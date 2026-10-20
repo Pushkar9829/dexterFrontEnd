@@ -15,54 +15,16 @@ export type NavGroup = NavItem & { icon: LucideIcon }
 // Full sidebar from the Figma (all modules). Routes without a built page fall back to a placeholder.
 export const NAV: NavGroup[] = [
   {
-    label: 'Overview', icon: LayoutGrid, children: [
-      { label: 'Home', to: '/home' },
-      { label: 'Dashboard', to: '/dashboard' },
-      { label: 'Notices', to: '/notices', badge: 33 },
-    ],
+    label: 'Dashboard', icon: LayoutGrid, to: '/dashboard',
   },
   {
-    label: 'Onboarding', icon: UserPlus, children: [
-      { label: 'Application', to: '/onboarding/applications' },
-      { label: 'Users / Employee Management', to: '/onboarding/users' },
-      {
-        label: 'Franchise Management', children: [
-          { label: 'Overview', to: '/franchise' },
-          { label: 'Franchise Registration', to: '/franchise/registration' },
-          { label: 'Super Master Franchise', to: '/franchise/super-master' },
-          { label: 'Master Franchise', to: '/franchise/master' },
-          { label: 'Franchise', to: '/franchise/franchise' },
-          { label: 'Master Data', to: '/franchise/master-data' },
-          { label: 'Apna App', to: '/franchise/apna-app' },
-        ],
-      },
-      {
-        label: 'KYC Management', children: [
-          { label: 'Upload', to: '/kyc/upload' },
-          { label: 'Verification', to: '/kyc/verification' },
-        ],
-      },
-      {
-        label: 'Setup', children: [
-          { label: 'Escalation matrix', to: '/setup/escalation-matrix' },
-          { label: 'Business Settings', to: '/setup/business-settings' },
-          { label: 'SLA Rules', to: '/setup/sla-rules' },
-        ],
-      },
-      { label: 'Approvals', to: '/onboarding/approvals' },
-    ],
+    label: 'Onboarding', icon: UserPlus, to: '/onboarding',
   },
   {
-    label: 'Legal', icon: Scale, children: [
-      { label: 'Legal Data', to: '/legal' },
-      { label: 'Franchisee App (mobile)', to: '/franchisee-app' },
-    ],
+    label: 'Legal', icon: Scale, to: '/legal',
   },
   {
-    label: 'Projects', icon: FolderKanban, children: [
-      { label: 'Active Projects', to: '/projects/active' },
-      { label: 'Archived Projects', to: '/projects/archived' },
-    ],
+    label: 'Projects', icon: FolderKanban, to: '/projects',
   },
   {
     label: 'Reports', icon: BarChart3, children: [
@@ -82,17 +44,7 @@ export const NAV: NavGroup[] = [
     ],
   },
   {
-    label: 'Operations', icon: SlidersHorizontal, children: [
-      {
-        label: 'Complaints', children: [
-          { label: 'Management', to: '/operations/complaints' },
-          { label: 'Operations', to: '/operations/complaints/operations' },
-          { label: 'Assets', to: '/operations/complaints/assets' },
-          { label: 'AI insights', to: '/operations/complaints/ai' },
-          { label: 'Create complaint', to: '/operations/complaints/new' },
-        ],
-      },
-    ],
+    label: 'Operations', icon: SlidersHorizontal, to: '/operations',
   },
   {
     label: 'CBR', icon: Banknote, children: [
@@ -154,13 +106,63 @@ const SEGMENT_LABEL: Record<string, string> = { new: 'New', sd: 'SD Management',
  * Breadcrumb trail for a path. Detail routes (e.g. /onboarding/applications/APP-2026-0248)
  * use the closest parent route plus the last segment.
  */
-const PREFIX_TRAIL: Record<string, string[]> = { '/email/case': ['Email', 'Cases'] }
+const PREFIX_TRAIL: Record<string, string[]> = {
+  '/email/case': ['Email', 'Cases'],
+  '/dashboard/operations': ['Dashboard', 'Operations'],
+  '/dashboard/view': ['Dashboard', 'Operations'],
+  '/notices': ['Dashboard', 'Notices'],
+  '/onboarding/users': ['Onboarding', 'Users / Employee Management'],
+  '/onboarding/approvals': ['Onboarding', 'Approvals'],
+  '/franchise/super-master': ['Onboarding', 'Franchise Management', 'Super Master Franchise'],
+  '/franchise/master': ['Onboarding', 'Franchise Management', 'Master Franchise'],
+  '/franchise/franchise': ['Onboarding', 'Franchise Management', 'Franchise'],
+  '/franchise/master-data': ['Onboarding', 'Franchise Management', 'Master Data'],
+  '/franchise/apna-app': ['Onboarding', 'Franchise Management', 'Apna App'],
+  '/franchise': ['Onboarding', 'Franchise Management'],
+  '/kyc/upload': ['Onboarding', 'KYC Management', 'Upload'],
+  '/kyc/verification': ['Onboarding', 'KYC Management', 'Verification'],
+  '/kyc': ['Onboarding', 'KYC Management'],
+  '/setup/sla-rules': ['Onboarding', 'Setup', 'SLA Rules'],
+  '/setup/escalation-matrix/hierarchy': ['Onboarding', 'Setup', 'Escalation Matrix', 'Hierarchy'],
+  '/setup/escalation-matrix': ['Onboarding', 'Setup', 'Escalation Matrix'],
+  '/setup/business-settings/org-unit': ['Onboarding', 'Setup', 'Business Settings', 'Organization Unit'],
+  '/setup/business-settings': ['Onboarding', 'Setup', 'Business Settings'],
+  '/setup': ['Onboarding', 'Setup'],
+  '/legal/loi': ['Legal', 'LOI'],
+  '/legal/affidavit': ['Legal', 'Affidavit'],
+  '/legal/agreement': ['Legal', 'Agreement'],
+  '/legal/fm-checks': ['Legal', 'FM Checks'],
+  '/legal/pvc': ['Legal', 'PVC'],
+  '/legal/other-documents': ['Legal', 'Other Legal Documents'],
+  '/legal/data': ['Legal', 'Legal Data'],
+  '/legal': ['Legal'],
+  '/projects/active': ['Workspace', 'Projects', 'Site Master'],
+  '/projects/archived': ['Workspace', 'Projects', 'Archived Projects'],
+  '/projects/installation': ['Workspace', 'Projects', 'Site Installation'],
+  '/projects/other': ['Workspace', 'Projects', 'Other'],
+  '/projects': ['Workspace', 'Projects'],
+  '/operations/complaints': ['Workspace', 'Operations', 'Complaints'],
+  '/operations/complaints/operations': ['Workspace', 'Operations', 'Complaints', 'Operations'],
+  '/operations/complaints/assets': ['Workspace', 'Operations', 'Complaints', 'Assets'],
+  '/operations/complaints/ai': ['Workspace', 'Operations', 'Complaints', 'AI Insights'],
+  '/operations/complaints/new': ['Workspace', 'Operations', 'Complaints', 'New Complaint'],
+  '/operations/cash-loading': ['Workspace', 'Operations', 'Cash Loading Register'],
+  '/operations/bank-statement': ['Workspace', 'Operations', 'Bank Statement'],
+  '/operations/tds': ['Workspace', 'Operations', 'TDS Letters'],
+  '/operations/txn-data': ['Workspace', 'Operations', 'TXN Data'],
+  '/operations/daak': ['Workspace', 'Operations', 'Daak Management'],
+  '/operations': ['Workspace', 'Operations'],
+}
 
 export function trailFor(pathname: string): string[] {
+  if (pathname === '/notices') return ['Dashboard', 'Notices']
+  if (pathname === '/dashboard/operations' || pathname === '/dashboard/view') return ['Dashboard', 'Operations']
+  if (PREFIX_TRAIL[pathname]) return PREFIX_TRAIL[pathname]
+  for (const [prefix, trail] of Object.entries(PREFIX_TRAIL)) {
+    if (pathname.startsWith(prefix + '/')) return [...trail, ...pathname.slice(prefix.length + 1).split('/').map(decodeURIComponent)]
+  }
   const exact = trailOf(pathname)
   if (exact) return exact
-  for (const [prefix, trail] of Object.entries(PREFIX_TRAIL))
-    if (pathname.startsWith(prefix + '/')) return [...trail, ...pathname.slice(prefix.length + 1).split('/').map(decodeURIComponent)]
   const parts = pathname.split('/').filter(Boolean)
   for (let i = parts.length - 1; i > 0; i--) {
     const hit = trailOf('/' + parts.slice(0, i).join('/'))
@@ -174,6 +176,18 @@ const ROUTES = allTo(NAV)
 
 /** The nav route that owns a path: exact match, else the longest route that is a parent of it. */
 export function activeRoute(pathname: string): string | undefined {
+  if (pathname === '/notices' || pathname.startsWith('/dashboard/')) return '/dashboard'
+  if (
+    pathname.startsWith('/onboarding') ||
+    pathname.startsWith('/franchise') ||
+    pathname.startsWith('/kyc') ||
+    pathname.startsWith('/setup')
+  ) {
+    return '/onboarding'
+  }
+  if (pathname.startsWith('/legal')) return '/legal'
+  if (pathname.startsWith('/projects')) return '/projects'
+  if (pathname.startsWith('/operations')) return '/operations'
   if (ROUTES.includes(pathname)) return pathname
   return ROUTES.filter((r) => pathname.startsWith(r + '/')).sort((a, b) => b.length - a.length)[0]
 }

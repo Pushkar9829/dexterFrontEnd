@@ -4,12 +4,22 @@ import SiteRecord from './SiteRecord'
 import DocumentDetail from './DocumentDetail'
 import DocumentAudit from './DocumentAudit'
 import FranchiseeApp from './FranchiseeApp'
+import LegalHub from './LegalHub'
+import LegalDocView from './LegalDocView'
 
 export const legalRoutes = [
-  <Route key="legal" path="/legal" element={<LegalData />} />,
+  <Route key="legal" path="/legal" element={<LegalHub />} />,
+  <Route key="legal-loi" path="/legal/loi" element={<LegalDocView />} />,
+  <Route key="legal-affidavit" path="/legal/affidavit" element={<LegalDocView />} />,
+  <Route key="legal-agreement" path="/legal/agreement" element={<LegalDocView />} />,
+  <Route key="legal-fm-checks" path="/legal/fm-checks" element={<LegalDocView />} />,
+  <Route key="legal-pvc" path="/legal/pvc" element={<LegalDocView />} />,
+  <Route key="legal-other" path="/legal/other-documents" element={<LegalDocView />} />,
+  <Route key="legal-data" path="/legal/data" element={<LegalData />} />,
   <Route key="legal-site" path="/legal/:siteId" element={<SiteRecord />} />,
   <Route key="legal-doc" path="/legal/:siteId/documents/:docId" element={<DocumentDetail />} />,
   <Route key="legal-doc-audit" path="/legal/:siteId/documents/:docId/audit" element={<DocumentAudit />} />,
   <Route key="franchisee-app" path="/franchisee-app" element={<FranchiseeApp />} />,
   <Route key="franchisee-app-doc" path="/franchisee-app/:docId" element={<FranchiseeApp />} />,
 ]
+

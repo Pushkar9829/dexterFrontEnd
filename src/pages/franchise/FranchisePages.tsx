@@ -1,45 +1,91 @@
 import type { ReactNode } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
-import { ArrowRight, Building2, CircleCheck, FolderKanban, PanelsTopLeft, Plus, Scale, ShieldCheck, Tablet, Upload, UserPen } from 'lucide-react'
+import { ArrowLeft, Building2, CircleCheck, Database, PanelsTopLeft, Plus, ShieldCheck, Store, Tablet, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { StatCard } from '@/components/ui/KpiCard'
 import { Sparkline } from '@/components/ui/Sparkline'
 import { TIER_SLUG, TIER_TITLE, TIERS, useFranchises } from '@/data/franchises'
+import { HubTile, type HubTileTheme } from '@/components/ui/HubTile'
 import { FranchiseGrid, useAddFranchise } from './FranchiseGrid'
 
 // ── Hub ────────────────────────────────────────────────────────────────
-const HUB = [
-  { title: 'MASTER DATA', sub: 'Manage core reference data and configurations.', to: '/franchise/master-data', Icon: Building2, arrow: true },
-  { title: 'FRANCHISE REGISTRATION', sub: 'Review and manage franchise registrations.', to: '/franchise/registration', Icon: PanelsTopLeft, arrow: true },
-  { title: 'APNA APP', sub: 'Access app setup and operational tools.', to: '/franchise/apna-app', Icon: Tablet, arrow: true },
-  { title: 'PROJECTS', sub: 'Track franchise projects and milestones.', to: '/projects/active', Icon: FolderKanban, arrow: false },
-  { title: 'LEGAL', sub: 'Manage agreements and legal documentation.', to: '/legal', Icon: Scale, arrow: true },
-  { title: 'KYC MANAGEMENT', sub: 'Review identity documents and verification status.', to: '/kyc/verification', Icon: UserPen, arrow: true },
+interface FranchiseHubTileConfig {
+  title: string
+  sub: string
+  to: string
+  Icon: typeof Building2
+  theme: HubTileTheme
+  tag: string
+  badge: string
+  actionText: string
+}
+
+const HUB: FranchiseHubTileConfig[] = [
+  {
+    title: 'SUPER MASTER FRANCHISE',
+    sub: 'Manage super master franchise network, tier records and regional operations.',
+    to: '/franchise/super-master',
+    Icon: Building2,
+    theme: 'indigo',
+    tag: 'Tier 1',
+    badge: 'Regional Hub',
+    actionText: 'Manage SMF',
+  },
+  {
+    title: 'MASTER FRANCHISE',
+    sub: 'Oversee master franchise tier registry, agreements and territory performance.',
+    to: '/franchise/master',
+    Icon: PanelsTopLeft,
+    theme: 'purple',
+    tag: 'Tier 2',
+    badge: 'Territory',
+    actionText: 'Manage MF',
+  },
+  {
+    title: 'FRANCHISE',
+    sub: 'View registered franchise operators, active sites and local partnerships.',
+    to: '/franchise/franchise',
+    Icon: Store,
+    theme: 'teal',
+    tag: 'Tier 3',
+    badge: 'Units',
+    actionText: 'Manage units',
+  },
+  {
+    title: 'MASTER DATA',
+    sub: 'Manage core reference data, ATM locations and linked entity configurations.',
+    to: '/franchise/master-data',
+    Icon: Database,
+    theme: 'cyan',
+    tag: 'Registry',
+    badge: 'Master Core',
+    actionText: 'View records',
+  },
+  {
+    title: 'APNA APP',
+    sub: 'Access field technician tools, telemetry feeds and operational controls.',
+    to: '/franchise/apna-app',
+    Icon: Tablet,
+    theme: 'rose',
+    tag: 'Field App',
+    badge: 'Mobile Tools',
+    actionText: 'Open tools',
+  },
 ]
 
 export function FranchiseHub() {
   return (
-    <div>
-      <div className="pt-[31px]">
-        <div className="mb-[51px]">
-          <h1 className="text-[38px] leading-[46px] font-extrabold tracking-tight text-ink">Franchise Management</h1>
-          <p className="mt-[6px] text-[13px] text-muted">Manage franchise operations, records, and compliance in one place.</p>
-        </div>
+    <div className="max-w-[1020px]">
+      <Link to="/onboarding" className="mb-3 inline-flex items-center gap-1.5 text-[13px] font-medium text-primary hover:underline">
+        <ArrowLeft size={15} /> Back to Onboarding
+      </Link>
+      <div className="mb-5 sm:mb-6">
+        <h1 className="text-2xl sm:text-[28px] font-bold tracking-tight text-ink">Franchise Management</h1>
+        <p className="mt-1 text-[13px] text-muted">Manage franchise tiers, master records, and operational applications in one place.</p>
       </div>
-      <div className="grid max-w-[1220px] gap-x-[17px] gap-y-[23px] sm:grid-cols-2 xl:grid-cols-3">
-        {HUB.map(({ title, sub, to, Icon, arrow }) => (
-          <Link key={title} to={to} className="group relative h-[261px] overflow-hidden rounded-xl border border-line bg-white px-[27px] pt-[29px] transition-shadow hover:shadow-lg">
-            <span className="grid h-16 w-16 place-items-center rounded-lg bg-[#edf4ff] text-[#0a47d1]">
-              <Icon size={50} strokeWidth={1.6} />
-            </span>
-            <span className="absolute top-10 right-[22px] grid h-11 w-11 place-items-center rounded-full bg-surface text-ink transition-transform group-hover:translate-x-0.5">
-              {arrow && <ArrowRight size={22} />}
-            </span>
-            <div className="mt-[13px] text-[26px] leading-[32px] font-extrabold whitespace-nowrap tracking-tight text-ink">{title}</div>
-            <p className="max-w-[226px] text-[13px] leading-4 text-muted">{sub}</p>
-            <span className="pointer-events-none absolute -right-[62px] -bottom-[144px] h-[190px] w-[190px] rounded-full bg-[#eef3fc]" />
-            <span className="pointer-events-none absolute -right-[115px] -bottom-[111px] h-[190px] w-[190px] rounded-full bg-[#b6c8e8]" />
-          </Link>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {HUB.map((tile) => (
+          <HubTile key={tile.title} {...tile} />
         ))}
       </div>
     </div>

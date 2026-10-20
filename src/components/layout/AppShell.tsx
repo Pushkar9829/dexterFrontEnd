@@ -3,6 +3,7 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { getSession } from '@/lib/auth'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
+import { OperationsQuickAccess } from './OperationsQuickAccess'
 
 export function AppShell() {
   const [menuOpen, setMenuOpen] = useState(false)
@@ -11,6 +12,8 @@ export function AppShell() {
   useEffect(() => setMenuOpen(false), [pathname])
 
   if (!getSession()) return <Navigate to="/login" replace />
+
+  const isOperations = pathname.startsWith('/operations')
 
   return (
     <div className="min-h-full">
@@ -21,6 +24,7 @@ export function AppShell() {
           <Outlet />
         </main>
       </div>
+      {isOperations && <OperationsQuickAccess />}
     </div>
   )
 }
