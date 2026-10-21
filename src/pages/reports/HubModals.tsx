@@ -53,7 +53,7 @@ export function ScheduledExportsModal({ onClose, defaultReport }: { onClose: () 
     else if (emails.some((m) => !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(m))) e.recipients = 'One or more email addresses are invalid'
     setErrors(e)
     if (Object.keys(e).length) return
-    const s: Schedule = { id: `SCH-${Date.now().toString(36)}`, ...form, recipients: emails.join(', '), createdBy: 'Ananya Sharma', createdAt: new Date().toISOString().slice(0, 10), active: true }
+    const s: Schedule = { id: `SCH-${Date.now().toString(36)}`, ...form, recipients: emails.join(', '), createdBy: 'Paras Dubey', createdAt: new Date().toISOString().slice(0, 10), active: true }
     scheduleStore.set((l) => [s, ...l])
     setForm((f) => ({ ...f, recipients: '' }))
     toast(`${reportName(s.reportId)} scheduled ${s.frequency.toLowerCase()} at ${s.time}`)
@@ -145,7 +145,7 @@ export function SavedReportsModal({ onClose, current, onOpen }: { onClose: () =>
     const n = name.trim()
     if (!n) return setError('Name this view')
     if (list.some((v) => v.name.toLowerCase() === n.toLowerCase())) return setError('A saved report with this name already exists')
-    const v: SavedView = { id: `SV-${Date.now().toString(36)}`, name: n, ...current, savedAt: new Date().toISOString(), by: 'Ananya Sharma' }
+    const v: SavedView = { id: `SV-${Date.now().toString(36)}`, name: n, ...current, savedAt: new Date().toISOString(), by: 'Paras Dubey' }
     savedViewStore.set((l) => [v, ...l])
     setName('')
     setError('')

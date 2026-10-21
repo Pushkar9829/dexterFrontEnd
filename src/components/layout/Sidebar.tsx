@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import { Building2, ChevronDown, ChevronRight, Headset, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, Headset, X } from 'lucide-react'
 import { NAV, activeRoute, containsPath, type NavItem } from '@/data/nav'
 import { cn } from '@/lib/cn'
 import { Brand } from './Brand'
@@ -137,18 +137,6 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
           </button>
         </div>
 
-        {/* India Operations Pill */}
-        <div className="px-3">
-          <button
-            type="button"
-            className="flex h-10 w-full items-center gap-3 rounded-lg px-3 text-[13px] font-medium text-[#1E293B] transition-colors hover:bg-[#E2EEFB]/80"
-          >
-            <Building2 size={18} className="text-[#0066FF] shrink-0" strokeWidth={1.8} />
-            <span className="flex-1 text-left">India operations</span>
-            <ChevronDown size={16} className="text-[#2563EB] shrink-0" strokeWidth={1.8} />
-          </button>
-        </div>
-
         {/* Main Navigation */}
         <nav className="scroll-thin mt-2 flex-1 overflow-y-auto px-3 pb-3 space-y-1">
           {NAV.map((g) => {
@@ -190,11 +178,6 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
                         {g.badge}
                       </span>
                     )}
-                    <ChevronRight
-                      size={15}
-                      strokeWidth={1.8}
-                      className={cn('shrink-0', active ? 'text-white' : 'text-[#2563EB]')}
-                    />
                   </NavLink>
                 </div>
               )
@@ -273,7 +256,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
         </nav>
 
         {/* Help & Support Card */}
-        <div className="p-3">
+        {/* <div className="p-3 pb-1">
           <div className="flex items-center gap-3 rounded-2xl bg-[#E2EEFB] px-3.5 py-3 transition-colors hover:bg-[#D5E5F8] cursor-pointer">
             <Headset size={20} className="text-[#0066FF] shrink-0" strokeWidth={1.8} />
             <div className="flex-1 min-w-0 leading-tight">
@@ -281,6 +264,20 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
               <div className="text-[10px] text-[#64748B] truncate">Operator workspace · v2.4</div>
             </div>
             <ChevronRight size={14} className="text-[#2563EB] shrink-0" strokeWidth={2} />
+          </div>
+        </div> */}
+
+        {/* Brand Slogan from image reference */}
+        <div className="px-4 pb-3 pt-1">
+          <div className="flex items-center gap-2.5">
+            <div className="flex -space-x-1 shrink-0">
+              <span className="h-5 w-1.5 -skew-x-[24deg] rounded-full bg-[#EF4444]" />
+              <span className="h-5 w-1.5 -skew-x-[24deg] rounded-full bg-[#0066FF]" />
+            </div>
+            <div className="text-[11px] font-medium leading-tight text-[#475569]">
+              <div>Together for a</div>
+              <div className="font-semibold text-[#1E293B]">Stronger Tomorrow</div>
+            </div>
           </div>
         </div>
       </aside>

@@ -161,7 +161,7 @@ function seed(): Mail[] {
     m({
       id: 'm4', threadId: 'th-045', fromName: 'Vikram Singh', fromEmail: 'vikram.singh@lawpartners.in', subject: 'Legal Notice - Compliance', at: at('2025-08-26T16:40:00'), read: false,
       tracker: 'LEG-2026-00045', priority: 'High', department: 'Legal', account: 'legal@dexterindia.com', to: ['legal@dexterindia.com'], cc: ['support@dexterindia.com'],
-      body: 'Dear Sir/Madam,\n\nAs discussed, please find attached the revised compliance notice for the Lucknow site. @Ananya Sharma kindly acknowledge receipt and share the compliance report within 7 working days.\n\nRegards,\nVikram Singh\nSingh & Partners',
+      body: 'Dear Sir/Madam,\n\nAs discussed, please find attached the revised compliance notice for the Lucknow site. @Paras Dubey kindly acknowledge receipt and share the compliance report within 7 working days.\n\nRegards,\nVikram Singh\nSingh & Partners',
       attachments: [{ name: 'Revised_Compliance_Notice.pdf', size: 640 * 1024 }], assigned: true, mention: true,
     }),
     m({

@@ -25,6 +25,9 @@ import { cbrRoutes } from '@/pages/cbr/routes'
 import { taskRoutes } from '@/pages/tasks/routes'
 import { emailRoutes } from '@/pages/email/routes'
 import { complaintRoutes } from '@/pages/complaints/routes'
+import { governanceRoutes } from '@/pages/governance/routes'
+import { workManagementRoutes } from '@/pages/work-management/routes'
+import { userRoutes } from '@/pages/user/routes'
 import { getSession } from '@/lib/auth'
 
 export default function App() {
@@ -70,6 +73,9 @@ export default function App() {
           {taskRoutes}
           {emailRoutes}
           {complaintRoutes}
+          {governanceRoutes}
+          {workManagementRoutes}
+          {userRoutes}
           <Route path="*" element={<Placeholder />} />
         </Route>
 

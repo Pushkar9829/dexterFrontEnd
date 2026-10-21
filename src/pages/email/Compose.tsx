@@ -67,7 +67,7 @@ const OWN = ACCOUNTS.map((a) => a.email)
 const SIGNATURES: Record<string, string> = {
   'Support Team Signature': 'Regards,\nDexter India Support Team\nsupport@dexterindia.com · 1800-266-0124',
   'Finance Team Signature': 'Regards,\nDexter India Finance Team\nfinance@dexterindia.com',
-  'Ananya Sharma · Super administrator': 'Warm regards,\nAnanya Sharma\nSuper administrator · Dexter India',
+  'Paras Dubey · Super administrator': 'Warm regards,\nParas Dubey\nSuper administrator · Dexter India',
 }
 const TEMPLATES = ['Case Update Template', 'Acknowledgement Template', 'Resolution Confirmation', 'Document Request']
 

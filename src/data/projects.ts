@@ -144,7 +144,7 @@ function seed(): ProjectState {
     if (f.atmMachine !== 'Pending')
       audit.push({ id: `EV-${id}-A`, ref: id, at: new Date(new Date(createdAt).getTime() + 12 * 86400e3).toISOString(), actor: 'Amit Jadhav', role: 'Engineer', event: 'Updated', outcome: 'Saved', context: `ATM Machine: Pending → ${f.atmMachine === 'Delivered' ? 'Delivered' : 'Delivered'}`, version: '—', source: 'Workspace' })
     if (archived)
-      audit.push({ id: `EV-${id}-X`, ref: id, at: p.archivedAt!, actor: 'Ananya Sharma', role: 'Administrator', event: 'Archived', outcome: 'Archived', context: p.archiveReason!, version: '—', source: 'Workspace' })
+      audit.push({ id: `EV-${id}-X`, ref: id, at: p.archivedAt!, actor: 'Paras Dubey', role: 'Administrator', event: 'Archived', outcome: 'Archived', context: p.archiveReason!, version: '—', source: 'Workspace' })
     return p
   })
   return { projects, audit }

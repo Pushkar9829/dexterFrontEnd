@@ -1,6 +1,6 @@
 import {
-  LayoutGrid, UserPlus, Scale, FolderKanban, BarChart3, SlidersHorizontal,
-  Landmark, Banknote, Mail, ShieldCheck, ListChecks, type LucideIcon,
+  LayoutGrid, UserPlus, Briefcase, Scale, FolderKanban, BarChart3, SlidersHorizontal,
+  Landmark, Mail, ShieldCheck, ListChecks, UserCircle, type LucideIcon,
 } from 'lucide-react'
 
 export type NavItem = {
@@ -21,69 +21,34 @@ export const NAV: NavGroup[] = [
     label: 'Onboarding', icon: UserPlus, to: '/onboarding',
   },
   {
+    label: 'Work Management', icon: Briefcase, to: '/work-management',
+  },
+  {
     label: 'Legal', icon: Scale, to: '/legal',
   },
   {
     label: 'Projects', icon: FolderKanban, to: '/projects',
   },
   {
-    label: 'Reports', icon: BarChart3, children: [
-      { label: 'Unified Reports Hub', to: '/reports' },
-      {
-        label: 'Financial Report', children: [
-          { label: 'BS', to: '/reports/financial/bs' },
-          { label: 'Axis & ICD', to: '/reports/financial/axis-icd' },
-          { label: 'CLF', to: '/reports/financial/clf' },
-          { label: 'SD', to: '/reports/financial/sd' },
-          { label: 'FFM EOD', to: '/reports/financial/ffm-eod' },
-          { label: 'Overage deposit', to: '/reports/financial/overage-deposit' },
-          { label: 'DLR2', to: '/reports/financial/dlr2' },
-          { label: 'DLR3', to: '/reports/financial/dlr3' },
-        ],
-      },
-    ],
+    label: 'Reports & MIS', icon: BarChart3, to: '/reports',
   },
   {
     label: 'Operations', icon: SlidersHorizontal, to: '/operations',
   },
   {
-    label: 'CBR', icon: Banknote, children: [
-      { label: 'Consolidated Datewise CBR', to: '/cbr/consolidated' },
-      { label: 'CBR EOD Summary', to: '/cbr/eod-summary' },
-      { label: 'Daily CBR (mobile)', to: '/cbr/mobile' },
-    ],
+    label: 'Finance', icon: Landmark, to: '/finance',
   },
   {
-    label: 'Finance', icon: Landmark, children: [
-      { label: 'GST', to: '/finance/gst' },
-      { label: 'Payout', to: '/finance/payout' },
-    ],
+    label: 'Email', icon: Mail, to: '/email',
   },
   {
-    label: 'Email', icon: Mail, children: [
-      { label: 'My Inbox', to: '/email/inbox' },
-      { label: 'Sent', to: '/email/sent' },
-      { label: 'Drafts', to: '/email/drafts' },
-    ],
+    label: 'Governance', icon: ShieldCheck, to: '/governance',
   },
   {
-    label: 'Governance', icon: ShieldCheck, children: [
-      { label: 'Audit', to: '/governance/audit' },
-      { label: 'Sessions', to: '/governance/sessions' },
-      { label: 'Security / Notices', to: '/governance/security' },
-    ],
+    label: 'Tasks', icon: ListChecks, to: '/tasks', badge: 24,
   },
   {
-    label: 'Tasks', icon: ListChecks, children: [
-      { label: 'Command Center', to: '/tasks/command-center' },
-      { label: 'My Tasks', to: '/tasks/my', badge: 24 },
-      { label: "Today's Tasks", to: '/tasks/today' },
-      { label: 'Daily Routine', to: '/tasks/daily' },
-      { label: 'Monthly Tasks', to: '/tasks/monthly' },
-      { label: 'Overdue', to: '/tasks/overdue' },
-      { label: 'Waiting / Blocked', to: '/tasks/blocked' },
-      { label: 'Approval Pending', to: '/tasks/approval-pending' },
-    ],
+    label: 'User', icon: UserCircle, to: '/user',
   },
 ]
 
@@ -152,6 +117,42 @@ const PREFIX_TRAIL: Record<string, string[]> = {
   '/operations/txn-data': ['Workspace', 'Operations', 'TXN Data'],
   '/operations/daak': ['Workspace', 'Operations', 'Daak Management'],
   '/operations': ['Workspace', 'Operations'],
+  '/reports': ['Workspace', 'Reports & MIS'],
+  '/reports/financial': ['Workspace', 'Reports & MIS', 'Financial Report'],
+  '/finance': ['Workspace', 'Finance'],
+  '/finance/gst': ['Workspace', 'Finance', 'GST'],
+  '/finance/payout': ['Workspace', 'Finance', 'Payouts'],
+  '/governance': ['Workspace', 'Governance'],
+  '/governance/audit': ['Workspace', 'Governance', 'Audit'],
+  '/governance/sessions': ['Workspace', 'Governance', 'Sessions'],
+  '/governance/security': ['Workspace', 'Governance', 'Security'],
+  '/governance/compliance': ['Workspace', 'Governance', 'Compliance'],
+  '/work-management': ['Workspace', 'Work Management'],
+  '/tasks': ['Workspace', 'Tasks'],
+  '/tasks/command-center': ['Workspace', 'Tasks', 'Command Center'],
+  '/tasks/my': ['Workspace', 'Tasks', 'My Tasks'],
+  '/tasks/today': ['Workspace', 'Tasks', "Today's Tasks"],
+  '/tasks/daily': ['Workspace', 'Tasks', 'Daily Routine'],
+  '/tasks/monthly': ['Workspace', 'Tasks', 'Monthly Tasks'],
+  '/tasks/overdue': ['Workspace', 'Tasks', 'Overdue'],
+  '/tasks/blocked': ['Workspace', 'Tasks', 'Waiting / Blocked'],
+  '/tasks/approval-pending': ['Workspace', 'Tasks', 'Approval Pending'],
+  '/email': ['Workspace', 'Email'],
+  '/email/inbox': ['Workspace', 'Email', 'My Inbox'],
+  '/email/sent': ['Workspace', 'Email', 'Sent'],
+  '/email/drafts': ['Workspace', 'Email', 'Drafts'],
+  '/user': ['Workspace', 'User'],
+  '/user/my-account': ['Workspace', 'User', 'My Account'],
+  '/user/help-support': ['Workspace', 'User', 'Help & Support'],
+  '/user/profile': ['Workspace', 'User', 'My Account', 'Profile'],
+  '/user/change-password': ['Workspace', 'User', 'My Account', 'Change Password'],
+  '/user/tickets': ['Workspace', 'User', 'Help & Support', 'Tickets'],
+  '/user/help-center': ['Workspace', 'User', 'Help & Support', 'Help Center'],
+  '/user/tour': ['Workspace', 'User', 'Help & Support', 'Take a tour'],
+  '/cbr/consolidated': ['Workspace', 'Reports & MIS', 'Consolidated Datewise CBR'],
+  '/cbr/eod-summary': ['Workspace', 'Reports & MIS', 'CBR EOD Summary'],
+  '/cbr/mobile': ['Workspace', 'Reports & MIS', 'Daily CBR'],
+  '/cbr': ['Workspace', 'Reports & MIS', 'CBR'],
 }
 
 export function trailFor(pathname: string): string[] {
@@ -188,6 +189,13 @@ export function activeRoute(pathname: string): string | undefined {
   if (pathname.startsWith('/legal')) return '/legal'
   if (pathname.startsWith('/projects')) return '/projects'
   if (pathname.startsWith('/operations')) return '/operations'
+  if (pathname.startsWith('/reports')) return '/reports'
+  if (pathname.startsWith('/finance')) return '/finance'
+  if (pathname.startsWith('/governance')) return '/governance'
+  if (pathname.startsWith('/work-management')) return '/work-management'
+  if (pathname.startsWith('/tasks')) return '/tasks'
+  if (pathname.startsWith('/email')) return '/email'
+  if (pathname.startsWith('/user')) return '/user'
   if (ROUTES.includes(pathname)) return pathname
   return ROUTES.filter((r) => pathname.startsWith(r + '/')).sort((a, b) => b.length - a.length)[0]
 }

@@ -1,4 +1,5 @@
 import { Route, useParams } from 'react-router-dom'
+import FinanceHub from './FinanceHub'
 import GstList from './GstList'
 import GstRecordPage from './GstRecord'
 import PayoutList from './PayoutList'
@@ -15,6 +16,8 @@ function PayoutRecordRoute() {
 }
 
 export const financeRoutes = [
+  <Route key="finance-hub" path="/finance" element={<FinanceHub />} />,
+  <Route key="finance-hr-payments" path="/finance/hr-payments" element={<FinanceHub showHrModalInitial />} />,
   <Route key="finance-gst" path="/finance/gst" element={<GstList />} />,
   <Route key="finance-gst-id" path="/finance/gst/:id" element={<GstRecordRoute />} />,
   <Route key="finance-payout" path="/finance/payout" element={<PayoutList />} />,

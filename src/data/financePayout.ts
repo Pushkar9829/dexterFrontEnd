@@ -107,7 +107,7 @@ export const emptyPayout = (): PayoutRecord => ({
 })
 
 export function savePayout(rec: PayoutRecord): PayoutRecord {
-  const stamp = { updatedAt: new Date().toISOString(), updatedBy: 'Ananya Sharma' }
+  const stamp = { updatedAt: new Date().toISOString(), updatedBy: 'Paras Dubey' }
   if (!rec.id) {
     const all = payoutStore.get()
     const sn = all.reduce((m, p) => Math.max(m, p.sn), 0) + 1

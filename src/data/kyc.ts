@@ -45,9 +45,9 @@ function caseFor(fr: Franchise, i: number): KycCase {
       versions:
         k === 0
           ? [
-              { v: 2, file: `PAN_${first}_ENT_v2.pdf`, at, by: person },
-              { v: 1, file: `PAN_${first}_ENT_v1.pdf`, at: new Date(new Date(at).getTime() - 17.4 * 3600_000).toISOString(), by: 'Riya Mehta' },
-            ]
+            { v: 2, file: `PAN_${first}_ENT_v2.pdf`, at, by: person },
+            { v: 1, file: `PAN_${first}_ENT_v1.pdf`, at: new Date(new Date(at).getTime() - 17.4 * 3600_000).toISOString(), by: 'Riya Mehta' },
+          ]
           : [{ v: 1, file: `${type.replace(/\s/g, '_')}_${first}.pdf`, at, by: person }],
     })),
     fields: {
@@ -83,6 +83,6 @@ export function decide(id: string, approve: boolean, reason?: string) {
   const c = getKycCase(id)
   if (!c) return
   const now = new Date().toISOString()
-  updateCase(id, { status: approve ? 'Approved' : 'Resubmission requested', decision: { by: 'Ananya Sharma', at: now, reason } })
+  updateCase(id, { status: approve ? 'Approved' : 'Resubmission requested', decision: { by: 'Paras Dubey', at: now, reason } })
   updateFranchises([c.franchiseId], { kyc: approve ? 'Verified' : 'Pending' })
 }

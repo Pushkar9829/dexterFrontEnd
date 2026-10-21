@@ -367,12 +367,12 @@ function SlaBanner({ t }: { t: Task }) {
   const note = s.closed
     ? 'Task closed. Final SLA recorded in the audit trail.'
     : (t.slaNote && t.status === 'Pending Approval'
-        ? t.slaNote
-        : t.status === 'Pending Approval'
-          ? `Awaiting ${t.approver}'s approval. SLA continues to run.`
-          : t.status === 'Waiting/Blocked'
-            ? `Waiting: ${t.alertNote ?? 'dependency outstanding'}. SLA continues to run — it never pauses.`
-            : 'SLA clock is running from creation and never pauses.')
+      ? t.slaNote
+      : t.status === 'Pending Approval'
+        ? `Awaiting ${t.approver}'s approval. SLA continues to run.`
+        : t.status === 'Waiting/Blocked'
+          ? `Waiting: ${t.alertNote ?? 'dependency outstanding'}. SLA continues to run — it never pauses.`
+          : 'SLA clock is running from creation and never pauses.')
   return (
     <section className={cn('flex flex-wrap items-center gap-4 rounded-lg border px-4 py-3', cls)}>
       <Clock3 size={20} className="shrink-0" />
@@ -738,7 +738,7 @@ function ReassignModal({ t, actor, onClose }: { t: Task; actor: string; onClose:
         New assignee
         <select value={to} onChange={(e) => setTo(e.target.value)} className="mt-1.5 h-9 w-full rounded-md border border-line bg-white px-2 text-[13px] font-normal">
           <option value="">Unassigned</option>
-          {PEOPLE.filter((p) => p.name !== 'Ananya Sharma').map((p) => (
+          {PEOPLE.filter((p) => p.name !== 'Paras Dubey').map((p) => (
             <option key={p.name} value={p.name}>
               {p.name} · {p.role} · {p.dept}
             </option>

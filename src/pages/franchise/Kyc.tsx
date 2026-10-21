@@ -228,7 +228,7 @@ export function KycWorkspace() {
             {/* viewer watermark: [User Name] | [Company Name] | [Timestamp] */}
             <div aria-hidden className="pointer-events-none absolute inset-0 grid place-items-center overflow-hidden">
               <span className="-rotate-[24deg] font-mono text-[13px] whitespace-nowrap text-ink/10 select-none">
-                Ananya Sharma | Dexter India | {fmt(openedAt)} IST
+                Paras Dubey | Dexter India | {fmt(openedAt)} IST
               </span>
             </div>
           </div>

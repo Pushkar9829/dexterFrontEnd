@@ -1,16 +1,19 @@
 import { useEffect, useRef, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
-import { Plus, Bell, ChevronDown, ChevronRight, LogOut, Menu, PanelLeft, Search } from 'lucide-react'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import { Plus, Bell, Calendar, ChevronDown, ChevronRight, LogOut, Menu, PanelLeft, Search } from 'lucide-react'
 import { trailFor } from '@/data/nav'
 import { getSession, signOut, DEMO_USER } from '@/lib/auth'
 
 export function Topbar({ onMenu }: { onMenu: () => void }) {
   const { pathname } = useLocation()
   const navigate = useNavigate()
+  const [params, setParams] = useSearchParams()
   const user = getSession() ?? DEMO_USER
   const trail = trailFor(pathname)
   const [menu, setMenu] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
+  const isReports = pathname.startsWith('/reports')
+  const qVal = isReports ? (params.get('q') ?? '') : ''
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -38,7 +41,7 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
         ))}
       </nav>
 
-      <div className="ml-auto flex items-center gap-4">
+      <div className="ml-auto flex items-center gap-3 sm:gap-4">
         {pathname.startsWith('/tasks/') && (
           <button
             onClick={() => navigate(/^\/tasks\/(my|today|daily|monthly|overdue|blocked|approval-pending)$/.test(pathname) ? `${pathname}?create=1` : '/tasks/my?create=1')}
@@ -47,19 +50,43 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
             <Plus size={15} /> Create Task
           </button>
         )}
-        <label className="hidden h-9 w-[282px] items-center gap-2.5 rounded-lg border border-line bg-surface px-3 text-[11px] text-muted md:flex">
-          <Search size={15} />
+        <label className="hidden h-9 w-[280px] lg:w-[350px] items-center gap-2.5 rounded-lg border border-line bg-surface px-3 text-[11px] text-muted md:flex">
+          <Search size={15} className="shrink-0 text-[#64748B]" />
           <input
             ref={searchRef}
-            placeholder="Search across workspace"
+            value={isReports ? qVal : undefined}
+            onChange={(e) => {
+              if (isReports) {
+                setParams((p) => {
+                  const n = new URLSearchParams(p)
+                  if (e.target.value) n.set('q', e.target.value)
+                  else n.delete('q')
+                  return n
+                }, { replace: true })
+              }
+            }}
+            placeholder={isReports ? 'Search reports, modules, or keywords...' : 'Search across workspace'}
             className="w-full bg-transparent text-ink outline-none placeholder:text-muted"
           />
-          <span className="text-[10px] whitespace-nowrap">⌘ K</span>
+          <span className="text-[10px] whitespace-nowrap text-[#94A3B8]">⌘ K</span>
         </label>
-        <button className="relative text-ink-2" aria-label="Notifications" onClick={() => navigate('/notices')}>
+        <button className="relative p-1 text-ink-2 hover:text-ink transition-colors" aria-label="Notifications" onClick={() => navigate('/notices')}>
           <Bell size={19} />
-          <span className="absolute -top-0.5 right-0 h-2 w-2 rounded-full bg-brand-red ring-2 ring-white" />
+          <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-red px-1 text-[9px] font-bold text-white ring-2 ring-white">
+            3
+          </span>
         </button>
+        <div className="hidden items-center gap-2 rounded-lg border border-[#E2E8F0] bg-white px-2.5 py-1 text-left sm:flex">
+          <Calendar size={15} className="text-[#0066FF] shrink-0" />
+          <div className="leading-tight text-[11px]">
+            <div className="font-semibold text-[#1E293B]">
+              {new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+            </div>
+            <div className="text-[10px] text-[#64748B]">
+              {new Date().toLocaleDateString('en-GB', { weekday: 'long' })}
+            </div>
+          </div>
+        </div>
         <div className="hidden h-8 w-px bg-line sm:block" />
         <div className="relative">
           <button onClick={() => setMenu((m) => !m)} className="flex items-center gap-2.5">

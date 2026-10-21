@@ -92,7 +92,7 @@ export type LegalState = { sites: LegalSite[]; docs: LegalDoc[]; audit: AuditEve
 
 // ───────────────────────── Constants & formatting ─────────────────────────
 
-export const CURRENT_USER = { name: 'Ananya Sharma', role: 'Administrator' }
+export const CURRENT_USER = { name: 'Paras Dubey', role: 'Administrator' }
 export const REVIEWER = { name: 'Meera Iyer', role: 'Legal reviewer' }
 
 export const DOC_META: Record<DocKind, { title: string; short: string; pages: number; sizeMb: number; required: boolean; stem: string; sign: string }> = {
@@ -146,26 +146,46 @@ type SiteSeed = [num: string, location: string, address: string, pincode: string
 type FrSeed = { id: string; name: string; tier: string; atms: number; state: string; sc: string; city: string; cc: string; signatory: string; phone: string; mf: string; sites: SiteSeed[] }
 
 const FRANCHISES: FrSeed[] = [
-  { id: 'FR-MH-00124', name: 'Shree Sai Financial Services', tier: 'Master', atms: 24, state: 'Maharashtra', sc: 'MH', city: 'Pune', cc: 'PUN', signatory: 'Rahul Patil', phone: '+91 98220 41124', mf: 'Shree Sai Financial Services',
-    sites: [['00124', 'Kothrud · Paud Road', 'Shop 4, Mayur Arcade, Paud Road, Kothrud', '411038'], ['00131', 'Baner · High Street', 'Unit 2, Sai Plaza, Baner Road', '411045'], ['00138', 'Hadapsar · Magarpatta Road', 'G-7, Amanora Chambers, Magarpatta Road', '411028']] },
-  { id: 'FR-GJ-00218', name: 'Patel Cash Solutions', tier: 'Franchise', atms: 8, state: 'Gujarat', sc: 'GJ', city: 'Ahmedabad', cc: 'AMD', signatory: 'Kiran Patel', phone: '+91 98250 18218', mf: 'Shree Sai Financial Services',
-    sites: [['00218', 'Navrangpura · CG Road', '12, Shital Complex, CG Road', '380009'], ['00221', 'Maninagar · Kankaria Road', 'Shop 3, Jay Shopping Centre, Kankaria Road', '380008'], ['00226', 'Satellite · Jodhpur Cross Road', 'B-5, Shivalik Plaza, Jodhpur Cross Road', '380015']] },
-  { id: 'FR-KA-00076', name: 'Namma ATM Network', tier: 'Super Master', atms: 68, state: 'Karnataka', sc: 'KA', city: 'Bengaluru', cc: 'BLR', signatory: 'Ravi Gowda', phone: '+91 98450 70076', mf: 'Namma ATM Network',
-    sites: [['00076', 'Jayanagar · 4th Block', '27, 11th Main, 4th Block, Jayanagar', '560011'], ['00081', 'Whitefield · ITPL Main Road', 'Shop 9, Forum Value Mall Annexe, ITPL Main Road', '560066'], ['00089', 'Malleshwaram · Sampige Road', '41, Sampige Road, Malleshwaram', '560003']] },
-  { id: 'FR-UP-00305', name: 'Awadh Banking Point', tier: 'Franchise', atms: 6, state: 'Uttar Pradesh', sc: 'UP', city: 'Lucknow', cc: 'LKO', signatory: 'Alok Srivastava', phone: '+91 94150 30305', mf: 'Capital ATM Partners',
-    sites: [['00305', 'Hazratganj · MG Marg', '18, Halwasiya Market, MG Marg', '226001'], ['00311', 'Gomti Nagar · Vibhuti Khand', 'C-2, Summit Building, Vibhuti Khand', '226010'], ['00317', 'Aliganj · Kapoorthala', '7, Kapoorthala Complex, Aliganj', '226024']] },
-  { id: 'FR-TN-00142', name: 'Southern Cash Services', tier: 'Master', atms: 32, state: 'Tamil Nadu', sc: 'TN', city: 'Chennai', cc: 'CHE', signatory: 'Senthil Kumar', phone: '+91 98410 14142', mf: 'Southern Cash Services',
-    sites: [['00142', 'T. Nagar · Usman Road', '64, Usman Road, T. Nagar', '600017'], ['00147', 'Adyar · LB Road', '22, LB Road, Adyar', '600020'], ['00153', 'Velachery · Bypass Road', '5, Velachery Main Road', '600042']] },
-  { id: 'FR-RJ-00267', name: 'Pink City Finserve', tier: 'Franchise', atms: 5, state: 'Rajasthan', sc: 'RJ', city: 'Jaipur', cc: 'JAI', signatory: 'Manish Agarwal', phone: '+91 94140 26267', mf: 'Capital ATM Partners',
-    sites: [['00267', 'Malviya Nagar · JLN Marg', '3, Gaurav Tower, JLN Marg', '302017'], ['00272', 'Vaishali Nagar · Amrapali Circle', 'Shop 11, Amrapali Circle', '302021'], ['00278', 'Mansarovar · Shipra Path', '88, Shipra Path, Mansarovar', '302020']] },
-  { id: 'FR-DL-00091', name: 'Capital ATM Partners', tier: 'Master', atms: 18, state: 'Delhi', sc: 'DL', city: 'New Delhi', cc: 'NDL', signatory: 'Rohan Malhotra', phone: '+91 98110 09091', mf: 'Capital ATM Partners',
-    sites: [['00091', 'Lajpat Nagar · Ring Road', 'I-14, Lajpat Nagar II, Ring Road', '110024'], ['00095', 'Karol Bagh · Ajmal Khan Road', '2/31, Ajmal Khan Road', '110005'], ['00099', 'Dwarka · Sector 12', 'Plot 6, Pocket 1, Sector 12', '110075']] },
-  { id: 'FR-WB-00183', name: 'Bengal Rural Payments', tier: 'Franchise', atms: 9, state: 'West Bengal', sc: 'WB', city: 'Kolkata', cc: 'KOL', signatory: 'Subrata Das', phone: '+91 98300 18183', mf: 'Deccan Cash Connect',
-    sites: [['00183', 'Salt Lake · Sector V', 'GP Block, Sector V, Salt Lake', '700091'], ['00187', 'Howrah · GT Road', '120, GT Road, Howrah', '711101'], ['00192', 'Barasat · Jessore Road', '45, Jessore Road, Barasat', '700124']] },
-  { id: 'FR-MP-00312', name: 'Malwa Financial Network', tier: 'Franchise', atms: 7, state: 'Madhya Pradesh', sc: 'MP', city: 'Indore', cc: 'IND', signatory: 'Anil Joshi', phone: '+91 98270 31312', mf: 'Shree Sai Financial Services',
-    sites: [['00312', 'Vijay Nagar · AB Road', '9, Scheme 54, AB Road, Vijay Nagar', '452010'], ['00318', 'Rajwada · MG Road', '21, MG Road, Rajwada', '452002'], ['00324', 'Palasia · Old Palasia', '14, Old Palasia', '452001']] },
-  { id: 'FR-TS-00156', name: 'Deccan Cash Connect', tier: 'Master', atms: 21, state: 'Telangana', sc: 'TS', city: 'Hyderabad', cc: 'HYD', signatory: 'Srinivas Reddy', phone: '+91 98490 15156', mf: 'Deccan Cash Connect',
-    sites: [['00156', 'Ameerpet · SR Nagar', '7-1-28, SR Nagar Main Road', '500038'], ['00161', 'Kukatpally · KPHB Colony', 'Plot 12, KPHB Phase 3', '500072'], ['00166', 'Gachibowli · DLF Road', 'Shop 2, DLF Cyber City Road', '500032']] },
+  {
+    id: 'FR-MH-00124', name: 'Shree Sai Financial Services', tier: 'Master', atms: 24, state: 'Maharashtra', sc: 'MH', city: 'Pune', cc: 'PUN', signatory: 'Rahul Patil', phone: '+91 98220 41124', mf: 'Shree Sai Financial Services',
+    sites: [['00124', 'Kothrud · Paud Road', 'Shop 4, Mayur Arcade, Paud Road, Kothrud', '411038'], ['00131', 'Baner · High Street', 'Unit 2, Sai Plaza, Baner Road', '411045'], ['00138', 'Hadapsar · Magarpatta Road', 'G-7, Amanora Chambers, Magarpatta Road', '411028']]
+  },
+  {
+    id: 'FR-GJ-00218', name: 'Patel Cash Solutions', tier: 'Franchise', atms: 8, state: 'Gujarat', sc: 'GJ', city: 'Ahmedabad', cc: 'AMD', signatory: 'Kiran Patel', phone: '+91 98250 18218', mf: 'Shree Sai Financial Services',
+    sites: [['00218', 'Navrangpura · CG Road', '12, Shital Complex, CG Road', '380009'], ['00221', 'Maninagar · Kankaria Road', 'Shop 3, Jay Shopping Centre, Kankaria Road', '380008'], ['00226', 'Satellite · Jodhpur Cross Road', 'B-5, Shivalik Plaza, Jodhpur Cross Road', '380015']]
+  },
+  {
+    id: 'FR-KA-00076', name: 'Namma ATM Network', tier: 'Super Master', atms: 68, state: 'Karnataka', sc: 'KA', city: 'Bengaluru', cc: 'BLR', signatory: 'Ravi Gowda', phone: '+91 98450 70076', mf: 'Namma ATM Network',
+    sites: [['00076', 'Jayanagar · 4th Block', '27, 11th Main, 4th Block, Jayanagar', '560011'], ['00081', 'Whitefield · ITPL Main Road', 'Shop 9, Forum Value Mall Annexe, ITPL Main Road', '560066'], ['00089', 'Malleshwaram · Sampige Road', '41, Sampige Road, Malleshwaram', '560003']]
+  },
+  {
+    id: 'FR-UP-00305', name: 'Awadh Banking Point', tier: 'Franchise', atms: 6, state: 'Uttar Pradesh', sc: 'UP', city: 'Lucknow', cc: 'LKO', signatory: 'Alok Srivastava', phone: '+91 94150 30305', mf: 'Capital ATM Partners',
+    sites: [['00305', 'Hazratganj · MG Marg', '18, Halwasiya Market, MG Marg', '226001'], ['00311', 'Gomti Nagar · Vibhuti Khand', 'C-2, Summit Building, Vibhuti Khand', '226010'], ['00317', 'Aliganj · Kapoorthala', '7, Kapoorthala Complex, Aliganj', '226024']]
+  },
+  {
+    id: 'FR-TN-00142', name: 'Southern Cash Services', tier: 'Master', atms: 32, state: 'Tamil Nadu', sc: 'TN', city: 'Chennai', cc: 'CHE', signatory: 'Senthil Kumar', phone: '+91 98410 14142', mf: 'Southern Cash Services',
+    sites: [['00142', 'T. Nagar · Usman Road', '64, Usman Road, T. Nagar', '600017'], ['00147', 'Adyar · LB Road', '22, LB Road, Adyar', '600020'], ['00153', 'Velachery · Bypass Road', '5, Velachery Main Road', '600042']]
+  },
+  {
+    id: 'FR-RJ-00267', name: 'Pink City Finserve', tier: 'Franchise', atms: 5, state: 'Rajasthan', sc: 'RJ', city: 'Jaipur', cc: 'JAI', signatory: 'Manish Agarwal', phone: '+91 94140 26267', mf: 'Capital ATM Partners',
+    sites: [['00267', 'Malviya Nagar · JLN Marg', '3, Gaurav Tower, JLN Marg', '302017'], ['00272', 'Vaishali Nagar · Amrapali Circle', 'Shop 11, Amrapali Circle', '302021'], ['00278', 'Mansarovar · Shipra Path', '88, Shipra Path, Mansarovar', '302020']]
+  },
+  {
+    id: 'FR-DL-00091', name: 'Capital ATM Partners', tier: 'Master', atms: 18, state: 'Delhi', sc: 'DL', city: 'New Delhi', cc: 'NDL', signatory: 'Rohan Malhotra', phone: '+91 98110 09091', mf: 'Capital ATM Partners',
+    sites: [['00091', 'Lajpat Nagar · Ring Road', 'I-14, Lajpat Nagar II, Ring Road', '110024'], ['00095', 'Karol Bagh · Ajmal Khan Road', '2/31, Ajmal Khan Road', '110005'], ['00099', 'Dwarka · Sector 12', 'Plot 6, Pocket 1, Sector 12', '110075']]
+  },
+  {
+    id: 'FR-WB-00183', name: 'Bengal Rural Payments', tier: 'Franchise', atms: 9, state: 'West Bengal', sc: 'WB', city: 'Kolkata', cc: 'KOL', signatory: 'Subrata Das', phone: '+91 98300 18183', mf: 'Deccan Cash Connect',
+    sites: [['00183', 'Salt Lake · Sector V', 'GP Block, Sector V, Salt Lake', '700091'], ['00187', 'Howrah · GT Road', '120, GT Road, Howrah', '711101'], ['00192', 'Barasat · Jessore Road', '45, Jessore Road, Barasat', '700124']]
+  },
+  {
+    id: 'FR-MP-00312', name: 'Malwa Financial Network', tier: 'Franchise', atms: 7, state: 'Madhya Pradesh', sc: 'MP', city: 'Indore', cc: 'IND', signatory: 'Anil Joshi', phone: '+91 98270 31312', mf: 'Shree Sai Financial Services',
+    sites: [['00312', 'Vijay Nagar · AB Road', '9, Scheme 54, AB Road, Vijay Nagar', '452010'], ['00318', 'Rajwada · MG Road', '21, MG Road, Rajwada', '452002'], ['00324', 'Palasia · Old Palasia', '14, Old Palasia', '452001']]
+  },
+  {
+    id: 'FR-TS-00156', name: 'Deccan Cash Connect', tier: 'Master', atms: 21, state: 'Telangana', sc: 'TS', city: 'Hyderabad', cc: 'HYD', signatory: 'Srinivas Reddy', phone: '+91 98490 15156', mf: 'Deccan Cash Connect',
+    sites: [['00156', 'Ameerpet · SR Nagar', '7-1-28, SR Nagar Main Road', '500038'], ['00161', 'Kukatpally · KPHB Colony', 'Plot 12, KPHB Phase 3', '500072'], ['00166', 'Gachibowli · DLF Road', 'Shop 2, DLF Cyber City Road', '500032']]
+  },
 ]
 
 const MODELS = ['Garnet Model', 'Sapphire', 'Topaz', 'Emerald']
@@ -202,7 +222,7 @@ export function siteRows(): LegalSite[] {
         mf: f.mf,
         atmId: !main && n % 5 === 4 ? '' : `DX-${f.sc}-${main ? '01482' : String(1400 + n * 13).padStart(5, '0')}`,
         atmMappedOn: main ? '2026-10-01' : n % 5 === 4 ? '' : month === '08' ? `2026-09-${String(Math.min(28, day)).padStart(2, '0')}` : `2026-10-${String(1 + (day % 12)).padStart(2, '0')}`,
-        owner: n % 4 === 3 ? 'Priya Menon' : 'Ananya Sharma',
+        owner: n % 4 === 3 ? 'Priya Menon' : 'Paras Dubey',
         createdOn: main ? '2026-09-28' : `2026-${month}-${String(day).padStart(2, '0')}`,
       })
     }),
@@ -254,7 +274,7 @@ function buildDoc(site: LegalSite, kind: DocKind, status: LegalStatus, base: num
 /** The canonical demo site ST-MH-PUN-00124 — reproduced exactly from the Figma. */
 function mainSiteDocs(site: LegalSite): { docs: LegalDoc[]; events: AuditEvent[] } {
   const S = site.id
-  const RP = 'Rahul Patil', AS = 'Ananya Sharma', MI = 'Meera Iyer'
+  const RP = 'Rahul Patil', AS = 'Paras Dubey', MI = 'Meera Iyer'
   const agr = 'LEG-AGR-00124', loi = 'LEG-LOI-00124', aff = 'LEG-AFF-00124', bnk = 'LEG-BNK-00124'
   const rejectAgr = 'Firm stamp missing on page 8. Please use the revised v2.0 original and upload the complete signed PDF.'
   const docs: LegalDoc[] = [

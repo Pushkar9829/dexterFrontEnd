@@ -3,7 +3,7 @@ const KEY = 'dexter.session'
 
 export type Session = { name: string; role: string; initials: string }
 
-export const DEMO_USER: Session = { name: 'Ananya Sharma', role: 'Super administrator', initials: 'AS' }
+export const DEMO_USER: Session = { name: 'Paras Dubey', role: 'Super administrator', initials: 'AS' }
 
 export function getSession(): Session | null {
   try {

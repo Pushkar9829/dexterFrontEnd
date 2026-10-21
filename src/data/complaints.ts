@@ -13,7 +13,7 @@ export const nowMs = () => NOW_BASE + (Date.now() - LOADED_AT)
 
 export const PERIOD_FROM = '2026-10-01'
 export const PERIOD_TO = '2026-10-06'
-export const CURRENT_USER = 'Ananya Sharma'
+export const CURRENT_USER = 'Paras Dubey'
 export const NETWORK_ATM_COUNT = 1284 // commissioned assets in the asset register (detail kept for ATMs in ATM_MASTER)
 
 export type Priority = 'Critical' | 'High' | 'Medium' | 'Low'
@@ -129,7 +129,7 @@ export const DEPARTMENT_FOR: Record<string, Department> = {
 /** Component group used for replacement counts. */
 export const REPLACEMENT_GROUPS = ['UPS batteries', 'Card readers', 'Receipt printers', 'Dispenser modules', 'Cooling fans', 'Routers']
 
-export const OWNERS = ['Ananya Sharma', 'Rohit Verma', 'Priya Nair', 'Kavita Reddy', 'Amit Desai', 'Rahul Kumar']
+export const OWNERS = ['Paras Dubey', 'Rohit Verma', 'Priya Nair', 'Kavita Reddy', 'Amit Desai', 'Rahul Kumar']
 export const SUB_STATUSES = ['Assigned', 'In progress', 'Pending', 'Awaiting spare', 'Awaiting vendor', 'Awaiting repair']
 
 /* --------------------------------------- ATM master --------------------------------------------- */
@@ -583,18 +583,18 @@ function build(b: Base, r: () => number, open: boolean): Complaint {
 
 /** Open complaints — hand-crafted so dashboards match the design's story. */
 const OPEN: Base[] = [
-  { id: 'CMP-1048', at: ist('2026-10-05', '10:30'), atm: 'ATM-MH-1024', cat: 'Power & UPS', sub: 'Battery failure', pri: 'Critical', owner: 'Ananya Sharma', subStatus: 'In progress', impact: 'Degraded', level: 2, title: 'ATM power backup fails during mains outage' },
+  { id: 'CMP-1048', at: ist('2026-10-05', '10:30'), atm: 'ATM-MH-1024', cat: 'Power & UPS', sub: 'Battery failure', pri: 'Critical', owner: 'Paras Dubey', subStatus: 'In progress', impact: 'Degraded', level: 2, title: 'ATM power backup fails during mains outage' },
   { id: 'CMP-1039', at: ist('2026-10-06', '05:04'), atm: 'ATM-UP-0305', cat: 'Cash dispenser', sub: 'Dispenser jam', pri: 'Critical', owner: 'Rohit Verma', subStatus: 'Awaiting spare', impact: 'Down', level: 3, title: 'Dispenser jams on every withdrawal' },
   { id: 'CMP-1052', at: ist('2026-10-05', '10:34'), atm: 'ATM-KA-0076', cat: 'Network', sub: 'Network offline', pri: 'High', owner: 'Priya Nair', subStatus: 'Awaiting vendor', impact: 'Down', level: 2, title: 'ATM offline · no host connectivity' },
-  { id: 'CMP-1044', at: ist('2026-10-05', '12:59'), atm: 'ATM-GJ-0218', cat: 'Power & UPS', sub: 'UPS alarm', pri: 'High', owner: 'Ananya Sharma', subStatus: 'Awaiting spare', impact: 'Degraded', level: 2, title: 'UPS alarm and repeated shutdowns' },
+  { id: 'CMP-1044', at: ist('2026-10-05', '12:59'), atm: 'ATM-GJ-0218', cat: 'Power & UPS', sub: 'UPS alarm', pri: 'High', owner: 'Paras Dubey', subStatus: 'Awaiting spare', impact: 'Degraded', level: 2, title: 'UPS alarm and repeated shutdowns' },
   { id: 'CMP-1055', at: ist('2026-10-04', '15:24'), atm: 'ATM-TN-0142', cat: 'Receipt printer', sub: 'Printer fault', pri: 'Medium', owner: 'Kavita Reddy', subStatus: 'In progress', impact: 'Degraded', title: 'Receipt printer head error' },
   { id: 'CMP-1057', at: ist('2026-10-05', '16:44'), atm: 'ATM-RJ-0267', cat: 'Cash dispenser', sub: 'Cash sensor error', pri: 'High', owner: 'Amit Desai', subStatus: 'In progress', impact: 'Degraded', title: 'Cash sensor error · partial dispense' },
   { id: 'CMP-1059', at: ist('2026-10-06', '18:00'), atm: 'ATM-WB-0183', cat: 'Power & UPS', sub: 'Mains power outage', pri: 'Critical', owner: 'Kavita Reddy', subStatus: 'Pending', impact: 'Down', title: 'Site without mains power since evening' },
-  { id: 'CMP-1050', at: ist('2026-10-06', '11:00'), atm: 'ATM-MH-1032', cat: 'Network', sub: 'Network unstable', pri: 'High', owner: 'Ananya Sharma', subStatus: 'Awaiting vendor', title: 'Network unstable · transactions timing out' },
-  { id: 'CMP-1046', at: ist('2026-10-05', '14:20'), atm: 'ATM-MH-1028', cat: 'Card reader', sub: 'Card reader fault', pri: 'Medium', owner: 'Ananya Sharma', subStatus: 'Awaiting spare', impact: 'Degraded', title: 'Card reader fails on chip cards' },
-  { id: 'CMP-1058', at: ist('2026-10-06', '10:15'), atm: 'ATM-MH-1041', cat: 'Receipt printer', sub: 'Printer fault', pri: 'Medium', owner: 'Ananya Sharma', subStatus: 'In progress', title: 'Receipt printer not printing' },
-  { id: 'CMP-1060', at: ist('2026-10-06', '16:40'), atm: 'ATM-GJ-0220', cat: 'Cooling & environment', sub: 'Cooling fan alarm', pri: 'Low', owner: 'Ananya Sharma', subStatus: 'Assigned', title: 'Cooling fan alarm active' },
-  { id: 'CMP-1047', at: ist('2026-10-05', '09:45'), atm: 'ATM-MH-1045', cat: 'Power & UPS', sub: 'Battery failure', pri: 'Medium', owner: 'Ananya Sharma', subStatus: 'In progress', title: 'Low battery backup at Kothrud ATM' },
+  { id: 'CMP-1050', at: ist('2026-10-06', '11:00'), atm: 'ATM-MH-1032', cat: 'Network', sub: 'Network unstable', pri: 'High', owner: 'Paras Dubey', subStatus: 'Awaiting vendor', title: 'Network unstable · transactions timing out' },
+  { id: 'CMP-1046', at: ist('2026-10-05', '14:20'), atm: 'ATM-MH-1028', cat: 'Card reader', sub: 'Card reader fault', pri: 'Medium', owner: 'Paras Dubey', subStatus: 'Awaiting spare', impact: 'Degraded', title: 'Card reader fails on chip cards' },
+  { id: 'CMP-1058', at: ist('2026-10-06', '10:15'), atm: 'ATM-MH-1041', cat: 'Receipt printer', sub: 'Printer fault', pri: 'Medium', owner: 'Paras Dubey', subStatus: 'In progress', title: 'Receipt printer not printing' },
+  { id: 'CMP-1060', at: ist('2026-10-06', '16:40'), atm: 'ATM-GJ-0220', cat: 'Cooling & environment', sub: 'Cooling fan alarm', pri: 'Low', owner: 'Paras Dubey', subStatus: 'Assigned', title: 'Cooling fan alarm active' },
+  { id: 'CMP-1047', at: ist('2026-10-05', '09:45'), atm: 'ATM-MH-1045', cat: 'Power & UPS', sub: 'Battery failure', pri: 'Medium', owner: 'Paras Dubey', subStatus: 'In progress', title: 'Low battery backup at Kothrud ATM' },
   { id: 'CMP-1033', at: ist('2026-10-04', '09:00'), atm: 'ATM-UP-0311', cat: 'Software & EJ', sub: 'EJ upload failure', pri: 'Low', owner: 'Rohit Verma', subStatus: 'Pending' },
   { id: 'CMP-1053', at: ist('2026-10-06', '09:30'), atm: 'ATM-UP-0322', cat: 'Power & UPS', sub: 'UPS alarm', pri: 'Medium', owner: 'Rohit Verma', subStatus: 'In progress' },
   { id: 'CMP-1054', at: ist('2026-10-06', '12:30'), atm: 'ATM-KA-0081', cat: 'Cash dispenser', sub: 'Note reject', pri: 'High', owner: 'Priya Nair', subStatus: 'In progress' },
@@ -605,8 +605,8 @@ const OPEN: Base[] = [
 
 /** Pre-period history (for repeats, asset history and prior-period comparison). */
 const HISTORY_FIXED: Base[] = [
-  { id: 'CMP-0914', at: ist('2026-08-18', '11:20'), atm: 'ATM-MH-1024', cat: 'Network', sub: 'Network unstable', pri: 'Medium', owner: 'Ananya Sharma', title: 'Network link unstable' },
-  { id: 'CMP-0982', at: ist('2026-09-09', '09:10'), atm: 'ATM-MH-1024', cat: 'Power & UPS', sub: 'Battery failure', pri: 'High', owner: 'Ananya Sharma', title: 'Battery replacement' },
+  { id: 'CMP-0914', at: ist('2026-08-18', '11:20'), atm: 'ATM-MH-1024', cat: 'Network', sub: 'Network unstable', pri: 'Medium', owner: 'Paras Dubey', title: 'Network link unstable' },
+  { id: 'CMP-0982', at: ist('2026-09-09', '09:10'), atm: 'ATM-MH-1024', cat: 'Power & UPS', sub: 'Battery failure', pri: 'High', owner: 'Paras Dubey', title: 'Battery replacement' },
   { id: 'CMP-0997', at: ist('2026-09-15', '12:40'), atm: 'ATM-UP-0305', cat: 'Cash dispenser', sub: 'Dispenser jam', pri: 'High', owner: 'Rohit Verma', title: 'Repeated dispenser jams' },
 ]
 
@@ -718,8 +718,8 @@ function seedComplaints(): Complaint[] {
     escalations: [{ level: 2, at: ist('2026-10-06', '10:30'), note: 'Resolution SLA breached' }],
   } satisfies Partial<Complaint>)
   k.tasks = [
-    { id: 'TSK-2081', title: 'Confirm spare battery dispatch', owner: 'Ananya Sharma', due: ist(today, '11:00'), dependency: 'Vendor' },
-    { id: 'TSK-2078', title: 'Follow up on docket DX-78142', owner: 'Ananya Sharma', due: ist(today, '09:00'), dependency: 'HD Team' },
+    { id: 'TSK-2081', title: 'Confirm spare battery dispatch', owner: 'Paras Dubey', due: ist(today, '11:00'), dependency: 'Vendor' },
+    { id: 'TSK-2078', title: 'Follow up on docket DX-78142', owner: 'Paras Dubey', due: ist(today, '09:00'), dependency: 'HD Team' },
     { id: 'TSK-2083', title: 'Charging test & battery replacement', owner: 'Amit Jadhav', due: ist(today, '14:00'), dependency: 'Field visit' },
   ]
   k.emails = [
@@ -731,12 +731,12 @@ function seedComplaints(): Complaint[] {
     { id: 'FV-0921', at: ist(today, '14:00'), purpose: 'Battery replacement & UPS test', engineer: 'Amit Jadhav', status: 'Awaiting spare', note: 'SITE-1024 · Dispatch approval pending' },
     { id: 'FV-0912', at: ist('2026-10-05', '16:20'), purpose: 'Initial diagnosis', engineer: 'Amit Jadhav', status: 'Completed', note: '10.8V load reading · Report FV-0912' },
   ]
-  k.vendors = [{ id: 'VD-301', vendor: 'Exide service desk', item: 'Dispatch acknowledgment', status: 'Pending', lastChased: ist(today, '08:45'), expectedBy: ist(today, '11:00'), log: ['07 Oct, 08:45 · Chased by Ananya Sharma · ETA awaited'] }]
+  k.vendors = [{ id: 'VD-301', vendor: 'Exide service desk', item: 'Dispatch acknowledgment', status: 'Pending', lastChased: ist(today, '08:45'), expectedBy: ist(today, '11:00'), log: ['07 Oct, 08:45 · Chased by Paras Dubey · ETA awaited'] }]
   k.audit = [
     { at: ist('2026-10-05', '10:30'), title: 'Complaint registered', meta: 'FR Mobile App · Rahul Mehta · Owner auto-assigned' },
     { at: ist('2026-10-05', '16:35'), title: 'Diagnosis added', meta: 'Amit Jadhav · Voltage evidence attached' },
     { at: ist('2026-10-06', '10:30'), title: 'SLA breach & L2 escalation', meta: 'System · HD Team routing rule · RM notified' },
-    { at: ist(today, '09:00'), title: 'Reminder sent', meta: 'Ananya Sharma · Vendor follow-up · TSK-2078 linked' },
+    { at: ist(today, '09:00'), title: 'Reminder sent', meta: 'Paras Dubey · Vendor follow-up · TSK-2078 linked' },
   ]
   k.ai = {
     summary:
@@ -765,12 +765,12 @@ function seedComplaints(): Complaint[] {
 
   // other open complaints
   const T = (cid: string, task: CTask) => get(cid).tasks.push(task)
-  T('CMP-1044', { id: 'TSK-2072', title: 'Approve replacement estimate', owner: 'Ananya Sharma', due: ist('2026-10-06', '17:00'), dependency: 'Spare part' })
-  T('CMP-1050', { id: 'TSK-2069', title: 'Confirm network test results', owner: 'Ananya Sharma', due: ist('2026-10-06', '18:00'), dependency: 'Vendor' })
-  T('CMP-1058', { id: 'TSK-2086', title: 'Review engineer evidence', owner: 'Ananya Sharma', due: ist(today, '16:00'), dependency: 'Field visit' })
-  T('CMP-1046', { id: 'TSK-2090', title: 'Update FR on card reader ETA', owner: 'Ananya Sharma', due: ist(today, '13:30'), dependency: 'Spare part' })
-  T('CMP-1060', { id: 'TSK-2091', title: 'Schedule cooling fan replacement', owner: 'Ananya Sharma', due: ist('2026-10-08', '10:00'), dependency: 'Field visit' })
-  T('CMP-1047', { id: 'TSK-2092', title: 'HD Team reminder · battery test request', owner: 'Ananya Sharma', due: ist(today, '10:00'), dependency: 'HD Team' })
+  T('CMP-1044', { id: 'TSK-2072', title: 'Approve replacement estimate', owner: 'Paras Dubey', due: ist('2026-10-06', '17:00'), dependency: 'Spare part' })
+  T('CMP-1050', { id: 'TSK-2069', title: 'Confirm network test results', owner: 'Paras Dubey', due: ist('2026-10-06', '18:00'), dependency: 'Vendor' })
+  T('CMP-1058', { id: 'TSK-2086', title: 'Review engineer evidence', owner: 'Paras Dubey', due: ist(today, '16:00'), dependency: 'Field visit' })
+  T('CMP-1046', { id: 'TSK-2090', title: 'Update FR on card reader ETA', owner: 'Paras Dubey', due: ist(today, '13:30'), dependency: 'Spare part' })
+  T('CMP-1060', { id: 'TSK-2091', title: 'Schedule cooling fan replacement', owner: 'Paras Dubey', due: ist('2026-10-08', '10:00'), dependency: 'Field visit' })
+  T('CMP-1047', { id: 'TSK-2092', title: 'HD Team reminder · battery test request', owner: 'Paras Dubey', due: ist(today, '10:00'), dependency: 'HD Team' })
   T('CMP-1039', { id: 'TSK-2074', title: 'Approve dispenser module replacement', owner: 'Rohit Verma', due: ist(today, '10:30'), dependency: 'Spare part' })
   T('CMP-1052', { id: 'TSK-2088', title: 'Run overnight network stability diagnostics', owner: 'Priya Nair', due: ist(today, '15:00'), dependency: 'Vendor' })
   T('CMP-1055', { id: 'TSK-2076', title: 'Source printer head from Chennai depot', owner: 'Kavita Reddy', due: ist(today, '12:00'), dependency: 'Spare part' })

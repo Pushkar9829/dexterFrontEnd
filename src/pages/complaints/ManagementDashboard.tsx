@@ -306,7 +306,7 @@ export default function ManagementDashboard() {
                 size="sm"
                 disabled={!bulkOwner}
                 onClick={() => {
-                  ids.forEach((id) => updateComplaint(id, () => ({ owner: bulkOwner }), { title: 'Owner reassigned', meta: `Ananya Sharma · Bulk assignment → ${bulkOwner}` }))
+                  ids.forEach((id) => updateComplaint(id, () => ({ owner: bulkOwner }), { title: 'Owner reassigned', meta: `Paras Dubey · Bulk assignment → ${bulkOwner}` }))
                   toast(`${ids.length} complaint${ids.length > 1 ? 's' : ''} assigned to ${bulkOwner}`)
                   setBulkOwner('')
                   clear()

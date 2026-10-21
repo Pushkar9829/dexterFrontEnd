@@ -47,7 +47,7 @@ const gen = <T,>(n: number, seed: number, f: (i: number, r: () => number) => T) 
 const pick = <T,>(r: () => number, xs: T[]) => xs[Math.floor(r() * xs.length)]
 const site = (i: number) => SITES[i % SITES.length]
 const USERS = [
-  ['Ananya Sharma', 'Super administrator'], ['Rahul Kumar', 'Employee · Verification'], ['Priya Menon', 'Team Leader'], ['Meera Iyer', 'Manager'],
+  ['Paras Dubey', 'Super administrator'], ['Rahul Kumar', 'Employee · Verification'], ['Priya Menon', 'Team Leader'], ['Meera Iyer', 'Manager'],
   ['Suresh Nair', 'Head'], ['Vikram Shah', 'Finance'], ['Amit Jadhav', 'Engineer'], ['Neha Deshmukh', 'Relationship Manager'],
 ]
 const pct = (n: number) => Math.round(n * 10) / 10
@@ -343,6 +343,45 @@ export const REPORTS: ReportDef[] = [
     columns: [{ key: 'time', label: 'Time', kind: 'datetime' }, { key: 'user', label: 'User' }, { key: 'report', label: 'Report' }, { key: 'fmt', label: 'Format' }, { key: 'rows', label: 'Rows', kind: 'num' }],
     build: () => gen(16, 79, (i, r) => ({ time: ago(Math.floor(i / 2), 11 + (i % 7), (i * 23) % 60), user: pick(r, USERS)[0], report: pick(r, ['Franchise Network Register', 'SD', 'CLF', 'Cash Reconciliation', 'Audit Trail', 'DLR2']), fmt: '.xlsx', rows: Math.floor(10 + r() * 1200) })),
   },
+  {
+    id: 'chargeback-disputes', name: 'Chargeback Disputes', category: 'operations', desc: 'Disputed ATM card transactions and chargebacks', dateKey: 'date', source: 'NPCI / Switch Disputes',
+    columns: [{ key: 'id', label: 'Dispute ID' }, { key: 'atm', label: 'ATM ID' }, { key: 'card', label: 'Card Last 4' }, { key: 'date', label: 'Txn Date', kind: 'date' }, { key: 'amt', label: 'Amount', kind: 'money' }, { key: 'reason', label: 'Reason' }, { key: 'st', label: 'Status', kind: 'status' }],
+    build: () => gen(16, 81, (i, r) => ({ id: `DISP-2026-${pad(501 + i)}`, atm: site(i).atmId, card: `••• ${1200 + i * 37}`, date: day(i * 2 + 1), amt: pick(r, [500, 1000, 2000, 5000, 10000]), reason: pick(r, ['Cash not dispensed', 'Partial dispense', 'Account debited twice', 'Timeout error']), st: pick(r, ['Open', 'Under Review', 'Represented', 'Settled', 'Closed']) })),
+  },
+  {
+    id: 'apna-app', name: 'Apna App Uploads & Activity', category: 'operations', desc: 'Apna App sync, statement uploads and daily activity', dateKey: 'date', source: 'Apna App Mobile Sync',
+    columns: [{ key: 'frId', label: 'Franchise ID' }, { key: 'name', label: 'Franchise Name' }, { key: 'ver', label: 'App Version' }, { key: 'date', label: 'Last Sync', kind: 'date' }, { key: 'uploads', label: 'Docs Uploaded', kind: 'num' }, { key: 'st', label: 'Sync Status', kind: 'status' }],
+    build: ({ frs }) => frs.slice(0, 20).map((f, i) => ({ frId: f.id, name: f.name, ver: 'v2.4.1', date: day(i % 5), uploads: (i * 3) % 15 + 1, st: i % 4 === 0 ? 'Pending' : 'Synced' })),
+  },
+  {
+    id: 'calling-report', name: 'Calling Report', category: 'franchise', desc: 'Partner calls, follow-ups and outreach log', dateKey: 'date', source: 'CRM Telephony Logs',
+    columns: [{ key: 'callId', label: 'Call ID' }, { key: 'fr', label: 'Franchise' }, { key: 'caller', label: 'Caller' }, { key: 'date', label: 'Call Date', kind: 'date' }, { key: 'duration', label: 'Duration' }, { key: 'disp', label: 'Disposition', kind: 'status' }],
+    build: () => gen(18, 83, (i, r) => ({ callId: `CALL-${8900 + i}`, fr: site(i).franchise, caller: pick(r, USERS)[0], date: day(i), duration: `${Math.floor(r() * 8) + 1}m ${Math.floor(r() * 59)}s`, disp: pick(r, ['Connected', 'Follow-up', 'Not Reachable', 'Resolved']) })),
+  },
+  {
+    id: 'penalty-data', name: 'Penality Data', category: 'financial', desc: 'SLA breach deductions and penalty data register', dateKey: 'date', source: 'Operations & SLA Register',
+    columns: [{ key: 'id', label: 'Penalty ID' }, { key: 'atm', label: 'ATM ID' }, { key: 'fr', label: 'Franchise' }, { key: 'date', label: 'Incident Date', kind: 'date' }, { key: 'amt', label: 'Penalty Amount', kind: 'money' }, { key: 'reason', label: 'SLA Breach Reason' }, { key: 'st', label: 'Status', kind: 'status' }],
+    build: () => gen(14, 85, (i, r) => ({ id: `PEN-26-${pad(110 + i)}`, atm: site(i).atmId, fr: site(i).franchise, date: day(i * 3 + 1), amt: pick(r, [2500, 5000, 7500, 10000]), reason: pick(r, ['Downtime exceeded 8 hrs', 'Late CBR submission', 'Cash-out breach', 'Maintenance delay']), st: pick(r, ['Deducted', 'Under Dispute', 'Waived', 'Pending']) })),
+  },
+  {
+    id: 'cbr-hamp', name: 'CBR HAMP Report', category: 'operations', desc: 'HAMP compliance cash balance reports per ATM', dateKey: 'date', source: 'Daily CBR & HAMP Switch',
+    columns: [{ key: 'date', label: 'Date', kind: 'date' }, { key: 'atm', label: 'ATM ID' }, { key: 'fr', label: 'Franchise' }, { key: 'hampSw', label: 'HAMP Switch Bal', kind: 'money' }, { key: 'phys', label: 'Physical Cash', kind: 'money' }, { key: 'var', label: 'Variance', kind: 'money' }, { key: 'st', label: 'Compliance Status', kind: 'status' }],
+    build: () => gen(20, 87, (i, r) => {
+      const bal = Math.round((210000 + r() * 180000) / 100) * 100
+      const variance = pick(r, [0, 0, 0, 0, 500, -500])
+      return { date: day(Math.floor(i / 3)), atm: site(i).atmId, fr: site(i).franchise, hampSw: bal, phys: bal + variance, var: variance, st: variance === 0 ? 'Compliant' : 'Variance' }
+    }),
+  },
+  {
+    id: 'bank-statement', name: 'Bank Statement', category: 'financial', desc: 'Bank statements and reconciliation status', dateKey: 'date', source: 'Bank Integration Portal',
+    columns: [{ key: 'acc', label: 'Account No' }, { key: 'bank', label: 'Bank Name' }, { key: 'fr', label: 'Franchise' }, { key: 'date', label: 'Stmt Date', kind: 'date' }, { key: 'bal', label: 'Closing Balance', kind: 'money' }, { key: 'st', label: 'Recon Status', kind: 'status' }],
+    build: () => gen(16, 89, (i, r) => ({ acc: `9180200${pad(310 + i * 4)}`, bank: site(i).bank, fr: site(i).franchise, date: day(i * 2), bal: Math.round((45000 + r() * 210000) / 10) * 10, st: pick(r, ['Reconciled', 'Reconciled', 'Pending', 'Matched']) })),
+  },
+  {
+    id: 'tds-letters', name: 'TDS Letters', category: 'financial', desc: 'TDS deduction certificates and letters per financial quarter', dateKey: 'date', source: 'Tax Assessment Portal',
+    columns: [{ key: 'cert', label: 'Certificate No' }, { key: 'fr', label: 'Franchise' }, { key: 'pan', label: 'PAN' }, { key: 'date', label: 'Quarter Date', kind: 'date' }, { key: 'tds', label: 'TDS Amount', kind: 'money' }, { key: 'st', label: 'Dispatch Status', kind: 'status' }],
+    build: () => gen(14, 91, (i, r) => ({ cert: `TDS-26-Q2-${pad(101 + i)}`, fr: site(i).franchise, pan: `AAACD${1000 + i * 13}K`, date: day(i * 3), tds: Math.round((3500 + r() * 12000) / 10) * 10, st: pick(r, ['Generated', 'Dispatched', 'Downloaded']) })),
+  },
 ]
 
 export const getReport = (id: string) => REPORTS.find((r) => r.id === id)
@@ -363,13 +402,13 @@ export type SavedView = { id: string; name: string; reportId: string; category: 
 export type Schedule = { id: string; reportId: string; frequency: 'Daily' | 'Weekly' | 'Monthly'; time: string; recipients: string; format: '.xlsx' | '.csv'; createdBy: string; createdAt: string; active: boolean }
 
 export const savedViewStore = createStore<SavedView[]>('dexter.reports.saved.v1', () => [
-  { id: 'SV-1', name: 'Pune network — this month', reportId: 'franchise-register', category: 'all', range: 'month', query: '', savedAt: '2026-10-06T09:20', by: 'Ananya Sharma' },
-  { id: 'SV-2', name: 'Open compliance exceptions', reportId: 'compliance-exceptions', category: 'kyc', range: 'all', query: '', savedAt: '2026-10-02T17:05', by: 'Ananya Sharma' },
+  { id: 'SV-1', name: 'Pune network — this month', reportId: 'franchise-register', category: 'all', range: 'month', query: '', savedAt: '2026-10-06T09:20', by: 'Paras Dubey' },
+  { id: 'SV-2', name: 'Open compliance exceptions', reportId: 'compliance-exceptions', category: 'kyc', range: 'all', query: '', savedAt: '2026-10-02T17:05', by: 'Paras Dubey' },
 ])
 
 export const scheduleStore = createStore<Schedule[]>('dexter.reports.schedules.v1', () => [
   { id: 'SCH-1', reportId: 'cash-reconciliation', frequency: 'Daily', time: '08:00', recipients: 'finance@dexterindia.in', format: '.xlsx', createdBy: 'Vikram Shah', createdAt: '2026-09-12', active: true },
-  { id: 'SCH-2', reportId: 'franchise-register', frequency: 'Weekly', time: '09:00', recipients: 'ananya.sharma@dexterindia.in, meera.iyer@dexterindia.in', format: '.xlsx', createdBy: 'Ananya Sharma', createdAt: '2026-08-30', active: true },
+  { id: 'SCH-2', reportId: 'franchise-register', frequency: 'Weekly', time: '09:00', recipients: 'ananya.sharma@dexterindia.in, meera.iyer@dexterindia.in', format: '.xlsx', createdBy: 'Paras Dubey', createdAt: '2026-08-30', active: true },
   { id: 'SCH-3', reportId: 'audit-trail', frequency: 'Monthly', time: '07:30', recipients: 'governance@dexterindia.in', format: '.csv', createdBy: 'Suresh Nair', createdAt: '2026-07-01', active: false },
 ])
 

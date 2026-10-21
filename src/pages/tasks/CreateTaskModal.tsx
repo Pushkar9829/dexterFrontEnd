@@ -90,7 +90,7 @@ export function CreateTaskModal({ onClose, navigateOnCreate = true }: { onClose:
         <TextAreaField className="sm:col-span-2" label="Expected outcome" required name="ct-outcome" rows={2} value={f.expectedOutcome} onChange={set('expectedOutcome')} error={err.expectedOutcome} placeholder="e.g. Approved KYC pack for Finance handoff" />
         <SelectField label="Priority" required name="ct-priority" options={PRIORITIES} value={f.priority} onChange={set('priority')} error={err.priority} />
         <SelectField label="Department" required name="ct-dept" options={DEPTS} value={f.department} onChange={set('department')} error={err.department} />
-        <SelectField label="Assignee" name="ct-assignee" options={['Unassigned', ...PEOPLE.filter((p) => p.name !== 'Ananya Sharma').map((p) => p.name)]} value={f.assignee} onChange={set('assignee')} />
+        <SelectField label="Assignee" name="ct-assignee" options={['Unassigned', ...PEOPLE.filter((p) => p.name !== 'Paras Dubey').map((p) => p.name)]} value={f.assignee} onChange={set('assignee')} />
         <div>
           <label htmlFor="ct-due" className="mb-1.5 block text-[12px] font-semibold text-ink">
             Due (IST) *

@@ -62,7 +62,7 @@ export default function EodSummary() {
       const n = { ...m }
       ids.forEach((id) => {
         const [atm, d] = id.split('|')
-        n[id] = { uploaded: true, fileName: fileName ?? `CBR_${atm}_${d.replace(/-/g, '')}.xlsx`, at, by: 'Ananya Sharma' }
+        n[id] = { uploaded: true, fileName: fileName ?? `CBR_${atm}_${d.replace(/-/g, '')}.xlsx`, at, by: 'Paras Dubey' }
       })
       return n
     })
@@ -97,26 +97,26 @@ export default function EodSummary() {
     },
     ...(editing
       ? ([
-          { key: 'fileName', header: 'File', width: 240, render: (r) => (r.fileName ? <span className="text-ink-2">{r.fileName}</span> : <span className="text-muted">—</span>) },
-          {
-            key: 'action', header: 'Action', label: 'Action', width: 220, value: () => '',
-            render: (r) =>
-              r.uploaded ? (
-                <button onClick={() => unmark(r.id)} className="text-[12px] text-muted hover:text-brand-red">
-                  Reset
+        { key: 'fileName', header: 'File', width: 240, render: (r) => (r.fileName ? <span className="text-ink-2">{r.fileName}</span> : <span className="text-muted">—</span>) },
+        {
+          key: 'action', header: 'Action', label: 'Action', width: 220, value: () => '',
+          render: (r) =>
+            r.uploaded ? (
+              <button onClick={() => unmark(r.id)} className="text-[12px] text-muted hover:text-brand-red">
+                Reset
+              </button>
+            ) : (
+              <span className="flex gap-3 text-[12px] font-semibold text-primary">
+                <button onClick={() => pickFile([r.id])} className="flex items-center gap-1 hover:underline">
+                  <Upload size={13} /> Upload file
                 </button>
-              ) : (
-                <span className="flex gap-3 text-[12px] font-semibold text-primary">
-                  <button onClick={() => pickFile([r.id])} className="flex items-center gap-1 hover:underline">
-                    <Upload size={13} /> Upload file
-                  </button>
-                  <button onClick={() => mark([r.id])} className="flex items-center gap-1 hover:underline">
-                    <CheckCheck size={13} /> Mark uploaded
-                  </button>
-                </span>
-              ),
-          },
-        ] as GridColumn<UploadRow>[])
+                <button onClick={() => mark([r.id])} className="flex items-center gap-1 hover:underline">
+                  <CheckCheck size={13} /> Mark uploaded
+                </button>
+              </span>
+            ),
+        },
+      ] as GridColumn<UploadRow>[])
       : []),
 
   ]
@@ -139,16 +139,16 @@ export default function EodSummary() {
     },
     ...(editing
       ? ([
-          { key: 'by', header: 'Recorded by', width: 150 },
-          {
-            key: 'action', header: 'Action', label: 'Action', width: 190, value: () => '',
-            render: (c) => (
-              <button onClick={() => setClearing({ atmId: c.atmId, at: nowLocal() })} className="flex items-center gap-1 text-[12px] font-semibold text-primary hover:underline">
-                <RotateCcw size={13} /> Record counter clear
-              </button>
-            ),
-          },
-        ] as GridColumn<CounterClear>[])
+        { key: 'by', header: 'Recorded by', width: 150 },
+        {
+          key: 'action', header: 'Action', label: 'Action', width: 190, value: () => '',
+          render: (c) => (
+            <button onClick={() => setClearing({ atmId: c.atmId, at: nowLocal() })} className="flex items-center gap-1 text-[12px] font-semibold text-primary hover:underline">
+              <RotateCcw size={13} /> Record counter clear
+            </button>
+          ),
+        },
+      ] as GridColumn<CounterClear>[])
       : []),
   ]
 
@@ -156,7 +156,7 @@ export default function EodSummary() {
     if (!clearing) return
     if (!clearing.atmId || !clearing.at) return toast('Select an ATM and the clear date & time', 'info')
     if (Date.parse(clearing.at) > Date.now()) return toast('Clear date & time cannot be in the future', 'info')
-    counterStore.set((cs) => cs.map((c) => (c.atmId === clearing.atmId ? { ...c, lastClear: clearing.at, by: 'Ananya Sharma' } : c)))
+    counterStore.set((cs) => cs.map((c) => (c.atmId === clearing.atmId ? { ...c, lastClear: clearing.at, by: 'Paras Dubey' } : c)))
     toast(`Counter clear recorded for ${clearing.atmId}`)
     setClearing(null)
   }

@@ -34,7 +34,7 @@ export const PEOPLE: Person[] = [
   { name: 'Amit Jadhav', role: 'Engineer', dept: 'Operations', initials: 'AJ' },
   { name: 'Neha Deshmukh', role: 'RM', dept: 'Sales', initials: 'ND' },
   { name: 'Rohan Gupta', role: 'Employee', dept: 'Legal', initials: 'RG' },
-  { name: 'Ananya Sharma', role: 'Super administrator', dept: 'India operations', initials: 'AS' },
+  { name: 'Paras Dubey', role: 'Super administrator', dept: 'India operations', initials: 'AS' },
 ]
 export const VERIFICATION_TEAM = ['Rahul Kumar', 'Priya Menon', 'Sana Ali', 'Neha Das', 'Karan Mehta']
 export const person = (name: string): Person =>
@@ -438,7 +438,7 @@ export type NewTaskInput = {
 export function createTask(x: NewTaskInput): Task {
   const id = nextTaskId()
   const tat = Math.max(1, Math.ceil((x.dueMs - NOW) / HOUR))
-  const by = x.createdBy ?? 'Ananya Sharma'
+  const by = x.createdBy ?? 'Paras Dubey'
   const t: Task = {
     id,
     title: x.title,

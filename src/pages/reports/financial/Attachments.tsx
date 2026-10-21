@@ -13,7 +13,7 @@ export function AttachCell({ row, editing, onChange, onView }: { row: Row; editi
   const take = (f?: File) => {
     if (!f) return
     if (f.size > 5 * 1024 * 1024) return toast('Attachment must be 5 MB or smaller', 'info')
-    const base: Attachment = { name: f.name, size: f.size, uploadedAt: new Date().toISOString().slice(0, 10), by: 'Ananya Sharma' }
+    const base: Attachment = { name: f.name, size: f.size, uploadedAt: new Date().toISOString().slice(0, 10), by: 'Paras Dubey' }
     if (f.size > 300 * 1024) return onChange(JSON.stringify(base))
     const reader = new FileReader()
     reader.onload = () => onChange(JSON.stringify({ ...base, dataUrl: String(reader.result) }))

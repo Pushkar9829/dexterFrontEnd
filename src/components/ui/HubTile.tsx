@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowRight, type LucideIcon } from 'lucide-react'
+import { ArrowRight, FileText, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/cn'
 
 export type HubTileTheme =
@@ -159,6 +159,7 @@ export interface HubTileProps {
   theme?: HubTileTheme
   tag?: string
   badge?: string
+  reportsCount?: string
   actionText?: string
   customWatermark?: ReactNode
 }
@@ -171,6 +172,7 @@ export function HubTile({
   theme = 'blue',
   tag,
   badge,
+  reportsCount,
   actionText,
 }: HubTileProps) {
   const t = THEMES[theme] || THEMES.blue
@@ -281,19 +283,33 @@ export function HubTile({
 
       {/* Card Footer */}
       <div className="relative z-10 mt-4 pt-3 border-t border-line-soft/80 flex items-center justify-between text-[11.5px]">
-        <span
-          className={cn(
-            'inline-flex items-center gap-1 font-semibold transition-all duration-200 group-hover:translate-x-0.5',
-            t.footerText
-          )}
-        >
-          {actionText || 'Open module'}
-          <ArrowRight size={12} />
-        </span>
-        {badge && (
-          <span className="text-[11px] text-muted font-medium bg-surface px-2 py-0.5 rounded border border-line-soft">
-            {badge}
-          </span>
+        {reportsCount ? (
+          <>
+            <div className="flex items-center gap-1.5 text-muted">
+              <FileText size={14} className="text-[#0066FF]" />
+              <span className="font-medium text-[11.5px] text-[#475569]">{reportsCount}</span>
+            </div>
+            <span className="grid h-7 w-7 place-items-center rounded-full bg-[#F0F6FF] text-[#0066FF] transition-all duration-200 group-hover:bg-[#0066FF] group-hover:text-white">
+              <ArrowRight size={13} className="transition-transform duration-200 group-hover:translate-x-0.5" />
+            </span>
+          </>
+        ) : (
+          <>
+            <span
+              className={cn(
+                'inline-flex items-center gap-1 font-semibold transition-all duration-200 group-hover:translate-x-0.5',
+                t.footerText
+              )}
+            >
+              {actionText || 'Open module'}
+              <ArrowRight size={12} />
+            </span>
+            {badge && (
+              <span className="text-[11px] text-muted font-medium bg-surface px-2 py-0.5 rounded border border-line-soft">
+                {badge}
+              </span>
+            )}
+          </>
         )}
       </div>
     </Link>

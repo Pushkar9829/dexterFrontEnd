@@ -155,7 +155,7 @@ export function getDaily(id: string): DailyCbr | undefined {
 }
 
 export function saveDaily(d: DailyCbr) {
-  dailyStore.set((m) => ({ ...m, [d.id]: { ...d, updatedBy: 'Ananya Sharma', updatedAt: new Date().toISOString() } }))
+  dailyStore.set((m) => ({ ...m, [d.id]: { ...d, updatedBy: 'Paras Dubey', updatedAt: new Date().toISOString() } }))
 }
 
 export type ConsolidatedRow = {

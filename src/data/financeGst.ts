@@ -194,7 +194,7 @@ function seed(): GstRecord[] {
                 ? 'Invoice received; under GSTR-2B reconciliation.'
                 : '',
         updatedAt: done ? `${payDate}T11:30:00+05:30` : '2026-10-10T10:00:00+05:30',
-        updatedBy: done ? 'Vikram Shah' : 'Ananya Sharma',
+        updatedBy: done ? 'Vikram Shah' : 'Paras Dubey',
       })
     }
   }
@@ -213,7 +213,7 @@ export function emptyGst(fy = '26-27'): GstRecord {
 }
 
 export function saveGst(rec: GstRecord): GstRecord {
-  const stamp = { updatedAt: new Date().toISOString(), updatedBy: 'Ananya Sharma' }
+  const stamp = { updatedAt: new Date().toISOString(), updatedBy: 'Paras Dubey' }
   if (!rec.id) {
     const all = gstStore.get()
     const sn = all.reduce((m, g) => Math.max(m, g.sn), 0) + 1

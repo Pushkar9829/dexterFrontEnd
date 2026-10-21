@@ -28,7 +28,7 @@ export const STATE_CODE: Record<string, string> = {
   'West Bengal': 'WB', 'Tamil Nadu': 'TN', Delhi: 'DL', Telangana: 'TS',
 }
 
-export const OWNERS = ['Ananya Sharma', 'Rohit Verma', 'Priya Nair', 'Meera Iyer', 'Arjun Sethi']
+export const OWNERS = ['Paras Dubey', 'Rohit Verma', 'Priya Nair', 'Meera Iyer', 'Arjun Sethi']
 
 // first rows exactly as in the design
 const HEAD: Omit<Franchise, 'owner' | 'updatedAt'>[] = [
@@ -66,10 +66,10 @@ export function seedFranchises(): Franchise[] {
   const quota: Record<Tier, number> = { 'Super Master': 24, Master: 186, Franchise: 1074 }
   HEAD.forEach((h) => quota[h.tier]--)
   const tiers: Tier[] = []
-  ;(Object.keys(quota) as Tier[]).forEach((t) => tiers.push(...Array(quota[t]).fill(t)))
+    ; (Object.keys(quota) as Tier[]).forEach((t) => tiers.push(...Array(quota[t]).fill(t)))
   for (let i = tiers.length - 1; i > 0; i--) {
     const j = Math.floor(r() * (i + 1))
-    ;[tiers[i], tiers[j]] = [tiers[j], tiers[i]]
+      ;[tiers[i], tiers[j]] = [tiers[j], tiers[i]]
   }
 
   // KYC: 14 pending + 33 in review overall; 78 inactive overall (→ 1,206 active)
@@ -124,7 +124,7 @@ export function addFranchise(input: Pick<Franchise, 'name' | 'tier' | 'state' | 
   let id = ''
   do id = `FR-${STATE_CODE[input.state] ?? 'XX'}-${String(++n).padStart(5, '0')}`
   while (used.has(id))
-  const fr: Franchise = { ...input, id, kyc: 'Pending', status: 'Active', owner: 'Ananya Sharma', updatedAt: new Date().toISOString() }
+  const fr: Franchise = { ...input, id, kyc: 'Pending', status: 'Active', owner: 'Paras Dubey', updatedAt: new Date().toISOString() }
   franchiseStore.set([fr, ...list])
   return fr
 }
