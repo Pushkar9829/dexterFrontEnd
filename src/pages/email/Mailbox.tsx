@@ -88,7 +88,7 @@ export function TrackerChip({ id, className }: { id?: string; className?: string
 const AVATAR_BG = ['bg-primary text-white', 'bg-violet-600 text-white', 'bg-teal-600 text-white', 'bg-blue-600 text-white', 'bg-amber-500 text-white', 'bg-emerald-600 text-white']
 // colours used for the known senders in the Figma mailbox; anyone else gets a stable hashed colour
 const AVATAR_FIXED: Record<string, string> = {
-  'Rohit Sharma': AVATAR_BG[0],
+  'Rohit Dubey': AVATAR_BG[0],
   'Support Team': AVATAR_BG[0],
   'Customer Support': AVATAR_BG[1],
   'Vikram Singh': AVATAR_BG[1],
@@ -99,7 +99,7 @@ const AVATAR_FIXED: Record<string, string> = {
   'Priya Mehta': AVATAR_BG[5],
 }
 export const avatarCls = (name: string) => AVATAR_FIXED[name] ?? AVATAR_BG[[...name].reduce((a, c) => a + c.charCodeAt(0), 0) % AVATAR_BG.length]
-/** 'rohit.sharma@example.com' → 'Rohit Sharma' (sent/draft rows show the recipient's initials) */
+/** 'rohit.Dubey@example.com' → 'Rohit Dubey' (sent/draft rows show the recipient's initials) */
 const nameFromAddr = (addr: string) =>
   addr.split('@')[0].split(/[._-]+/).filter(Boolean).map((w) => w[0].toUpperCase() + w.slice(1)).join(' ')
 /** list preview skips the salutation line, as in the design */

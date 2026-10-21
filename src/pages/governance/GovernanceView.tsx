@@ -55,7 +55,7 @@ const SECTION_META: Record<GovernanceSection, SectionMeta> = {
 
 // ── Mock Data: Audit Trail ─────────────────────────────────────────────────
 const AUDIT_DATA = [
-  { id: 'AUD-94021', time: '2026-10-21 17:42:10', actor: 'Paras Dubey', email: 'ananya.sharma@dexterindia.in', action: 'FRANCHISE_UPDATE', entity: 'FR-MH-1024', desc: 'Updated franchise banking mandate & account details', ip: '103.24.112.4', severity: 'Info' },
+  { id: 'AUD-94021', time: '2026-10-21 17:42:10', actor: 'Paras Dubey', email: 'Paras.Dubey@dexterindia.in', action: 'FRANCHISE_UPDATE', entity: 'FR-MH-1024', desc: 'Updated franchise banking mandate & account details', ip: '103.24.112.4', severity: 'Info' },
   { id: 'AUD-94020', time: '2026-10-21 16:15:33', actor: 'Vikram Shah', email: 'vikram.shah@dexterindia.in', action: 'SD_ADJUSTMENT', entity: 'SD-FR-0891', desc: 'Approved SD top-up adjustment of ₹2,50,000 via RTGS', ip: '103.24.112.9', severity: 'Info' },
   { id: 'AUD-94019', time: '2026-10-21 15:50:02', actor: 'System Worker', email: 'system@dexterindia.in', action: 'CBR_AUTO_SYNC', entity: 'CBR-BATCH-88', desc: 'Processed and validated daily switch transactions for 42 ATMs', ip: '10.0.4.12', severity: 'Info' },
   { id: 'AUD-94018', time: '2026-10-21 14:22:45', actor: 'Rahul Kumar', email: 'rahul.kumar@dexterindia.in', action: 'KYC_VERIFICATION', entity: 'KYC-2026-0341', desc: 'Verified Aadhaar OTP and PAN check for applicant Rajesh Gupta', ip: '49.36.128.92', severity: 'Info' },

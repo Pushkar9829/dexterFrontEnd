@@ -723,8 +723,8 @@ function seedComplaints(): Complaint[] {
     { id: 'TSK-2083', title: 'Charging test & battery replacement', owner: 'Amit Jadhav', due: ist(today, '14:00'), dependency: 'Field visit' },
   ]
   k.emails = [
-    { id: 'EM-10483', subject: 'Re: DX-78142 · Battery dispatch confirmation', status: 'Awaiting reply', route: 'Exide service desk → Ananya', at: ist(today, '08:45'), meta: 'ETA awaited' },
-    { id: 'EM-10482', subject: 'Docket registered for ATM-MH-1024', status: 'Received', route: 'HD Team → FR & Ananya', at: ist('2026-10-05', '11:15'), meta: 'DX-78142' },
+    { id: 'EM-10483', subject: 'Re: DX-78142 · Battery dispatch confirmation', status: 'Awaiting reply', route: 'Exide service desk → Paras', at: ist(today, '08:45'), meta: 'ETA awaited' },
+    { id: 'EM-10482', subject: 'Docket registered for ATM-MH-1024', status: 'Received', route: 'HD Team → FR & Paras', at: ist('2026-10-05', '11:15'), meta: 'DX-78142' },
     { id: 'EM-10481', subject: 'Power backup failure reported', status: 'Linked', route: 'Rahul Mehta → HD Team', at: ist('2026-10-05', '10:30'), meta: '2 attachments' },
   ]
   k.visits = [

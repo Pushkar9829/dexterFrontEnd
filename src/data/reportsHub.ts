@@ -408,7 +408,7 @@ export const savedViewStore = createStore<SavedView[]>('dexter.reports.saved.v1'
 
 export const scheduleStore = createStore<Schedule[]>('dexter.reports.schedules.v1', () => [
   { id: 'SCH-1', reportId: 'cash-reconciliation', frequency: 'Daily', time: '08:00', recipients: 'finance@dexterindia.in', format: '.xlsx', createdBy: 'Vikram Shah', createdAt: '2026-09-12', active: true },
-  { id: 'SCH-2', reportId: 'franchise-register', frequency: 'Weekly', time: '09:00', recipients: 'ananya.sharma@dexterindia.in, meera.iyer@dexterindia.in', format: '.xlsx', createdBy: 'Paras Dubey', createdAt: '2026-08-30', active: true },
+  { id: 'SCH-2', reportId: 'franchise-register', frequency: 'Weekly', time: '09:00', recipients: 'Paras.Dubey@dexterindia.in, meera.iyer@dexterindia.in', format: '.xlsx', createdBy: 'Paras Dubey', createdAt: '2026-08-30', active: true },
   { id: 'SCH-3', reportId: 'audit-trail', frequency: 'Monthly', time: '07:30', recipients: 'governance@dexterindia.in', format: '.csv', createdBy: 'Suresh Nair', createdAt: '2026-07-01', active: false },
 ])
 

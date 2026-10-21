@@ -21,10 +21,10 @@ export default function UserProfile() {
   const authUser = getSession()
   const [editing, setEditing] = useState(false)
   const [profile, setProfile] = useState({
-    name: authUser?.name || 'Ananya Sharma',
+    name: authUser?.name || 'Paras Dubey',
     role: authUser?.role || 'Operations Lead',
     empId: 'EMP-0102',
-    email: 'ananya.sharma@dexterindia.in',
+    email: 'Paras.Dubey@dexterindia.in',
     phone: '+91 98201 44582',
     department: 'ATM Operations & Support',
     location: 'Mumbai Central, Maharashtra',

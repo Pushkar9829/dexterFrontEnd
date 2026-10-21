@@ -33,7 +33,7 @@ export const SITES: SiteRef[] = [
   { frId: 'FR-WB-00183', franchise: 'Bengal Rural Payments', mf: 'Bengal Rural Payments', state: 'West Bengal', city: 'Kolkata', location: 'Barasat Station Road', siteId: 'ST-WB-KOL-00183', atmId: 'DX-WB-00227', hitachi: 'HT-WB-60418', holder: 'Subhashis Ghosh', phone: '9831045529', email: 'bengalrural.pay@gmail.com', bank: 'Axis Bank', ifsc: 'UTIB0000005', account: '918020047731256' },
   { frId: 'FR-MP-00312', franchise: 'Malwa Financial Network', mf: 'Malwa Financial Network', state: 'Madhya Pradesh', city: 'Indore', location: 'Rau Pithampur Road', siteId: 'ST-MP-IND-00312', atmId: 'MPBP013404', hitachi: 'HT-MP-13404', holder: 'Ravi Malviya', phone: '9826031148', email: 'malwa.fn@gmail.com', bank: 'Bank of Baroda', ifsc: 'BARB0INDORE', account: '29380100012844' },
   { frId: 'FR-TN-00142', franchise: 'Southern Cash Services', mf: 'Southern Cash Services', state: 'Tamil Nadu', city: 'Chennai', location: 'Tambaram West', siteId: 'ST-TN-CHE-00142', atmId: 'DX-TN-00315', hitachi: 'HT-TN-70126', holder: 'Karthik Subramanian', phone: '9840012376', email: 'southerncash.chn@gmail.com', bank: 'Indian Bank', ifsc: 'IDIB000T012', account: '6712045891' },
-  { frId: 'FR-RJ-00267', franchise: 'Pink City Finserve', mf: 'Capital ATM Partners', state: 'Rajasthan', city: 'Jaipur', location: 'Sanganer Bazaar', siteId: 'ST-RJ-JAI-00267', atmId: 'DX-RJ-00189', hitachi: 'HT-RJ-80233', holder: 'Mahendra Sharma', phone: '9829045610', email: 'pinkcity.finserve@gmail.com', bank: 'HDFC Bank', ifsc: 'HDFC0000267', account: '50100267331842' },
+  { frId: 'FR-RJ-00267', franchise: 'Pink City Finserve', mf: 'Capital ATM Partners', state: 'Rajasthan', city: 'Jaipur', location: 'Sanganer Bazaar', siteId: 'ST-RJ-JAI-00267', atmId: 'DX-RJ-00189', hitachi: 'HT-RJ-80233', holder: 'Mahendra Dubey', phone: '9829045610', email: 'pinkcity.finserve@gmail.com', bank: 'HDFC Bank', ifsc: 'HDFC0000267', account: '50100267331842' },
   { frId: 'FR-DL-00091', franchise: 'Capital ATM Partners', mf: 'Capital ATM Partners', state: 'Delhi', city: 'New Delhi', location: 'Laxmi Nagar Metro', siteId: 'ST-DL-NDL-00091', atmId: 'DX-DL-00544', hitachi: 'HT-DL-90155', holder: 'Ankit Bansal', phone: '9811034572', email: 'capitalatm.ops@gmail.com', bank: 'Kotak Mahindra Bank', ifsc: 'KKBK0000172', account: '7712039845' },
   { frId: 'FR-TS-00156', franchise: 'Deccan Cash Connect', mf: 'Deccan Cash Connect', state: 'Telangana', city: 'Hyderabad', location: 'Kukatpally Housing Board', siteId: 'ST-TS-HYD-00156', atmId: 'DX-TS-00663', hitachi: 'HT-TS-41580', holder: 'Srinivas Reddy', phone: '9849027713', email: 'deccancash.hyd@gmail.com', bank: 'Union Bank of India', ifsc: 'UBIN0815632', account: '156310100044127' },
 ]
@@ -53,7 +53,7 @@ const iso = (y: number, m: number, d: number) => `${y}-${pad(m)}-${pad(d)}`
 // ── Enumerations from the source sheets ───────────────────────────────────
 /** separator for multi-entry cells (e.g. BS A/C Status: "Current Account / Axis Indent / ICICI SR" stacked) */
 export const MULTI_SEP = '\n'
-export const AC_STATUS =['Current Account', 'Axis Indent', 'ICICI SR']
+export const AC_STATUS = ['Current Account', 'Axis Indent', 'ICICI SR']
 export const UPLOAD_STATUS = ['Uploaded', 'Pending', 'Not uploaded']
 export const CLF_STATUS = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th']
 export const SETTLEMENT_BANKS = ['Axis Indent', 'WLA Account', 'ICICI SR', 'HDFC', 'SBI']

@@ -31,7 +31,7 @@ export const finance = [
 ] as const
 
 export const activities = [
-  { when: '27 Aug 2025', time: '12:45 PM', activity: 'New user registered · Rahul Sharma', module: 'Onboarding', status: 'Completed' },
+  { when: '27 Aug 2025', time: '12:45 PM', activity: 'New user registered · Rahul Dubey', module: 'Onboarding', status: 'Completed' },
   { when: '27 Aug 2025', time: '11:32 AM', activity: 'Complaint raised · Site ID 1024', module: 'Operations', status: 'In Progress' },
   { when: '27 Aug 2025', time: '10:15 AM', activity: 'Payout processed · MF', module: 'Finance', status: 'Completed' },
   { when: '26 Aug 2025', time: '04:20 PM', activity: 'Document verified · Franchise', module: 'KYC', status: 'Completed' },

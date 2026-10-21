@@ -75,7 +75,7 @@ export const TRACKERS: Tracker[] = [
     status: 'Open',
     priority: 'High',
     category: 'ATM Issue',
-    customer: { name: 'Rohit Sharma', email: 'rohit.sharma@example.com', phone: '+91 98765 43210', role: 'Branch Manager', org: 'ABC Bank', location: 'Connaught Place, New Delhi' },
+    customer: { name: 'Rohit Dubey', email: 'rohit.Dubey@example.com', phone: '+91 98765 43210', role: 'Branch Manager', org: 'ABC Bank', location: 'Connaught Place, New Delhi' },
     createdOn: at('2025-08-26T14:15:00'),
     assignedTo: 'Amit Kumar (Support)',
     events: [{ at: at('2025-08-26T14:15:00'), title: 'Case Created', detail: 'ATM Complaint Logged' }],
@@ -141,10 +141,10 @@ const SIG = 'Regards,\nDexter India Support Team'
 function seed(): Mail[] {
   const hand: Mail[] = [
     m({
-      id: 'm1', threadId: 'th-125', fromName: 'Rohit Sharma', fromEmail: 'rohit.sharma@example.com',
+      id: 'm1', threadId: 'th-125', fromName: 'Rohit Dubey', fromEmail: 'rohit.Dubey@example.com',
       cc: ['team@dexterindia.com', 'amit.kumar@dexterindia.com', 'escalations@dexterindia.com'],
       subject: 'Re: ATM Not Dispensing Cash - Case Update', at: at('2025-08-27T11:32:00'), tracker: 'ATM-2026-00125', priority: 'High',
-      body: 'Dear Team,\n\nThanks for the update. Please let me know the expected resolution timeline. The ATM is still not working and causing inconvenience to customers at the branch.\n\nAlso, please confirm once the technician visit is completed.\n\nRegards,\nRohit Sharma\nBranch Manager\nABC Bank, Connaught Place',
+      body: 'Dear Team,\n\nThanks for the update. Please let me know the expected resolution timeline. The ATM is still not working and causing inconvenience to customers at the branch.\n\nAlso, please confirm once the technician visit is completed.\n\nRegards,\nRohit Dubey\nBranch Manager\nABC Bank, Connaught Place',
       attachments: [{ name: 'Complaint_Screenshot.png', size: 846 * 1024 }, { name: 'Transaction_Report.pdf', size: 1.2 * 1024 * 1024 }],
       assigned: true, followUp: true, starred: true,
     }),
@@ -188,14 +188,14 @@ function seed(): Mail[] {
   // Sent thread history
   const sent: Mail[] = [
     m({
-      id: 's1', folder: 'sent', threadId: 'th-125', fromName: 'Support Team', fromEmail: 'support@dexterindia.com', to: ['rohit.sharma@example.com'], subject: 'Initial Complaint Acknowledgement',
+      id: 's1', folder: 'sent', threadId: 'th-125', fromName: 'Support Team', fromEmail: 'support@dexterindia.com', to: ['rohit.Dubey@example.com'], subject: 'Initial Complaint Acknowledgement',
       at: at('2025-08-26T09:00:00'), tracker: 'ATM-2026-00125', priority: 'High', sendState: 'Sent',
-      body: `Dear Mr. Sharma,\n\nWe have received your complaint (Tracker ID: ATM-2026-00125) regarding the ATM at Connaught Place not dispensing cash. Our technical team has been notified and will update you shortly.\n\n${SIG}`,
+      body: `Dear Mr. Dubey,\n\nWe have received your complaint (Tracker ID: ATM-2026-00125) regarding the ATM at Connaught Place not dispensing cash. Our technical team has been notified and will update you shortly.\n\n${SIG}`,
     }),
     m({
-      id: 's2', folder: 'sent', threadId: 'th-125', fromName: 'Support Team', fromEmail: 'support@dexterindia.com', to: ['rohit.sharma@example.com'], subject: 'ATM Technician Visit Update',
+      id: 's2', folder: 'sent', threadId: 'th-125', fromName: 'Support Team', fromEmail: 'support@dexterindia.com', to: ['rohit.Dubey@example.com'], subject: 'ATM Technician Visit Update',
       at: at('2025-08-26T10:15:00'), tracker: 'ATM-2026-00125', priority: 'High', sendState: 'Sent',
-      body: `Dear Mr. Sharma,\n\nWe are working on your complaint (Tracker ID: ATM-2026-00125). A technician visit is scheduled for 27 Aug between 10:00 AM and 1:00 PM. We will confirm once the visit is completed.\n\n${SIG}`,
+      body: `Dear Mr. Dubey,\n\nWe are working on your complaint (Tracker ID: ATM-2026-00125). A technician visit is scheduled for 27 Aug between 10:00 AM and 1:00 PM. We will confirm once the visit is completed.\n\n${SIG}`,
       attachments: [{ name: 'Case_Report.pdf', size: 1.2 * 1024 * 1024 }],
     }),
     m({
