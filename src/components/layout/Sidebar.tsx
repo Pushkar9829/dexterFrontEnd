@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import { ChevronDown, ChevronRight, Headset, X } from 'lucide-react'
+import { ChevronDown, X } from 'lucide-react'
 import { NAV, activeRoute, containsPath, type NavItem } from '@/data/nav'
 import { cn } from '@/lib/cn'
 import { Brand } from './Brand'
