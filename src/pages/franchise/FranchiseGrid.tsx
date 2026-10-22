@@ -3,12 +3,12 @@ import { Link } from 'react-router-dom'
 import { Eye, MousePointer2, ShieldCheck } from 'lucide-react'
 import { ExcelGrid, type GridColumn } from '@/components/grid/ExcelGrid'
 import { Badge, toneFor } from '@/components/ui/Badge'
-import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
-import { SelectField, TextField } from '@/components/ui/Form'
 import { toast } from '@/components/ui/Toast'
 import { LOCATIONS, STATES } from '@/data/applications'
 import { OWNERS, TIERS, addFranchise, franchiseStore, updateFranchises, type Franchise, type Tier } from '@/data/franchises'
+
+import { ApplicationWizard } from '@/pages/onboarding/wizard/ApplicationWizard'
 
 const fmtUpdated = (iso: string) =>
   new Date(iso).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false }).replace(',', ',')
@@ -178,49 +178,15 @@ export function useAddFranchise(defaultTier?: Tier) {
   const ui = (
     <>
       <input ref={fileRef} type="file" accept=".csv,.xlsx" className="hidden" onChange={(e) => importFile(e.target.files?.[0])} />
-      {open && <AddFranchiseModal defaultTier={defaultTier} onClose={() => setOpen(false)} />}
+      {open && (
+        <ApplicationWizard
+          app={null}
+          initialTier={defaultTier}
+          onClose={() => setOpen(false)}
+        />
+      )}
     </>
   )
   return { openAdd: () => setOpen(true), openImport: () => fileRef.current?.click(), ui }
 }
 
-function AddFranchiseModal({ defaultTier, onClose }: { defaultTier?: Tier; onClose: () => void }) {
-  const [f, setF] = useState({ name: '', tier: defaultTier ?? '', state: '', city: '', atms: '' })
-  const [err, setErr] = useState<Record<string, string>>({})
-  const save = () => {
-    const e: Record<string, string> = {}
-    if (!f.name.trim()) e.name = 'Required'
-    if (!f.tier) e.tier = 'Required'
-    if (!f.state) e.state = 'Required'
-    if (!f.city) e.city = 'Required'
-    if (f.atms && (Number.isNaN(Number(f.atms)) || Number(f.atms) < 0)) e.atms = 'Enter a number'
-    setErr(e)
-    if (Object.keys(e).length) return
-    const fr = addFranchise({ name: f.name.trim(), tier: f.tier as Tier, state: f.state, city: f.city, atms: Number(f.atms) || 0 })
-    toast(`${fr.id} · ${fr.name} added`)
-    onClose()
-  }
-  return (
-    <Modal
-      title="Add franchise"
-      sub="Creates a registry record. KYC starts as Pending."
-      onClose={onClose}
-      footer={
-        <>
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={save}>Add franchise</Button>
-        </>
-      }
-    >
-      <div className="grid gap-4 sm:grid-cols-2">
-        <TextField className="sm:col-span-2" label="Franchise name" required name="name" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} error={err.name} />
-        <SelectField label="Tier" required name="tier" options={TIERS} value={f.tier} onChange={(e) => setF({ ...f, tier: e.target.value })} error={err.tier} />
-        <TextField label="ATMs" name="atms" inputMode="numeric" value={f.atms} onChange={(e) => setF({ ...f, atms: e.target.value })} error={err.atms} />
-        <SelectField label="State" required name="state" options={STATES} value={f.state} onChange={(e) => setF({ ...f, state: e.target.value, city: '' })} error={err.state} />
-        <SelectField label="City" required name="city" options={LOCATIONS[f.state]?.cities ?? []} value={f.city} onChange={(e) => setF({ ...f, city: e.target.value })} error={err.city} />
-      </div>
-    </Modal>
-  )
-}
