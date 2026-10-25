@@ -4,6 +4,7 @@ import { ChevronDown, X } from 'lucide-react'
 import { NAV, activeRoute, containsPath, type NavItem } from '@/data/nav'
 import { cn } from '@/lib/cn'
 import { Brand } from './Brand'
+import { DEMO_USER, getSession } from '@/lib/auth'
 
 function SubItem({ item, depth }: { item: NavItem; depth: number }) {
   const { pathname } = useLocation()
@@ -109,6 +110,20 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
     const current = NAV.find((g) => containsPath(g, pathname))?.label
     if (current) setExpanded(current)
   }, [pathname])
+
+  const user = getSession() ?? DEMO_USER
+  const username = user.name || 'Dexter'
+  const initials =
+    user.initials ||
+    (user.name
+      ? user.name
+          .split(' ')
+          .map((n) => n[0])
+          .join('')
+          .slice(0, 2)
+          .toUpperCase()
+      : 'D')
+  const userEmail = user.email || 'dextermanagementservices@gmail.com'
 
   return (
     <>
@@ -255,30 +270,35 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
           })}
         </nav>
 
-        {/* Help & Support Card */}
-        {/* <div className="p-3 pb-1">
-          <div className="flex items-center gap-3 rounded-2xl bg-[#E2EEFB] px-3.5 py-3 transition-colors hover:bg-[#D5E5F8] cursor-pointer">
-            <Headset size={20} className="text-[#0066FF] shrink-0" strokeWidth={1.8} />
-            <div className="flex-1 min-w-0 leading-tight">
-              <div className="text-[12.5px] font-semibold text-[#1E293B]">Help &amp; support</div>
-              <div className="text-[10px] text-[#64748B] truncate">Operator workspace · v2.4</div>
+        {/* User Profile Card at bottom of sidebar */}
+        <div className="p-3 pt-2 border-t border-[#E0EBF7]">
+          <NavLink
+            to="/user"
+            onClick={onClose}
+            className={cn(
+              'group flex items-center gap-3 rounded-2xl p-2.5 transition-all duration-200 cursor-pointer',
+              'bg-[#0066FF] hover:bg-[#0052CC] text-white shadow-sm',
+              pathname.startsWith('/user')
+                ? 'ring-2 ring-[#0066FF] ring-offset-2 ring-offset-[#F0F7FD]'
+                : 'hover:shadow-md',
+            )}
+            title="User Profile & Settings"
+          >
+            {/* Avatar */}
+            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/20 text-white font-bold text-[13px] border border-white/20">
+              {initials}
             </div>
-            <ChevronRight size={14} className="text-[#2563EB] shrink-0" strokeWidth={2} />
-          </div>
-        </div> */}
 
-        {/* Brand Slogan from image reference */}
-        <div className="px-4 pb-3 pt-1">
-          <div className="flex items-center gap-2.5">
-            <div className="flex -space-x-1 shrink-0">
-              <span className="h-5 w-1.5 -skew-x-[24deg] rounded-full bg-[#EF4444]" />
-              <span className="h-5 w-1.5 -skew-x-[24deg] rounded-full bg-[#0066FF]" />
+            {/* Details */}
+            <div className="flex-1 min-w-0 leading-tight">
+              <div className="text-[13px] font-bold text-white tracking-tight truncate">
+                {username}
+              </div>
+              <div className="text-[11px] text-blue-100/90 truncate" title={userEmail}>
+                {userEmail}
+              </div>
             </div>
-            <div className="text-[11px] font-medium leading-tight text-[#475569]">
-              <div>Together for a</div>
-              <div className="font-semibold text-[#1E293B]">Stronger Tomorrow</div>
-            </div>
-          </div>
+          </NavLink>
         </div>
       </aside>
     </>

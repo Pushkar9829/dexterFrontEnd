@@ -20,7 +20,7 @@ const WORK_MANAGEMENT_TILES: WorkManagementTileConfig[] = [
   {
     title: 'EMAIL',
     sub: 'Manage mailboxes, inbound communications, correspondence and official drafts.',
-    to: '/email/inbox',
+    to: '/email',
     Icon: Mail,
     theme: 'blue',
     tag: 'Mailbox',
@@ -30,7 +30,7 @@ const WORK_MANAGEMENT_TILES: WorkManagementTileConfig[] = [
   {
     title: 'TASK MANAGEMENT',
     sub: 'Track operational routines, assignments, approval requests, and daily SLA tasks.',
-    to: '/tasks/command-center',
+    to: '/tasks',
     Icon: ListChecks,
     theme: 'purple',
     tag: 'Workflows',

@@ -10,12 +10,16 @@ import Notices from '@/pages/Notices'
 import Placeholder from '@/pages/Placeholder'
 import Applications from '@/pages/onboarding/Applications'
 import OnboardingHub from '@/pages/onboarding/OnboardingHub'
+import EmployeeList from '@/pages/onboarding/employee/EmployeeList'
+import EmployeeOnboardingForm from '@/pages/onboarding/employee/EmployeeOnboardingForm'
 import KycHub from '@/pages/onboarding/KycHub'
 import SetupHub, { BusinessSettingsHub, EscalationMatrixHub } from '@/pages/onboarding/SetupHub'
 import { Toaster } from '@/components/ui/Toast'
 import { FranchiseHub, FranchiseRegistration, MasterData, TierList } from '@/pages/franchise/FranchisePages'
 import Dossier from '@/pages/franchise/Dossier'
 import SdManagement from '@/pages/franchise/SdManagement'
+import ApnaAppList from '@/pages/franchise/ApnaAppList'
+import ApnaAppRecord from '@/pages/franchise/ApnaAppRecord'
 import { KycQueue, KycWorkspace } from '@/pages/franchise/Kyc'
 import { legalRoutes } from '@/pages/legal/routes'
 import { projectRoutes } from '@/pages/projects/routes'
@@ -27,6 +31,7 @@ import { emailRoutes } from '@/pages/email/routes'
 import { complaintRoutes } from '@/pages/complaints/routes'
 import { governanceRoutes } from '@/pages/governance/routes'
 import { workManagementRoutes } from '@/pages/work-management/routes'
+import { hrmsRoutes } from '@/pages/hrms/routes'
 import { userRoutes } from '@/pages/user/routes'
 import { getSession } from '@/lib/auth'
 
@@ -50,6 +55,11 @@ export default function App() {
           <Route path="/dashboard/view" element={<Dashboard />} />
           <Route path="/notices" element={<Notices />} />
           <Route path="/onboarding" element={<OnboardingHub />} />
+          <Route path="/onboarding/users" element={<EmployeeList />} />
+          <Route path="/onboarding/users/new" element={<EmployeeOnboardingForm />} />
+          <Route path="/onboarding/users/:id" element={<EmployeeOnboardingForm />} />
+          <Route path="/employees" element={<Navigate to="/onboarding/users" replace />} />
+          <Route path="/employee-onboarding" element={<Navigate to="/onboarding/users/new" replace />} />
           <Route path="/onboarding/applications" element={<Applications />} />
           <Route path="/onboarding/applications/:appId" element={<Applications />} />
           <Route path="/franchise" element={<FranchiseHub />} />
@@ -57,7 +67,9 @@ export default function App() {
           <Route path="/franchise/master-data" element={<MasterData />} />
           <Route path="/franchise/master-data/:id" element={<Dossier />} />
           <Route path="/franchise/master-data/:id/sd" element={<SdManagement />} />
-          <Route path="/franchise/apna-app" element={<Placeholder />} />
+          <Route path="/franchise/apna-app" element={<ApnaAppList />} />
+          <Route path="/franchise/apna-app/new" element={<ApnaAppRecord />} />
+          <Route path="/franchise/apna-app/:id" element={<ApnaAppRecord />} />
           <Route path="/franchise/:tier" element={<TierList />} />
           <Route path="/kyc" element={<KycHub />} />
           <Route path="/kyc/verification" element={<KycQueue />} />
@@ -75,6 +87,7 @@ export default function App() {
           {complaintRoutes}
           {governanceRoutes}
           {workManagementRoutes}
+          {hrmsRoutes}
           {userRoutes}
           <Route path="*" element={<Placeholder />} />
         </Route>

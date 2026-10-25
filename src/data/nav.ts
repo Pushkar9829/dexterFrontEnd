@@ -1,6 +1,6 @@
 import {
   LayoutGrid, UserPlus, Briefcase, Scale, FolderKanban, BarChart3, SlidersHorizontal,
-  Landmark, Mail, ShieldCheck, ListChecks, UserCircle, type LucideIcon,
+  Landmark, ShieldCheck, Users, type LucideIcon,
 } from 'lucide-react'
 
 export type NavItem = {
@@ -39,16 +39,10 @@ export const NAV: NavGroup[] = [
     label: 'Finance', icon: Landmark, to: '/finance',
   },
   {
-    label: 'Email', icon: Mail, to: '/email',
-  },
-  {
     label: 'Governance', icon: ShieldCheck, to: '/governance',
   },
   {
-    label: 'Tasks', icon: ListChecks, to: '/tasks', badge: 24,
-  },
-  {
-    label: 'User', icon: UserCircle, to: '/user',
+    label: 'HRMS', icon: Users, to: '/hrms',
   },
 ]
 
@@ -83,6 +77,7 @@ const PREFIX_TRAIL: Record<string, string[]> = {
   '/franchise/franchise': ['Onboarding', 'Franchise Management', 'Franchise'],
   '/franchise/master-data': ['Onboarding', 'Franchise Management', 'Master Data'],
   '/franchise/apna-app': ['Onboarding', 'Franchise Management', 'Apna App'],
+  '/franchise/apna-app/new': ['Onboarding', 'Franchise Management', 'Apna App', 'New Registration'],
   '/franchise': ['Onboarding', 'Franchise Management'],
   '/kyc/upload': ['Onboarding', 'KYC Management', 'Upload'],
   '/kyc/verification': ['Onboarding', 'KYC Management', 'Verification'],
@@ -120,6 +115,8 @@ const PREFIX_TRAIL: Record<string, string[]> = {
   '/reports': ['Workspace', 'Reports & MIS'],
   '/reports/financial': ['Workspace', 'Reports & MIS', 'Financial Report'],
   '/finance': ['Workspace', 'Finance'],
+  '/finance/sd': ['Workspace', 'Finance', 'Security Deposit'],
+  '/finance/clf': ['Workspace', 'Finance', 'Cash Loading Funds (CLF)'],
   '/finance/gst': ['Workspace', 'Finance', 'GST'],
   '/finance/payout': ['Workspace', 'Finance', 'Payouts'],
   '/governance': ['Workspace', 'Governance'],
@@ -128,6 +125,9 @@ const PREFIX_TRAIL: Record<string, string[]> = {
   '/governance/security': ['Workspace', 'Governance', 'Security'],
   '/governance/compliance': ['Workspace', 'Governance', 'Compliance'],
   '/work-management': ['Workspace', 'Work Management'],
+  '/hrms': ['Workspace', 'HRMS'],
+  '/hrms/attendance': ['Workspace', 'HRMS', 'Attendance'],
+  '/hrms/expenses': ['Workspace', 'HRMS', 'Expenses'],
   '/tasks': ['Workspace', 'Tasks'],
   '/tasks/command-center': ['Workspace', 'Tasks', 'Command Center'],
   '/tasks/my': ['Workspace', 'Tasks', 'My Tasks'],

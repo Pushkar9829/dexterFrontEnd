@@ -226,6 +226,10 @@ export function saveGst(rec: GstRecord): GstRecord {
   return saved
 }
 
+export function deleteGst(id: string) {
+  gstStore.set((all) => all.filter((g) => g.id !== id))
+}
+
 /** List filter (View by / F.Y. / Month) — persisted so the record page can show the report context. */
 export type GstView = { mode: 'Yearly' | 'Monthly'; fy: string; month: string }
 export const gstViewStore = createStore<GstView>('dexter.finance.gstview.v1', () => ({ mode: 'Yearly', fy: '26-27', month: '' }))

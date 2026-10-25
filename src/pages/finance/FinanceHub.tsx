@@ -32,7 +32,7 @@ const FINANCE_TILES: FinanceTileConfig[] = [
   {
     title: 'Security Deposit',
     sub: 'Track and manage security deposit details and transactions.',
-    to: '/reports/financial/sd',
+    to: '/finance/sd',
     Icon: ShieldCheck,
     theme: 'emerald',
     tag: 'Deposits',
@@ -41,7 +41,7 @@ const FINANCE_TILES: FinanceTileConfig[] = [
   {
     title: 'Cash Loading Funds (CLF)',
     sub: 'Manage cash loading funds, transactions and reconciliation.',
-    to: '/reports/financial/clf',
+    to: '/finance/clf',
     Icon: Landmark,
     theme: 'amber',
     tag: 'Cash Loading',
@@ -79,13 +79,13 @@ const FINANCE_TILES: FinanceTileConfig[] = [
 const QUICK_ACCESS_ITEMS = [
   {
     title: 'Security Deposit',
-    to: '/reports/financial/sd',
+    to: '/finance/sd',
     iconBg: 'bg-emerald-50 text-emerald-600 border-emerald-200',
     Icon: ShieldCheck,
   },
   {
     title: 'Cash Loading Funds (CLF)',
-    to: '/reports/financial/clf',
+    to: '/finance/clf',
     iconBg: 'bg-amber-50 text-amber-600 border-amber-200',
     Icon: Landmark,
   },

@@ -119,3 +119,7 @@ export function savePayout(rec: PayoutRecord): PayoutRecord {
   payoutStore.set((all) => all.map((p) => (p.id === rec.id ? saved : p)))
   return saved
 }
+
+export function deletePayout(id: string) {
+  payoutStore.set((all) => all.filter((p) => p.id !== id))
+}
