@@ -43,7 +43,7 @@ export default function SiteRecord() {
       <BackLink to="/legal">Back to Legal Data</BackLink>
       <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-[28px] font-semibold tracking-tight">Master Site Record</h1>
+          <h1 className="text-[28px] font-semibold tracking-tight">Overview</h1>
           <p className="mt-1 text-[14px] text-muted">Legal summary · One view of site compliance and linked documents</p>
         </div>
         <div className="flex flex-wrap gap-2">

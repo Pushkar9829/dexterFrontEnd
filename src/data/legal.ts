@@ -496,6 +496,293 @@ export function submitSignedUpload(docId: string, file: { name: string; size: nu
   return true
 }
 
+export function addOrUpdateLoiDoc(input: {
+  siteId: string
+  siteLoi: string
+  franchiseeName: string
+  fileName: string
+  fileSizeKb: number
+  remarks?: string
+}) {
+  const s = legalStore.get()
+  const doc = s.docs.find((d) => d.siteId === input.siteId && d.kind === 'LOI')
+  const now = new Date().toISOString()
+
+  if (doc) {
+    const up: SignedUpload = {
+      id: newId(`${doc.id}-S`),
+      version: doc.version,
+      file: input.fileName,
+      sizeKb: input.fileSizeKb,
+      uploadedAt: now,
+      by: CURRENT_USER.name,
+      source: 'Workspace',
+      decision: 'Approved',
+      reviewedAt: now,
+      reviewer: CURRENT_USER.name,
+    }
+    legalStore.set((state) => ({
+      ...state,
+      docs: state.docs.map((d) =>
+        d.id === doc.id ? { ...d, status: 'Approved', uploads: [up, ...d.uploads] } : d
+      ),
+    }))
+    logEvent({
+      ref: doc.id,
+      actor: CURRENT_USER.name,
+      role: CURRENT_USER.role,
+      event: 'Uploaded',
+      outcome: 'Approved',
+      context: `LOI uploaded · ${input.fileName}`,
+      version: doc.version,
+      source: 'Workspace',
+      note: input.remarks,
+    })
+  } else {
+    const newDocId = `LEG-LOI-${input.siteId.replace(/[^a-zA-Z0-9]/g, '').slice(-5) || 'NEW'}`
+    const newDoc: LegalDoc = {
+      id: newDocId,
+      siteId: input.siteId,
+      kind: 'LOI',
+      status: 'Approved',
+      version: 'v1.0',
+      dueDate: '2026-11-30',
+      instructions: 'LOI document uploaded from workspace.',
+      versions: [
+        {
+          version: 'v1.0',
+          file: input.fileName,
+          sizeMb: Math.round((input.fileSizeKb / 1024) * 10) / 10 || 0.5,
+          pages: 2,
+          createdAt: now,
+          createdBy: CURRENT_USER.name,
+        },
+      ],
+      uploads: [
+        {
+          id: `${newDocId}-S1`,
+          version: 'v1.0',
+          file: input.fileName,
+          sizeKb: input.fileSizeKb,
+          uploadedAt: now,
+          by: CURRENT_USER.name,
+          source: 'Workspace',
+          decision: 'Approved',
+          reviewer: CURRENT_USER.name,
+          reviewedAt: now,
+        },
+      ],
+    }
+    legalStore.set((state) => ({
+      ...state,
+      docs: [newDoc, ...state.docs],
+    }))
+    logEvent({
+      ref: newDocId,
+      actor: CURRENT_USER.name,
+      role: CURRENT_USER.role,
+      event: 'Created',
+      outcome: 'Approved',
+      context: `LOI Created and Uploaded · ${input.fileName}`,
+      version: 'v1.0',
+      source: 'Workspace',
+      note: input.remarks,
+    })
+  }
+}
+
+export function addOrUpdateAffidavitDoc(input: {
+  siteId: string
+  siteLoi: string
+  franchiseeName: string
+  fileName: string
+  fileSizeKb: number
+  remarks?: string
+}) {
+  const s = legalStore.get()
+  const doc = s.docs.find((d) => d.siteId === input.siteId && d.kind === 'AFF')
+  const now = new Date().toISOString()
+
+  if (doc) {
+    const up: SignedUpload = {
+      id: newId(`${doc.id}-S`),
+      version: doc.version,
+      file: input.fileName,
+      sizeKb: input.fileSizeKb,
+      uploadedAt: now,
+      by: CURRENT_USER.name,
+      source: 'Workspace',
+      decision: 'Approved',
+      reviewedAt: now,
+      reviewer: CURRENT_USER.name,
+    }
+    legalStore.set((state) => ({
+      ...state,
+      docs: state.docs.map((d) =>
+        d.id === doc.id ? { ...d, status: 'Approved', uploads: [up, ...d.uploads] } : d
+      ),
+    }))
+    logEvent({
+      ref: doc.id,
+      actor: CURRENT_USER.name,
+      role: CURRENT_USER.role,
+      event: 'Uploaded',
+      outcome: 'Approved',
+      context: `Affidavit uploaded · ${input.fileName}`,
+      version: doc.version,
+      source: 'Workspace',
+      note: input.remarks,
+    })
+  } else {
+    const newDocId = `LEG-AFF-${input.siteId.replace(/[^a-zA-Z0-9]/g, '').slice(-5) || 'NEW'}`
+    const newDoc: LegalDoc = {
+      id: newDocId,
+      siteId: input.siteId,
+      kind: 'AFF',
+      status: 'Approved',
+      version: 'v1.0',
+      dueDate: '2026-11-30',
+      instructions: 'Sworn affidavit uploaded from workspace.',
+      versions: [
+        {
+          version: 'v1.0',
+          file: input.fileName,
+          sizeMb: Math.round((input.fileSizeKb / 1024) * 10) / 10 || 0.6,
+          pages: 3,
+          createdAt: now,
+          createdBy: CURRENT_USER.name,
+        },
+      ],
+      uploads: [
+        {
+          id: `${newDocId}-S1`,
+          version: 'v1.0',
+          file: input.fileName,
+          sizeKb: input.fileSizeKb,
+          uploadedAt: now,
+          by: CURRENT_USER.name,
+          source: 'Workspace',
+          decision: 'Approved',
+          reviewer: CURRENT_USER.name,
+          reviewedAt: now,
+        },
+      ],
+    }
+    legalStore.set((state) => ({
+      ...state,
+      docs: [newDoc, ...state.docs],
+    }))
+    logEvent({
+      ref: newDocId,
+      actor: CURRENT_USER.name,
+      role: CURRENT_USER.role,
+      event: 'Created',
+      outcome: 'Approved',
+      context: `Affidavit Created and Uploaded · ${input.fileName}`,
+      version: 'v1.0',
+      source: 'Workspace',
+      note: input.remarks,
+    })
+  }
+}
+
+export function addOrUpdateAgreementDoc(input: {
+  siteId: string
+  siteLoi: string
+  franchiseeName: string
+  fileName: string
+  fileSizeKb: number
+  linkStatus?: string
+  remarks?: string
+}) {
+  const s = legalStore.get()
+  const doc = s.docs.find((d) => d.siteId === input.siteId && d.kind === 'AGR')
+  const now = new Date().toISOString()
+
+  if (doc) {
+    const up: SignedUpload = {
+      id: newId(`${doc.id}-S`),
+      version: doc.version,
+      file: input.fileName,
+      sizeKb: input.fileSizeKb,
+      uploadedAt: now,
+      by: CURRENT_USER.name,
+      source: 'Workspace',
+      decision: 'Approved',
+      reviewedAt: now,
+      reviewer: CURRENT_USER.name,
+    }
+    legalStore.set((state) => ({
+      ...state,
+      docs: state.docs.map((d) =>
+        d.id === doc.id ? { ...d, status: 'Approved', uploads: [up, ...d.uploads] } : d
+      ),
+    }))
+    logEvent({
+      ref: doc.id,
+      actor: CURRENT_USER.name,
+      role: CURRENT_USER.role,
+      event: 'Uploaded',
+      outcome: 'Approved',
+      context: `Agreement uploaded · ${input.fileName}`,
+      version: doc.version,
+      source: 'Workspace',
+      note: input.remarks ? `${input.remarks} (Status: ${input.linkStatus || 'Shared'})` : `Status: ${input.linkStatus || 'Shared'}`,
+    })
+  } else {
+    const newDocId = `LEG-AGR-${input.siteId.replace(/[^a-zA-Z0-9]/g, '').slice(-5) || 'NEW'}`
+    const newDoc: LegalDoc = {
+      id: newDocId,
+      siteId: input.siteId,
+      kind: 'AGR',
+      status: 'Approved',
+      version: 'v1.0',
+      dueDate: '2026-11-30',
+      instructions: 'Franchise agreement uploaded from workspace.',
+      versions: [
+        {
+          version: 'v1.0',
+          file: input.fileName,
+          sizeMb: Math.round((input.fileSizeKb / 1024) * 10) / 10 || 1.8,
+          pages: 8,
+          createdAt: now,
+          createdBy: CURRENT_USER.name,
+        },
+      ],
+      uploads: [
+        {
+          id: `${newDocId}-S1`,
+          version: 'v1.0',
+          file: input.fileName,
+          sizeKb: input.fileSizeKb,
+          uploadedAt: now,
+          by: CURRENT_USER.name,
+          source: 'Workspace',
+          decision: 'Approved',
+          reviewer: CURRENT_USER.name,
+          reviewedAt: now,
+        },
+      ],
+    }
+    legalStore.set((state) => ({
+      ...state,
+      docs: [newDoc, ...state.docs],
+    }))
+    logEvent({
+      ref: newDocId,
+      actor: CURRENT_USER.name,
+      role: CURRENT_USER.role,
+      event: 'Created',
+      outcome: 'Approved',
+      context: `Agreement Created and Uploaded · ${input.fileName}`,
+      version: 'v1.0',
+      source: 'Workspace',
+      note: input.remarks ? `${input.remarks} (Status: ${input.linkStatus || 'Shared'})` : `Status: ${input.linkStatus || 'Shared'}`,
+    })
+  }
+}
+
 export function resetLegal() {
   legalStore.reset()
 }
+

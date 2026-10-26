@@ -1,7 +1,6 @@
 import { useState, useMemo } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
-  ArrowLeft,
   ArrowRight,
   ClipboardCheck,
   Download,
@@ -11,6 +10,9 @@ import {
   Scale,
   Search,
   ShieldCheck,
+  Plus,
+  Home,
+  ChevronRight,
   type LucideIcon,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -156,13 +158,25 @@ export default function LegalDocView() {
   const { Icon } = meta
 
   return (
-    <div className="max-w-[1040px]">
-      <Link
-        to="/legal"
-        className="mb-3 inline-flex items-center gap-1.5 text-[13px] font-medium text-primary hover:underline"
-      >
-        <ArrowLeft size={15} /> Back to Legal
-      </Link>
+    <div className="max-w-[1320px] mx-auto pb-16 space-y-4">
+      {/* Top Breadcrumb */}
+      <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-[12px] text-slate-500 mb-2">
+        <Link
+          to="/dashboard"
+          className="text-[#0066FF] hover:opacity-80 transition-opacity flex items-center"
+          title="Home"
+        >
+          <Home size={14} />
+        </Link>
+        <ChevronRight size={13} className="text-slate-400" />
+        <span className="text-slate-500">Workspace</span>
+        <ChevronRight size={13} className="text-slate-400" />
+        <Link to="/legal" className="text-slate-500 hover:text-[#0066FF] transition-colors">
+          Legal
+        </Link>
+        <ChevronRight size={13} className="text-slate-400" />
+        <span className="font-semibold text-slate-800">{meta.title}</span>
+      </nav>
 
       <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -177,9 +191,18 @@ export default function LegalDocView() {
           <p className="mt-1 text-[13px] text-muted">{meta.sub}</p>
         </div>
 
-        <Button variant="secondary" icon={<Download size={15} />} onClick={exportData}>
-          Export CSV
-        </Button>
+        <div className="flex items-center gap-2">
+          {category === 'loi' && (
+            <Link to="/legal/loi/new">
+              <Button variant="primary" icon={<Plus size={15} />}>
+                Add LOI
+              </Button>
+            </Link>
+          )}
+          <Button variant="secondary" icon={<Download size={15} />} onClick={exportData}>
+            Export CSV
+          </Button>
+        </div>
       </div>
 
       {/* Summary Stat Pills */}
