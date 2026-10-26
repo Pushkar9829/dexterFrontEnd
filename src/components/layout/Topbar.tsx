@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { Plus, Bell, Calendar, ChevronDown, ChevronRight, LogOut, Menu, PanelLeft, Search } from 'lucide-react'
-import { trailFor } from '@/data/nav'
+import { Plus, Bell, Calendar, ChevronDown, LogOut, Menu, Search } from 'lucide-react'
 import { getSession, signOut, DEMO_USER } from '@/lib/auth'
 
 export function Topbar({ onMenu }: { onMenu: () => void }) {
@@ -9,7 +8,6 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
   const user = getSession() ?? DEMO_USER
-  const trail = trailFor(pathname)
   const [menu, setMenu] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
   const isReports = pathname.startsWith('/reports')
@@ -27,30 +25,14 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
   }, [])
 
   return (
-    <header className="sticky top-0 z-20 flex h-[72px] items-center gap-4 border-b border-line bg-white px-4 sm:px-7">
-      <button onClick={onMenu} className="text-muted lg:hidden" aria-label="Open menu">
-        <Menu size={20} />
-      </button>
-      <PanelLeft size={16} className="hidden shrink-0 text-muted lg:block" />
-      <nav className="flex min-w-0 items-center gap-2.5 text-[11px]">
-        {trail.map((t, i) => (
-          <span key={i} className="flex min-w-0 items-center gap-2.5">
-            {i > 0 && <ChevronRight size={12} className="shrink-0 text-muted" />}
-            <span className={i === trail.length - 1 ? 'truncate font-semibold text-ink' : 'truncate text-muted'}>{t}</span>
-          </span>
-        ))}
-      </nav>
+    <header className="sticky top-0 z-20 flex h-[72px] items-center justify-between gap-4 border-b border-line bg-white px-4 sm:px-7">
+      {/* Left section: mobile hamburger & search bar */}
+      <div className="flex items-center gap-3 flex-1 max-w-[420px]">
+        <button onClick={onMenu} className="text-muted lg:hidden" aria-label="Open menu">
+          <Menu size={20} />
+        </button>
 
-      <div className="ml-auto flex items-center gap-3 sm:gap-4">
-        {pathname.startsWith('/tasks/') && (
-          <button
-            onClick={() => navigate(/^\/tasks\/(my|today|daily|monthly|overdue|blocked|approval-pending)$/.test(pathname) ? `${pathname}?create=1` : '/tasks/my?create=1')}
-            className="hidden h-9 shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-[12px] font-semibold text-white hover:bg-primary-hover sm:flex"
-          >
-            <Plus size={15} /> Create Task
-          </button>
-        )}
-        <label className="hidden h-9 w-[280px] lg:w-[350px] items-center gap-2.5 rounded-lg border border-line bg-surface px-3 text-[11px] text-muted md:flex">
+        <label className="flex h-9 w-full items-center gap-2.5 rounded-lg border border-line bg-surface px-3 text-[12px] text-muted transition-colors focus-within:border-primary focus-within:bg-white">
           <Search size={15} className="shrink-0 text-[#64748B]" />
           <input
             ref={searchRef}
@@ -65,11 +47,24 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
                 }, { replace: true })
               }
             }}
-            placeholder={isReports ? 'Search reports, modules, or keywords...' : 'Search across workspace'}
-            className="w-full bg-transparent text-ink outline-none placeholder:text-muted"
+            placeholder={isReports ? 'Search reports, modules, or keywords...' : 'Search across workspace...'}
+            className="w-full bg-transparent text-ink outline-none placeholder:text-muted text-[12px]"
           />
-          <span className="text-[10px] whitespace-nowrap text-[#94A3B8]">⌘ K</span>
+          <span className="text-[10px] whitespace-nowrap text-[#94A3B8] rounded border border-slate-200 bg-white px-1.5 py-0.5 font-medium shadow-2xs">
+            Ctrl K
+          </span>
         </label>
+      </div>
+
+      <div className="ml-auto flex items-center gap-3 sm:gap-4">
+        {pathname.startsWith('/tasks/') && (
+          <button
+            onClick={() => navigate(/^\/tasks\/(my|today|daily|monthly|overdue|blocked|approval-pending)$/.test(pathname) ? `${pathname}?create=1` : '/tasks/my?create=1')}
+            className="hidden h-9 shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-[12px] font-semibold text-white hover:bg-primary-hover sm:flex"
+          >
+            <Plus size={15} /> Create Task
+          </button>
+        )}
         <button className="relative p-1 text-ink-2 hover:text-ink transition-colors" aria-label="Notifications" onClick={() => navigate('/notices')}>
           <Bell size={19} />
           <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-red px-1 text-[9px] font-bold text-white ring-2 ring-white">

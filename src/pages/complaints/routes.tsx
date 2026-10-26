@@ -6,6 +6,8 @@ import AiDashboard from './AiDashboard'
 import CreateComplaint from './CreateComplaint'
 import Complaint360 from './Complaint360'
 import OperationsHub from '../operations/OperationsHub'
+import TxnDataList from '../operations/TxnDataList'
+import TxnDataDaily from '../operations/TxnDataDaily'
 import Placeholder from '../Placeholder'
 
 export const complaintRoutes = [
@@ -19,6 +21,9 @@ export const complaintRoutes = [
   <Route key="ops-cash" path="/operations/cash-loading" element={<Placeholder />} />,
   <Route key="ops-bank" path="/operations/bank-statement" element={<Placeholder />} />,
   <Route key="ops-tds" path="/operations/tds" element={<Placeholder />} />,
-  <Route key="ops-txn" path="/operations/txn-data" element={<Placeholder />} />,
+  <Route key="ops-txn" path="/operations/txn-data" element={<TxnDataList />} />,
+  <Route key="ops-txn-new" path="/operations/txn-data/new" element={<TxnDataDaily />} />,
+  <Route key="ops-txn-daily" path="/operations/txn-data/daily" element={<TxnDataDaily />} />,
+  <Route key="ops-txn-edit" path="/operations/txn-data/:atmId" element={<TxnDataDaily />} />,
   <Route key="ops-daak" path="/operations/daak" element={<Placeholder />} />,
 ]
