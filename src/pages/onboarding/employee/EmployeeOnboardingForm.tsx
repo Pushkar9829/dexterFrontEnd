@@ -1,16 +1,16 @@
 import { useState, useRef, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowLeft,
-  ArrowRight,
   Award,
   Briefcase,
-  Check,
   CheckCircle2,
+  ChevronRight,
   Eye,
   EyeOff,
   FileText,
   GraduationCap,
+  Home,
   Landmark,
   MapPin,
   Pencil,
@@ -48,12 +48,15 @@ import {
   saveEmployee,
 } from '@/data/employeeStore'
 
-const STEPS = [
-  { id: 1, title: 'Basic & Personal\nInformation' },
-  { id: 2, title: 'Address & Contact\nDetails' },
-  { id: 3, title: 'Employment &\nOrganization' },
-  { id: 4, title: 'Education, Experience\n& Training' },
-  { id: 5, title: 'Bank & Salary\nPayout' },
+const SECTIONS = [
+  { id: 'section-basic', label: '1. Basic Info' },
+  { id: 'section-personal', label: '2. Personal & IDs' },
+  { id: 'section-address', label: '3. Address & Contact' },
+  { id: 'section-employment', label: '4. Employment & Org' },
+  { id: 'section-education', label: '5. Education' },
+  { id: 'section-experience', label: '6. Work Experience' },
+  { id: 'section-training', label: '7. Training' },
+  { id: 'section-bank', label: '8. Bank & Salary' },
 ]
 
 export default function EmployeeOnboardingForm() {
@@ -61,7 +64,6 @@ export default function EmployeeOnboardingForm() {
   const { id } = useParams<{ id: string }>()
   const isNew = !id || id === 'new'
 
-  const [currentStep, setCurrentStep] = useState(1)
   const [showMaskedAccount, setShowMaskedAccount] = useState(true)
 
   // Modals for Step 4
@@ -137,16 +139,16 @@ export default function EmployeeOnboardingForm() {
     toast(`Draft saved for ${saved.fullName || 'employee'} (${saved.employeeCode})`)
   }
 
-  // Validate current step
+  // Validate required fields
   const handleValidate = () => {
     if (!employee.fullName.trim()) {
       toast('Employee Full Name is required', 'info')
-      setCurrentStep(1)
+      document.getElementById('section-basic')?.scrollIntoView({ behavior: 'smooth' })
       return false
     }
     if (!employee.mobile.trim()) {
       toast('Employee Mobile Number is required', 'info')
-      setCurrentStep(1)
+      document.getElementById('section-basic')?.scrollIntoView({ behavior: 'smooth' })
       return false
     }
     toast('All required fields are validated successfully!', 'info')
@@ -229,27 +231,31 @@ export default function EmployeeOnboardingForm() {
 
   return (
     <div className="mx-auto max-w-[1320px] pb-16">
+      {/* Breadcrumb matching pattern: Workspace > Onboarding > User / Employee Management */}
+      <div className="flex items-center gap-1.5 text-[12px] text-slate-500 mb-3">
+        <Home size={14} className="text-slate-400 shrink-0" />
+        <Link to="/dashboard" className="hover:text-[#0066FF] transition-colors">
+          Workspace
+        </Link>
+        <ChevronRight size={12} className="text-slate-400" />
+        <Link to="/onboarding" className="hover:text-[#0066FF] transition-colors">
+          Onboarding
+        </Link>
+        <ChevronRight size={12} className="text-slate-400" />
+        <Link to="/onboarding/users" className="hover:text-[#0066FF] transition-colors">
+          User / Employee Management
+        </Link>
+        <ChevronRight size={12} className="text-slate-400" />
+        <span className="font-semibold text-slate-800">
+          {isNew ? 'New Employee' : `Edit ${employee.fullName || employee.employeeCode}`}
+        </span>
+      </div>
+
       {/* Top Header Bar */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
         <div>
-          {/* Breadcrumb matching screenshot */}
-          {/* <nav className="mb-1 flex items-center gap-2 text-[12px] text-[#64748B]">
-            <Link to="/onboarding" className="hover:text-[#0066FF]">
-              Employees
-            </Link>
-            <span>&gt;</span>
-            <Link to="/onboarding/users" className="hover:text-[#0066FF]">
-              Employee Onboarding
-            </Link>
-            {!isNew && (
-              <>
-                <span>&gt;</span>
-                <span className="font-medium text-[#1E293B]">{employee.fullName}</span>
-              </>
-            )}
-          </nav> */}
           <h1 className="text-[24px] font-bold tracking-tight text-[#1E293B]">
-            Employee Onboarding
+            {isNew ? 'Employee Onboarding' : `Edit Employee - ${employee.employeeCode}`}
           </h1>
           <p className="mt-0.5 text-[12.5px] text-[#64748B]">
             {isNew
@@ -258,7 +264,7 @@ export default function EmployeeOnboardingForm() {
           </p>
         </div>
 
-        {/* Top Action Buttons matching screenshot */}
+        {/* Top Action Buttons */}
         <div className="flex flex-wrap items-center gap-2">
           <Button
             type="button"
@@ -280,37 +286,14 @@ export default function EmployeeOnboardingForm() {
             <CheckCircle2 size={14} className="mr-1.5" /> Validate
           </Button>
 
-          {currentStep > 1 && (
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={() => setCurrentStep((s) => Math.max(1, s - 1))}
-              className="border-[#CBD5E1] bg-white text-[#334155] shadow-xs hover:bg-[#F8FAFC]"
-            >
-              <ArrowLeft size={14} className="mr-1.5" /> Previous
-            </Button>
-          )}
-
-          {currentStep < 5 ? (
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => setCurrentStep((s) => Math.min(5, s + 1))}
-              className="bg-[#0066FF] text-white shadow-xs hover:bg-[#0052cc]"
-            >
-              Next <ArrowRight size={14} className="ml-1.5" />
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              size="sm"
-              onClick={handleSubmit}
-              className="bg-[#0066FF] text-white shadow-xs hover:bg-[#0052cc]"
-            >
-              <Send size={14} className="mr-1.5" /> Submit for Approval
-            </Button>
-          )}
+          <Button
+            type="button"
+            size="sm"
+            onClick={handleSubmit}
+            className="bg-[#0066FF] text-white shadow-xs hover:bg-[#0052cc]"
+          >
+            <Send size={14} className="mr-1.5" /> {isNew ? 'Submit for Approval' : 'Save Changes'}
+          </Button>
 
           <Button
             type="button"
@@ -324,72 +307,43 @@ export default function EmployeeOnboardingForm() {
         </div>
       </div>
 
-      {/* Stepper Navigation matching screenshot */}
-      <div className="mb-6 rounded-xl border border-[#DCE8F6] bg-white px-6 py-4 shadow-xs">
-        <div className="relative flex items-center justify-between">
-          {/* Connector Line behind steps */}
-          <div className="absolute top-[18px] left-[5%] right-[5%] -z-0 h-[2px] bg-[#E2E8F0]" />
-
-          {STEPS.map((step) => {
-            const isActive = currentStep === step.id
-            const isCompleted = currentStep > step.id
-
-            return (
-              <button
-                key={step.id}
-                type="button"
-                onClick={() => setCurrentStep(step.id)}
-                className="group relative z-10 flex flex-1 flex-col items-center text-center focus:outline-none"
-              >
-                {/* Step Circle */}
-                <div
-                  className={cn(
-                    'grid h-9 w-9 place-items-center rounded-full text-[13px] font-semibold transition-all duration-200',
-                    isActive
-                      ? 'border-2 border-[#0066FF] bg-[#0066FF] text-white shadow-[0_0_0_4px_rgba(0,102,255,0.18)]'
-                      : isCompleted
-                        ? 'border-2 border-[#0066FF] bg-[#0066FF] text-white'
-                        : 'border-2 border-[#CBD5E1] bg-white text-[#64748B] group-hover:border-[#94A3B8]',
-                  )}
-                >
-                  {isCompleted ? <Check size={16} strokeWidth={2.5} /> : step.id}
-                </div>
-
-                {/* Step Label */}
-                <span
-                  className={cn(
-                    'mt-2 whitespace-pre-line text-[11.5px] leading-tight font-medium transition-colors',
-                    isActive
-                      ? 'font-bold text-[#0066FF]'
-                      : isCompleted
-                        ? 'text-[#1E293B]'
-                        : 'text-[#64748B] group-hover:text-[#1E293B]',
-                  )}
-                >
-                  {step.title}
-                </span>
-
-                {/* Active Indicator Underline */}
-                {isActive && (
-                  <div className="mt-2.5 h-[3px] w-24 rounded-full bg-[#0066FF]" />
-                )}
-              </button>
-            )
-          })}
+      {/* Quick Navigation Anchor Bar */}
+      <div className="sticky top-2 z-20 mb-6 rounded-xl border border-[#DCE8F6] bg-white/95 p-2.5 shadow-xs backdrop-blur-md">
+        <div className="flex items-center gap-1.5 overflow-x-auto text-[12px] no-scrollbar">
+          <span className="mr-1 flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#64748B] shrink-0">
+            Form Sections:
+          </span>
+          {SECTIONS.map((sec, idx) => (
+            <button
+              key={sec.id}
+              type="button"
+              onClick={() => {
+                const el = document.getElementById(sec.id)
+                if (el) {
+                  const y = el.getBoundingClientRect().top + window.pageYOffset - 75
+                  window.scrollTo({ top: y, behavior: 'smooth' })
+                }
+              }}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-[#E2EEFB] bg-[#F8FAFD] px-3 py-1.5 text-[11.5px] font-semibold text-[#334155] transition-all hover:border-[#0066FF]/40 hover:bg-[#EAF3FD] hover:text-[#0066FF]"
+            >
+              <span className="grid h-4 w-4 place-items-center rounded-full bg-white text-[10px] font-bold text-[#0066FF] shadow-xs">
+                {idx + 1}
+              </span>
+              {sec.label}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* STEP 1: Basic & Personal Information */}
-      {currentStep === 1 && (
-        <div className="space-y-5">
-          {/* Card 1: 1. Basic Information */}
-          <div className="overflow-hidden rounded-xl border border-[#DCE8F6] bg-white shadow-xs">
-            <div className="flex items-center gap-2 border-b border-[#E2EEFB] bg-[#F0F7FD] px-5 py-3 text-[#0066FF]">
-              <User size={17} className="text-[#0066FF]" />
-              <h2 className="text-[13.5px] font-bold text-[#0066FF]">1. Basic Information</h2>
-            </div>
+      <div className="space-y-6">
+        {/* SECTION 1: Basic Information */}
+        <div id="section-basic" className="scroll-mt-24 overflow-hidden rounded-xl border border-[#DCE8F6] bg-white shadow-xs">
+          <div className="flex items-center gap-2 border-b border-[#E2EEFB] bg-[#F0F7FD] px-5 py-3 text-[#0066FF]">
+            <User size={17} className="text-[#0066FF]" />
+            <h2 className="text-[13.5px] font-bold text-[#0066FF]">1. Basic Information</h2>
+          </div>
 
-            <div className="p-5">
+          <div className="p-5">
               <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
                 {/* Left 3 Columns: Basic Fields */}
                 <div className="space-y-4 lg:col-span-3">
@@ -597,12 +551,12 @@ export default function EmployeeOnboardingForm() {
             </div>
           </div>
 
-          {/* Card 2: 2. Personal Information matching screenshot */}
-          <div className="overflow-hidden rounded-xl border border-[#DCE8F6] bg-white shadow-xs">
-            <div className="flex items-center gap-2 border-b border-[#E2EEFB] bg-[#F0F7FD] px-5 py-3 text-[#0066FF]">
-              <User size={17} className="text-[#0066FF]" />
-              <h2 className="text-[13.5px] font-bold text-[#0066FF]">2. Personal Information</h2>
-            </div>
+        {/* SECTION 2: Personal Information */}
+        <div id="section-personal" className="scroll-mt-24 overflow-hidden rounded-xl border border-[#DCE8F6] bg-white shadow-xs">
+          <div className="flex items-center gap-2 border-b border-[#E2EEFB] bg-[#F0F7FD] px-5 py-3 text-[#0066FF]">
+            <FileText size={17} className="text-[#0066FF]" />
+            <h2 className="text-[13.5px] font-bold text-[#0066FF]">2. Personal Information & Identity Documents</h2>
+          </div>
 
             <div className="space-y-4 p-5">
               {/* Row 1: DOB, Gender, Father/Husband, Mother, Spouse */}
@@ -812,16 +766,13 @@ export default function EmployeeOnboardingForm() {
                 </div>
               </div>
             </div>
-          </div>
         </div>
-      )}
 
-      {/* STEP 2: Address & Contact Details matching screenshot */}
-      {currentStep === 2 && (
-        <div className="overflow-hidden rounded-xl border border-[#DCE8F6] bg-white shadow-xs">
+        {/* SECTION 3: Address & Contact Details */}
+        <div id="section-address" className="scroll-mt-24 overflow-hidden rounded-xl border border-[#DCE8F6] bg-white shadow-xs">
           <div className="flex items-center gap-2 border-b border-[#E2EEFB] bg-[#F0F7FD] px-5 py-3 text-[#0066FF]">
             <MapPin size={17} className="text-[#0066FF]" />
-            <h2 className="text-[13.5px] font-bold text-[#0066FF]">3. Address Details</h2>
+            <h2 className="text-[13.5px] font-bold text-[#0066FF]">3. Address & Contact Details</h2>
           </div>
 
           <div className="p-5">
@@ -1005,15 +956,13 @@ export default function EmployeeOnboardingForm() {
             </div>
           </div>
         </div>
-      )}
 
-      {/* STEP 3: Employment & Organization matching screenshot */}
-      {currentStep === 3 && (
-        <div className="overflow-hidden rounded-xl border border-[#DCE8F6] bg-white shadow-xs">
+        {/* SECTION 4: Employment & Organization Details */}
+        <div id="section-employment" className="scroll-mt-24 overflow-hidden rounded-xl border border-[#DCE8F6] bg-white shadow-xs">
           <div className="flex items-center gap-2 border-b border-[#E2EEFB] bg-[#F0F7FD] px-5 py-3 text-[#0066FF]">
             <Briefcase size={17} className="text-[#0066FF]" />
             <h2 className="text-[13.5px] font-bold text-[#0066FF]">
-              3. Employment & Organization Details
+              4. Employment & Organization Details
             </h2>
           </div>
 
@@ -1342,20 +1291,16 @@ export default function EmployeeOnboardingForm() {
             </div>
           </div>
         </div>
-      )}
 
-      {/* STEP 4: Education, Experience & Training matching screenshot */}
-      {currentStep === 4 && (
-        <div className="space-y-6">
-          {/* Card 1: 4. Education / Academic Details */}
-          <div className="overflow-hidden rounded-xl border border-[#DCE8F6] bg-white shadow-xs">
-            <div className="flex items-center justify-between border-b border-[#E2EEFB] bg-[#F0F7FD] px-5 py-3">
-              <div className="flex items-center gap-2 text-[#0066FF]">
-                <GraduationCap size={18} className="text-[#0066FF]" />
-                <h2 className="text-[13.5px] font-bold text-[#0066FF]">
-                  4. Education / Academic Details
-                </h2>
-              </div>
+        {/* SECTION 5: Education / Academic Details */}
+        <div id="section-education" className="scroll-mt-24 overflow-hidden rounded-xl border border-[#DCE8F6] bg-white shadow-xs">
+          <div className="flex items-center justify-between border-b border-[#E2EEFB] bg-[#F0F7FD] px-5 py-3">
+            <div className="flex items-center gap-2 text-[#0066FF]">
+              <GraduationCap size={18} className="text-[#0066FF]" />
+              <h2 className="text-[13.5px] font-bold text-[#0066FF]">
+                5. Education / Academic Details
+              </h2>
+            </div>
               <Button
                 type="button"
                 size="sm"
@@ -1441,15 +1386,15 @@ export default function EmployeeOnboardingForm() {
             </div>
           </div>
 
-          {/* Card 2: Work Experience (Descending Order) */}
-          <div className="overflow-hidden rounded-xl border border-[#DCE8F6] bg-white shadow-xs">
-            <div className="flex items-center justify-between border-b border-[#E2EEFB] bg-[#F0F7FD] px-5 py-3">
-              <div className="flex items-center gap-2 text-[#0066FF]">
-                <Briefcase size={18} className="text-[#0066FF]" />
-                <h2 className="text-[13.5px] font-bold text-[#0066FF]">
-                  Work Experience (Descending Order)
-                </h2>
-              </div>
+        {/* SECTION 6: Work Experience Details */}
+        <div id="section-experience" className="scroll-mt-24 overflow-hidden rounded-xl border border-[#DCE8F6] bg-white shadow-xs">
+          <div className="flex items-center justify-between border-b border-[#E2EEFB] bg-[#F0F7FD] px-5 py-3">
+            <div className="flex items-center gap-2 text-[#0066FF]">
+              <Briefcase size={18} className="text-[#0066FF]" />
+              <h2 className="text-[13.5px] font-bold text-[#0066FF]">
+                6. Work Experience (Descending Order)
+              </h2>
+            </div>
               <Button
                 type="button"
                 size="sm"
@@ -1541,13 +1486,13 @@ export default function EmployeeOnboardingForm() {
             </div>
           </div>
 
-          {/* Card 3: Training Details */}
-          <div className="overflow-hidden rounded-xl border border-[#DCE8F6] bg-white shadow-xs">
-            <div className="flex items-center justify-between border-b border-[#E2EEFB] bg-[#F0F7FD] px-5 py-3">
-              <div className="flex items-center gap-2 text-[#0066FF]">
-                <Award size={18} className="text-[#0066FF]" />
-                <h2 className="text-[13.5px] font-bold text-[#0066FF]">Training Details</h2>
-              </div>
+        {/* SECTION 7: Training Details */}
+        <div id="section-training" className="scroll-mt-24 overflow-hidden rounded-xl border border-[#DCE8F6] bg-white shadow-xs">
+          <div className="flex items-center justify-between border-b border-[#E2EEFB] bg-[#F0F7FD] px-5 py-3">
+            <div className="flex items-center gap-2 text-[#0066FF]">
+              <Award size={18} className="text-[#0066FF]" />
+              <h2 className="text-[13.5px] font-bold text-[#0066FF]">7. Training & Certifications</h2>
+            </div>
               <Button
                 type="button"
                 size="sm"
@@ -1627,17 +1572,14 @@ export default function EmployeeOnboardingForm() {
                 </tbody>
               </table>
             </div>
-          </div>
         </div>
-      )}
 
-      {/* STEP 5: Bank & Salary Payout matching screenshot */}
-      {currentStep === 5 && (
-        <div className="overflow-hidden rounded-xl border border-[#DCE8F6] bg-white shadow-xs">
+        {/* SECTION 8: Bank & Salary Payout Details */}
+        <div id="section-bank" className="scroll-mt-24 overflow-hidden rounded-xl border border-[#DCE8F6] bg-white shadow-xs">
           <div className="flex items-center gap-2 border-b border-[#E2EEFB] bg-[#F0F7FD] px-5 py-3 text-[#0066FF]">
             <Landmark size={17} className="text-[#0066FF]" />
             <h2 className="text-[13.5px] font-bold text-[#0066FF]">
-              5. Bank & Salary Payout Details
+              8. Bank & Salary Payout Details
             </h2>
           </div>
 
@@ -1786,62 +1728,46 @@ export default function EmployeeOnboardingForm() {
             </div>
           </div>
         </div>
-      )}
+      </div>
 
-      {/* Bottom Sticky Footer Navigation */}
-      <div className="mt-8 flex items-center justify-between border-t border-[#E2EEFB] bg-white/80 p-4 backdrop-blur-xs rounded-xl shadow-xs">
-        <Button
+      {/* Bottom Sticky Action Bar */}
+      <div className="bg-white rounded-xl border border-slate-200 p-3.5 flex items-center justify-between shadow-sm mt-8">
+        <button
           type="button"
-          variant="secondary"
-          size="md"
           onClick={() => navigate('/onboarding/users')}
-          className="border-[#CBD5E1] bg-white text-[#475569] hover:bg-[#F8FAFC]"
+          className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg border border-[#0066FF]/30 text-[#0066FF] hover:bg-blue-50/60 text-[13px] font-semibold transition-all shadow-xs"
         >
-          <X size={15} className="mr-1.5" /> Back to Employee List
-        </Button>
+          <ArrowLeft size={16} />
+          <span>Back to Staff List</span>
+        </button>
 
         <div className="flex items-center gap-3">
-          <Button
+          <button
             type="button"
-            variant="secondary"
-            size="md"
             onClick={handleSaveDraft}
-            className="border-[#CBD5E1] bg-white text-[#334155] hover:bg-[#F8FAFC]"
+            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg border border-[#CBD5E1] bg-white text-[#334155] hover:bg-slate-50 text-[13px] font-semibold transition-all shadow-xs"
           >
-            <Save size={15} className="mr-1.5" /> Save Draft
-          </Button>
+            <Save size={15} />
+            <span>Save Draft</span>
+          </button>
 
-          {currentStep > 1 && (
-            <Button
-              type="button"
-              variant="secondary"
-              size="md"
-              onClick={() => setCurrentStep((s) => Math.max(1, s - 1))}
-              className="border-[#CBD5E1] bg-white text-[#334155] hover:bg-[#F8FAFC]"
-            >
-              <ArrowLeft size={15} className="mr-1.5" /> Previous
-            </Button>
-          )}
+          <button
+            type="button"
+            onClick={handleValidate}
+            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg border border-emerald-200 bg-white text-emerald-700 hover:bg-emerald-50 text-[13px] font-semibold transition-all shadow-xs"
+          >
+            <CheckCircle2 size={15} />
+            <span>Validate Form</span>
+          </button>
 
-          {currentStep < 5 ? (
-            <Button
-              type="button"
-              size="md"
-              onClick={() => setCurrentStep((s) => Math.min(5, s + 1))}
-              className="bg-[#0066FF] px-6 text-white hover:bg-[#0052cc]"
-            >
-              Next <ArrowRight size={15} className="ml-1.5" />
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              size="md"
-              onClick={handleSubmit}
-              className="bg-[#0066FF] px-6 text-white hover:bg-[#0052cc]"
-            >
-              <Send size={15} className="mr-1.5" /> Submit for Approval
-            </Button>
-          )}
+          <button
+            type="button"
+            onClick={handleSubmit}
+            className="inline-flex items-center gap-1.5 h-9 px-5 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[13px] font-semibold transition-all shadow-sm hover:shadow"
+          >
+            <Send size={15} />
+            <span>{isNew ? 'Submit for Approval' : 'Save Changes'}</span>
+          </button>
         </div>
       </div>
 

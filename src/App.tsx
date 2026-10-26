@@ -11,6 +11,7 @@ import Placeholder from '@/pages/Placeholder'
 import Applications from '@/pages/onboarding/Applications'
 import OnboardingHub from '@/pages/onboarding/OnboardingHub'
 import EmployeeList from '@/pages/onboarding/employee/EmployeeList'
+import EmployeeRecord from '@/pages/onboarding/employee/EmployeeRecord'
 import EmployeeOnboardingForm from '@/pages/onboarding/employee/EmployeeOnboardingForm'
 import KycHub from '@/pages/onboarding/KycHub'
 import SetupHub, { BusinessSettingsHub, EscalationMatrixHub } from '@/pages/onboarding/SetupHub'
@@ -57,7 +58,8 @@ export default function App() {
           <Route path="/onboarding" element={<OnboardingHub />} />
           <Route path="/onboarding/users" element={<EmployeeList />} />
           <Route path="/onboarding/users/new" element={<EmployeeOnboardingForm />} />
-          <Route path="/onboarding/users/:id" element={<EmployeeOnboardingForm />} />
+          <Route path="/onboarding/users/:id" element={<EmployeeRecord />} />
+          <Route path="/onboarding/users/:id/edit" element={<EmployeeOnboardingForm />} />
           <Route path="/employees" element={<Navigate to="/onboarding/users" replace />} />
           <Route path="/employee-onboarding" element={<Navigate to="/onboarding/users/new" replace />} />
           <Route path="/onboarding/applications" element={<Applications />} />

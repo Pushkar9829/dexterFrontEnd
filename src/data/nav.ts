@@ -71,6 +71,7 @@ const PREFIX_TRAIL: Record<string, string[]> = {
   '/dashboard/view': ['Dashboard', 'Operations'],
   '/notices': ['Dashboard', 'Notices'],
   '/onboarding/users': ['Onboarding', 'Users / Employee Management'],
+  '/onboarding/users/new': ['Onboarding', 'Users / Employee Management', 'New Employee'],
   '/onboarding/approvals': ['Onboarding', 'Approvals'],
   '/franchise/super-master': ['Onboarding', 'Franchise Management', 'Super Master Franchise'],
   '/franchise/master': ['Onboarding', 'Franchise Management', 'Master Franchise'],
