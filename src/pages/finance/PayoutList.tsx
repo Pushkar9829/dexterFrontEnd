@@ -1,22 +1,33 @@
 import { useState, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
-  Building2,
-  Copy,
-  Download,
-  Eye,
-  MoreHorizontal,
+  Home,
+  ChevronRight,
   Plus,
+  Filter,
   Search,
+  RotateCcw,
+  Download,
+  Building2,
+  User,
+  Hash,
+  CreditCard,
+  FileText,
+  Landmark,
+  ChevronDown,
+  ChevronsLeft,
+  ChevronLeft,
+  ChevronsRight,
+  ListFilter,
+  Edit2,
   Trash2,
-  Users,
-  X,
+  ExternalLink,
+  FileCheck,
 } from 'lucide-react'
-import { Button } from '@/components/ui/Button'
-import { toast } from '@/components/ui/Toast'
-import { cn } from '@/lib/cn'
 import { downloadCsv } from '@/lib/export'
+import { toast } from '@/components/ui/Toast'
 import {
+  PAYOUT_STATUSES,
   deletePayout,
   maskAcc,
   payoutStore,
@@ -27,469 +38,630 @@ export default function PayoutList() {
   const records = payoutStore.use()
 
   // Filter States
-  const [search, setSearch] = useState('')
-  const [bankFilter, setBankFilter] = useState<string>('all')
+  const [filterAtmId, setFilterAtmId] = useState('')
+  const [filterLoiCode, setFilterLoiCode] = useState('')
+  const [filterPanName, setFilterPanName] = useState('')
+  const [filterPanNo, setFilterPanNo] = useState('')
+  const [filterBankName, setFilterBankName] = useState('')
+  const [filterStatus, setFilterStatus] = useState('')
+  const [filterAccNo, setFilterAccNo] = useState('')
+  const [filterIfsc, setFilterIfsc] = useState('')
 
-  // Row Selection
-  const [selectedIds, setSelectedIds] = useState<string[]>([])
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null)
+  // Applied Filters
+  const [appliedFilters, setAppliedFilters] = useState({
+    atmId: '',
+    loiCode: '',
+    panName: '',
+    panNo: '',
+    bankName: '',
+    status: '',
+    accNo: '',
+    ifsc: '',
+  })
 
-  // Unique banks list for dropdown
-  const uniqueBanks = useMemo(() => {
-    const set = new Set<string>()
-    records.forEach((r) => {
-      if (r.bankName) set.add(r.bankName)
+  // Pagination
+  const [pageSize, setPageSize] = useState<number>(20)
+  const [currentPage, setCurrentPage] = useState<number>(1)
+
+  // Options for Dropdowns
+  const atmOptions = useMemo(
+    () => Array.from(new Set(records.map((r) => r.atmId).filter(Boolean))).sort(),
+    [records]
+  )
+  const loiOptions = useMemo(
+    () => Array.from(new Set(records.map((r) => r.loiCode).filter(Boolean))).sort(),
+    [records]
+  )
+  const bankOptions = useMemo(
+    () => Array.from(new Set(records.map((r) => r.bankName).filter(Boolean))).sort(),
+    [records]
+  )
+
+  const handleSearch = () => {
+    setAppliedFilters({
+      atmId: filterAtmId,
+      loiCode: filterLoiCode,
+      panName: filterPanName,
+      panNo: filterPanNo,
+      bankName: filterBankName,
+      status: filterStatus,
+      accNo: filterAccNo,
+      ifsc: filterIfsc,
     })
-    return Array.from(set).sort()
-  }, [records])
+    setCurrentPage(1)
+    toast('Filters applied')
+  }
 
-  // Filter Logic
+  const handleReset = () => {
+    setFilterAtmId('')
+    setFilterLoiCode('')
+    setFilterPanName('')
+    setFilterPanNo('')
+    setFilterBankName('')
+    setFilterStatus('')
+    setFilterAccNo('')
+    setFilterIfsc('')
+    setAppliedFilters({
+      atmId: '',
+      loiCode: '',
+      panName: '',
+      panNo: '',
+      bankName: '',
+      status: '',
+      accNo: '',
+      ifsc: '',
+    })
+    setCurrentPage(1)
+    toast('Filters reset')
+  }
+
+  // Filtered List
   const filtered = useMemo(() => {
-    return records.filter((rec) => {
-      // Bank Filter
-      if (bankFilter !== 'all' && rec.bankName !== bankFilter) return false
-
-      // Search Query
-      if (search.trim()) {
-        const q = search.toLowerCase()
-        const match =
-          (rec.panName || '').toLowerCase().includes(q) ||
-          (rec.accName || '').toLowerCase().includes(q) ||
-          (rec.atmId || '').toLowerCase().includes(q) ||
-          (rec.loiCode || '').toLowerCase().includes(q) ||
-          (rec.panNo || '').toLowerCase().includes(q) ||
-          (rec.bankName || '').toLowerCase().includes(q) ||
-          (rec.ifsc || '').toLowerCase().includes(q) ||
-          (rec.accNo || '').includes(q) ||
-          (rec.id || '').toLowerCase().includes(q)
-        if (!match) return false
+    return records.filter((r) => {
+      if (appliedFilters.atmId && r.atmId !== appliedFilters.atmId) return false
+      if (appliedFilters.loiCode && r.loiCode !== appliedFilters.loiCode) return false
+      if (
+        appliedFilters.panName &&
+        !r.panName.toLowerCase().includes(appliedFilters.panName.toLowerCase())
+      ) {
+        return false
       }
-
+      if (
+        appliedFilters.panNo &&
+        !r.panNo.toLowerCase().includes(appliedFilters.panNo.toLowerCase())
+      ) {
+        return false
+      }
+      if (appliedFilters.bankName && r.bankName !== appliedFilters.bankName) return false
+      if (appliedFilters.status && r.status !== appliedFilters.status) return false
+      if (appliedFilters.accNo && !r.accNo.includes(appliedFilters.accNo)) return false
+      if (
+        appliedFilters.ifsc &&
+        !r.ifsc.toLowerCase().includes(appliedFilters.ifsc.toLowerCase())
+      ) {
+        return false
+      }
       return true
     })
-  }, [records, bankFilter, search])
+  }, [records, appliedFilters])
 
-  // Select all toggle
-  const toggleSelectAll = () => {
-    if (selectedIds.length === filtered.length) {
-      setSelectedIds([])
-    } else {
-      setSelectedIds(filtered.map((d) => d.id))
+  // Pagination calculation
+  const totalRecords = filtered.length
+  const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize))
+  const paginated = useMemo(() => {
+    const start = (currentPage - 1) * pageSize
+    return filtered.slice(start, start + pageSize)
+  }, [filtered, currentPage, pageSize])
+
+  // Export CSV
+  const handleExport = () => {
+    const headers = [
+      'S.N.',
+      'Payout ID',
+      'ATM ID',
+      'LOI Code',
+      'PAN Name',
+      'PAN No.',
+      'Acc. Name (Settlement)',
+      'Acc. No. (Settlement)',
+      'Bank Name',
+      'IFSC',
+      'Email Subject',
+      'Status',
+    ]
+
+    const rows = filtered.map((r, i) => [
+      String(i + 1),
+      r.id,
+      r.atmId,
+      r.loiCode,
+      r.panName,
+      r.panNo,
+      r.accName,
+      r.accNo,
+      r.bankName,
+      r.ifsc,
+      r.emailSubject,
+      r.status,
+    ])
+
+    downloadCsv(`Payout_Data_${new Date().toISOString().slice(0, 10)}`, headers, rows)
+    toast(`Exported ${filtered.length} payout records to CSV`)
+  }
+
+  const handleDelete = (id: string, name: string) => {
+    if (confirm(`Are you sure you want to delete payout account for ${name}?`)) {
+      deletePayout(id)
+      toast('Record deleted')
     }
   }
 
-  // Row selection toggle
-  const toggleSelectRow = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation()
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id],
-    )
-  }
-
-  // Copy helper
-  const copyText = (txt: string, label: string, e: React.MouseEvent) => {
-    e.stopPropagation()
-    navigator.clipboard?.writeText(txt)
-    toast(`Copied ${label} to clipboard`, 'info')
-  }
-
-  // Export to CSV
-  const handleExport = () => {
-    const list = selectedIds.length > 0
-      ? records.filter((d) => selectedIds.includes(d.id))
-      : filtered
-
-    const headers = [
-      'Payout ID',
-      'LOI Code',
-      'ATM ID',
-      'PAN Name',
-      'PAN No',
-      'Settlement Account Name',
-      'Settlement Account No',
-      'Bank Name',
-      'Email Subject',
-    ]
-
-    const rows = list.map((p) => [
-      p.id,
-      p.loiCode,
-      p.atmId,
-      p.panName,
-      p.panNo,
-      p.accName,
-      p.accNo,
-      p.bankName,
-      p.emailSubject,
-    ])
-
-    downloadCsv(`Dexter_Payout_Accounts_${new Date().toISOString().slice(0, 10)}`, headers, rows)
-    toast(`Exported ${list.length} payout accounts to CSV`)
-  }
-
   return (
-    <div className="mx-auto max-w-[1360px] pb-16">
-      {/* Top Header */}
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+    <div className="space-y-4 pb-12">
+      {/* Breadcrumb: Workspace > Finance > Payout Data */}
+      <div className="flex items-center gap-1.5 text-[12px] text-slate-500">
+        <Home size={14} className="text-slate-400 shrink-0" />
+        <Link to="/dashboard" className="hover:text-[#0066FF] transition-colors">
+          Workspace
+        </Link>
+        <ChevronRight size={12} className="text-slate-400" />
+        <Link to="/finance" className="hover:text-[#0066FF] transition-colors">
+          Finance
+        </Link>
+        <ChevronRight size={12} className="text-slate-400" />
+        <span className="font-semibold text-slate-800">Payout Data</span>
+      </div>
+
+      {/* Page Title & Top Action Button */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-1">
         <div>
-          <h1 className="text-[26px] font-bold tracking-tight text-[#1E293B]">
-            Payouts
+          <h1 className="text-[26px] font-bold tracking-tight text-slate-900 leading-tight">
+            Payout
           </h1>
-          <p className="mt-0.5 text-[13px] text-[#64748B]">
-            Manage settlement accounts, PAN verification, bank routing and disbursement details.
+          <p className="text-[13px] text-slate-500 mt-1">
+            Manage settlement accounts, PAN verification, bank routing, and disbursement records.
           </p>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex flex-wrap items-center gap-2.5">
-          <Button
-            type="button"
-            variant="secondary"
-            size="md"
-            onClick={handleExport}
-            className="border-[#CBD5E1] bg-white text-[#334155] shadow-xs hover:bg-[#F8FAFC]"
-          >
-            <Download size={15} className="mr-2 text-[#64748B]" /> Export CSV
-          </Button>
-
-          <Button
-            type="button"
-            size="md"
+        <div>
+          <button
             onClick={() => navigate('/finance/payout/new')}
-            className="bg-[#0066FF] px-4 font-semibold text-white shadow-sm hover:bg-[#0052cc]"
+            className="inline-flex items-center gap-2 h-9.5 px-4 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[13px] font-semibold transition-all shadow-sm hover:shadow"
           >
-            <Plus size={16} className="mr-1.5" strokeWidth={2.5} /> Add Payout Account
-          </Button>
+            <Plus size={16} strokeWidth={2.4} />
+            <span>New Payout Record</span>
+          </button>
         </div>
       </div>
 
-      {/* Main Table Card */}
-      <div className="overflow-hidden rounded-xl border border-[#DCE8F6] bg-white shadow-xs">
-        {/* Filter & Search Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E2EEFB] bg-[#F8FAFD] p-4">
-          {/* Search Box */}
-          <div className="relative flex-1 min-w-[280px] max-w-md">
-            <Search
-              size={15}
-              className="absolute left-3 top-2.5 text-[#64748B] pointer-events-none"
-            />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by PAN Name, ATM ID, LOI Code, Bank, Account, IFSC..."
-              className="h-9 w-full rounded-lg border border-[#CBD5E1] bg-white pl-9 pr-8 text-[12.5px] text-[#1E293B] outline-none placeholder:text-[#94A3B8] focus:border-[#0066FF] focus:ring-2 focus:ring-[#0066FF]/10"
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch('')}
-                className="absolute right-2.5 top-2.5 text-[#94A3B8] hover:text-[#1E293B]"
-              >
-                <X size={15} />
-              </button>
-            )}
+      {/* Filter Section */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 sm:p-5">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-9 h-9 rounded-lg bg-[#0066FF] flex items-center justify-center text-white shrink-0 shadow-sm">
+            <Filter size={18} />
           </div>
-
-          {/* Dropdown Filters */}
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Bank Filter */}
-            <select
-              value={bankFilter}
-              onChange={(e) => setBankFilter(e.target.value)}
-              className="h-9 max-w-[200px] truncate rounded-lg border border-[#CBD5E1] bg-white px-3 text-[12px] text-[#334155] outline-none focus:border-[#0066FF]"
-            >
-              <option value="all">All Settlement Banks</option>
-              {uniqueBanks.map((b) => (
-                <option key={b} value={b}>
-                  {b}
-                </option>
-              ))}
-            </select>
-
-            {/* Reset Filters */}
-            {(bankFilter !== 'all' || search) && (
-              <button
-                type="button"
-                onClick={() => {
-                  setBankFilter('all')
-                  setSearch('')
-                }}
-                className="flex h-9 items-center gap-1 rounded-lg border border-red-200 bg-red-50/60 px-3 text-[11.5px] font-medium text-red-600 hover:bg-red-100"
-              >
-                <X size={13} /> Reset
-              </button>
-            )}
+          <div>
+            <h2 className="text-[15px] font-bold text-slate-900 leading-tight">Filter</h2>
+            <p className="text-[12px] text-slate-500">
+              Use below filters to search and view payout records.
+            </p>
           </div>
         </div>
 
-        {/* Selected Batch Bar */}
-        {selectedIds.length > 0 && (
-          <div className="flex items-center justify-between bg-[#EAF2FD] px-5 py-2.5 text-[12.5px] text-[#0066FF]">
-            <span className="font-semibold">{selectedIds.length} payout accounts selected</span>
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => {
-                  if (confirm(`Delete ${selectedIds.length} selected payout accounts?`)) {
-                    selectedIds.forEach((id) => deletePayout(id))
-                    setSelectedIds([])
-                    toast('Selected payout accounts deleted', 'info')
-                  }
-                }}
-                className="h-7 border-red-200 bg-white text-red-600 hover:bg-red-50 text-[11.5px]"
+        {/* Row 1 Filters: ATM ID, LOI Code, PAN Name, PAN Number */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+          {/* ATM ID */}
+          <div>
+            <label className="block text-[11px] font-bold text-slate-700 mb-1">
+              ATM ID
+            </label>
+            <div className="relative">
+              <CreditCard
+                size={14}
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none"
+              />
+              <select
+                value={filterAtmId}
+                onChange={(e) => setFilterAtmId(e.target.value)}
+                className="w-full h-8.5 pl-8 pr-7 text-[11.5px] rounded-lg border border-slate-200 bg-white text-slate-700 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]/20 appearance-none transition-all"
               >
-                Delete Selected
-              </Button>
+                <option value="">Select ATM ID</option>
+                {atmOptions.map((atm) => (
+                  <option key={atm} value={atm}>
+                    {atm}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown
+                size={13}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+              />
             </div>
           </div>
-        )}
+
+          {/* LOI Code */}
+          <div>
+            <label className="block text-[11px] font-bold text-slate-700 mb-1">
+              LOI Code
+            </label>
+            <div className="relative">
+              <FileText
+                size={14}
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none"
+              />
+              <select
+                value={filterLoiCode}
+                onChange={(e) => setFilterLoiCode(e.target.value)}
+                className="w-full h-8.5 pl-8 pr-7 text-[11.5px] rounded-lg border border-slate-200 bg-white text-slate-700 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]/20 appearance-none transition-all"
+              >
+                <option value="">Select LOI Code</option>
+                {loiOptions.map((loi) => (
+                  <option key={loi} value={loi}>
+                    {loi}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown
+                size={13}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+              />
+            </div>
+          </div>
+
+          {/* PAN Name */}
+          <div>
+            <label className="block text-[11px] font-bold text-slate-700 mb-1">
+              PAN Name
+            </label>
+            <div className="relative">
+              <User
+                size={14}
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none"
+              />
+              <input
+                type="text"
+                value={filterPanName}
+                onChange={(e) => setFilterPanName(e.target.value)}
+                placeholder="Enter PAN Name"
+                className="w-full h-8.5 pl-8 pr-3 text-[11.5px] rounded-lg border border-slate-200 bg-white text-slate-700 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]/20 transition-all placeholder:text-slate-400"
+              />
+            </div>
+          </div>
+
+          {/* PAN Number */}
+          <div>
+            <label className="block text-[11px] font-bold text-slate-700 mb-1">
+              PAN Number
+            </label>
+            <div className="relative">
+              <Hash
+                size={14}
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none"
+              />
+              <input
+                type="text"
+                value={filterPanNo}
+                onChange={(e) => setFilterPanNo(e.target.value)}
+                placeholder="Enter 10-char PAN"
+                className="w-full h-8.5 pl-8 pr-3 text-[11.5px] rounded-lg border border-slate-200 bg-white text-slate-700 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]/20 transition-all placeholder:text-slate-400 font-mono uppercase"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Row 2 Filters: Settlement Bank, Status, Account Number, IFSC */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+          {/* Settlement Bank */}
+          <div>
+            <label className="block text-[11px] font-bold text-slate-700 mb-1">
+              Settlement Bank
+            </label>
+            <div className="relative">
+              <Landmark
+                size={14}
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none"
+              />
+              <select
+                value={filterBankName}
+                onChange={(e) => setFilterBankName(e.target.value)}
+                className="w-full h-8.5 pl-8 pr-7 text-[11.5px] rounded-lg border border-slate-200 bg-white text-slate-700 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]/20 appearance-none transition-all truncate"
+              >
+                <option value="">All Banks</option>
+                {bankOptions.map((b) => (
+                  <option key={b} value={b}>
+                    {b}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown
+                size={13}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+              />
+            </div>
+          </div>
+
+          {/* Status */}
+          <div>
+            <label className="block text-[11px] font-bold text-slate-700 mb-1">
+              Status
+            </label>
+            <div className="relative">
+              <ListFilter
+                size={14}
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none"
+              />
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="w-full h-8.5 pl-8 pr-7 text-[11.5px] rounded-lg border border-slate-200 bg-white text-slate-700 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]/20 appearance-none transition-all"
+              >
+                <option value="">All Statuses</option>
+                {PAYOUT_STATUSES.map((st) => (
+                  <option key={st} value={st}>
+                    {st}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown
+                size={13}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+              />
+            </div>
+          </div>
+
+          {/* Account Number */}
+          <div>
+            <label className="block text-[11px] font-bold text-slate-700 mb-1">
+              Account Number
+            </label>
+            <div className="relative">
+              <Building2
+                size={14}
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none"
+              />
+              <input
+                type="text"
+                value={filterAccNo}
+                onChange={(e) => setFilterAccNo(e.target.value)}
+                placeholder="Enter account no."
+                className="w-full h-8.5 pl-8 pr-3 text-[11.5px] rounded-lg border border-slate-200 bg-white text-slate-700 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]/20 transition-all placeholder:text-slate-400 font-mono"
+              />
+            </div>
+          </div>
+
+          {/* IFSC Code */}
+          <div>
+            <label className="block text-[11px] font-bold text-slate-700 mb-1">
+              IFSC Code
+            </label>
+            <div className="relative">
+              <Hash
+                size={14}
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none"
+              />
+              <input
+                type="text"
+                value={filterIfsc}
+                onChange={(e) => setFilterIfsc(e.target.value)}
+                placeholder="Enter IFSC"
+                className="w-full h-8.5 pl-8 pr-3 text-[11.5px] rounded-lg border border-slate-200 bg-white text-slate-700 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]/20 transition-all placeholder:text-slate-400 font-mono uppercase"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Buttons Row */}
+        <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
+          <button
+            onClick={handleSearch}
+            className="inline-flex items-center gap-1.5 h-8.5 px-4 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[12px] font-semibold transition-all shadow-xs"
+          >
+            <Search size={13} />
+            <span>Search</span>
+          </button>
+
+          <button
+            onClick={handleReset}
+            className="inline-flex items-center gap-1.5 h-8.5 px-4 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[12px] font-medium transition-all"
+          >
+            <RotateCcw size={13} />
+            <span>Reset</span>
+          </button>
+
+          <button
+            onClick={handleExport}
+            className="inline-flex items-center gap-1.5 h-8.5 px-4 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[12px] font-medium transition-all"
+          >
+            <Download size={14} />
+            <span>Download</span>
+            <ChevronDown size={12} className="text-slate-400 ml-0.5" />
+          </button>
+        </div>
+      </div>
+
+      {/* Records Card ("Payout Records") */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        {/* Table Top Header */}
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-[#0066FF] flex items-center justify-center text-white shrink-0 shadow-sm">
+              <Landmark size={16} />
+            </div>
+            <h2 className="text-[15px] font-bold text-slate-900 leading-tight">
+              Payout Records
+            </h2>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <span className="text-[12px] text-slate-600 font-medium">
+              Total Records: {totalRecords}
+            </span>
+
+            <div className="relative">
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value))
+                  setCurrentPage(1)
+                }}
+                className="h-8 pl-3 pr-7 text-[12px] font-medium rounded-md border border-slate-200 bg-white text-slate-700 outline-none focus:border-[#0066FF] appearance-none"
+              >
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+              </select>
+              <ChevronDown
+                size={13}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+              />
+            </div>
+          </div>
+        </div>
 
         {/* Table View */}
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[1050px] text-left text-[12.5px]">
+        <div className="overflow-x-auto scroll-thin">
+          <table className="w-full text-[11px] text-slate-700 border-collapse min-w-[1300px]">
             <thead>
-              <tr className="border-b border-[#E2EEFB] bg-[#F8FAFD] text-[11px] font-bold uppercase tracking-wider text-[#64748B]">
-                <th className="py-3.5 px-4 w-12 text-center">
-                  <input
-                    type="checkbox"
-                    checked={filtered.length > 0 && selectedIds.length === filtered.length}
-                    onChange={toggleSelectAll}
-                    className="h-4 w-4 rounded-sm border-gray-300 accent-[#0066FF]"
-                  />
+              <tr className="bg-[#EEF4FC] text-slate-800 font-bold border-b border-slate-200 text-center">
+                <th className="py-2.5 px-3 border-r border-[#D9E5F5] whitespace-nowrap w-12">
+                  S.N.
                 </th>
-                <th className="py-3.5 px-4 min-w-[270px]">Account Holder &amp; ATM Details</th>
-                <th className="py-3.5 px-4 min-w-[150px] whitespace-nowrap">PAN Number</th>
-                <th className="py-3.5 px-4 min-w-[160px] whitespace-nowrap">LOI Reference</th>
-                <th className="py-3.5 px-4 min-w-[180px] whitespace-nowrap">Settlement Bank &amp; Account</th>
-                <th className="py-3.5 px-4 min-w-[140px] text-center whitespace-nowrap">Actions</th>
+                <th className="py-2.5 px-3 border-r border-[#D9E5F5] whitespace-nowrap">
+                  ATM ID
+                </th>
+                <th className="py-2.5 px-3 border-r border-[#D9E5F5] whitespace-nowrap">
+                  LOI Code
+                </th>
+                <th className="py-2.5 px-3 border-r border-[#D9E5F5] whitespace-nowrap text-left">
+                  PAN Name
+                </th>
+                <th className="py-2.5 px-3 border-r border-[#D9E5F5] whitespace-nowrap">
+                  PAN No.
+                </th>
+                <th className="py-2.5 px-3 border-r border-[#D9E5F5] whitespace-nowrap text-left">
+                  Acc. Name (Settlement)
+                </th>
+                <th className="py-2.5 px-3 border-r border-[#D9E5F5] whitespace-nowrap font-mono">
+                  Acc. No. (Settlement)
+                </th>
+                <th className="py-2.5 px-3 border-r border-[#D9E5F5] whitespace-nowrap">
+                  Bank Name
+                </th>
+                <th className="py-2.5 px-3 border-r border-[#D9E5F5] whitespace-nowrap font-mono">
+                  IFSC
+                </th>
+                <th className="py-2.5 px-3 border-r border-[#D9E5F5] whitespace-nowrap text-left">
+                  Email Subject
+                </th>
+                <th className="py-2.5 px-3 border-r border-[#D9E5F5] whitespace-nowrap">
+                  Status
+                </th>
+                <th className="py-2.5 px-3 whitespace-nowrap sticky right-0 bg-[#EEF4FC] shadow-[-2px_0_4px_rgba(0,0,0,0.03)] w-24">
+                  Action
+                </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#F1F5F9]">
-              {filtered.length > 0 ? (
-                filtered.map((p) => {
-                  const isSelected = selectedIds.includes(p.id)
-                  const initials = (p.panName || 'PA')
-                    .trim()
-                    .split(/\s+/)
-                    .map((part) => part[0])
-                    .slice(0, 2)
-                    .join('')
-                    .toUpperCase()
 
-                  return (
-                    <tr
-                      key={p.id}
-                      onClick={() => navigate(`/finance/payout/${p.id}`)}
-                      className={cn(
-                        'cursor-pointer transition-colors duration-150',
-                        isSelected ? 'bg-[#EBF3FC]/60' : 'hover:bg-[#F8FAFD]',
-                      )}
-                    >
-                      {/* Checkbox */}
-                      <td className="py-3.5 px-4 text-center" onClick={(e) => e.stopPropagation()}>
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={(e) => toggleSelectRow(p.id, e as any)}
-                          className="h-4 w-4 rounded-sm border-gray-300 accent-[#0066FF]"
-                        />
-                      </td>
-
-                      {/* Account Holder & ATM */}
-                      <td className="py-3.5 px-4">
-                        <div className="flex items-center gap-3">
-                          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[#EAF2FD] text-[12px] font-bold text-[#0066FF] border border-[#DCE8F6]">
-                            {initials || <Building2 size={16} />}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2 font-bold text-[#1E293B]">
-                              <span className="truncate">{p.panName || 'Payout Beneficiary'}</span>
-                              {p.atmId && (
-                                <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-mono font-medium text-[#475569] border border-slate-200">
-                                  {p.atmId}
-                                </span>
-                              )}
-                            </div>
-                            <div className="mt-0.5 flex items-center gap-1.5 text-[11.5px] text-[#64748B] whitespace-nowrap">
-                              <span className="font-medium text-[#334155]">{p.accName || 'Settlement Account'}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* PAN Number */}
-                      <td className="py-3.5 px-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                        <div className="space-y-0.5">
-                          {p.panNo ? (
-                            <div className="inline-flex items-center gap-1.5 rounded-md border border-[#E2E8F0] bg-[#F8FAFC] px-2 py-0.5 font-mono text-[11.5px] font-semibold text-[#1E293B]">
-                              <span>{p.panNo}</span>
-                              <button
-                                type="button"
-                                onClick={(e) => copyText(p.panNo, 'PAN Number', e)}
-                                className="text-[#94A3B8] hover:text-[#0066FF] transition-colors"
-                                title="Copy PAN"
-                              >
-                                <Copy size={11} />
-                              </button>
-                            </div>
-                          ) : (
-                            <span className="text-[11px] text-slate-400 italic">No PAN</span>
-                          )}
-                          <div className="text-[10.5px] text-[#64748B] font-mono">
-                            {p.id}
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* LOI Reference */}
-                      <td className="py-3.5 px-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                        <div className="space-y-0.5">
-                          {p.loiCode ? (
-                            <div className="inline-flex items-center gap-1.5 font-mono text-[11.5px] font-medium text-[#1E293B]">
-                              <span>{p.loiCode}</span>
-                              <button
-                                type="button"
-                                onClick={(e) => copyText(p.loiCode, 'LOI Code', e)}
-                                className="text-[#94A3B8] hover:text-[#0066FF] transition-colors"
-                                title="Copy LOI"
-                              >
-                                <Copy size={11} />
-                              </button>
-                            </div>
-                          ) : (
-                            <span className="text-[11px] text-slate-400 italic">No LOI</span>
-                          )}
-                          {p.emailSubject && (
-                            <div className="text-[10.5px] text-[#64748B] truncate max-w-[140px]" title={p.emailSubject}>
-                              {p.emailSubject}
-                            </div>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* Settlement Bank & Account */}
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        <div className="space-y-0.5">
-                          <div className="font-medium text-[#1E293B] text-[12.5px] whitespace-nowrap">
-                            {p.bankName || '—'}
-                          </div>
-                          <div className="text-[11px] text-[#64748B] font-mono whitespace-nowrap">
-                            {p.accNo ? maskAcc(p.accNo) : '—'}
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Actions */}
-                      <td className="py-3.5 px-4 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                        <div className="inline-flex items-center justify-center gap-1.5">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => navigate(`/finance/payout/${p.id}`)}
-                            className="h-7 text-[#0066FF] hover:bg-[#EAF2FD] text-[11.5px] font-semibold whitespace-nowrap px-2.5"
-                          >
-                            <Eye size={13} className="mr-1" /> View Details
-                          </Button>
-
-                          <div className="relative">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setOpenMenuId(openMenuId === p.id ? null : p.id)
-                              }
-                              className="grid h-7 w-7 place-items-center rounded-md text-[#64748B] hover:bg-slate-100"
-                            >
-                              <MoreHorizontal size={15} />
-                            </button>
-
-                            {openMenuId === p.id && (
-                              <>
-                                <div
-                                  className="fixed inset-0 z-20"
-                                  onClick={() => setOpenMenuId(null)}
-                                />
-                                <div className="absolute right-0 z-30 mt-1 w-44 rounded-lg border border-[#E2EEFB] bg-white py-1 text-[12px] shadow-lg text-left">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      navigate(`/finance/payout/${p.id}`)
-                                      setOpenMenuId(null)
-                                    }}
-                                    className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-[#F8FAFD]"
-                                  >
-                                    <Eye size={13} /> View / Edit Account
-                                  </button>
-                                  {p.panNo && (
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        copyText(p.panNo, 'PAN Number', e)
-                                        setOpenMenuId(null)
-                                      }}
-                                      className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-[#F8FAFD]"
-                                    >
-                                      <Copy size={13} /> Copy PAN
-                                    </button>
-                                  )}
-                                  {p.ifsc && (
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        copyText(p.ifsc, 'IFSC Code', e)
-                                        setOpenMenuId(null)
-                                      }}
-                                      className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-[#F8FAFD]"
-                                    >
-                                      <Copy size={13} /> Copy IFSC
-                                    </button>
-                                  )}
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      if (
-                                        confirm(
-                                          `Delete payout account ${p.id} for ${p.panName || 'this record'}? This cannot be undone.`,
-                                        )
-                                      ) {
-                                        deletePayout(p.id)
-                                        setOpenMenuId(null)
-                                        toast(`Deleted payout account ${p.id}`, 'info')
-                                      }
-                                    }}
-                                    className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-red-600 hover:bg-red-50"
-                                  >
-                                    <Trash2 size={13} /> Delete Record
-                                  </button>
-                                </div>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })
-              ) : (
-                <tr>
-                  <td colSpan={6} className="py-12 text-center">
-                    <div className="mx-auto max-w-sm text-center">
-                      <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-[#EAF2FD] text-[#0066FF]">
-                        <Users size={24} />
-                      </div>
-                      <h3 className="text-[14px] font-bold text-[#1E293B]">No payout accounts found</h3>
-                      <p className="mt-1 text-[12px] text-[#64748B]">
-                        Try adjusting your search query or filters to find what you're looking for.
-                      </p>
-                      <Button
-                        size="sm"
-                        onClick={() => navigate('/finance/payout/new')}
-                        className="mt-4 bg-[#0066FF] text-white"
+            <tbody>
+              {paginated.length > 0 ? (
+                paginated.map((item, idx) => (
+                  <tr
+                    key={item.id}
+                    className="border-b border-slate-100 hover:bg-blue-50/30 transition-colors text-center"
+                  >
+                    <td className="py-2.5 px-3 border-r border-slate-100 font-medium text-slate-500">
+                      {(currentPage - 1) * pageSize + idx + 1}
+                    </td>
+                    <td className="py-2.5 px-3 border-r border-slate-100 font-semibold text-[#0066FF] whitespace-nowrap">
+                      <button
+                        onClick={() => navigate(`/finance/payout/${item.id}`)}
+                        className="hover:underline flex items-center justify-center gap-1 mx-auto"
                       >
-                        <Plus size={14} className="mr-1" /> Add New Payout Account
-                      </Button>
+                        {item.atmId || '—'}
+                        <ExternalLink size={11} className="opacity-60" />
+                      </button>
+                    </td>
+                    <td className="py-2.5 px-3 border-r border-slate-100 whitespace-nowrap font-mono text-[10.5px] text-slate-700">
+                      {item.loiCode || '—'}
+                    </td>
+                    <td className="py-2.5 px-3 border-r border-slate-100 font-medium text-slate-800 text-left whitespace-nowrap">
+                      {item.panName || '—'}
+                    </td>
+                    <td className="py-2.5 px-3 border-r border-slate-100 whitespace-nowrap font-mono text-[10.5px] text-slate-700">
+                      {item.panNo || '—'}
+                    </td>
+                    <td className="py-2.5 px-3 border-r border-slate-100 text-left whitespace-nowrap text-slate-700 font-medium">
+                      {item.accName || '—'}
+                    </td>
+                    <td className="py-2.5 px-3 border-r border-slate-100 whitespace-nowrap font-mono text-[11px] text-slate-800">
+                      {maskAcc(item.accNo) || '—'}
+                    </td>
+                    <td className="py-2.5 px-3 border-r border-slate-100 whitespace-nowrap text-slate-700">
+                      {item.bankName || '—'}
+                    </td>
+                    <td className="py-2.5 px-3 border-r border-slate-100 whitespace-nowrap font-mono text-[10.5px] text-slate-700 uppercase">
+                      {item.ifsc || '—'}
+                    </td>
+                    <td className="py-2.5 px-3 border-r border-slate-100 whitespace-nowrap text-left text-slate-600 max-w-[220px] truncate">
+                      {item.emailSubject || '—'}
+                    </td>
+                    <td className="py-2.5 px-3 border-r border-slate-100 whitespace-nowrap">
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold ${item.status === 'Active'
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
+                            : item.status === 'Pending verification'
+                              ? 'bg-amber-50 text-amber-700 border border-amber-200/60'
+                              : 'bg-slate-100 text-slate-600 border border-slate-200/60'
+                          }`}
+                      >
+                        {item.status || 'Active'}
+                      </span>
+                    </td>
+                    <td className="py-2.5 px-3 whitespace-nowrap sticky right-0 bg-white shadow-[-2px_0_4px_rgba(0,0,0,0.03)]">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <button
+                          onClick={() => navigate(`/finance/payout/${item.id}`)}
+                          className="w-6.5 h-6.5 rounded flex items-center justify-center text-[#0066FF] hover:bg-blue-50 border border-blue-200/60 transition-colors"
+                          title="Edit / Open"
+                        >
+                          <Edit2 size={12} />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(item.id, item.panName || item.atmId)}
+                          className="w-6.5 h-6.5 rounded flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 border border-slate-200 hover:border-red-200 transition-colors"
+                          title="Delete"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                /* Empty State */
+                <tr>
+                  <td colSpan={12} className="py-16 text-center">
+                    <div className="flex flex-col items-center justify-center max-w-sm mx-auto">
+                      <div className="w-14 h-16 rounded-xl bg-[#EAF2FC] border border-[#CDE1F8] flex flex-col items-center justify-center shadow-xs mb-3 text-[#0066FF]">
+                        <FileCheck size={30} strokeWidth={1.8} className="text-[#0066FF]" />
+                      </div>
+
+                      <h3 className="text-[15px] font-bold text-slate-900">
+                        No records found
+                      </h3>
+                      <p className="text-[12px] text-slate-500 mt-1 max-w-[320px]">
+                        Try adjusting your filters or click on "New Payout Record" to add an entry.
+                      </p>
+
+                      <div className="mt-4 flex items-center gap-2">
+                        <button
+                          onClick={() => navigate('/finance/payout/new')}
+                          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[11px] font-semibold transition-all shadow-xs"
+                        >
+                          <Plus size={13} />
+                          New Payout Record
+                        </button>
+                      </div>
                     </div>
                   </td>
                 </tr>
@@ -498,15 +670,79 @@ export default function PayoutList() {
           </table>
         </div>
 
-        {/* Footer Info Bar */}
-        <div className="flex items-center justify-between border-t border-[#E2EEFB] bg-[#F8FAFD] px-5 py-3 text-[12px] text-[#64748B]">
-          <span>
-            Showing <strong className="text-[#1E293B]">{filtered.length}</strong> of{' '}
-            <strong className="text-[#1E293B]">{records.length}</strong> payout accounts
-          </span>
-          <span className="text-[11px] text-[#94A3B8]">
-            Dexter ERP Finance · Settlement Ledger
-          </span>
+        {/* Table Bottom Pagination */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-3 border-t border-slate-200 bg-white text-[12px] text-slate-600">
+          <div>
+            Showing{' '}
+            <span className="font-semibold text-slate-900">
+              {totalRecords === 0 ? 0 : (currentPage - 1) * pageSize + 1}
+            </span>{' '}
+            to{' '}
+            <span className="font-semibold text-slate-900">
+              {Math.min(currentPage * pageSize, totalRecords)}
+            </span>{' '}
+            of <span className="font-semibold text-slate-900">{totalRecords}</span> entries
+          </div>
+
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage === 1}
+              className="w-7 h-7 rounded flex items-center justify-center border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <ChevronsLeft size={14} />
+            </button>
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="w-7 h-7 rounded flex items-center justify-center border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft size={14} />
+            </button>
+
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter((page) => {
+                return (
+                  page === 1 ||
+                  page === totalPages ||
+                  (page >= currentPage - 1 && page <= currentPage + 1)
+                )
+              })
+              .map((page, index, array) => {
+                const prev = array[index - 1]
+                const showEllipsis = prev && page - prev > 1
+
+                return (
+                  <div key={page} className="flex items-center">
+                    {showEllipsis && <span className="px-1 text-slate-400">...</span>}
+                    <button
+                      onClick={() => setCurrentPage(page)}
+                      className={`w-7 h-7 rounded text-[11px] font-semibold flex items-center justify-center transition-all ${currentPage === page
+                          ? 'bg-[#0066FF] text-white shadow-xs'
+                          : 'border border-slate-200 text-slate-700 hover:bg-slate-50'
+                        }`}
+                    >
+                      {page}
+                    </button>
+                  </div>
+                )
+              })}
+
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="w-7 h-7 rounded flex items-center justify-center border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <ChevronRight size={14} />
+            </button>
+            <button
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={currentPage === totalPages}
+              className="w-7 h-7 rounded flex items-center justify-center border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <ChevronsRight size={14} />
+            </button>
+          </div>
         </div>
       </div>
     </div>

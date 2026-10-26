@@ -1,915 +1,861 @@
-import { useState } from 'react'
-import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useState, useEffect, useMemo } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
-  ArrowLeft,
-  ArrowRight,
-  Calculator,
-  Calendar,
-  CheckCircle2,
+  Home,
+  ChevronRight,
+  ChevronLeft,
   ChevronDown,
-  Coins,
-  Download,
+  Building2,
   FileText,
-  Filter,
+  User,
+  Phone,
+  MapPin,
+  Hash,
+  Calendar,
   Landmark,
-  Pencil,
-  Printer,
   Save,
-  Search,
-  Send,
-  Users,
-  Wallet,
+  Receipt,
+  Calculator,
+  ListFilter,
+  Sparkles,
+  CreditCard,
+  IndianRupee,
 } from 'lucide-react'
-import { Button } from '@/components/ui/Button'
 import { toast } from '@/components/ui/Toast'
-import { cn } from '@/lib/cn'
-import { dmy, rupee } from '@/data/cbrSites'
 import {
-  AMOUNT_KEYS,
   FIN_YEARS,
   FY_MONTHS,
-  GSTIN_RE,
   GST_INVOICE_STATUSES,
   GST_PAYMENT_STATUSES,
-  MOBILE_RE,
-  UTR_RE,
   calcNet,
   emptyGst,
   getGst,
-  gstStore,
-  numOr0,
   saveGst,
   type GstRecord,
+  type GstInvoiceStatus,
+  type GstPaymentStatus,
 } from '@/data/financeGst'
-import { invoiceTone } from './GstList'
-import { Badge } from '@/components/ui/Badge'
-
-type Errors = Partial<Record<keyof GstRecord | 'form', string>>
-
-function validate(r: GstRecord, isNew: boolean): Errors {
-  const e: Errors = {}
-  for (const k of AMOUNT_KEYS) {
-    const v = String(r[k]).trim()
-    if (v === '') continue
-    if (!/^\d+(\.\d{1,2})?$/.test(v)) e[k] = Number(v) < 0 ? 'Amount cannot be negative' : 'Enter a number (up to 2 decimals)'
-  }
-  if (r.gstNumber && !GSTIN_RE.test(r.gstNumber)) e.gstNumber = '15 characters, e.g. 09AABC134522J1ZE'
-  if (r.contactNo && !MOBILE_RE.test(r.contactNo)) e.contactNo = 'Enter a 10-digit mobile number'
-  if (r.utrNumber && !UTR_RE.test(r.utrNumber)) e.utrNumber = 'UTR is 12–22 letters / digits'
-  if (r.paymentDate && Number.isNaN(Date.parse(r.paymentDate))) e.paymentDate = 'Pick a valid date'
-  if (r.paymentStatus === 'Done' && !r.paidAmount) e.paidAmount = 'Paid Amount is expected when GST Payment Status is Done'
-  if (r.paidAmount && r.netAmount && Number(r.paidAmount) > Number(r.netAmount)) e.paidAmount = 'Paid Amount is more than Net Amount'
-  if (r.month && !r.fYear) e.fYear = 'Select the financial year for this month'
-  if (isNew && !r.siteId && !r.atmId && !r.invoiceNumber && !r.franchiseeName) e.form = 'Enter at least a Site ID, ATM Id, Franchisee Name or Invoice Number.'
-  return e
-}
+import { SITES, FRANCHISEES } from '@/data/cbrSites'
 
 export default function GstRecordPage() {
-  const { id = '' } = useParams()
-  const [params] = useSearchParams()
   const navigate = useNavigate()
-  const allGst = gstStore.use()
+  const { id = '' } = useParams<{ id: string }>()
+  const isNew = !id || id === 'new'
 
-  const isNew = id === 'new'
-  const existing = isNew ? undefined : getGst(id)
-  const [editing, setEditing] = useState(isNew || params.get('edit') === '1')
-  const [form, setForm] = useState<GstRecord>(() => existing ?? emptyGst('26-27'))
-  const [errors, setErrors] = useState<Errors>({})
-
-  if (!isNew && !existing) return <Navigate to="/finance/gst" replace />
-  const rec = editing ? form : existing!
-  const ro = !editing
-
-  const set = <K extends keyof GstRecord>(k: K, v: GstRecord[K]) => {
-    setForm((f) => ({ ...f, [k]: v }))
-    if (errors[k]) setErrors((e) => ({ ...e, [k]: undefined }))
-  }
-
-  const save = () => {
-    const clean: GstRecord = {
-      ...form,
-      gstNumber: form.gstNumber.trim().toUpperCase(),
-      utrNumber: form.utrNumber.trim().toUpperCase(),
+  const [record, setRecord] = useState<GstRecord>(() => {
+    if (!isNew && id) {
+      const found = getGst(id)
+      if (found) return JSON.parse(JSON.stringify(found))
     }
-    const e = validate(clean, isNew)
-    setErrors(e)
-    if (Object.values(e).some(Boolean)) return toast('Fix highlighted fields before saving', 'info')
-    const saved = saveGst(clean)
-    toast(isNew ? `GST record ${saved.id} created` : `GST record ${saved.id} saved`)
-    setEditing(false)
-    setForm(saved)
-    if (isNew) navigate(`/finance/gst/${saved.id}`, { replace: true })
-  }
+    return emptyGst('26-27')
+  })
 
-  const saveDraft = () => {
-    const clean: GstRecord = {
-      ...form,
-      gstNumber: form.gstNumber.trim().toUpperCase(),
-      utrNumber: form.utrNumber.trim().toUpperCase(),
+  useEffect(() => {
+    if (!isNew && id) {
+      const found = getGst(id)
+      if (found) {
+        setRecord(JSON.parse(JSON.stringify(found)))
+      }
     }
-    const saved = saveGst(clean)
-    toast(`Draft ${saved.id} saved`)
-    setForm(saved)
+  }, [id, isNew])
+
+  // Lists for Dropdowns
+  const atmOptions = useMemo(
+    () => Array.from(new Set(SITES.map((s) => s.atmId).filter(Boolean))).sort(),
+    []
+  )
+  const siteOptions = useMemo(
+    () => Array.from(new Set(SITES.map((s) => s.siteId).filter(Boolean))).sort(),
+    []
+  )
+
+  // Auto-fill details when ATM ID is chosen
+  const handleAtmChange = (atmId: string) => {
+    const matchedSite = SITES.find((s) => s.atmId === atmId)
+    if (matchedSite) {
+      const fr = FRANCHISEES.find((f) => f.id === matchedSite.franchiseId)
+      setRecord((prev) => ({
+        ...prev,
+        atmId,
+        siteId: matchedSite.siteId,
+        locationName: `${matchedSite.location}, ${matchedSite.city}`,
+        franchiseeName: fr?.name || prev.franchiseeName,
+        contactNo: fr?.contact || prev.contactNo,
+        gstNumber: fr?.gstin || prev.gstNumber,
+        sapCode: fr?.sapCode || prev.sapCode,
+      }))
+      toast(`Loaded details for ATM ${atmId}`)
+    } else {
+      setRecord((prev) => ({ ...prev, atmId }))
+    }
   }
 
-  const cancel = () => {
-    if (isNew) return navigate('/finance/gst')
-    setForm(existing!)
-    setErrors({})
-    setEditing(false)
+  // Auto-fill details when Site ID is chosen
+  const handleSiteChange = (siteId: string) => {
+    const matchedSite = SITES.find((s) => s.siteId === siteId)
+    if (matchedSite) {
+      const fr = FRANCHISEES.find((f) => f.id === matchedSite.franchiseId)
+      setRecord((prev) => ({
+        ...prev,
+        siteId,
+        atmId: matchedSite.atmId,
+        locationName: `${matchedSite.location}, ${matchedSite.city}`,
+        franchiseeName: fr?.name || prev.franchiseeName,
+        contactNo: fr?.contact || prev.contactNo,
+        gstNumber: fr?.gstin || prev.gstNumber,
+        sapCode: fr?.sapCode || prev.sapCode,
+      }))
+      toast(`Loaded details for Site ${siteId}`)
+    } else {
+      setRecord((prev) => ({ ...prev, siteId }))
+    }
   }
 
-  // Derived calculations for Payout & Tax Calculation card
-  const totalInv = numOr0(rec.invoiceAmount)
-  const basicAmount = totalInv > 0 ? (totalInv / 1.18).toFixed(2) : '0.00'
-  const totalTax = totalInv > 0 ? (totalInv - Number(basicAmount)).toFixed(2) : '0.00'
-  const cgst9 = totalInv > 0 ? (Number(totalTax) / 2).toFixed(2) : '0.00'
-  const sgst9 = totalInv > 0 ? (Number(totalTax) / 2).toFixed(2) : '0.00'
+  const updateField = <K extends keyof GstRecord>(key: K, value: GstRecord[K]) => {
+    setRecord((prev) => ({ ...prev, [key]: value }))
+  }
 
-  // Derived state code & PAN from GSTIN
-  const gstinClean = rec.gstNumber.trim().toUpperCase()
-  const stateCodeDerived = gstinClean.length >= 2 ? gstinClean.slice(0, 2) : '09'
-  const panDerived = gstinClean.length >= 12 ? gstinClean.slice(2, 12) : '—'
+  // Auto calculate net amount helper
+  const handleAutoCalcNet = () => {
+    const net = calcNet(record)
+    setRecord((prev) => ({ ...prev, netAmount: String(net) }))
+    toast(`Net Amount calculated: ₹${net.toLocaleString('en-IN')}`, 'info')
+  }
 
-  // KPI calculations from gstStore
-  const pendingFranchise = allGst.filter((g) => g.invoiceStatus === 'Pending at FR End').length
-  const pendingTeam = allGst.filter((g) => g.invoiceStatus === 'Pending at Hitachi End').length
-  const paymentPending = allGst.filter((g) => g.paymentStatus === 'Pending').length
-  const reconciled = allGst.filter((g) => g.paymentStatus === 'Done').length
+  // Summary calculations
+  const grossInv = Number(record.invoiceAmount) || 0
+  const totalDeductions =
+    (Number(record.tds) || 0) +
+    (Number(record.cashShortageDeduction) || 0) +
+    (Number(record.disputeDeduction) || 0) +
+    (Number(record.chargebackDeduction) || 0) +
+    (Number(record.gstRelatedDeduction) || 0)
+  const calcNetValue = Math.max(0, grossInv - totalDeductions)
 
-  const autoFillNet = () => {
-    const net = calcNet(form)
-    set('netAmount', String(net))
-    toast(`Net amount calculated: ₹${net.toLocaleString('en-IN')}`, 'info')
+  const handleSave = (isDraft = false) => {
+    if (!isDraft) {
+      if (!record.atmId && !record.siteId) {
+        toast('Please enter or select an ATM ID or Site ID', 'info')
+        return
+      }
+      if (!record.invoiceNumber && !record.invoiceAmount) {
+        toast('Please enter Invoice Number or Invoice Amount', 'info')
+        return
+      }
+    }
+
+    const payload: GstRecord = {
+      ...record,
+      gstNumber: record.gstNumber.trim().toUpperCase(),
+      utrNumber: record.utrNumber.trim().toUpperCase(),
+      netAmount: record.netAmount || String(calcNetValue),
+    }
+
+    const saved = saveGst(payload)
+    toast(
+      isDraft
+        ? `GST draft saved successfully`
+        : isNew
+          ? `GST record ${saved.id} created successfully`
+          : `GST record ${saved.id} updated successfully`
+    )
+    navigate('/finance/gst')
   }
 
   return (
-    <div className="space-y-5 pb-12">
-      {/* ── Top Header Banner (Matching Image) ────────────────────────── */}
-      <div className="relative overflow-hidden rounded-2xl bg-[#14213d] text-white shadow-md">
-        <div className="flex flex-wrap items-center justify-between gap-4 p-5 sm:p-6">
-          <div className="flex items-center gap-4 z-10">
-            <div className="grid h-12 w-12 place-items-center rounded-xl bg-white/10 text-white backdrop-blur-sm border border-white/15 shadow-inner">
-              <FileText size={24} />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl sm:text-2xl font-bold tracking-tight">GST Invoice Management</h1>
-                {rec.id && (
-                  <span className="rounded-md bg-white/15 px-2 py-0.5 font-mono text-[11px] font-semibold tracking-wider text-blue-200">
-                    {rec.id}
-                  </span>
-                )}
-              </div>
-              <p className="mt-0.5 text-[13px] text-blue-200/80">Franchise GST Invoice &amp; Payout Reconciliation</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 z-10">
-            <Link
-              to="/finance/gst"
-              className="inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-3.5 py-1.5 text-[12px] font-medium text-white hover:bg-white/20 transition-colors border border-white/15"
-            >
-              <ArrowLeft size={14} /> Back to GST List
-            </Link>
-            {!editing && (
-              <button
-                type="button"
-                onClick={() => setEditing(true)}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-[#2563eb] px-4 py-1.5 text-[12px] font-semibold text-white shadow-xs hover:bg-blue-600 transition-colors"
-              >
-                <Pencil size={13} /> Edit Record
-              </button>
-            )}
-            {/* Dexter Branding Tag */}
-            <div className="hidden sm:flex items-center gap-2 rounded-xl bg-white/10 px-3 py-1.5 border border-white/15">
-              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-xs font-bold tracking-wider">DEXTER INDIA</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Decorative graphic curve */}
-        <div className="pointer-events-none absolute right-0 top-0 h-full w-96 bg-gradient-to-l from-blue-600/30 via-red-600/20 to-transparent" />
+    <div className="space-y-4 pb-16 max-w-6xl mx-auto">
+      {/* Breadcrumb: [Workspace] > [Finance] > GST Data > new */}
+      <div className="flex items-center gap-1.5 text-[12px] text-slate-500">
+        <Home size={14} className="text-slate-400 shrink-0" />
+        <Link to="/dashboard" className="hover:text-[#0066FF] transition-colors">
+          Workspace
+        </Link>
+        <ChevronRight size={12} className="text-slate-400" />
+        <Link to="/finance" className="hover:text-[#0066FF] transition-colors">
+          Finance
+        </Link>
+        <ChevronRight size={12} className="text-slate-400" />
+        <Link to="/finance/gst" className="hover:text-[#0066FF] transition-colors">
+          GST
+        </Link>
+        <ChevronRight size={12} className="text-slate-400" />
+        <span className="font-semibold text-slate-800">
+          {isNew ? 'new' : record.id || id}
+        </span>
       </div>
 
-      {/* ── KPI Summary Cards (Matching Image) ────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* 1. Pending at Franchise */}
-        <div className="flex items-center justify-between rounded-2xl border border-line bg-white p-4 shadow-2xs hover:shadow-xs transition-shadow">
-          <div className="flex items-center gap-3.5">
-            <div className="grid h-12 w-12 place-items-center rounded-xl bg-amber-500 text-white shadow-xs">
-              <FileText size={22} />
-            </div>
-            <div>
-              <div className="text-[12px] font-medium text-muted">Pending at Franchise</div>
-              <div className="text-2xl font-bold tracking-tight text-ink">{pendingFranchise}</div>
-            </div>
+      {/* Page Header */}
+      <div className="flex items-center justify-between pt-1">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-[#0066FF] flex items-center justify-center text-white shrink-0 shadow-sm">
+            <Receipt size={18} strokeWidth={2.4} />
           </div>
-          <Link to="/finance/gst" className="grid h-8 w-8 place-items-center rounded-full bg-surface text-muted hover:bg-line-soft hover:text-ink">
-            <ArrowRight size={14} />
-          </Link>
-        </div>
-
-        {/* 2. Pending at Team */}
-        <div className="flex items-center justify-between rounded-2xl border border-line bg-white p-4 shadow-2xs hover:shadow-xs transition-shadow">
-          <div className="flex items-center gap-3.5">
-            <div className="grid h-12 w-12 place-items-center rounded-xl bg-[#2563eb] text-white shadow-xs">
-              <Users size={22} />
-            </div>
-            <div>
-              <div className="text-[12px] font-medium text-muted">Pending at Team</div>
-              <div className="text-2xl font-bold tracking-tight text-ink">{pendingTeam}</div>
-            </div>
-          </div>
-          <Link to="/finance/gst" className="grid h-8 w-8 place-items-center rounded-full bg-surface text-muted hover:bg-line-soft hover:text-ink">
-            <ArrowRight size={14} />
-          </Link>
-        </div>
-
-        {/* 3. Payment Pending */}
-        <div className="flex items-center justify-between rounded-2xl border border-line bg-white p-4 shadow-2xs hover:shadow-xs transition-shadow">
-          <div className="flex items-center gap-3.5">
-            <div className="grid h-12 w-12 place-items-center rounded-xl bg-red-500 text-white shadow-xs">
-              <Coins size={22} />
-            </div>
-            <div>
-              <div className="text-[12px] font-medium text-muted">Payment Pending</div>
-              <div className="text-2xl font-bold tracking-tight text-ink">{paymentPending}</div>
-            </div>
-          </div>
-          <Link to="/finance/gst" className="grid h-8 w-8 place-items-center rounded-full bg-surface text-muted hover:bg-line-soft hover:text-ink">
-            <ArrowRight size={14} />
-          </Link>
-        </div>
-
-        {/* 4. Reconciled */}
-        <div className="flex items-center justify-between rounded-2xl border border-line bg-white p-4 shadow-2xs hover:shadow-xs transition-shadow">
-          <div className="flex items-center gap-3.5">
-            <div className="grid h-12 w-12 place-items-center rounded-xl bg-[#009b73] text-white shadow-xs">
-              <CheckCircle2 size={22} />
-            </div>
-            <div>
-              <div className="text-[12px] font-medium text-muted">Reconciled</div>
-              <div className="text-2xl font-bold tracking-tight text-ink">{reconciled}</div>
-            </div>
-          </div>
-          <Link to="/finance/gst" className="grid h-8 w-8 place-items-center rounded-full bg-surface text-muted hover:bg-line-soft hover:text-ink">
-            <ArrowRight size={14} />
-          </Link>
-        </div>
-      </div>
-
-      {/* ── Main GST Invoice Entry Container (Matching Image) ─────────── */}
-      <div className="rounded-2xl border border-line bg-white p-5 sm:p-6 shadow-xs">
-        {/* Container Top Header */}
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-line pb-4">
-          <div className="flex items-center gap-2.5">
-            <FileText size={20} className="text-[#2563eb]" />
-            <h2 className="text-lg font-bold text-ink tracking-tight">
-              {isNew ? 'GST Invoice Entry' : editing ? `Edit GST Record · ${rec.id}` : `GST Record · ${rec.id}`}
-            </h2>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => window.print()}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-white px-3 py-1.5 text-[12px] font-semibold text-ink-2 hover:bg-surface transition-colors shadow-2xs"
-            >
-              <Printer size={14} className="text-[#2563eb]" /> View Invoice Template
-            </button>
-          </div>
-        </div>
-
-        {errors.form && (
-          <div className="mb-5 rounded-xl border border-red-200 bg-red-50 p-3 text-[13px] text-brand-red font-medium">
-            {errors.form}
-          </div>
-        )}
-
-        {/* ── 4 Form Cards in 2x2 Grid Layout (Matching Image) ────────── */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          {/* ── CARD 1: 1. Franchise & Period Details ────────────────── */}
-          <div className="rounded-xl border border-line bg-white p-4 sm:p-5 shadow-2xs flex flex-col justify-between">
-            <div>
-              <div className="mb-4 flex items-center gap-2 text-sm font-bold text-[#14213d] border-b border-line/60 pb-2.5">
-                <FileText size={16} className="text-[#2563eb]" />
-                <span>1. Franchise &amp; Period Details</span>
-                {rec.sn && (
-                  <span className="ml-auto rounded-md bg-surface border border-line px-2 py-0.5 text-[10px] font-semibold text-muted">
-                    S.N. #{rec.sn}
-                  </span>
-                )}
-              </div>
-
-              {/* Row 1: Financial Year, Month, Site ID, ATM ID */}
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                {/* Financial Year */}
-                <div>
-                  <label className="block text-[11px] font-bold text-ink mb-1">
-                    Financial Year <span className="text-brand-red">*</span>
-                  </label>
-                  <div className="relative">
-                    <select
-                      disabled={ro}
-                      value={rec.fYear}
-                      onChange={(e) => set('fYear', e.target.value)}
-                      className={cn(
-                        'h-9 w-full appearance-none rounded-lg border bg-white px-2.5 pr-7 text-[12.5px] outline-none transition-colors',
-                        errors.fYear ? 'border-brand-red ring-1 ring-brand-red/20' : 'border-line focus:border-[#2563eb]',
-                        ro && 'bg-surface text-muted cursor-not-allowed',
-                      )}
-                    >
-                      <option value="">Select FY</option>
-                      {FIN_YEARS.map((y) => (
-                        <option key={y} value={y}>
-                          20{y}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown size={14} className="pointer-events-none absolute right-2 top-2.5 text-muted" />
-                  </div>
-                  {errors.fYear && <p className="mt-0.5 text-[10.5px] text-brand-red">{errors.fYear}</p>}
-                </div>
-
-                {/* Month */}
-                <div>
-                  <label className="block text-[11px] font-bold text-ink mb-1">
-                    Month <span className="text-brand-red">*</span>
-                  </label>
-                  <div className="relative">
-                    <select
-                      disabled={ro}
-                      value={rec.month}
-                      onChange={(e) => set('month', e.target.value)}
-                      className="h-9 w-full appearance-none rounded-lg border border-line bg-white px-2.5 pr-7 text-[12.5px] outline-none focus:border-[#2563eb] disabled:bg-surface disabled:text-muted"
-                    >
-                      <option value="">Select month</option>
-                      {FY_MONTHS.map((m) => (
-                        <option key={m} value={m}>
-                          {m}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown size={14} className="pointer-events-none absolute right-2 top-2.5 text-muted" />
-                  </div>
-                </div>
-
-                {/* Site ID */}
-                <div>
-                  <label className="block text-[11px] font-bold text-ink mb-1">
-                    Site ID <span className="text-brand-red">*</span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      disabled={ro}
-                      value={rec.siteId}
-                      onChange={(e) => set('siteId', e.target.value.toUpperCase())}
-                      placeholder="e.g. 201"
-                      className="h-9 w-full rounded-lg border border-line bg-white px-2.5 pr-7 text-[12.5px] outline-none focus:border-[#2563eb] disabled:bg-surface disabled:text-muted"
-                    />
-                    <Search size={13} className="pointer-events-none absolute right-2 top-2.5 text-muted" />
-                  </div>
-                </div>
-
-                {/* ATM ID */}
-                <div>
-                  <label className="block text-[11px] font-bold text-ink mb-1">
-                    ATM ID <span className="text-brand-red">*</span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      disabled={ro}
-                      value={rec.atmId}
-                      onChange={(e) => set('atmId', e.target.value.toUpperCase())}
-                      placeholder="e.g. ATM12345"
-                      className="h-9 w-full rounded-lg border border-line bg-white px-2.5 pr-7 text-[12.5px] outline-none focus:border-[#2563eb] disabled:bg-surface disabled:text-muted"
-                    />
-                    <Search size={13} className="pointer-events-none absolute right-2 top-2.5 text-muted" />
-                  </div>
-                </div>
-              </div>
-
-              {/* Row 2: SAP Code, Franchisee Name, Contact No. */}
-              <div className="mt-3.5 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-ink mb-1">SAP Code</label>
-                  <input
-                    disabled={ro}
-                    value={rec.sapCode}
-                    onChange={(e) => set('sapCode', e.target.value)}
-                    placeholder="e.g. SAP001256"
-                    className="h-9 w-full rounded-lg border border-line bg-white px-2.5 text-[12.5px] outline-none focus:border-[#2563eb] disabled:bg-surface disabled:text-muted"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-ink mb-1">
-                    Franchisee Name <span className="text-brand-red">*</span>
-                  </label>
-                  <input
-                    disabled={ro}
-                    value={rec.franchiseeName}
-                    onChange={(e) => set('franchiseeName', e.target.value)}
-                    placeholder="e.g. ABC Pvt. Ltd."
-                    className="h-9 w-full rounded-lg border border-line bg-white px-2.5 text-[12.5px] outline-none focus:border-[#2563eb] disabled:bg-surface disabled:text-muted"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-ink mb-1">Contact No.</label>
-                  <input
-                    disabled={ro}
-                    maxLength={10}
-                    inputMode="tel"
-                    value={rec.contactNo}
-                    onChange={(e) => set('contactNo', e.target.value.replace(/\D/g, ''))}
-                    placeholder="10-digit mobile"
-                    className={cn(
-                      'h-9 w-full rounded-lg border bg-white px-2.5 text-[12.5px] outline-none transition-colors',
-                      errors.contactNo ? 'border-brand-red ring-1 ring-brand-red/20' : 'border-line focus:border-[#2563eb]',
-                      ro && 'bg-surface text-muted cursor-not-allowed',
-                    )}
-                  />
-                  {errors.contactNo && <p className="mt-0.5 text-[10.5px] text-brand-red">{errors.contactNo}</p>}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* ── CARD 2: 2. GST Registration Details ────────────────── */}
-          <div className="rounded-xl border border-line bg-white p-4 sm:p-5 shadow-2xs flex flex-col justify-between">
-            <div>
-              <div className="mb-4 flex items-center gap-2 text-sm font-bold text-[#14213d] border-b border-line/60 pb-2.5">
-                <Landmark size={16} className="text-[#2563eb]" />
-                <span>2. GST Registration Details</span>
-              </div>
-
-              {/* Row 1: GSTIN/UIN and State */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-ink mb-1">
-                    GSTIN/UIN <span className="text-brand-red">*</span>
-                  </label>
-                  <input
-                    disabled={ro}
-                    maxLength={15}
-                    value={rec.gstNumber}
-                    onChange={(e) => set('gstNumber', e.target.value.toUpperCase())}
-                    placeholder="e.g. 09AABC134522J1ZE"
-                    className={cn(
-                      'h-9 w-full font-mono rounded-lg border bg-white px-2.5 text-[12.5px] outline-none uppercase transition-colors',
-                      errors.gstNumber ? 'border-brand-red ring-1 ring-brand-red/20' : 'border-line focus:border-[#2563eb]',
-                      ro && 'bg-surface text-muted cursor-not-allowed',
-                    )}
-                  />
-                  {errors.gstNumber && <p className="mt-0.5 text-[10.5px] text-brand-red">{errors.gstNumber}</p>}
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-ink mb-1">
-                    State <span className="text-brand-red">*</span>
-                  </label>
-                  <input
-                    disabled={ro}
-                    value={rec.locationName ? rec.locationName.split(',').pop()?.trim() || rec.locationName : 'Uttar Pradesh'}
-                    onChange={(e) => set('locationName', e.target.value)}
-                    placeholder="Enter state"
-                    className="h-9 w-full rounded-lg border border-line bg-white px-2.5 text-[12.5px] outline-none focus:border-[#2563eb] disabled:bg-surface disabled:text-muted"
-                  />
-                </div>
-              </div>
-
-              {/* Row 2: Address (As per GST) + State Code / PAN */}
-              <div className="mt-3.5 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="sm:col-span-2">
-                  <label className="block text-[11px] font-bold text-ink mb-1">Address (As per GST)</label>
-                  <textarea
-                    rows={2}
-                    disabled={ro}
-                    value={rec.locationName}
-                    onChange={(e) => set('locationName', e.target.value)}
-                    placeholder="Shop No. 1st Surajpur, Greater Noida, Uttar Pradesh - 201306"
-                    className="w-full rounded-lg border border-line bg-white p-2 text-[12.5px] outline-none focus:border-[#2563eb] disabled:bg-surface disabled:text-muted resize-none"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <div>
-                    <label className="block text-[10.5px] font-semibold text-muted mb-0.5">State Code</label>
-                    <div className="h-7 w-full rounded border border-line bg-surface/70 px-2 flex items-center font-mono text-[12px] text-ink">
-                      {stateCodeDerived}
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-[10.5px] font-semibold text-muted mb-0.5">PAN / IT No.</label>
-                    <div className="h-7 w-full rounded border border-line bg-surface/70 px-2 flex items-center font-mono text-[12px] text-ink truncate">
-                      {panDerived}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* ── CARD 3: 3. Payout & Tax Calculation ────────────────── */}
-          <div className="rounded-xl border border-line bg-white p-4 sm:p-5 shadow-2xs flex flex-col justify-between">
-            <div>
-              <div className="mb-4 flex items-center gap-2 text-sm font-bold text-[#14213d] border-b border-line/60 pb-2.5">
-                <Calculator size={16} className="text-[#2563eb]" />
-                <span>3. Payout &amp; Tax Calculation</span>
-              </div>
-
-              {/* Invoice Number & Invoice Date */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-ink mb-1">
-                    Invoice Number <span className="text-brand-red">*</span>
-                  </label>
-                  <input
-                    disabled={ro}
-                    value={rec.invoiceNumber}
-                    onChange={(e) => set('invoiceNumber', e.target.value)}
-                    placeholder="e.g. GST/26-27/00125"
-                    className="h-9 w-full rounded-lg border border-line bg-white px-2.5 text-[12.5px] outline-none focus:border-[#2563eb] disabled:bg-surface disabled:text-muted"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-ink mb-1">
-                    Invoice Date <span className="text-brand-red">*</span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={ro ? 'text' : 'date'}
-                      disabled={ro}
-                      value={ro ? dmy(rec.paymentDate) : rec.paymentDate}
-                      onChange={(e) => set('paymentDate', e.target.value)}
-                      placeholder="DD-MM-YYYY"
-                      className="h-9 w-full rounded-lg border border-line bg-white px-2.5 pr-7 text-[12.5px] outline-none focus:border-[#2563eb] disabled:bg-surface disabled:text-muted"
-                    />
-                    <Calendar size={14} className="pointer-events-none absolute right-2.5 top-2.5 text-muted" />
-                  </div>
-                </div>
-              </div>
-
-              {/* Breakdown fields */}
-              <div className="mt-3.5 space-y-2.5 text-[12.5px]">
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-ink font-medium">Basic Amount (₹) *</span>
-                  <div className="h-8 w-44 rounded border border-line bg-surface/70 px-2.5 flex items-center justify-end font-mono text-ink">
-                    ₹{Number(basicAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-muted">CGST @ 9% (₹)</span>
-                  <div className="h-8 w-44 rounded border border-line bg-surface/70 px-2.5 flex items-center justify-end font-mono text-muted">
-                    ₹{Number(cgst9).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-muted">SGST / IGST @ 9% (₹)</span>
-                  <div className="h-8 w-44 rounded border border-line bg-surface/70 px-2.5 flex items-center justify-end font-mono text-muted">
-                    ₹{Number(sgst9).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-muted">Round Off (₹)</span>
-                  <div className="h-8 w-44 rounded border border-line bg-surface/70 px-2.5 flex items-center justify-end font-mono text-muted">
-                    0.00
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Bottom Highlighted Blue Bar: Invoice Amount (₹) */}
-            <div className="mt-4 rounded-xl border border-blue-200 bg-[#edf4ff] p-3 flex items-center justify-between">
-              <span className="font-bold text-[#1e40af] text-[13px]">Invoice Amount (₹)</span>
-              {ro ? (
-                <span className="font-mono font-bold text-base text-[#1e40af]">
-                  ₹{numOr0(rec.invoiceAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+          <div>
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-[24px] font-bold tracking-tight text-slate-900 leading-tight">
+                {isNew ? 'New GST Record' : `GST Record · ${record.id || id}`}
+              </h1>
+              {!isNew && record.paymentStatus && (
+                <span
+                  className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold ${record.paymentStatus === 'Done'
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                    : 'bg-amber-50 text-amber-700 border border-amber-200'
+                    }`}
+                >
+                  {record.paymentStatus}
                 </span>
-              ) : (
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs text-[#1e40af] font-bold">₹</span>
-                  <input
-                    value={rec.invoiceAmount}
-                    onChange={(e) => set('invoiceAmount', e.target.value.replace(/[,₹\s]/g, ''))}
-                    placeholder="59000.00"
-                    className="h-8 w-36 rounded-lg border border-blue-300 bg-white px-2.5 text-right font-mono font-bold text-[13px] text-ink outline-none focus:ring-2 focus:ring-[#2563eb]/20"
-                  />
-                </div>
               )}
             </div>
+            <p className="text-[12.5px] text-slate-500 mt-0.5">
+              Franchise GST invoice declarations, tax withholding deductions, and payout settlement.
+            </p>
           </div>
+        </div>
 
-          {/* ── CARD 4: 4. Deductions & Payment Details ─────────────── */}
-          <div className="rounded-xl border border-line bg-white p-4 sm:p-5 shadow-2xs flex flex-col justify-between">
+        {!isNew && (
+          <div className="hidden sm:flex items-center gap-2">
+            <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200">
+              S.N. #{record.sn || 1}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* CARD 1: Identity & Reporting Period */}
+      <div className="rounded-xl border border-slate-200 overflow-hidden shadow-sm bg-white">
+        <div className="bg-[#EAF3FD] px-4 py-3 border-b border-[#D5E5F8] flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <FileText size={18} className="text-[#0066FF]" />
+            <h2 className="text-[14px] font-bold text-[#0066FF]">
+              1. Identity &amp; Reporting Period
+            </h2>
+          </div>
+          {record.id && (
+            <span className="text-[11px] font-semibold text-[#0066FF] bg-white px-2 py-0.5 rounded border border-[#0066FF]/20 font-mono">
+              {record.id}
+            </span>
+          )}
+        </div>
+
+        <div className="p-4 sm:p-5 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* ATM ID * */}
             <div>
-              <div className="mb-4 flex items-center gap-2 text-sm font-bold text-[#14213d] border-b border-line/60 pb-2.5">
-                <Wallet size={16} className="text-[#2563eb]" />
-                <span>4. Deductions &amp; Payment Details</span>
-              </div>
-
-              {/* Deductions 2-column list */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2.5 text-[12.5px]">
-                {/* TDS vs Paid Amount */}
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-muted truncate">TDS (₹)</span>
-                  <input
-                    disabled={ro}
-                    value={rec.tds}
-                    onChange={(e) => set('tds', e.target.value.replace(/[,₹\s]/g, ''))}
-                    placeholder="0.00"
-                    className="h-8 w-28 text-right font-mono rounded border border-line bg-white px-2 text-[12px] outline-none focus:border-[#2563eb] disabled:bg-surface disabled:text-muted"
-                  />
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-muted truncate font-medium">Paid Amount (₹)</span>
-                  <input
-                    disabled={ro}
-                    value={rec.paidAmount}
-                    onChange={(e) => set('paidAmount', e.target.value.replace(/[,₹\s]/g, ''))}
-                    placeholder="0.00"
-                    className="h-8 w-28 text-right font-mono rounded border border-line bg-white px-2 text-[12px] outline-none focus:border-[#2563eb] disabled:bg-surface disabled:text-muted"
-                  />
-                </div>
-
-                {/* Cash Shortage vs Payment Date */}
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-muted truncate">Cash Shortage (₹)</span>
-                  <input
-                    disabled={ro}
-                    value={rec.cashShortageDeduction}
-                    onChange={(e) => set('cashShortageDeduction', e.target.value.replace(/[,₹\s]/g, ''))}
-                    placeholder="0.00"
-                    className="h-8 w-28 text-right font-mono rounded border border-line bg-white px-2 text-[12px] outline-none focus:border-[#2563eb] disabled:bg-surface disabled:text-muted"
-                  />
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-muted truncate font-medium">Payment Date</span>
-                  <input
-                    type={ro ? 'text' : 'date'}
-                    disabled={ro}
-                    value={ro ? dmy(rec.paymentDate) : rec.paymentDate}
-                    onChange={(e) => set('paymentDate', e.target.value)}
-                    placeholder="DD-MM-YYYY"
-                    className="h-8 w-28 text-right font-mono rounded border border-line bg-white px-1.5 text-[11px] outline-none focus:border-[#2563eb] disabled:bg-surface disabled:text-muted"
-                  />
-                </div>
-
-                {/* Dispute Deduction vs UTR Number */}
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-muted truncate">Dispute Deduction (₹)</span>
-                  <input
-                    disabled={ro}
-                    value={rec.disputeDeduction}
-                    onChange={(e) => set('disputeDeduction', e.target.value.replace(/[,₹\s]/g, ''))}
-                    placeholder="0.00"
-                    className="h-8 w-28 text-right font-mono rounded border border-line bg-white px-2 text-[12px] outline-none focus:border-[#2563eb] disabled:bg-surface disabled:text-muted"
-                  />
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-muted truncate font-medium">UTR Number</span>
-                  <input
-                    disabled={ro}
-                    value={rec.utrNumber}
-                    onChange={(e) => set('utrNumber', e.target.value.toUpperCase())}
-                    placeholder="Enter UTR"
-                    className="h-8 w-28 text-right font-mono rounded border border-line bg-white px-2 text-[11px] outline-none focus:border-[#2563eb] disabled:bg-surface disabled:text-muted"
-                  />
-                </div>
-
-                {/* Chargeback Deduction vs GST Invoice Status */}
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-muted truncate">Chargeback Deduction (₹)</span>
-                  <input
-                    disabled={ro}
-                    value={rec.chargebackDeduction}
-                    onChange={(e) => set('chargebackDeduction', e.target.value.replace(/[,₹\s]/g, ''))}
-                    placeholder="0.00"
-                    className="h-8 w-28 text-right font-mono rounded border border-line bg-white px-2 text-[12px] outline-none focus:border-[#2563eb] disabled:bg-surface disabled:text-muted"
-                  />
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-muted truncate font-medium">GST Invoice Status</span>
-                  <div className="relative w-28">
-                    <select
-                      disabled={ro}
-                      value={rec.invoiceStatus}
-                      onChange={(e) => set('invoiceStatus', e.target.value as GstRecord['invoiceStatus'])}
-                      className="h-8 w-full appearance-none rounded border border-line bg-white px-2 pr-6 text-[11px] font-medium outline-none focus:border-[#2563eb] disabled:bg-surface disabled:text-muted"
-                    >
-                      <option value="">Select</option>
-                      {GST_INVOICE_STATUSES.map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown size={12} className="pointer-events-none absolute right-1.5 top-2.5 text-muted" />
-                  </div>
-                </div>
-
-                {/* GST Related Deduction vs GST Payment Status */}
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-muted truncate">GST Related Deduction (₹)</span>
-                  <input
-                    disabled={ro}
-                    value={rec.gstRelatedDeduction}
-                    onChange={(e) => set('gstRelatedDeduction', e.target.value.replace(/[,₹\s]/g, ''))}
-                    placeholder="0.00"
-                    className="h-8 w-28 text-right font-mono rounded border border-line bg-white px-2 text-[12px] outline-none focus:border-[#2563eb] disabled:bg-surface disabled:text-muted"
-                  />
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-muted truncate font-medium">GST Payment Status</span>
-                  <div className="relative w-28">
-                    <select
-                      disabled={ro}
-                      value={rec.paymentStatus}
-                      onChange={(e) => set('paymentStatus', e.target.value as GstRecord['paymentStatus'])}
-                      className="h-8 w-full appearance-none rounded border border-line bg-white px-2 pr-6 text-[11px] font-medium outline-none focus:border-[#2563eb] disabled:bg-surface disabled:text-muted"
-                    >
-                      <option value="">Select</option>
-                      {GST_PAYMENT_STATUSES.map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown size={12} className="pointer-events-none absolute right-1.5 top-2.5 text-muted" />
-                  </div>
-                </div>
-              </div>
-
-              {/* Remark */}
-              <div className="mt-3">
-                <input
-                  disabled={ro}
-                  value={rec.remark}
-                  onChange={(e) => set('remark', e.target.value)}
-                  placeholder="Enter remarks or settlement notes"
-                  className="h-8 w-full rounded border border-line bg-white px-2.5 text-[12px] outline-none focus:border-[#2563eb] disabled:bg-surface disabled:text-muted"
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                ATM ID <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <CreditCard
+                  size={14}
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none"
+                />
+                <select
+                  value={record.atmId || ''}
+                  onChange={(e) => handleAtmChange(e.target.value)}
+                  className="w-full h-8.5 pl-8 pr-7 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]/20 appearance-none transition-all"
+                >
+                  <option value="">Select ATM ID</option>
+                  {atmOptions.map((atm) => (
+                    <option key={atm} value={atm}>
+                      {atm}
+                    </option>
+                  ))}
+                  {record.atmId && !atmOptions.includes(record.atmId) && (
+                    <option value={record.atmId}>{record.atmId}</option>
+                  )}
+                </select>
+                <ChevronDown
+                  size={14}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
                 />
               </div>
             </div>
 
-            {/* Bottom Highlighted Blue Bar: Net Amount (₹) */}
-            <div className="mt-4 rounded-xl border border-blue-200 bg-[#edf4ff] p-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-[#1e40af] text-[13px]">Net Amount (₹)</span>
-                {!ro && (
-                  <button
-                    type="button"
-                    onClick={autoFillNet}
-                    className="rounded bg-blue-100 hover:bg-blue-200 px-2 py-0.5 text-[10.5px] font-semibold text-[#1e40af] transition-colors"
-                  >
-                    Auto-calc
-                  </button>
-                )}
+            {/* Site ID * */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                Site ID <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <Building2
+                  size={14}
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none"
+                />
+                <select
+                  value={record.siteId || ''}
+                  onChange={(e) => handleSiteChange(e.target.value)}
+                  className="w-full h-8.5 pl-8 pr-7 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]/20 appearance-none transition-all"
+                >
+                  <option value="">Select Site ID</option>
+                  {siteOptions.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                  {record.siteId && !siteOptions.includes(record.siteId) && (
+                    <option value={record.siteId}>{record.siteId}</option>
+                  )}
+                </select>
+                <ChevronDown
+                  size={14}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                />
               </div>
-              {ro ? (
-                <span className="font-mono font-bold text-base text-[#1e40af]">
-                  ₹{numOr0(rec.netAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                </span>
-              ) : (
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs text-[#1e40af] font-bold">₹</span>
-                  <input
-                    value={rec.netAmount}
-                    onChange={(e) => set('netAmount', e.target.value.replace(/[,₹\s]/g, ''))}
-                    placeholder="59000.00"
-                    className="h-8 w-36 rounded-lg border border-blue-300 bg-white px-2.5 text-right font-mono font-bold text-[13px] text-ink outline-none focus:ring-2 focus:ring-[#2563eb]/20"
-                  />
-                </div>
-              )}
+            </div>
+
+            {/* SAP Code */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                SAP Code
+              </label>
+              <div className="relative">
+                <Hash
+                  size={14}
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none"
+                />
+                <input
+                  type="text"
+                  value={record.sapCode || ''}
+                  onChange={(e) => updateField('sapCode', e.target.value)}
+                  placeholder="e.g. 410124"
+                  className="w-full h-8.5 pl-8 pr-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]/20 transition-all font-mono"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Financial Year * */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                Financial Year <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <Calendar
+                  size={14}
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none"
+                />
+                <select
+                  value={record.fYear || '26-27'}
+                  onChange={(e) => updateField('fYear', e.target.value)}
+                  className="w-full h-8.5 pl-8 pr-7 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]/20 appearance-none transition-all"
+                >
+                  {FIN_YEARS.map((fy) => (
+                    <option key={fy} value={fy}>
+                      FY {fy}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  size={14}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                />
+              </div>
+            </div>
+
+            {/* Month * */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                Month <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <Calendar
+                  size={14}
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none"
+                />
+                <select
+                  value={record.month || 'September'}
+                  onChange={(e) => updateField('month', e.target.value)}
+                  className="w-full h-8.5 pl-8 pr-7 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]/20 appearance-none transition-all"
+                >
+                  <option value="">Select Month</option>
+                  {FY_MONTHS.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  size={14}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                />
+              </div>
+            </div>
+
+            {/* S.N. Sequence */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                S.N. Sequence
+              </label>
+              <div className="relative">
+                <Hash
+                  size={14}
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                />
+                <input
+                  type="text"
+                  readOnly
+                  value={record.sn ? `Sequence #${record.sn}` : 'System Assigned on Save'}
+                  className="w-full h-8.5 pl-8 pr-3 text-[12px] rounded-lg border border-slate-200 bg-slate-50 text-slate-500 outline-none cursor-not-allowed"
+                />
+              </div>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* ── Form Actions Bar (Matching Image) ─────────────────────── */}
-        <div className="mt-6 flex flex-wrap items-center justify-end gap-3 pt-4 border-t border-line">
-          <Button variant="secondary" onClick={cancel}>
-            Cancel
-          </Button>
+      {/* CARD 2: Franchise & Invoice Details */}
+      <div className="rounded-xl border border-slate-200 overflow-hidden shadow-sm bg-white">
+        <div className="bg-[#EAF3FD] px-4 py-3 border-b border-[#D5E5F8] flex items-center gap-2">
+          <Receipt size={18} className="text-[#0066FF]" />
+          <h2 className="text-[14px] font-bold text-[#0066FF]">
+            2. Franchise &amp; Invoice Details
+          </h2>
+        </div>
 
-          {editing && (
-            <button
-              type="button"
-              onClick={saveDraft}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-[#2563eb] bg-white px-4 py-2 text-xs font-semibold text-[#2563eb] hover:bg-blue-50 transition-colors shadow-2xs"
-            >
-              <Save size={14} /> Save Draft
-            </button>
-          )}
+        <div className="p-4 sm:p-5 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Franchisee Name * */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                Franchisee Name <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <User
+                  size={14}
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none"
+                />
+                <input
+                  type="text"
+                  value={record.franchiseeName || ''}
+                  onChange={(e) => updateField('franchiseeName', e.target.value)}
+                  placeholder="Enter Franchisee Name"
+                  className="w-full h-8.5 pl-8 pr-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]/20 transition-all font-medium"
+                />
+              </div>
+            </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              window.print()
-              toast('Invoice template sent to print', 'info')
-            }}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[#2563eb] hover:bg-blue-700 px-4 py-2 text-xs font-semibold text-white transition-colors shadow-xs"
-          >
-            <FileText size={14} /> Generate Invoice PDF
-          </button>
+            {/* Contact No. */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                Contact No.
+              </label>
+              <div className="relative">
+                <Phone
+                  size={14}
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none"
+                />
+                <input
+                  type="text"
+                  value={record.contactNo || ''}
+                  onChange={(e) => updateField('contactNo', e.target.value)}
+                  placeholder="10-digit mobile number"
+                  className="w-full h-8.5 pl-8 pr-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]/20 transition-all"
+                />
+              </div>
+            </div>
 
-          {editing && (
-            <button
-              type="button"
-              onClick={save}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-[#009b73] hover:bg-[#008764] px-5 py-2 text-xs font-semibold text-white transition-colors shadow-xs"
-            >
-              <Send size={14} /> {isNew ? 'Create Record' : 'Submit for Review'}
-            </button>
-          )}
+            {/* Location Name */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                Location Name
+              </label>
+              <div className="relative">
+                <MapPin
+                  size={14}
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none"
+                />
+                <input
+                  type="text"
+                  value={record.locationName || ''}
+                  onChange={(e) => updateField('locationName', e.target.value)}
+                  placeholder="e.g. Kothrud, Pune"
+                  className="w-full h-8.5 pl-8 pr-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]/20 transition-all"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {/* GSTIN */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                GSTIN (GST Number)
+              </label>
+              <div className="relative">
+                <Hash
+                  size={14}
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none"
+                />
+                <input
+                  type="text"
+                  value={record.gstNumber || ''}
+                  onChange={(e) => updateField('gstNumber', e.target.value.toUpperCase())}
+                  placeholder="15-char GSTIN"
+                  className="w-full h-8.5 pl-8 pr-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]/20 transition-all font-mono uppercase"
+                />
+              </div>
+            </div>
+
+            {/* Invoice Number */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                Invoice Number
+              </label>
+              <div className="relative">
+                <FileText
+                  size={14}
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none"
+                />
+                <input
+                  type="text"
+                  value={record.invoiceNumber || ''}
+                  onChange={(e) => updateField('invoiceNumber', e.target.value)}
+                  placeholder="e.g. SSFS/26-27/001"
+                  className="w-full h-8.5 pl-8 pr-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]/20 transition-all font-mono"
+                />
+              </div>
+            </div>
+
+            {/* Invoice Amount * */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                Invoice Amount (₹) <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <IndianRupee
+                  size={14}
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none"
+                />
+                <input
+                  type="number"
+                  value={record.invoiceAmount || ''}
+                  onChange={(e) => updateField('invoiceAmount', e.target.value)}
+                  placeholder="e.g. 45000"
+                  className="w-full h-8.5 pl-8 pr-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]/20 transition-all font-semibold"
+                />
+              </div>
+            </div>
+
+            {/* Invoice Status */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                GST Invoice Status
+              </label>
+              <div className="relative">
+                <ListFilter
+                  size={14}
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none"
+                />
+                <select
+                  value={record.invoiceStatus || ''}
+                  onChange={(e) =>
+                    updateField('invoiceStatus', e.target.value as GstInvoiceStatus | '')
+                  }
+                  className="w-full h-8.5 pl-8 pr-7 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]/20 appearance-none transition-all truncate"
+                >
+                  <option value="">Select Invoice Status</option>
+                  {GST_INVOICE_STATUSES.map((st) => (
+                    <option key={st} value={st}>
+                      {st}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  size={14}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* ── Bottom Section: GST Invoice List (Matching Reference Image) ── */}
-      <div className="rounded-2xl border border-line bg-white p-5 shadow-xs">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+      {/* CARD 3: Deductions & Net Amount */}
+      <div className="rounded-xl border border-slate-200 overflow-hidden shadow-sm bg-white">
+        <div className="bg-[#EAF3FD] px-4 py-3 border-b border-[#D5E5F8] flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <FileText size={18} className="text-[#2563eb]" />
-            <h3 className="text-base font-bold text-ink">GST Invoice List</h3>
-            <span className="rounded-full bg-surface border border-line px-2 py-0.5 text-[11px] font-semibold text-muted">
-              {allGst.length} Records
-            </span>
+            <Calculator size={18} className="text-[#0066FF]" />
+            <h2 className="text-[14px] font-bold text-[#0066FF]">
+              3. Deductions &amp; Net Amount
+            </h2>
           </div>
-
-          <div className="flex items-center gap-2.5">
-            <Link
-              to="/finance/gst"
-              className="inline-flex items-center gap-1 rounded-lg border border-line bg-white px-3 py-1.5 text-xs font-medium text-ink hover:bg-surface transition-colors"
-            >
-              <Filter size={13} /> Filter
-            </Link>
-            <Link
-              to="/finance/gst"
-              className="inline-flex items-center gap-1 rounded-lg border border-line bg-white px-3 py-1.5 text-xs font-medium text-ink hover:bg-surface transition-colors"
-            >
-              <Download size={13} /> Export
-            </Link>
-          </div>
+          <button
+            type="button"
+            onClick={handleAutoCalcNet}
+            className="inline-flex items-center gap-1.5 px-3 py-1 text-[11px] font-semibold text-[#0066FF] bg-white hover:bg-blue-50 border border-[#0066FF]/30 rounded-md transition-colors shadow-xs"
+          >
+            <Sparkles size={13} className="text-[#0066FF]" />
+            Auto Calculate Net
+          </button>
         </div>
 
-        {/* Table matching reference image */}
-        <div className="overflow-x-auto rounded-xl border border-line">
-          <table className="w-full min-w-[900px] border-collapse text-[12.5px]">
-            <thead>
-              <tr className="border-b border-line bg-surface text-left text-[11px] font-bold text-muted">
-                <th className="px-3 py-2.5 w-12 text-center">S.N.</th>
-                <th className="px-3 py-2.5">F. Year</th>
-                <th className="px-3 py-2.5">Month</th>
-                <th className="px-3 py-2.5">Site ID</th>
-                <th className="px-3 py-2.5">Franchisee Name</th>
-                <th className="px-3 py-2.5">GSTIN</th>
-                <th className="px-3 py-2.5 text-right">Invoice Amount (₹)</th>
-                <th className="px-3 py-2.5 text-right">Net Amount (₹)</th>
-                <th className="px-3 py-2.5">GST Invoice Status</th>
-                <th className="px-3 py-2.5">GST Payment Status</th>
-                <th className="px-3 py-2.5 text-center">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line/60">
-              {allGst.slice(0, 5).map((g) => (
-                <tr key={g.id} className={cn('hover:bg-surface/50 transition-colors', g.id === rec.id && 'bg-blue-50/40')}>
-                  <td className="px-3 py-2 text-center font-medium text-muted">{g.sn}</td>
-                  <td className="px-3 py-2 font-medium">{g.fYear ? `20${g.fYear}` : '—'}</td>
-                  <td className="px-3 py-2">{g.month || '—'}</td>
-                  <td className="px-3 py-2 font-mono text-[11.5px]">{g.siteId || '—'}</td>
-                  <td className="px-3 py-2 font-medium text-ink">{g.franchiseeName || '—'}</td>
-                  <td className="px-3 py-2 font-mono text-[11.5px]">{g.gstNumber || '—'}</td>
-                  <td className="px-3 py-2 text-right font-mono font-medium">{rupee(g.invoiceAmount)}</td>
-                  <td className="px-3 py-2 text-right font-mono font-bold text-[#1e40af]">{rupee(g.netAmount)}</td>
-                  <td className="px-3 py-2">
-                    {g.invoiceStatus ? <Badge tone={invoiceTone(g.invoiceStatus)}>{g.invoiceStatus}</Badge> : '—'}
-                  </td>
-                  <td className="px-3 py-2">
-                    {g.paymentStatus ? (
-                      <Badge tone={g.paymentStatus === 'Done' ? 'green' : 'amber'}>{g.paymentStatus}</Badge>
-                    ) : (
-                      '—'
-                    )}
-                  </td>
-                  <td className="px-3 py-2 text-center">
-                    <Link
-                      to={`/finance/gst/${g.id}?edit=1`}
-                      className="inline-grid h-7 w-7 place-items-center rounded-lg text-slate-500 hover:bg-surface hover:text-[#2563eb] transition-colors"
-                      title="Edit this record"
-                    >
-                      <Pencil size={13} />
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="p-4 sm:p-5 space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            {/* TDS */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                TDS (₹)
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  value={record.tds || ''}
+                  onChange={(e) => updateField('tds', e.target.value)}
+                  placeholder="0"
+                  className="w-full h-8.5 px-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]/20 transition-all"
+                />
+              </div>
+            </div>
+
+            {/* Cash Shortage Deduction */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                Cash Shortage (₹)
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  value={record.cashShortageDeduction || ''}
+                  onChange={(e) => updateField('cashShortageDeduction', e.target.value)}
+                  placeholder="0"
+                  className="w-full h-8.5 px-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]/20 transition-all"
+                />
+              </div>
+            </div>
+
+            {/* Dispute Deduction */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                Dispute Deduction (₹)
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  value={record.disputeDeduction || ''}
+                  onChange={(e) => updateField('disputeDeduction', e.target.value)}
+                  placeholder="0"
+                  className="w-full h-8.5 px-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]/20 transition-all"
+                />
+              </div>
+            </div>
+
+            {/* Chargeback Deduction */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                Chargeback (₹)
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  value={record.chargebackDeduction || ''}
+                  onChange={(e) => updateField('chargebackDeduction', e.target.value)}
+                  placeholder="0"
+                  className="w-full h-8.5 px-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]/20 transition-all"
+                />
+              </div>
+            </div>
+
+            {/* GST Related Deduction */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                GST Deduction (₹)
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  value={record.gstRelatedDeduction || ''}
+                  onChange={(e) => updateField('gstRelatedDeduction', e.target.value)}
+                  placeholder="0"
+                  className="w-full h-8.5 px-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]/20 transition-all"
+                />
+              </div>
+            </div>
+
+            {/* Net Amount * */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-900 mb-1">
+                Net Amount (₹) <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  value={record.netAmount !== '' ? record.netAmount : calcNetValue || ''}
+                  onChange={(e) => updateField('netAmount', e.target.value)}
+                  placeholder="0"
+                  className="w-full h-8.5 px-3 text-[12px] font-bold rounded-lg border-2 border-[#0066FF] bg-blue-50/20 text-[#0066FF] placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-[#0066FF]/20 transition-all"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Summary Strip */}
+          <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-lg bg-[#F8FAFC] border border-slate-200 text-[12px]">
+            <div className="flex items-center gap-6 text-slate-600 font-medium">
+              <span>
+                Gross Invoice: <strong className="text-slate-900 font-semibold">₹{grossInv.toLocaleString('en-IN')}</strong>
+              </span>
+              <span>
+                Total Deductions: <strong className="text-rose-600 font-semibold">₹{totalDeductions.toLocaleString('en-IN')}</strong>
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-slate-500 font-medium">Suggested Net:</span>
+              <span className="font-bold text-[#0066FF] bg-blue-50 px-2 py-0.5 rounded border border-blue-200/60">
+                ₹{calcNetValue.toLocaleString('en-IN')}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* CARD 4: Payment Settlement & Status */}
+      <div className="rounded-xl border border-slate-200 overflow-hidden shadow-sm bg-white">
+        <div className="bg-[#EAF3FD] px-4 py-3 border-b border-[#D5E5F8] flex items-center gap-2">
+          <Landmark size={18} className="text-[#0066FF]" />
+          <h2 className="text-[14px] font-bold text-[#0066FF]">
+            4. Payment Settlement &amp; Status
+          </h2>
+        </div>
+
+        <div className="p-4 sm:p-5 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {/* GST Payment Status */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                GST Payment Status
+              </label>
+              <div className="relative">
+                <ListFilter
+                  size={14}
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none"
+                />
+                <select
+                  value={record.paymentStatus || ''}
+                  onChange={(e) =>
+                    updateField('paymentStatus', e.target.value as GstPaymentStatus | '')
+                  }
+                  className="w-full h-8.5 pl-8 pr-7 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]/20 appearance-none transition-all"
+                >
+                  <option value="">Select Payment Status</option>
+                  {GST_PAYMENT_STATUSES.map((st) => (
+                    <option key={st} value={st}>
+                      {st}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  size={14}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                />
+              </div>
+            </div>
+
+            {/* Paid Amount (₹) */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                Paid Amount (₹)
+              </label>
+              <div className="relative">
+                <IndianRupee
+                  size={14}
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none"
+                />
+                <input
+                  type="number"
+                  value={record.paidAmount || ''}
+                  onChange={(e) => updateField('paidAmount', e.target.value)}
+                  placeholder="e.g. 44100"
+                  className="w-full h-8.5 pl-8 pr-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]/20 transition-all font-medium"
+                />
+              </div>
+            </div>
+
+            {/* Payment Date */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                Payment Date
+              </label>
+              <div className="relative">
+                <Calendar
+                  size={14}
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none"
+                />
+                <input
+                  type="date"
+                  value={record.paymentDate || ''}
+                  onChange={(e) => updateField('paymentDate', e.target.value)}
+                  className="w-full h-8.5 pl-8 pr-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]/20 transition-all"
+                />
+              </div>
+            </div>
+
+            {/* UTR Number */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                UTR Number
+              </label>
+              <div className="relative">
+                <Hash
+                  size={14}
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none"
+                />
+                <input
+                  type="text"
+                  value={record.utrNumber || ''}
+                  onChange={(e) => updateField('utrNumber', e.target.value.toUpperCase())}
+                  placeholder="12–22 char UTR"
+                  className="w-full h-8.5 pl-8 pr-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]/20 transition-all font-mono uppercase"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Remarks */}
+          <div>
+            <label className="block text-[11px] font-bold text-slate-700 mb-1">
+              Remarks
+            </label>
+            <input
+              type="text"
+              value={record.remark || ''}
+              onChange={(e) => updateField('remark', e.target.value)}
+              placeholder="e.g. GST invoice verified against GSTR-2B"
+              className="w-full h-8.5 px-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]/20 transition-all"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom Action Bar */}
+      <div className="flex items-center justify-between pt-2">
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          className="inline-flex items-center gap-1.5 h-9.5 px-5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-[#0066FF] text-[12.5px] font-semibold transition-all shadow-xs"
+        >
+          <ChevronLeft size={16} />
+          <span>Back</span>
+        </button>
+
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => handleSave(true)}
+            className="inline-flex items-center gap-1.5 h-9.5 px-5 rounded-lg border border-[#0066FF] bg-white hover:bg-blue-50/60 text-[#0066FF] text-[12.5px] font-semibold transition-all shadow-xs"
+          >
+            <Save size={15} />
+            <span>Save Draft</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleSave(false)}
+            className="inline-flex items-center gap-1.5 h-9.5 px-6 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[12.5px] font-semibold transition-all shadow-sm"
+          >
+            <span>Save GST Record</span>
+            <ChevronRight size={16} />
+          </button>
         </div>
       </div>
     </div>

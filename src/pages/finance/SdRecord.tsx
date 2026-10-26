@@ -1,813 +1,693 @@
-import { useState, useRef, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
-  ArrowLeft,
-  ArrowRight,
-  Building,
-  Check,
-  CheckCircle2,
-  CreditCard,
-  Eye,
-  EyeOff,
-  FileCheck2,
+  FileText,
   Landmark,
+  Calendar,
+  Clock,
+  CreditCard,
+  User,
+  Phone,
+  MapPin,
+  Settings,
+  List,
   Save,
-  Upload,
+  ArrowRight,
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+  Plus,
   X,
+  Cpu,
+  Home,
 } from 'lucide-react'
-import { Button } from '@/components/ui/Button'
 import { toast } from '@/components/ui/Toast'
-import { cn } from '@/lib/cn'
 import {
   DEPOSIT_CATEGORIES,
   SD_BANKS,
   SD_PAYMENT_TYPES,
-  createEmptySecurityDeposit,
+  type SdPaymentType,
   type SecurityDeposit,
 } from '@/data/financeSd'
 import {
   getSecurityDeposit,
+  saveSecurityDeposit,
   nextDepositId,
   nextReceiptNo,
-  saveSecurityDeposit,
 } from '@/data/financeSdStore'
 
-const STEPS = [
-  { id: 1, title: 'Franchisee & Site\nDetails' },
-  { id: 2, title: 'Payment & Transaction\nDetails' },
-  { id: 3, title: 'Franchise Bank &\nAccount' },
-  { id: 4, title: 'Verification &\nDocuments' },
+const KNOWN_ATM_SITES = [
+  {
+    atmId: 'DX-MH-01482',
+    siteId: 'ST-MH-PUN-00124',
+    frName: 'Suresh Kumar',
+    frMobileNumber: '9876543210',
+    bank: 'HDFC Bank',
+    hpyAccount: 'HPY-9921408',
+    accountHolder: 'Suresh Kumar',
+    frAccount: '50200012347316',
+    frIfsc: 'HDFC0001234',
+    amount: '250000',
+  },
+  {
+    atmId: 'DX-UP-02391',
+    siteId: 'ST-UP-AGR-00219',
+    frName: 'Vinod Kumar Bansal',
+    frMobileNumber: '9412088210',
+    bank: 'State Bank of India',
+    hpyAccount: 'HPY-8841029',
+    accountHolder: 'Vinod Kumar Bansal',
+    frAccount: '310928471928',
+    frIfsc: 'SBIN0000412',
+    amount: '300000',
+  },
+  {
+    atmId: 'DX-DL-03112',
+    siteId: 'ST-DL-NOI-00342',
+    frName: 'Gaurav Singhal',
+    frMobileNumber: '9811234509',
+    bank: 'ICICI Bank',
+    hpyAccount: 'HPY-7719204',
+    accountHolder: 'Gaurav Singhal',
+    frAccount: '002101592810',
+    frIfsc: 'ICIC0000021',
+    amount: '200000',
+  },
+  {
+    atmId: 'DX-KA-04981',
+    siteId: 'ST-KA-BLR-00481',
+    frName: 'Naveen Chandrashekar',
+    frMobileNumber: '9845012894',
+    bank: 'Canara Bank',
+    hpyAccount: 'HPY-6629104',
+    accountHolder: 'Naveen Chandrashekar',
+    frAccount: '04121010049281',
+    frIfsc: 'CNRB0000412',
+    amount: '250000',
+  },
 ]
 
 export default function SdRecordPage() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
   const isNew = !id || id === 'new'
+  const existing = !isNew ? getSecurityDeposit(id) : undefined
 
-  const [currentStep, setCurrentStep] = useState(1)
-  const [showMaskedAccount, setShowMaskedAccount] = useState(true)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  // Card 1: ATM & Franchise Details
+  const [atmId, setAtmId] = useState(existing?.atmId || '')
+  const [siteId, setSiteId] = useState(existing?.siteId || '')
+  const [transactionDate, setTransactionDate] = useState(
+    existing?.transactionDate || existing?.paymentDate || '2026-10-18'
+  )
+  const [frName, setFrName] = useState(existing?.franchiseeName || 'Suresh Kumar')
+  const [frMobileNumber, setFrMobileNumber] = useState(existing?.franchiseeNo || '9876543210')
 
-  // Initialize deposit state
-  const [deposit, setDeposit] = useState<SecurityDeposit>(() => {
-    if (!isNew && id) {
-      const found = getSecurityDeposit(id)
-      if (found) return JSON.parse(JSON.stringify(found))
+  // Card 2: Bank & Payment Details
+  const [banksList, setBanksList] = useState<string[]>(SD_BANKS)
+  const [bank, setBank] = useState(existing?.frBankName || 'HDFC Bank')
+  const [hpyAccount, setHpyAccount] = useState(existing?.hpyAccount || 'HPY-9921408')
+  const [accountHolder, setAccountHolder] = useState(
+    existing?.accountHolder || existing?.franchiseeName || 'Suresh Kumar'
+  )
+  const [frAccount, setFrAccount] = useState(existing?.frAccount || '')
+  const [frIfsc, setFrIfsc] = useState(existing?.frIfsc || '')
+
+  const [paymentDate, setPaymentDate] = useState(
+    existing?.paymentDate || new Date().toISOString().slice(0, 10)
+  )
+  const [transferTime, setTransferTime] = useState(existing?.transferTime || '11:30')
+  const [paymentType, setPaymentType] = useState<SdPaymentType>(existing?.paymentType || 'NEFT')
+  const [txnNumber, setTxnNumber] = useState(existing?.txnNumber || '')
+  const [amount, setAmount] = useState(existing?.amount || '250000')
+  const [depositType, setDepositType] = useState(
+    existing?.depositCategory || 'Initial Security Deposit'
+  )
+
+  // Add Bank Modal state
+  const [addBankModalOpen, setAddBankModalOpen] = useState(false)
+  const [newBankName, setNewBankName] = useState('')
+
+  // Handle ATM selection auto-fill
+  const handleAtmChange = (val: string) => {
+    setAtmId(val)
+    const match = KNOWN_ATM_SITES.find((k) => k.atmId === val)
+    if (match) {
+      setSiteId(match.siteId)
+      setFrName(match.frName)
+      setFrMobileNumber(match.frMobileNumber)
+      setBank(match.bank)
+      setHpyAccount(match.hpyAccount)
+      setAccountHolder(match.accountHolder)
+      setFrAccount(match.frAccount)
+      setFrIfsc(match.frIfsc)
+      setAmount(match.amount)
+      toast(`Loaded details for ATM ${val}`)
     }
-    const empty = createEmptySecurityDeposit()
-    empty.id = nextDepositId()
-    empty.receiptNo = nextReceiptNo()
-    return empty
-  })
-
-  // Watch for ID changes
-  useEffect(() => {
-    if (!isNew && id) {
-      const found = getSecurityDeposit(id)
-      if (found) {
-        setDeposit(JSON.parse(JSON.stringify(found)))
-      }
-    }
-  }, [id, isNew])
-
-  const updateField = <K extends keyof SecurityDeposit>(key: K, value: SecurityDeposit[K]) => {
-    setDeposit((prev) => ({ ...prev, [key]: value }))
   }
 
-  // Handle Document Upload
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    if (file.size > 5 * 1024 * 1024) {
-      toast('Attachment size must be less than 5 MB', 'info')
+  // Handle Site selection auto-fill
+  const handleSiteChange = (val: string) => {
+    setSiteId(val)
+    const match = KNOWN_ATM_SITES.find((k) => k.siteId === val)
+    if (match) {
+      setAtmId(match.atmId)
+      setFrName(match.frName)
+      setFrMobileNumber(match.frMobileNumber)
+      setBank(match.bank)
+      setHpyAccount(match.hpyAccount)
+      setAccountHolder(match.accountHolder)
+      setFrAccount(match.frAccount)
+      setFrIfsc(match.frIfsc)
+      setAmount(match.amount)
+      toast(`Loaded details for Site ${val}`)
+    }
+  }
+
+  // Add custom bank
+  const handleAddBankSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newBankName.trim()) return
+    const name = newBankName.trim()
+    if (!banksList.includes(name)) {
+      setBanksList((prev) => [...prev, name])
+    }
+    setBank(name)
+    setNewBankName('')
+    setAddBankModalOpen(false)
+    toast(`Added bank ${name}`)
+  }
+
+  // Save / Submit
+  const handleSave = (isDraft: boolean) => {
+    if (!siteId.trim() && !isDraft) {
+      toast('Please select or enter Site ID')
       return
     }
-    updateField('attachmentName', file.name)
-    updateField('attachmentSize', file.size)
-    toast(`Uploaded ${file.name}`)
-  }
-
-  // Save Draft
-  const handleSaveDraft = () => {
-    if (!deposit.franchiseeName.trim()) {
-      toast('Please enter a Franchisee Name before saving draft', 'info')
+    if (!atmId.trim() && !isDraft) {
+      toast('Please select or enter ATM ID')
       return
     }
-    const saved = saveSecurityDeposit({
-      ...deposit,
-      status: deposit.status || 'Pending Verification',
-    })
-    toast(`Draft saved for deposit ${saved.id}`)
-  }
 
-  // Validation
-  const handleValidate = () => {
-    if (!deposit.franchiseeName.trim()) {
-      toast('Franchisee Name is required', 'info')
-      setCurrentStep(1)
-      return false
-    }
-    if (!deposit.siteId.trim()) {
-      toast('Site ID is required', 'info')
-      setCurrentStep(1)
-      return false
-    }
-    if (!deposit.amount.trim() || Number(deposit.amount) <= 0) {
-      toast('Valid deposit amount is required', 'info')
-      setCurrentStep(2)
-      return false
-    }
-    if (!deposit.txnNumber.trim()) {
-      toast('TXN / UTR Number is required', 'info')
-      setCurrentStep(2)
-      return false
-    }
-    toast('All required deposit details are valid!', 'info')
-    return true
-  }
-
-  // Submit / Approve Deposit
-  const handleSubmit = (approve = false) => {
-    if (!handleValidate()) return
-    const now = new Date().toISOString()
-    const nowFormatted = new Date().toLocaleString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-
-    const toSave: SecurityDeposit = {
-      ...deposit,
-      status: approve ? 'Verified' : deposit.status || 'Pending Verification',
-      verifiedBy: approve ? deposit.verifiedBy || 'Finance Operator' : deposit.verifiedBy,
-      verifiedAt: approve ? nowFormatted : deposit.verifiedAt,
-      updatedAt: now,
+    const payload: SecurityDeposit = {
+      id: existing?.id || nextDepositId(),
+      receiptNo: existing?.receiptNo || nextReceiptNo(),
+      siteId: siteId.trim(),
+      atmId: atmId.trim(),
+      franchiseeName: frName.trim() || '—',
+      franchiseeNo: frMobileNumber.trim() || '—',
+      cashLiveDate: existing?.cashLiveDate || '2026-02-15',
+      hpyAccount: hpyAccount.trim() || 'HPY-9921408',
+      paymentType,
+      paymentDate,
+      transactionDate,
+      transferTime,
+      txnNumber: txnNumber.trim() || `TXN${Date.now().toString().slice(-8)}`,
+      amount: amount.trim() || '0',
+      depositCategory: depositType,
+      frBankName: bank,
+      accountHolder: accountHolder.trim() || frName.trim(),
+      frAccount: frAccount.trim(),
+      frIfsc: frIfsc.trim(),
+      branchName: existing?.branchName || 'Main Branch',
+      attachmentName: existing?.attachmentName || '',
+      attachmentSize: existing?.attachmentSize || 0,
+      status: isDraft ? 'Pending Verification' : 'Verified',
+      verifierRemarks: existing?.verifierRemarks || '',
+      verifiedBy: existing?.verifiedBy || '',
+      verifiedAt: existing?.verifiedAt || '',
+      createdAt: existing?.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     }
 
-    const saved = saveSecurityDeposit(toSave)
-    toast(
-      approve
-        ? `Security Deposit ${saved.id} verified and approved!`
-        : `Security Deposit ${saved.id} saved successfully!`,
-    )
+    saveSecurityDeposit(payload)
+    toast(isDraft ? 'Security deposit draft saved' : 'Security deposit submitted successfully')
     navigate('/finance/sd')
   }
 
   return (
-    <div className="mx-auto max-w-[1320px] pb-16">
-      {/* Top Header Bar */}
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
+    <div className="space-y-4 pb-16 max-w-[1400px]">
+      {/* Breadcrumb: [Workspace] > [Finance] > Security Deposit Data > new */}
+      <div className="flex items-center gap-1.5 text-[12px] text-slate-500">
+        <Home size={14} className="text-slate-400 shrink-0" />
+        <Link to="/dashboard" className="hover:text-[#0066FF] transition-colors">
+          Workspace
+        </Link>
+        <ChevronRight size={12} className="text-slate-400" />
+        <Link to="/finance" className="hover:text-[#0066FF] transition-colors">
+          Finance
+        </Link>
+        <ChevronRight size={12} className="text-slate-400" />
+        <Link to="/finance/sd" className="hover:text-[#0066FF] transition-colors">
+          Security Deposit
+        </Link>
+        <ChevronRight size={12} className="text-slate-400" />
+        <span className="font-semibold text-slate-800">{isNew ? 'new' : id}</span>
+      </div>
+
+      {/* Page Header */}
+      <div className="flex items-center gap-3">
+        <div className="w-9 h-9 rounded-lg bg-[#0066FF] flex items-center justify-center text-white shrink-0 shadow-sm">
+          <FileText size={18} />
+        </div>
         <div>
-          <h1 className="text-[24px] font-bold tracking-tight text-[#1E293B]">
-            {isNew ? 'Record Security Deposit' : `Security Deposit · ${deposit.id}`}
+          <h1 className="text-[26px] font-bold tracking-tight text-slate-900 leading-tight">
+            Security Deposit
           </h1>
-          <p className="mt-0.5 text-[12.5px] text-[#64748B]">
-            {isNew
-              ? 'Enter franchisee security deposit details, bank transfer credentials, and verification advice.'
-              : `Review and verify security deposit records for ${deposit.franchiseeName} (${deposit.atmId}).`}
-          </p>
-        </div>
-
-        {/* Action Buttons matching Employee flow */}
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={handleSaveDraft}
-            className="border-[#CBD5E1] bg-white text-[#334155] shadow-xs hover:bg-[#F8FAFC]"
-          >
-            <Save size={14} className="mr-1.5" /> Save Draft
-          </Button>
-
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={handleValidate}
-            className="border-emerald-200 bg-white text-emerald-700 shadow-xs hover:bg-emerald-50"
-          >
-            <CheckCircle2 size={14} className="mr-1.5" /> Validate
-          </Button>
-
-          {currentStep > 1 && (
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={() => setCurrentStep((s) => Math.max(1, s - 1))}
-              className="border-[#CBD5E1] bg-white text-[#334155] shadow-xs hover:bg-[#F8FAFC]"
-            >
-              <ArrowLeft size={14} className="mr-1.5" /> Previous
-            </Button>
-          )}
-
-          {currentStep < 4 ? (
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => setCurrentStep((s) => Math.min(4, s + 1))}
-              className="bg-[#0066FF] text-white shadow-xs hover:bg-[#0052cc]"
-            >
-              Next <ArrowRight size={14} className="ml-1.5" />
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => handleSubmit(true)}
-              className="bg-[#0066FF] text-white shadow-xs hover:bg-[#0052cc]"
-            >
-              <CheckCircle2 size={14} className="mr-1.5" /> Verify &amp; Approve
-            </Button>
-          )}
-
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={() => navigate('/finance/sd')}
-            className="border-[#CBD5E1] bg-white text-[#475569] shadow-xs hover:bg-[#F8FAFC]"
-          >
-            <X size={14} className="mr-1.5" /> Cancel
-          </Button>
         </div>
       </div>
 
-      {/* Stepper Navigation */}
-      <div className="mb-6 rounded-xl border border-[#DCE8F6] bg-white px-6 py-4 shadow-xs">
-        <div className="relative flex items-center justify-between">
-          {/* Connector Line behind steps */}
-          <div className="absolute top-[18px] left-[8%] right-[8%] -z-0 h-[2px] bg-[#E2E8F0]" />
+      {/* CARD 1: ATM & Franchise Details matching Image 2 */}
+      <div className="rounded-xl border border-slate-200 overflow-hidden shadow-sm bg-white">
+        {/* Soft Blue Header Banner */}
+        <div className="bg-[#EAF3FD] px-4 py-3 border-b border-[#D5E5F8] flex items-center gap-2">
+          <FileText size={18} className="text-[#0066FF]" />
+          <h2 className="text-[14px] font-bold text-[#0066FF]">ATM & Franchise Details</h2>
+        </div>
 
-          {STEPS.map((step) => {
-            const isActive = currentStep === step.id
-            const isCompleted = currentStep > step.id
-
-            return (
-              <button
-                key={step.id}
-                type="button"
-                onClick={() => setCurrentStep(step.id)}
-                className="group relative z-10 flex flex-1 flex-col items-center text-center focus:outline-none"
-              >
-                {/* Step Circle */}
-                <div
-                  className={cn(
-                    'grid h-9 w-9 place-items-center rounded-full text-[13px] font-semibold transition-all duration-200',
-                    isActive
-                      ? 'border-2 border-[#0066FF] bg-[#0066FF] text-white shadow-[0_0_0_4px_rgba(0,102,255,0.18)]'
-                      : isCompleted
-                        ? 'border-2 border-[#0066FF] bg-[#0066FF] text-white'
-                        : 'border-2 border-[#CBD5E1] bg-white text-[#64748B] group-hover:border-[#94A3B8]',
-                  )}
+        {/* Form Body */}
+        <div className="p-4 sm:p-5 space-y-4">
+          {/* Row 1: ATM ID, Site ID, Transaction Date (3 cols) */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* ATM ID * */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                ATM ID <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <Cpu size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none" />
+                <select
+                  value={atmId}
+                  onChange={(e) => handleAtmChange(e.target.value)}
+                  className="w-full h-8.5 pl-8 pr-7 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] appearance-none"
                 >
-                  {isCompleted ? <Check size={16} strokeWidth={2.5} /> : step.id}
+                  <option value="">Select ATM ID</option>
+                  <option value="DX-MH-01482">DX-MH-01482</option>
+                  <option value="DX-UP-02391">DX-UP-02391</option>
+                  <option value="DX-DL-03112">DX-DL-03112</option>
+                  <option value="DX-KA-04981">DX-KA-04981</option>
+                </select>
+                <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* Site ID * */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                Site ID <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <MapPin size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none" />
+                <select
+                  value={siteId}
+                  onChange={(e) => handleSiteChange(e.target.value)}
+                  className="w-full h-8.5 pl-8 pr-7 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] appearance-none"
+                >
+                  <option value="">Select Site ID</option>
+                  <option value="ST-MH-PUN-00124">ST-MH-PUN-00124</option>
+                  <option value="ST-UP-AGR-00219">ST-UP-AGR-00219</option>
+                  <option value="ST-DL-NOI-00342">ST-DL-NOI-00342</option>
+                  <option value="ST-KA-BLR-00481">ST-KA-BLR-00481</option>
+                </select>
+                <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* Transaction Date * */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                Transaction Date <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <Calendar size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none" />
+                <input
+                  type="date"
+                  value={transactionDate}
+                  onChange={(e) => setTransactionDate(e.target.value)}
+                  className="w-full h-8.5 pl-8 pr-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF]"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Row 2: FR Name, FR Mobile Number (2 cols) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* FR Name */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                FR Name
+              </label>
+              <div className="relative">
+                <User size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none" />
+                <input
+                  type="text"
+                  value={frName}
+                  onChange={(e) => setFrName(e.target.value)}
+                  placeholder="Enter FR Name"
+                  className="w-full h-8.5 pl-8 pr-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 outline-none focus:border-[#0066FF]"
+                />
+              </div>
+            </div>
+
+            {/* FR Mobile Number */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                FR Mobile Number
+              </label>
+              <div className="relative">
+                <Phone size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none" />
+                <input
+                  type="text"
+                  value={frMobileNumber}
+                  onChange={(e) => setFrMobileNumber(e.target.value)}
+                  placeholder="Enter FR Mobile Number"
+                  className="w-full h-8.5 pl-8 pr-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 outline-none focus:border-[#0066FF]"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* CARD 2: Bank & Payment Details matching Image 2 */}
+      <div className="rounded-xl border border-slate-200 overflow-hidden shadow-sm bg-white">
+        {/* Soft Blue Header Banner */}
+        <div className="bg-[#EAF3FD] px-4 py-3 border-b border-[#D5E5F8] flex items-center gap-2">
+          <Landmark size={18} className="text-[#0066FF]" />
+          <h2 className="text-[14px] font-bold text-[#0066FF]">Bank & Payment Details</h2>
+        </div>
+
+        {/* 2-Column Form Body (Left Column vs Right Column) */}
+        <div className="p-4 sm:p-5 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+          {/* ── Left Column ── */}
+          <div className="space-y-4">
+            {/* Bank * with + Add Bank button */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                Bank <span className="text-red-500">*</span>
+              </label>
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Landmark size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none" />
+                  <select
+                    value={bank}
+                    onChange={(e) => setBank(e.target.value)}
+                    className="w-full h-8.5 pl-8 pr-7 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] appearance-none"
+                  >
+                    <option value="">Select Bank</option>
+                    {banksList.map((b) => (
+                      <option key={b} value={b}>{b}</option>
+                    ))}
+                  </select>
+                  <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 </div>
-
-                {/* Step Label */}
-                <span
-                  className={cn(
-                    'mt-2 whitespace-pre-line text-[11.5px] leading-tight font-medium transition-colors',
-                    isActive
-                      ? 'font-bold text-[#0066FF]'
-                      : isCompleted
-                        ? 'text-[#1E293B]'
-                        : 'text-[#64748B] group-hover:text-[#1E293B]',
-                  )}
+                <button
+                  type="button"
+                  onClick={() => setAddBankModalOpen(true)}
+                  className="h-8.5 px-3 rounded-lg border border-[#0066FF] bg-white hover:bg-blue-50 text-[#0066FF] text-[12px] font-semibold flex items-center gap-1 shrink-0 transition-colors"
                 >
-                  {step.title}
-                </span>
+                  <Plus size={14} />
+                  <span>Add Bank</span>
+                </button>
+              </div>
+            </div>
 
-                {/* Active Indicator Underline */}
-                {isActive && (
-                  <div className="mt-2.5 h-[3px] w-24 rounded-full bg-[#0066FF]" />
-                )}
-              </button>
-            )
-          })}
-        </div>
-      </div>
+            {/* HPY Account Number * */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                HPY Account Number <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <CreditCard size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none" />
+                <select
+                  value={hpyAccount}
+                  onChange={(e) => setHpyAccount(e.target.value)}
+                  className="w-full h-8.5 pl-8 pr-7 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] appearance-none"
+                >
+                  <option value="">Select HPY Account Number</option>
+                  <option value="HPY-9921408">HPY-9921408</option>
+                  <option value="HPY-8841029">HPY-8841029</option>
+                  <option value="HPY-7719204">HPY-7719204</option>
+                  <option value="HPY-6629104">HPY-6629104</option>
+                  <option value="HPY-5510294">HPY-5510294</option>
+                </select>
+                <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              </div>
+            </div>
 
-      {/* STEP 1: Franchisee & Site Details */}
-      {currentStep === 1 && (
-        <div className="overflow-hidden rounded-xl border border-[#DCE8F6] bg-white shadow-xs">
-          <div className="flex items-center gap-2 border-b border-[#E2EEFB] bg-[#F0F7FD] px-5 py-3 text-[#0066FF]">
-            <Building size={17} className="text-[#0066FF]" />
-            <h2 className="text-[13.5px] font-bold text-[#0066FF]">
-              1. Franchisee &amp; Site Information
-            </h2>
-          </div>
-
-          <div className="space-y-4 p-5">
-            {/* Row 1: Franchisee Name, Franchisee No, HPY Account */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <div>
-                <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
-                  Franchisee Name <span className="text-red-500">*</span>
-                </label>
+            {/* Account Holder Name * */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                Account Holder Name <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <User size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none" />
                 <input
                   type="text"
-                  value={deposit.franchiseeName}
-                  onChange={(e) => updateField('franchiseeName', e.target.value)}
-                  placeholder="e.g. Rameshwar Kulkarni"
-                  className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF] focus:ring-2 focus:ring-[#0066FF]/10"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
-                  Franchisee Contact No. <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="tel"
-                  value={deposit.franchiseeNo}
-                  onChange={(e) => updateField('franchiseeNo', e.target.value)}
-                  placeholder="e.g. 98220 41765"
-                  className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF] focus:ring-2 focus:ring-[#0066FF]/10"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
-                  HPY Account Number
-                </label>
-                <input
-                  type="text"
-                  value={deposit.hpyAccount}
-                  onChange={(e) => updateField('hpyAccount', e.target.value)}
-                  placeholder="e.g. HPY-9921408"
-                  className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF]"
+                  value={accountHolder}
+                  onChange={(e) => setAccountHolder(e.target.value)}
+                  placeholder="Enter Account Holder Name"
+                  className="w-full h-8.5 pl-8 pr-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 outline-none focus:border-[#0066FF]"
                 />
               </div>
             </div>
 
-            {/* Row 2: Site ID, ATM ID, Cash Live Date */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <div>
-                <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
-                  Site ID <span className="text-red-500">*</span>
-                </label>
+            {/* FR Account Number * */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                FR Account Number <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <CreditCard size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none" />
                 <input
                   type="text"
-                  value={deposit.siteId}
-                  onChange={(e) => updateField('siteId', e.target.value)}
-                  placeholder="e.g. ST-MH-PUN-00124"
-                  className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF] focus:ring-2 focus:ring-[#0066FF]/10"
+                  value={frAccount}
+                  onChange={(e) => setFrAccount(e.target.value)}
+                  placeholder="Enter FR Account Number"
+                  className="w-full h-8.5 pl-8 pr-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 outline-none focus:border-[#0066FF]"
                 />
               </div>
+            </div>
 
-              <div>
-                <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
-                  ATM ID <span className="text-red-500">*</span>
-                </label>
+            {/* FR IFSC * */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                FR IFSC <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <Settings size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none" />
                 <input
                   type="text"
-                  value={deposit.atmId}
-                  onChange={(e) => updateField('atmId', e.target.value)}
-                  placeholder="e.g. DX-MH-01482"
-                  className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF] focus:ring-2 focus:ring-[#0066FF]/10"
+                  value={frIfsc}
+                  onChange={(e) => setFrIfsc(e.target.value)}
+                  placeholder="Enter FR IFSC"
+                  className="w-full h-8.5 pl-8 pr-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 outline-none focus:border-[#0066FF]"
                 />
               </div>
+            </div>
+          </div>
 
-              <div>
-                <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
-                  Cash Live Date
-                </label>
+          {/* ── Right Column ── */}
+          <div className="space-y-4">
+            {/* Payment Date * */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                Payment Date <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <Calendar size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none" />
                 <input
                   type="date"
-                  value={deposit.cashLiveDate}
-                  onChange={(e) => updateField('cashLiveDate', e.target.value)}
-                  className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF]"
+                  value={paymentDate}
+                  onChange={(e) => setPaymentDate(e.target.value)}
+                  className="w-full h-8.5 pl-8 pr-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF]"
                 />
               </div>
             </div>
-          </div>
-        </div>
-      )}
 
-      {/* STEP 2: Payment & Transaction Details */}
-      {currentStep === 2 && (
-        <div className="overflow-hidden rounded-xl border border-[#DCE8F6] bg-white shadow-xs">
-          <div className="flex items-center gap-2 border-b border-[#E2EEFB] bg-[#F0F7FD] px-5 py-3 text-[#0066FF]">
-            <CreditCard size={17} className="text-[#0066FF]" />
-            <h2 className="text-[13.5px] font-bold text-[#0066FF]">
-              2. Transaction &amp; Payment Details
-            </h2>
-          </div>
-
-          <div className="space-y-4 p-5">
-            {/* Row 1: Deposit Category, Amount, Payment Type */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <div>
-                <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
-                  Deposit Category <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={deposit.depositCategory}
-                  onChange={(e) => updateField('depositCategory', e.target.value)}
-                  className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF]"
-                >
-                  {DEPOSIT_CATEGORIES.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
-                  Deposit Amount (₹) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  value={deposit.amount}
-                  onChange={(e) => updateField('amount', e.target.value)}
-                  placeholder="250000"
-                  className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF] focus:ring-2 focus:ring-[#0066FF]/10 font-medium"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
-                  Payment Type <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={deposit.paymentType}
-                  onChange={(e) => updateField('paymentType', e.target.value as any)}
-                  className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF]"
-                >
-                  {SD_PAYMENT_TYPES.map((pt) => (
-                    <option key={pt} value={pt}>
-                      {pt}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Row 2: Payment Date, Transfer Time, TXN Number, Receipt No */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
-              <div>
-                <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
-                  Payment Date <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="date"
-                  value={deposit.paymentDate}
-                  onChange={(e) => updateField('paymentDate', e.target.value)}
-                  className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF]"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
-                  Payment Transfer Time
-                </label>
+            {/* Payment Transfer Time * */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                Payment Transfer Time <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <Clock size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none" />
                 <input
                   type="time"
                   step="1"
-                  value={deposit.transferTime}
-                  onChange={(e) => updateField('transferTime', e.target.value)}
-                  className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF]"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
-                  TXN / UTR Number <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={deposit.txnNumber}
-                  onChange={(e) => updateField('txnNumber', e.target.value)}
-                  placeholder="e.g. TXN9824102948"
-                  className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF] font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
-                  Receipt Number
-                </label>
-                <input
-                  type="text"
-                  value={deposit.receiptNo}
-                  readOnly
-                  className="h-9 w-full rounded-md border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-[12.5px] font-medium text-[#475569] outline-none"
+                  value={transferTime}
+                  onChange={(e) => setTransferTime(e.target.value)}
+                  placeholder="Select Transfer Time"
+                  className="w-full h-8.5 pl-8 pr-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF]"
                 />
               </div>
             </div>
-          </div>
-        </div>
-      )}
 
-      {/* STEP 3: Franchise Bank & Account */}
-      {currentStep === 3 && (
-        <div className="overflow-hidden rounded-xl border border-[#DCE8F6] bg-white shadow-xs">
-          <div className="flex items-center gap-2 border-b border-[#E2EEFB] bg-[#F0F7FD] px-5 py-3 text-[#0066FF]">
-            <Landmark size={17} className="text-[#0066FF]" />
-            <h2 className="text-[13.5px] font-bold text-[#0066FF]">
-              3. Franchise Bank &amp; Account Details
-            </h2>
-          </div>
-
-          <div className="space-y-4 p-5">
-            {/* Row 1: Account Holder, Bank Name, Branch Name */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <div>
-                <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
-                  Account Holder Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={deposit.accountHolder}
-                  onChange={(e) => updateField('accountHolder', e.target.value)}
-                  placeholder="Name as registered with bank"
-                  className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF]"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
-                  FR Bank Name <span className="text-red-500">*</span>
-                </label>
+            {/* Payment Type * */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                Payment Type <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <CreditCard size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none" />
                 <select
-                  value={deposit.frBankName}
-                  onChange={(e) => updateField('frBankName', e.target.value)}
-                  className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF]"
+                  value={paymentType}
+                  onChange={(e) => setPaymentType(e.target.value as SdPaymentType)}
+                  className="w-full h-8.5 pl-8 pr-7 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] appearance-none"
                 >
-                  {SD_BANKS.map((b) => (
-                    <option key={b} value={b}>
-                      {b}
-                    </option>
+                  <option value="">Select Payment Type</option>
+                  {SD_PAYMENT_TYPES.map((pt) => (
+                    <option key={pt} value={pt}>{pt}</option>
                   ))}
                 </select>
-              </div>
-
-              <div>
-                <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
-                  Bank Branch Name
-                </label>
-                <input
-                  type="text"
-                  value={deposit.branchName}
-                  onChange={(e) => updateField('branchName', e.target.value)}
-                  placeholder="e.g. Kothrud Branch"
-                  className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF]"
-                />
+                <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
               </div>
             </div>
 
-            {/* Row 2: Account Number (with eye toggle), IFSC Code */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {/* TXN Number * & Amount (₹) * in row */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
-                  FR Bank Account Number <span className="text-red-500">*</span>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  TXN Number <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
+                  <FileText size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none" />
                   <input
-                    type={showMaskedAccount ? 'password' : 'text'}
-                    value={deposit.frAccount}
-                    onChange={(e) => updateField('frAccount', e.target.value)}
-                    placeholder="Enter full account number"
-                    className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 pr-9 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF] font-mono"
+                    type="text"
+                    value={txnNumber}
+                    onChange={(e) => setTxnNumber(e.target.value)}
+                    placeholder="Enter TXN Number"
+                    className="w-full h-8.5 pl-8 pr-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 outline-none focus:border-[#0066FF]"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowMaskedAccount(!showMaskedAccount)}
-                    className="absolute right-2.5 top-2.5 text-[#64748B] hover:text-[#0066FF]"
-                  >
-                    {showMaskedAccount ? <Eye size={15} /> : <EyeOff size={15} />}
-                  </button>
                 </div>
               </div>
 
               <div>
-                <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
-                  FR IFSC Code <span className="text-red-500">*</span>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Amount (₹) <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] font-semibold text-[13px] pointer-events-none">
+                    ₹
+                  </span>
+                  <input
+                    type="text"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    placeholder="Enter Amount"
+                    className="w-full h-8.5 pl-7 pr-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 outline-none focus:border-[#0066FF]"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Type * */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                Type <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <List size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none" />
+                <select
+                  value={depositType}
+                  onChange={(e) => setDepositType(e.target.value)}
+                  className="w-full h-8.5 pl-8 pr-7 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] appearance-none"
+                >
+                  <option value="">Select Type</option>
+                  {DEPOSIT_CATEGORIES.map((cat) => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+                <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom Action Bar matching Image 2 */}
+      <div className="bg-white rounded-xl border border-slate-200 p-3.5 flex items-center justify-between shadow-sm">
+        {/* Back Button on Left */}
+        <button
+          type="button"
+          onClick={() => navigate('/finance/sd')}
+          className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg border border-[#0066FF]/30 text-[#0066FF] hover:bg-blue-50/60 text-[13px] font-semibold transition-all shadow-xs"
+        >
+          <ChevronLeft size={16} />
+          <span>Back</span>
+        </button>
+
+        {/* Right Action Buttons */}
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => handleSave(true)}
+            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg border border-[#0066FF]/30 text-[#0066FF] hover:bg-blue-50/60 text-[13px] font-semibold transition-all shadow-xs"
+          >
+            <Save size={15} />
+            <span>Save Draft</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleSave(false)}
+            className="inline-flex items-center gap-1.5 h-9 px-5 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[13px] font-semibold transition-all shadow-sm hover:shadow"
+          >
+            <span>Submit</span>
+            <ArrowRight size={16} />
+          </button>
+        </div>
+      </div>
+
+      {/* Add Bank Modal */}
+      {addBankModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 bg-[#EAF3FD]">
+              <div className="flex items-center gap-2">
+                <Landmark size={18} className="text-[#0066FF]" />
+                <h3 className="font-bold text-[14px] text-slate-800">Add New Bank</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAddBankModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <form onSubmit={handleAddBankSubmit} className="p-5 space-y-4">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Bank Name <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
-                  maxLength={11}
-                  value={deposit.frIfsc}
-                  onChange={(e) => updateField('frIfsc', e.target.value.toUpperCase())}
-                  placeholder="e.g. HDFC0001234"
-                  className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] uppercase outline-none focus:border-[#0066FF] font-mono"
+                  value={newBankName}
+                  onChange={(e) => setNewBankName(e.target.value)}
+                  placeholder="e.g. Bank of Maharashtra"
+                  autoFocus
+                  className="w-full h-9 px-3 text-[12.5px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF]"
                 />
               </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* STEP 4: Verification & Documents */}
-      {currentStep === 4 && (
-        <div className="space-y-5">
-          {/* Document Attachment Box */}
-          <div className="overflow-hidden rounded-xl border border-[#DCE8F6] bg-white shadow-xs">
-            <div className="flex items-center gap-2 border-b border-[#E2EEFB] bg-[#F0F7FD] px-5 py-3 text-[#0066FF]">
-              <FileCheck2 size={17} className="text-[#0066FF]" />
-              <h2 className="text-[13.5px] font-bold text-[#0066FF]">
-                4. Bank Deposit Slip &amp; Document Attachment
-              </h2>
-            </div>
-
-            <div className="p-5">
-              <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                {/* File Attachment Drop/Preview */}
-                <div className="rounded-lg border-2 border-dashed border-[#CBD5E1] bg-[#F8FAFD] p-5 text-center">
-                  {deposit.attachmentName ? (
-                    <div className="flex flex-col items-center">
-                      <div className="grid h-12 w-12 place-items-center rounded-xl bg-emerald-50 text-emerald-600 mb-2">
-                        <FileCheck2 size={24} />
-                      </div>
-                      <span className="font-semibold text-[#1E293B] text-[13px]">
-                        {deposit.attachmentName}
-                      </span>
-                      <span className="text-[11px] text-[#64748B] mt-0.5">
-                        {deposit.attachmentSize > 0
-                          ? `${Math.round(deposit.attachmentSize / 1024)} KB`
-                          : 'Attached Document'}
-                      </span>
-                      <div className="mt-3 flex items-center gap-2">
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => fileInputRef.current?.click()}
-                          className="h-7 text-[11px]"
-                        >
-                          Replace File
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => {
-                            updateField('attachmentName', '')
-                            updateField('attachmentSize', 0)
-                          }}
-                          className="h-7 text-[11px] text-red-600 border-red-200 hover:bg-red-50"
-                        >
-                          Remove
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center">
-                      <div className="grid h-12 w-12 place-items-center rounded-xl bg-[#EAF2FD] text-[#0066FF] mb-2">
-                        <Upload size={22} />
-                      </div>
-                      <div className="text-[13px] font-semibold text-[#1E293B]">
-                        Upload Payment Advice / Deposit Challan
-                      </div>
-                      <div className="text-[11.5px] text-[#64748B] mt-1 mb-3">
-                        Attach scanned bank receipt, NEFT/RTGS challan, or cheque counterfoil (Max 5 MB)
-                      </div>
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="bg-[#0066FF] text-white"
-                      >
-                        <Upload size={13} className="mr-1" /> Choose File
-                      </Button>
-                    </div>
-                  )}
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".pdf,.jpg,.jpeg,.png"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                  />
-                </div>
-
-                {/* Verification Status & Audit Fields */}
-                <div className="space-y-4">
-                  <div>
-                    <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
-                      Verification Status
-                    </label>
-                    <select
-                      value={deposit.status}
-                      onChange={(e) => updateField('status', e.target.value as any)}
-                      className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF]"
-                    >
-                      <option value="Verified">Verified (Cleared &amp; Approved)</option>
-                      <option value="Pending Verification">Pending Verification</option>
-                      <option value="Under Review">Under Review</option>
-                      <option value="Refunded">Refunded</option>
-                      <option value="Disputed">Disputed / Mismatched</option>
-                    </select>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
-                        Verified By
-                      </label>
-                      <input
-                        type="text"
-                        value={deposit.verifiedBy}
-                        onChange={(e) => updateField('verifiedBy', e.target.value)}
-                        placeholder="Operator name"
-                        className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF]"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
-                        Verified Date / Time
-                      </label>
-                      <input
-                        type="text"
-                        value={deposit.verifiedAt}
-                        onChange={(e) => updateField('verifiedAt', e.target.value)}
-                        placeholder="e.g. 19 Oct 2025 11:20 AM"
-                        className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF]"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
-                      Verifier Reconciliation Remarks
-                    </label>
-                    <textarea
-                      rows={3}
-                      value={deposit.verifierRemarks}
-                      onChange={(e) => updateField('verifierRemarks', e.target.value)}
-                      placeholder="Enter verification notes, bank statement cross-reference, or reconciliation remarks..."
-                      className="w-full rounded-md border border-[#CBD5E1] bg-white p-2.5 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF]"
-                    />
-                  </div>
-                </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setAddBankModalOpen(false)}
+                  className="h-8.5 px-3 rounded-lg border border-slate-200 text-slate-600 text-[12px] font-medium hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="h-8.5 px-4 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[12px] font-semibold"
+                >
+                  Save Bank
+                </button>
               </div>
-            </div>
+            </form>
           </div>
         </div>
       )}
-
-      {/* Bottom Sticky Footer Navigation */}
-      <div className="mt-8 flex items-center justify-between border-t border-[#E2EEFB] bg-white/80 p-4 backdrop-blur-xs rounded-xl shadow-xs">
-        <Button
-          type="button"
-          variant="secondary"
-          size="md"
-          onClick={() => navigate('/finance/sd')}
-          className="border-[#CBD5E1] bg-white text-[#475569] hover:bg-[#F8FAFC]"
-        >
-          <X size={15} className="mr-1.5" /> Back to Deposit List
-        </Button>
-
-        <div className="flex items-center gap-3">
-          <Button
-            type="button"
-            variant="secondary"
-            size="md"
-            onClick={handleSaveDraft}
-            className="border-[#CBD5E1] bg-white text-[#334155] hover:bg-[#F8FAFC]"
-          >
-            <Save size={15} className="mr-1.5" /> Save Draft
-          </Button>
-
-          {currentStep > 1 && (
-            <Button
-              type="button"
-              variant="secondary"
-              size="md"
-              onClick={() => setCurrentStep((s) => Math.max(1, s - 1))}
-              className="border-[#CBD5E1] bg-white text-[#334155] hover:bg-[#F8FAFC]"
-            >
-              <ArrowLeft size={15} className="mr-1.5" /> Previous
-            </Button>
-          )}
-
-          {currentStep < 4 ? (
-            <Button
-              type="button"
-              size="md"
-              onClick={() => setCurrentStep((s) => Math.min(4, s + 1))}
-              className="bg-[#0066FF] px-6 text-white hover:bg-[#0052cc]"
-            >
-              Next <ArrowRight size={15} className="ml-1.5" />
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              size="md"
-              onClick={() => handleSubmit(true)}
-              className="bg-[#0066FF] px-6 text-white hover:bg-[#0052cc]"
-            >
-              <CheckCircle2 size={15} className="mr-1.5" /> Verify &amp; Approve
-            </Button>
-          )}
-        </div>
-      </div>
     </div>
   )
 }

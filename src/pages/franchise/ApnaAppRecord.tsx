@@ -147,9 +147,6 @@ export default function ApnaAppRecord() {
         <div className="rounded-xl border border-[#DCE8F6] bg-white p-5 shadow-xs">
           {/* Section Header */}
           <div className="mb-4 flex items-center gap-3">
-            <div className="grid h-8 w-8 place-items-center rounded-full bg-[#EAF2FD] text-[13px] font-bold text-[#0066FF]">
-              01
-            </div>
             <div className="grid h-8 w-8 place-items-center rounded-lg bg-[#EAF2FD] text-[#0066FF]">
               <Building2 size={16} />
             </div>
@@ -161,22 +158,6 @@ export default function ApnaAppRecord() {
 
           {/* Section Fields Grid */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {/* S.N. */}
-            <div>
-              <label className="mb-1 block text-[12px] font-semibold text-[#334155]">
-                S.N. <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <Hash size={14} className="absolute left-3 top-2.5 text-[#94A3B8]" />
-                <input
-                  type="text"
-                  value={form.sn}
-                  onChange={(e) => updateField('sn', e.target.value)}
-                  placeholder="Enter serial number"
-                  className="h-9 w-full rounded-lg border border-[#CBD5E1] bg-white pl-8 pr-3 text-[12.5px] text-[#1E293B] outline-none placeholder:text-[#94A3B8] focus:border-[#0066FF]"
-                />
-              </div>
-            </div>
 
             {/* Site / LOI Number */}
             <div>
@@ -235,9 +216,6 @@ export default function ApnaAppRecord() {
         <div className="rounded-xl border border-[#DCE8F6] bg-white p-5 shadow-xs">
           {/* Section Header */}
           <div className="mb-4 flex items-center gap-3">
-            <div className="grid h-8 w-8 place-items-center rounded-full bg-[#EAF2FD] text-[13px] font-bold text-[#0066FF]">
-              02
-            </div>
             <div className="grid h-8 w-8 place-items-center rounded-lg bg-[#EAF2FD] text-[#0066FF]">
               <User size={16} />
             </div>
@@ -306,9 +284,6 @@ export default function ApnaAppRecord() {
         <div className="rounded-xl border border-[#DCE8F6] bg-white p-5 shadow-xs">
           {/* Section Header */}
           <div className="mb-4 flex items-center gap-3">
-            <div className="grid h-8 w-8 place-items-center rounded-full bg-[#EAF2FD] text-[13px] font-bold text-[#0066FF]">
-              03
-            </div>
             <div className="grid h-8 w-8 place-items-center rounded-lg bg-[#EAF2FD] text-[#0066FF]">
               <Users size={16} />
             </div>

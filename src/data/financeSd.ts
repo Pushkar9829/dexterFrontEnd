@@ -19,6 +19,7 @@ export interface SecurityDeposit {
   // Payment details
   paymentType: SdPaymentType
   paymentDate: string
+  transactionDate?: string
   transferTime: string
   txnNumber: string
   amount: string
