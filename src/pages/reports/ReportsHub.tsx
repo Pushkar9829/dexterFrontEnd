@@ -216,7 +216,7 @@ export default function ReportsHub() {
         iconBg: 'bg-[#7C3AED]',
         icon: <FileText size={22} className="text-white" />,
         items: [
-          { name: 'CBR 1', to: '/cbr/consolidated', desc: 'Daily consolidated cash balance report' },
+          { name: 'Monthly CBR report', to: '/reports/monthly-cbr', desc: 'Consolidated ATM cash loading, denomination-wise balances and CBR records' },
           { name: 'CBR 2', to: '/cbr/eod-summary', desc: 'End of day summary and cash positions' },
           { name: 'CBR 3', to: '/cbr/mobile', desc: 'Mobile terminal cash reconciliation' },
           { name: 'CBR HAMP', to: '/cbr/consolidated', reportId: 'cbr-hamp', desc: 'HAMP compliance cash reports' },

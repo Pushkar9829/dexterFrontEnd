@@ -259,8 +259,8 @@ export default function Consolidated() {
 
   return (
     <div>
-      <Link to="/projects/active" className="mb-3 inline-flex items-center gap-1.5 text-[13px] font-medium text-primary hover:underline">
-        <ArrowLeft size={15} /> Back to Active Projects
+      <Link to="/operations/cbr" className="mb-3 inline-flex items-center gap-1.5 text-[13px] font-medium text-primary hover:underline">
+        <ArrowLeft size={15} /> Back to CBR Module
       </Link>
       <div className="mb-4">
         <h1 className="text-[28px] font-semibold tracking-tight">Consolidated Datewise CBR</h1>

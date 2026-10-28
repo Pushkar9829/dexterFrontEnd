@@ -526,7 +526,7 @@ export default function OtherDocForm() {
                 >
                   <option value="Paras Dubey">Paras Dubey</option>
                   <option value="Meera Iyer">Meera Iyer</option>
-                  <option value="Ananya Sharma">Ananya Sharma</option>
+                  <option value="Paras Dubey">Paras Dubey</option>
                   <option value="Rahul Patil">Rahul Patil</option>
                 </select>
                 <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />

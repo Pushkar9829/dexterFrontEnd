@@ -144,9 +144,6 @@ export function TierList() {
             <Button variant="secondary" icon={<Upload size={16} />} onClick={add.openImport}>
               Import .xlsx
             </Button>
-            <Button icon={<Plus size={16} />} onClick={add.openAdd}>
-              Add franchise
-            </Button>
           </>
         }
       />
@@ -175,15 +172,12 @@ export function MasterData() {
   return (
     <div>
       <ListHeader
-        title="Franchise master data"
+        title="Master data"
         sub="Maintain your franchise network with one governed, editable source of truth."
         actions={
           <>
             <Button variant="secondary" icon={<Upload size={16} />} onClick={add.openImport}>
               Import .xlsx
-            </Button>
-            <Button icon={<Plus size={16} />} onClick={add.openAdd}>
-              Add franchise
             </Button>
           </>
         }

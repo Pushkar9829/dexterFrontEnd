@@ -724,7 +724,7 @@ export default function FmChecksForm() {
                 <option value="">Select staff name</option>
                 <option value="Paras Dubey">Paras Dubey</option>
                 <option value="Meera Iyer">Meera Iyer</option>
-                <option value="Ananya Sharma">Ananya Sharma</option>
+                <option value="Paras Dubey">Paras Dubey</option>
                 <option value="Rahul Patil">Rahul Patil</option>
                 <option value="Amit Kumar">Amit Kumar</option>
                 <option value="Sanjay Deshmukh">Sanjay Deshmukh</option>

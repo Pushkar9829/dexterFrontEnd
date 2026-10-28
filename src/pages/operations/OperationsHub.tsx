@@ -41,7 +41,7 @@ const OPERATION_TILES: OperationTileConfig[] = [
   {
     title: 'CBR',
     sub: 'Track CBR details and related information.',
-    to: '/cbr/consolidated',
+    to: '/operations/cbr',
     Icon: Landmark,
     theme: 'purple',
     tag: 'Cash Balancing',

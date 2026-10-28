@@ -130,9 +130,18 @@ const PREFIX_TRAIL: Record<string, string[]> = {
   '/operations/txn-data': ['Workspace', 'Reports & MIS', 'TXNs Data History', 'Weekly Report'],
   '/operations/txn-data/new': ['Operations', 'Daily Operations', 'Daily TXN Data'],
   '/operations/txn-data/daily': ['Operations', 'Daily Operations', 'Daily TXN Data'],
+  '/operations/cbr/replenishment': ['Workspace', 'Operations', 'CBR', 'Cash Replenishment Management'],
+  '/operations/cbr': ['Workspace', 'Operations', 'CBR'],
+  '/cbr/replenishment': ['Workspace', 'Operations', 'CBR', 'Cash Replenishment Management'],
+  '/cbr/consolidated': ['Workspace', 'Operations', 'CBR', 'CBR Overview'],
+  '/cbr/eod-summary': ['Workspace', 'Operations', 'CBR', 'EOD Summary'],
+  '/cbr/mobile': ['Workspace', 'Operations', 'CBR', 'Mobile CBR'],
+  '/cbr': ['Workspace', 'Operations', 'CBR'],
   '/operations/daak': ['Workspace', 'Operations', 'Daak Management'],
   '/operations': ['Workspace', 'Operations'],
   '/reports': ['Workspace', 'Reports & MIS'],
+  '/reports/monthly-cbr': ['Workspace', 'Reports & MIS', 'Monthly CBR MIS'],
+  '/reports/monthly-cbr-mis': ['Workspace', 'Reports & MIS', 'Monthly CBR MIS'],
   '/reports/financial': ['Workspace', 'Reports & MIS', 'Financial Report'],
   '/finance': ['Workspace', 'Finance'],
   '/finance/sd': ['Workspace', 'Finance', 'Security Deposit '],
@@ -179,10 +188,6 @@ const PREFIX_TRAIL: Record<string, string[]> = {
   '/user/tickets': ['Workspace', 'User', 'Help & Support', 'Tickets'],
   '/user/help-center': ['Workspace', 'User', 'Help & Support', 'Help Center'],
   '/user/tour': ['Workspace', 'User', 'Help & Support', 'Take a tour'],
-  '/cbr/consolidated': ['Workspace', 'Reports & MIS', 'Consolidated Datewise CBR'],
-  '/cbr/eod-summary': ['Workspace', 'Reports & MIS', 'CBR EOD Summary'],
-  '/cbr/mobile': ['Workspace', 'Reports & MIS', 'Daily CBR'],
-  '/cbr': ['Workspace', 'Reports & MIS', 'CBR'],
 }
 
 export function trailFor(pathname: string): string[] {
@@ -218,7 +223,7 @@ export function activeRoute(pathname: string): string | undefined {
   }
   if (pathname.startsWith('/legal')) return '/legal'
   if (pathname.startsWith('/projects')) return '/projects'
-  if (pathname.startsWith('/operations')) return '/operations'
+  if (pathname.startsWith('/operations') || pathname.startsWith('/cbr')) return '/operations'
   if (pathname.startsWith('/reports')) return '/reports'
   if (pathname.startsWith('/finance')) return '/finance'
   if (pathname.startsWith('/governance')) return '/governance'

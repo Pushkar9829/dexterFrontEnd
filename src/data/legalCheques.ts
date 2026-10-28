@@ -168,7 +168,7 @@ const SEED_CHEQUE_RECORDS: ChequeRecord[] = [
     documents: [
       { name: 'OmFinserve_Cheques_Scan.pdf', sizeKb: 2150, type: 'application/pdf' },
     ],
-    handoverStaff: 'Ananya Sharma',
+    handoverStaff: 'Paras Dubey',
     remark: 'Awaiting bank clearance report',
     chequeEntries: [
       { id: 'entry-1', sn: 1, bankName: 'State Bank of India', accountNumber: '38291048592', chequeNumber: '119284', allottedTo: 'Hitachi' },
@@ -274,7 +274,7 @@ const SEED_CHEQUE_RECORDS: ChequeRecord[] = [
     documents: [
       { name: 'Shakti_PNB_Cheques.pdf', sizeKb: 1420, type: 'application/pdf' },
     ],
-    handoverStaff: 'Ananya Sharma',
+    handoverStaff: 'Paras Dubey',
     remark: 'Verified and linked to Daak item DAAK-2025-0482',
     chequeEntries: [
       { id: 'entry-1', sn: 1, bankName: 'Punjab National Bank', accountNumber: '184900210008472', chequeNumber: '554910', allottedTo: 'Hitachi' },

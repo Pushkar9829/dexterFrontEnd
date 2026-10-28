@@ -23,7 +23,7 @@ export const QUICK_ACCESS_ITEMS = [
   },
   {
     label: 'CBR',
-    to: '/cbr/consolidated',
+    to: '/operations/cbr',
     Icon: Landmark,
   },
   {

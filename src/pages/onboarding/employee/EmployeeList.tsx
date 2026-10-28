@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   Home,
@@ -22,6 +22,12 @@ import {
   Trash2,
   ExternalLink,
   Eye,
+  Users,
+  UserCheck,
+  Clock,
+  Timer,
+  UserX,
+  type LucideIcon,
 } from 'lucide-react'
 import {
   DEPARTMENTS,
@@ -38,12 +44,91 @@ import {
 import { toast } from '@/components/ui/Toast'
 import { downloadCsv } from '@/lib/export'
 
-const STATUS_TABS: { key: EmployeeStatus | 'all'; label: string }[] = [
-  { key: 'all', label: 'All Staff' },
-  { key: 'Active', label: 'Active' },
-  { key: 'Pending', label: 'Pending Approval' },
-  { key: 'Probation', label: 'Probation' },
-  { key: 'Inactive', label: 'Inactive' },
+interface StatusTileConfig {
+  key: EmployeeStatus | 'all'
+  label: string
+  icon: ReactNode
+  activeBg: string
+  activeBorder: string
+  activeBadge: string
+  inactiveBg: string
+  inactiveBorder: string
+}
+
+const STATUS_TILES: StatusTileConfig[] = [
+  {
+    key: 'all',
+    label: 'All Staff',
+    icon: (
+      <div className="w-8 h-8 rounded-lg bg-[#DBEAFE] flex items-center justify-center shrink-0">
+        <Users size={17} className="text-[#2563EB] fill-[#2563EB]" />
+      </div>
+    ),
+    activeBg: 'bg-[#F8FAFF]',
+    activeBorder: 'border-2 border-[#60A5FA] shadow-xs',
+    activeBadge: 'bg-[#DBEAFE] text-[#1D4ED8]',
+    inactiveBg: 'bg-[#F8FAFF]',
+    inactiveBorder: 'border border-[#BFDBFE]/70 hover:border-[#93C5FD]',
+  },
+  {
+    key: 'Active',
+    label: 'Active',
+    icon: (
+      <div className="w-8 h-8 rounded-lg bg-[#DCFCE7] flex items-center justify-center gap-1 shrink-0">
+        <span className="w-2.5 h-2.5 rounded-full bg-[#16A34A]" />
+        <span className="w-2.5 h-2.5 rounded-full bg-[#16A34A]" />
+      </div>
+    ),
+    activeBg: 'bg-[#F0FDF4]',
+    activeBorder: 'border-2 border-emerald-500 shadow-xs',
+    activeBadge: 'bg-[#DCFCE7] text-[#15803D]',
+    inactiveBg: 'bg-[#F0FDF4]',
+    inactiveBorder: 'border border-[#DCFCE7] hover:border-[#BBF7D0]',
+  },
+  {
+    key: 'Pending',
+    label: 'Pending Approval',
+    icon: (
+      <div className="w-8 h-8 rounded-lg bg-[#FFEDD5] flex items-center justify-center shrink-0">
+        <div className="w-5.5 h-5.5 rounded-full bg-[#F97316] flex items-center justify-center text-white shadow-2xs">
+          <Clock size={12} strokeWidth={2.8} className="text-white" />
+        </div>
+      </div>
+    ),
+    activeBg: 'bg-[#FFF7ED]',
+    activeBorder: 'border-2 border-orange-500 shadow-xs',
+    activeBadge: 'bg-[#FFEDD5] text-[#C2410C]',
+    inactiveBg: 'bg-[#FFF7ED]',
+    inactiveBorder: 'border border-[#FFEDD5] hover:border-[#FED7AA]',
+  },
+  {
+    key: 'Probation',
+    label: 'Probation',
+    icon: (
+      <div className="w-8 h-8 rounded-lg bg-[#FEF3C7] flex items-center justify-center shrink-0">
+        <Users size={17} className="text-[#D97706] fill-[#D97706]" />
+      </div>
+    ),
+    activeBg: 'bg-[#FFFBEB]',
+    activeBorder: 'border-2 border-amber-500 shadow-xs',
+    activeBadge: 'bg-[#FEF3C7] text-[#B45309]',
+    inactiveBg: 'bg-[#FFFBEB]',
+    inactiveBorder: 'border border-[#FEF3C7] hover:border-[#FDE68A]',
+  },
+  {
+    key: 'Inactive',
+    label: 'Inactive',
+    icon: (
+      <div className="w-8 h-8 rounded-lg bg-[#FEE2E2] flex items-center justify-center shrink-0">
+        <Users size={17} className="text-[#DC2626] fill-[#DC2626]" />
+      </div>
+    ),
+    activeBg: 'bg-[#FEF2F2]',
+    activeBorder: 'border-2 border-red-500 shadow-xs',
+    activeBadge: 'bg-[#FEE2E2] text-[#B91C1C]',
+    inactiveBg: 'bg-[#FEF2F2]',
+    inactiveBorder: 'border border-[#FEE2E2] hover:border-[#FECDD3]',
+  },
 ]
 
 export default function EmployeeList() {
@@ -230,42 +315,6 @@ export default function EmployeeList() {
         <span className="font-semibold text-slate-800">User / Employee Management</span>
       </div>
 
-      {/* Tabs Header */}
-      <div className="flex items-center gap-6 border-b border-slate-200 pt-1 overflow-x-auto">
-        {STATUS_TABS.map((t) => {
-          const count =
-            t.key === 'all'
-              ? employees.length
-              : employees.filter((e) => e.status === t.key).length
-          const isActive = tab === t.key
-
-          return (
-            <button
-              key={t.key}
-              type="button"
-              onClick={() => {
-                setTab(t.key)
-                setCurrentPage(1)
-              }}
-              className={`flex items-center gap-2 pb-3 text-[13px] font-semibold transition-colors border-b-2 -mb-px whitespace-nowrap ${
-                isActive
-                  ? 'border-[#0066FF] text-[#0066FF]'
-                  : 'border-transparent text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <span>{t.label}</span>
-              <span
-                className={`px-2 py-0.5 rounded-full text-[11px] ${
-                  isActive ? 'bg-blue-100 text-[#0066FF]' : 'bg-slate-100 text-slate-600'
-                }`}
-              >
-                {count}
-              </span>
-            </button>
-          )
-        })}
-      </div>
-
       {/* Page Title & Top Action Buttons */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-1">
         <div>
@@ -297,6 +346,54 @@ export default function EmployeeList() {
           </button>
         </div>
       </div>
+
+      {/* Tabs Header - Status Tiles matching design */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+        {STATUS_TILES.map((t) => {
+          const count =
+            t.key === 'all'
+              ? employees.length
+              : employees.filter((e) => e.status === t.key).length
+          const isActive = tab === t.key
+
+          return (
+            <button
+              key={t.key}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              onClick={() => {
+                setTab(t.key)
+                setCurrentPage(1)
+              }}
+              className={`flex items-center justify-between gap-2.5 h-[52px] px-3.5 rounded-xl transition-all duration-150 cursor-pointer text-left ${
+                isActive
+                  ? `${t.activeBorder} ${t.activeBg}`
+                  : `${t.inactiveBorder} ${t.inactiveBg}`
+              }`}
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                {t.icon}
+                <span className="text-[13px] font-bold text-[#1E1B4B] whitespace-nowrap">
+                  {t.label}
+                </span>
+              </div>
+
+              <span
+                className={`min-w-[28px] h-7 px-2 flex items-center justify-center rounded-lg text-[13px] font-bold shrink-0 transition-colors ${
+                  isActive
+                    ? t.activeBadge
+                    : 'bg-white shadow-2xs border border-slate-200/40 text-[#1E1B4B]'
+                }`}
+              >
+                {count}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+
+
 
       {/* Filter Section matching design pattern */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 sm:p-5">
@@ -686,9 +783,9 @@ export default function EmployeeList() {
             {totalRecords === 0
               ? 'Showing 0 to 0 of 0 records'
               : `Showing ${(currentPage - 1) * pageSize + 1} to ${Math.min(
-                  currentPage * pageSize,
-                  totalRecords
-                )} of ${totalRecords} records`}
+                currentPage * pageSize,
+                totalRecords
+              )} of ${totalRecords} records`}
           </div>
 
           <div className="flex items-center gap-1">

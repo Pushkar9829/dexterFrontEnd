@@ -111,7 +111,7 @@ const SEED_OTHER_DOCS: OtherDocRecord[] = [
     issueDate: '15/08/2025',
     expiryDate: '14/08/2028',
     status: 'Pending Review',
-    verifiedBy: 'Ananya Sharma',
+    verifiedBy: 'Paras Dubey',
     verificationDate: '18/08/2025',
     documents: [
       { name: 'Special_POA_Kuber_ATM.pdf', sizeKb: 2120, type: 'application/pdf' },

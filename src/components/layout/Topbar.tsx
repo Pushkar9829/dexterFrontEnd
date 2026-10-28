@@ -26,34 +26,11 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
 
   return (
     <header className="sticky top-0 z-20 flex h-[72px] items-center justify-between gap-4 border-b border-line bg-white px-4 sm:px-7">
-      {/* Left section: mobile hamburger & search bar */}
-      <div className="flex items-center gap-3 flex-1 max-w-[420px]">
+      {/* Left section: mobile hamburger */}
+      <div className="flex items-center gap-3">
         <button onClick={onMenu} className="text-muted lg:hidden" aria-label="Open menu">
           <Menu size={20} />
         </button>
-
-        <label className="flex h-9 w-full items-center gap-2.5 rounded-lg border border-line bg-surface px-3 text-[12px] text-muted transition-colors focus-within:border-primary focus-within:bg-white">
-          <Search size={15} className="shrink-0 text-[#64748B]" />
-          <input
-            ref={searchRef}
-            value={isReports ? qVal : undefined}
-            onChange={(e) => {
-              if (isReports) {
-                setParams((p) => {
-                  const n = new URLSearchParams(p)
-                  if (e.target.value) n.set('q', e.target.value)
-                  else n.delete('q')
-                  return n
-                }, { replace: true })
-              }
-            }}
-            placeholder={isReports ? 'Search reports, modules, or keywords...' : 'Search across workspace...'}
-            className="w-full bg-transparent text-ink outline-none placeholder:text-muted text-[12px]"
-          />
-          <span className="text-[10px] whitespace-nowrap text-[#94A3B8] rounded border border-slate-200 bg-white px-1.5 py-0.5 font-medium shadow-2xs">
-            Ctrl K
-          </span>
-        </label>
       </div>
 
       <div className="ml-auto flex items-center gap-3 sm:gap-4">
@@ -82,6 +59,31 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
             </div>
           </div>
         </div>
+
+        {/* Search bar between date time and profile */}
+        <label className="flex h-9 w-[180px] sm:w-[240px] md:w-[280px] lg:w-[320px] items-center gap-2.5 rounded-lg border border-line bg-surface px-3 text-[12px] text-muted transition-colors focus-within:border-primary focus-within:bg-white">
+          <Search size={15} className="shrink-0 text-[#64748B]" />
+          <input
+            ref={searchRef}
+            value={isReports ? qVal : undefined}
+            onChange={(e) => {
+              if (isReports) {
+                setParams((p) => {
+                  const n = new URLSearchParams(p)
+                  if (e.target.value) n.set('q', e.target.value)
+                  else n.delete('q')
+                  return n
+                }, { replace: true })
+              }
+            }}
+            placeholder={isReports ? 'Search reports, modules...' : 'Search across workspace...'}
+            className="w-full bg-transparent text-ink outline-none placeholder:text-muted text-[12px]"
+          />
+          <span className="hidden md:inline-block text-[10px] whitespace-nowrap text-[#94A3B8] rounded border border-slate-200 bg-white px-1.5 py-0.5 font-medium shadow-2xs">
+            Ctrl K
+          </span>
+        </label>
+
         <div className="hidden h-8 w-px bg-line sm:block" />
         <div className="relative">
           <button onClick={() => setMenu((m) => !m)} className="flex items-center gap-2.5">
