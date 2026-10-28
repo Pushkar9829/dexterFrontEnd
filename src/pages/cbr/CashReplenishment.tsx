@@ -146,51 +146,6 @@ export default function CashReplenishment() {
     toast(`Record #${rowNo} deleted successfully`, 'success')
   }
 
-  const handleDownloadRow = (row: CBRRow) => {
-    const headers = [
-      'No',
-      'Date',
-      'ATM ID',
-      'MF Name',
-      'Indent No',
-      'EOD Time',
-      'Opening Balance',
-      'Dispense',
-      'Purge Bin',
-      'Overage',
-      'Shortage',
-      'Physical Cash',
-      'Loading',
-      'Closing Balance',
-      'Remarks',
-      'Switch Balance',
-    ]
-
-    const data = [
-      [
-        String(row.no),
-        row.date,
-        row.atmId,
-        row.mfName,
-        row.indentNo,
-        row.eodTime,
-        String(row.openingBalance),
-        String(row.dispense),
-        String(row.purgeBin),
-        String(row.overage),
-        String(row.shortage),
-        String(row.physicalCash),
-        String(row.loading),
-        String(row.closingBalance),
-        row.remarks,
-        String(row.switchBalance),
-      ],
-    ]
-
-    downloadCsv(`cbr-record-${row.no}-${row.date}`, headers, data)
-    toast(`Record #${row.no} exported successfully`, 'success')
-  }
-
   const handleExport = (format: 'csv' | 'xlsx' = 'csv') => {
     setExportOpen(false)
     const headers = [

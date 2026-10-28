@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Building2, CircleCheck, Database, PanelsTopLeft, Plus, ShieldCheck, Store, Tablet, Upload } from 'lucide-react'
+import { ArrowLeft, Building2, CircleCheck, Database, PanelsTopLeft, ShieldCheck, Store, Tablet, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { StatCard } from '@/components/ui/KpiCard'
 import { Sparkline } from '@/components/ui/Sparkline'
