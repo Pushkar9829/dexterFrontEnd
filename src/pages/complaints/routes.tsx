@@ -6,6 +6,11 @@ import AiDashboard from './AiDashboard'
 import CreateComplaint from './CreateComplaint'
 import Complaint360 from './Complaint360'
 import OperationsHub from '../operations/OperationsHub'
+import ReconciliationHub from '../operations/ReconciliationHub'
+import FailedTxnsDisputeList from '../operations/FailedTxnsDisputeList'
+import FailedTxnsDisputeCreate from '../operations/FailedTxnsDisputeCreate'
+import ChargeBackDisputeList from '../operations/ChargeBackDisputeList'
+import ChargeBackDisputeForm from '../operations/ChargeBackDisputeForm'
 import TxnDataList from '../operations/TxnDataList'
 import TxnDataDaily from '../operations/TxnDataDaily'
 import Placeholder from '../Placeholder'
@@ -26,4 +31,13 @@ export const complaintRoutes = [
   <Route key="ops-txn-daily" path="/operations/txn-data/daily" element={<TxnDataDaily />} />,
   <Route key="ops-txn-edit" path="/operations/txn-data/:atmId" element={<TxnDataDaily />} />,
   <Route key="ops-daak" path="/operations/daak" element={<Placeholder />} />,
+  <Route key="ops-reco" path="/operations/reconciliation" element={<ReconciliationHub />} />,
+  <Route key="ops-reco-failed" path="/operations/reconciliation/failed-txns" element={<FailedTxnsDisputeList />} />,
+  <Route key="ops-reco-failed-new" path="/operations/reconciliation/failed-txns/new" element={<FailedTxnsDisputeCreate />} />,
+  <Route key="ops-reco-failed-id" path="/operations/reconciliation/failed-txns/:id" element={<FailedTxnsDisputeCreate />} />,
+  <Route key="ops-reco-failed-edit" path="/operations/reconciliation/failed-txns/:id/edit" element={<FailedTxnsDisputeCreate />} />,
+  <Route key="ops-reco-chargeback" path="/operations/reconciliation/charge-back" element={<ChargeBackDisputeList />} />,
+  <Route key="ops-reco-cb-new" path="/operations/reconciliation/charge-back/new" element={<ChargeBackDisputeForm />} />,
+  <Route key="ops-reco-cb-id" path="/operations/reconciliation/charge-back/:id" element={<ChargeBackDisputeForm />} />,
+  <Route key="ops-reco-cb-edit" path="/operations/reconciliation/charge-back/:id/edit" element={<ChargeBackDisputeForm />} />,
 ]

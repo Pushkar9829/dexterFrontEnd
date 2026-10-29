@@ -9,6 +9,7 @@ import {
   Landmark,
   Mail,
   MessageSquare,
+  Scale,
   Zap,
 } from 'lucide-react'
 import { HubTile, type HubTileTheme } from '@/components/ui/HubTile'
@@ -115,6 +116,17 @@ const OPERATION_TILES: OperationTileConfig[] = [
     badge: '5 Reports',
     actionText: 'Manage daak',
   },
+  {
+    title: 'RECONCILIATION',
+    sub: 'Manage failed transactions dispute, charge back dispute and settlements.',
+    to: '/operations/reconciliation',
+    Icon: Scale,
+    theme: 'blue',
+    tag: 'Disputes & Reco',
+    reportsCount: '2 Modules',
+    badge: '2 Modules',
+    actionText: 'Manage reconciliation',
+  },
 ]
 
 const QUICK_ACCESS_ITEMS = [
@@ -165,6 +177,12 @@ const QUICK_ACCESS_ITEMS = [
     to: '/operations/daak',
     iconBg: 'bg-teal-50 text-teal-600 border-teal-200',
     Icon: Mail,
+  },
+  {
+    title: 'Reconciliation',
+    to: '/operations/reconciliation',
+    iconBg: 'bg-blue-50 text-blue-600 border-blue-200',
+    Icon: Scale,
   },
 ]
 

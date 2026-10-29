@@ -10,6 +10,7 @@ import {
   Landmark,
   Mail,
   MessageSquare,
+  Scale,
   X,
   Zap,
 } from 'lucide-react'
@@ -55,6 +56,11 @@ export const QUICK_ACCESS_ITEMS = [
     label: 'Daak Management',
     to: '/operations/daak',
     Icon: Mail,
+  },
+  {
+    label: 'Reconciliation',
+    to: '/operations/reconciliation',
+    Icon: Scale,
   },
 ]
 
