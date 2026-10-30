@@ -14,6 +14,7 @@ import EmployeeList from '@/pages/onboarding/employee/EmployeeList'
 import EmployeeRecord from '@/pages/onboarding/employee/EmployeeRecord'
 import EmployeeOnboardingForm from '@/pages/onboarding/employee/EmployeeOnboardingForm'
 import KycHub from '@/pages/onboarding/KycHub'
+import KycUpload from '@/pages/onboarding/KycUpload'
 import SetupHub, { BusinessSettingsHub, EscalationMatrixHub } from '@/pages/onboarding/SetupHub'
 import { Toaster } from '@/components/ui/Toast'
 import { FranchiseHub, FranchiseRegistration, MasterData, TierList } from '@/pages/franchise/FranchisePages'
@@ -74,6 +75,7 @@ export default function App() {
           <Route path="/franchise/apna-app/:id" element={<ApnaAppRecord />} />
           <Route path="/franchise/:tier" element={<TierList />} />
           <Route path="/kyc" element={<KycHub />} />
+          <Route path="/kyc/upload" element={<KycUpload />} />
           <Route path="/kyc/verification" element={<KycQueue />} />
           <Route path="/kyc/verification/:caseId" element={<KycWorkspace />} />
           <Route path="/setup" element={<SetupHub />} />

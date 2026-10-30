@@ -79,6 +79,11 @@ export function updateCase(id: string, patch: Partial<KycCase>) {
   kycStore.set((list) => list.map((c) => (c.id === id ? { ...c, ...patch } : c)))
 }
 
+export function addKycCase(newCase: KycCase) {
+  kycStore.set((list) => [newCase, ...list.filter((c) => c.id !== newCase.id)])
+  updateFranchises([newCase.franchiseId], { kyc: 'In review' })
+}
+
 export function decide(id: string, approve: boolean, reason?: string) {
   const c = getKycCase(id)
   if (!c) return
