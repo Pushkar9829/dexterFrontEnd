@@ -38,7 +38,7 @@ export function FranchiseGrid({ rows, mode, scope }: { rows: Franchise[]; mode: 
       ? {
           key: 'sd', header: 'SD', label: 'SD', width: 103, sortable: true, filterable: true, editable: false, value: () => 'View',
           render: (f) => (
-            <Link to={`${dossierLink(f.id)}/sd`} className="-my-[2px] inline-flex h-5 w-16 items-center gap-1.5 align-middle rounded bg-primary-soft px-2 text-[11px] leading-none text-primary hover:underline">
+            <Link to={`/finance/sd/${f.id}`} className="-my-[2px] inline-flex h-5 w-16 items-center gap-1.5 align-middle rounded bg-primary-soft px-2 text-[11px] leading-none text-primary hover:underline">
               <Eye size={12} /> View
             </Link>
           ),

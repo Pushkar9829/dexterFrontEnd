@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, Download, Pencil } from 'lucide-react'
+import { Navigate, useParams, useSearchParams } from 'react-router-dom'
+import { Download, Pencil } from 'lucide-react'
 import { Badge, toneFor } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { toast } from '@/components/ui/Toast'
@@ -73,9 +73,6 @@ export default function Dossier() {
 
   return (
     <div className="print:p-0">
-      <Link to="/franchise/master-data" className="mb-3 inline-flex items-center gap-1.5 text-[13px] font-medium text-primary hover:underline print:hidden">
-        <ArrowLeft size={15} /> Back to Master Data
-      </Link>
       <div className="mb-[15px] flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="-mt-1 text-[28.5px] font-semibold tracking-tight">WLA Franchise Application Form</h1>
