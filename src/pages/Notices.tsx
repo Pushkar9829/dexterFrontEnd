@@ -351,9 +351,7 @@ export default function Notices() {
                 </span>
               )}
             </div>
-            <p className="mt-1 text-[13px] text-slate-500 max-w-3xl">
-              Track real-time operational alerts, KYC verification turnarounds, EOD submission deadlines, SLA breaches, and workflow escalations across India operations.
-            </p>
+
           </div>
         </div>
 
@@ -1073,21 +1071,6 @@ export default function Notices() {
               <ChevronsRight size={14} />
             </button>
           </div>
-        </div>
-      </div>
-
-      {/* ── Footer Information Card ──────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center justify-between gap-3 text-[11.5px] text-slate-500 rounded-lg bg-slate-100/60 p-3">
-        <div className="flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-[#0066FF]" />
-          <span>
-            Blue-edged left borders indicate unacknowledged notices. Clicking &quot;Open&quot; redirects to the actionable module and marks the notice as read.
-          </span>
-        </div>
-        <div className="flex items-center gap-4">
-          <span>All timestamps in Indian Standard Time (IST)</span>
-          <span className="text-slate-300">|</span>
-          <span>Last synchronized 06 Oct 2026, 09:14 IST</span>
         </div>
       </div>
 
