@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import {
   Calendar,
   ChevronDown,
@@ -31,6 +31,14 @@ import { toast } from '@/components/ui/Toast'
 
 export default function ChargeBackDisputeList() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const location = useLocation()
+  const isFromReport =
+    searchParams.get('source') === 'report' ||
+    searchParams.get('from') === 'reports' ||
+    searchParams.get('hideNew') === 'true' ||
+    location.pathname.startsWith('/reports')
+
   const { records, deleteRecord, resetDummyData } = useChargeBackStore()
 
   // Filter input states
@@ -187,22 +195,34 @@ export default function ChargeBackDisputeList() {
 
   return (
     <div className="mx-auto max-w-[1500px] min-w-0 pb-12 font-sans space-y-4">
-      {/* Breadcrumb: Workspace > Operations > Charge Back Dispute > Charge Back Dispute Data */}
+      {/* Breadcrumb */}
       <div className="flex items-center gap-1.5 text-[12px] text-slate-500">
         <Home size={14} className="text-slate-400 shrink-0" />
         <Link to="/dashboard" className="hover:text-[#0066FF] transition-colors">
           Workspace
         </Link>
         <ChevronRight size={12} className="text-slate-400 shrink-0" />
-        <Link to="/operations" className="hover:text-[#0066FF] transition-colors">
-          Operations
-        </Link>
-        <ChevronRight size={12} className="text-slate-400 shrink-0" />
-        <Link to="/operations/reconciliation" className="hover:text-[#0066FF] transition-colors">
-          Charge Back Dispute
-        </Link>
-        <ChevronRight size={12} className="text-slate-400 shrink-0" />
-        <span className="font-semibold text-slate-800">Charge Back Dispute Data</span>
+        {isFromReport ? (
+          <>
+            <Link to="/reports" className="hover:text-[#0066FF] transition-colors">
+              Reports & MIS
+            </Link>
+            <ChevronRight size={12} className="text-slate-400 shrink-0" />
+            <span className="font-semibold text-slate-800">Charge Back Dispute</span>
+          </>
+        ) : (
+          <>
+            <Link to="/operations" className="hover:text-[#0066FF] transition-colors">
+              Operations
+            </Link>
+            <ChevronRight size={12} className="text-slate-400 shrink-0" />
+            <Link to="/operations/reconciliation" className="hover:text-[#0066FF] transition-colors">
+              Charge Back Dispute
+            </Link>
+            <ChevronRight size={12} className="text-slate-400 shrink-0" />
+            <span className="font-semibold text-slate-800">Charge Back Dispute Data</span>
+          </>
+        )}
       </div>
 
       {/* Page Header */}
@@ -233,12 +253,14 @@ export default function ChargeBackDisputeList() {
             </button>
           )}
 
-          <Link
-            to="/operations/reconciliation/charge-back/new"
-            className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#0066FF] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 cursor-pointer"
-          >
-            <Plus size={16} /> Charge Back Dispute
-          </Link>
+          {!isFromReport && (
+            <Link
+              to="/operations/reconciliation/charge-back/new"
+              className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#0066FF] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 cursor-pointer"
+            >
+              <Plus size={16} /> Charge Back Dispute
+            </Link>
+          )}
         </div>
       </div>
 
@@ -571,35 +593,39 @@ export default function ChargeBackDisputeList() {
                       {renderStatusBadge(r.status)}
                     </td>
 
-                    {/* 14. Action (NO POPUP - Opens filled form page directly) */}
+                    {/* 14. Action */}
                     <td className="px-3 py-2.5 whitespace-nowrap sticky right-0 bg-white shadow-[-2px_0_4px_rgba(0,0,0,0.03)] text-center">
                       <div className="flex items-center justify-center gap-1.5">
                         <button
                           type="button"
-                          onClick={() => navigate(`/operations/reconciliation/charge-back/${r.id}`)}
+                          onClick={() => navigate(`/operations/reconciliation/charge-back/${r.id}${isFromReport ? '?source=report' : ''}`)}
                           className="h-7 w-7 rounded-md flex items-center justify-center text-[#0066FF] hover:bg-blue-50 border border-blue-200/80 transition-colors cursor-pointer"
                           title="View / Open Filled Form"
                         >
                           <Eye size={13} />
                         </button>
 
-                        <button
-                          type="button"
-                          onClick={() => navigate(`/operations/reconciliation/charge-back/${r.id}`)}
-                          className="h-7 w-7 rounded-md flex items-center justify-center text-[#0066FF] hover:bg-blue-50 border border-blue-200/80 transition-colors cursor-pointer"
-                          title="Edit Dispute Form"
-                        >
-                          <Edit2 size={13} />
-                        </button>
+                        {!isFromReport && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/operations/reconciliation/charge-back/${r.id}`)}
+                              className="h-7 w-7 rounded-md flex items-center justify-center text-[#0066FF] hover:bg-blue-50 border border-blue-200/80 transition-colors cursor-pointer"
+                              title="Edit Dispute Form"
+                            >
+                              <Edit2 size={13} />
+                            </button>
 
-                        <button
-                          type="button"
-                          onClick={() => setDeletingId(r.id)}
-                          className="h-7 w-7 rounded-md flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 border border-slate-200 hover:border-red-200 transition-colors cursor-pointer"
-                          title="Delete Dispute"
-                        >
-                          <Trash2 size={13} />
-                        </button>
+                            <button
+                              type="button"
+                              onClick={() => setDeletingId(r.id)}
+                              className="h-7 w-7 rounded-md flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 border border-slate-200 hover:border-red-200 transition-colors cursor-pointer"
+                              title="Delete Dispute"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>

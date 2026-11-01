@@ -58,7 +58,7 @@ export const moduleTiles = [
   { title: 'Legal', sub: 'LOI, Affidavits, Agreement', to: '/legal', tone: 'blue' },
   { title: 'Projects', sub: 'Site Installation', to: '/projects/active', tone: 'sky' },
   { title: 'Reports & MIS', sub: 'Management & Operational Reports', to: '/reports', tone: 'purple' },
-  { title: 'Governance', sub: 'Audit, Security, Notices', to: '/governance/audit', tone: 'red' },
+  { title: 'Governance', sub: 'Audit, Security, Push Notifications', to: '/governance', tone: 'red' },
 ] as const
 
 export const inr = (n: number) => '₹ ' + n.toLocaleString('en-IN')

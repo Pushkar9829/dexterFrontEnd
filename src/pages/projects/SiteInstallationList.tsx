@@ -22,7 +22,9 @@ import {
   Edit2,
   Trash2,
   ExternalLink,
+  Eye,
 } from 'lucide-react'
+import { useReportMode } from '@/hooks/useReportMode'
 import {
   useSiteInstallations,
   exportSiteInstallationCsv,
@@ -34,6 +36,7 @@ import { toast } from '@/components/ui/Toast'
 
 export default function SiteInstallationList() {
   const navigate = useNavigate()
+  const isReport = useReportMode()
   const { records } = useSiteInstallations()
 
   // Filter States
@@ -193,58 +196,74 @@ export default function SiteInstallationList() {
 
   return (
     <div className="space-y-4 pb-12">
-      {/* Breadcrumb matching Image 1: Workspace > Projects > Site Installation */}
+      {/* Breadcrumb */}
       <div className="flex items-center gap-1.5 text-[12px] text-slate-500">
         <Home size={14} className="text-slate-400 shrink-0" />
         <Link to="/dashboard" className="hover:text-[#0066FF] transition-colors">
           Workspace
         </Link>
         <ChevronRight size={12} className="text-slate-400" />
-        <Link to="/projects" className="hover:text-[#0066FF] transition-colors">
-          Projects
-        </Link>
-        <ChevronRight size={12} className="text-slate-400" />
-        <span className="font-semibold text-slate-800">Site Installation</span>
+        {isReport ? (
+          <>
+            <Link to="/reports" className="hover:text-[#0066FF] transition-colors">
+              Reports & MIS
+            </Link>
+            <ChevronRight size={12} className="text-slate-400" />
+            <span className="font-semibold text-slate-800">Site Installation Report</span>
+          </>
+        ) : (
+          <>
+            <Link to="/projects" className="hover:text-[#0066FF] transition-colors">
+              Projects
+            </Link>
+            <ChevronRight size={12} className="text-slate-400" />
+            <span className="font-semibold text-slate-800">Site Installation</span>
+          </>
+        )}
       </div>
 
       {/* Page Title & Top Action Button */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-1">
         <div>
           <h1 className="text-[26px] font-bold tracking-tight text-slate-900 leading-tight">
-            Site Installation
+            {isReport ? 'Site Installation Report' : 'Site Installation'}
           </h1>
           <p className="text-[13px] text-slate-500 mt-1">
-            View and manage site installation status and related activities.
+            {isReport
+              ? 'View ATM site installation checklist, deployment and readiness status report.'
+              : 'View and manage site installation status and related activities.'}
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          {records.length === 0 ? (
-            <button
-              onClick={populateSampleRecords}
-              className="hidden md:inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-slate-200 bg-white text-[12px] font-medium text-slate-700 hover:bg-slate-50 hover:text-[#0066FF] transition-all shadow-sm"
-              title="Quickly fill sample records to test table"
-            >
-              Demo Records
-            </button>
-          ) : (
-            <button
-              onClick={clearAllRecords}
-              className="hidden md:inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-slate-200 bg-white text-[12px] font-medium text-slate-500 hover:bg-slate-50 hover:text-red-600 transition-all shadow-sm"
-              title="Reset to empty state like reference image"
-            >
-              Clear Records
-            </button>
-          )}
+        {!isReport && (
+          <div className="flex items-center gap-2">
+            {records.length === 0 ? (
+              <button
+                onClick={populateSampleRecords}
+                className="hidden md:inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-slate-200 bg-white text-[12px] font-medium text-slate-700 hover:bg-slate-50 hover:text-[#0066FF] transition-all shadow-sm"
+                title="Quickly fill sample records to test table"
+              >
+                Demo Records
+              </button>
+            ) : (
+              <button
+                onClick={clearAllRecords}
+                className="hidden md:inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-slate-200 bg-white text-[12px] font-medium text-slate-500 hover:bg-slate-50 hover:text-red-600 transition-all shadow-sm"
+                title="Reset to empty state like reference image"
+              >
+                Clear Records
+              </button>
+            )}
 
-          <button
-            onClick={() => navigate('/projects/installation/new')}
-            className="inline-flex items-center gap-2 h-9.5 px-4 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[13px] font-semibold transition-all shadow-sm hover:shadow"
-          >
-            <Plus size={16} strokeWidth={2.4} />
-            <span>New Site Installation</span>
-          </button>
-        </div>
+            <button
+              onClick={() => navigate('/projects/installation/new')}
+              className="inline-flex items-center gap-2 h-9.5 px-4 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[13px] font-semibold transition-all shadow-sm hover:shadow"
+            >
+              <Plus size={16} strokeWidth={2.4} />
+              <span>New Site Installation</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Filter Section */}
@@ -634,7 +653,7 @@ export default function SiteInstallationList() {
                     </td>
                     <td className="py-2.5 px-3 border-r border-slate-100 font-semibold text-[#0066FF] whitespace-nowrap">
                       <button
-                        onClick={() => navigate(`/projects/installation/${item.id}`)}
+                        onClick={() => navigate(`/projects/installation/${item.id}${isReport ? '?source=report' : ''}`)}
                         className="hover:underline flex items-center justify-center gap-1 mx-auto"
                       >
                         {item.siteLoi}
@@ -661,20 +680,32 @@ export default function SiteInstallationList() {
                     </td>
                     <td className="py-2.5 px-3 whitespace-nowrap sticky right-0 bg-white shadow-[-2px_0_4px_rgba(0,0,0,0.03)]">
                       <div className="flex items-center justify-center gap-1.5">
-                        <button
-                          onClick={() => navigate(`/projects/installation/${item.id}`)}
-                          className="p-1 text-slate-500 hover:text-[#0066FF] hover:bg-blue-50 rounded"
-                          title="Edit / Open"
-                        >
-                          <Edit2 size={13} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(item.id, item.siteLoi)}
-                          className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded"
-                          title="Delete"
-                        >
-                          <Trash2 size={13} />
-                        </button>
+                        {isReport ? (
+                          <button
+                            onClick={() => navigate(`/projects/installation/${item.id}?source=report`)}
+                            className="p-1 text-[#0066FF] hover:bg-blue-50 rounded"
+                            title="View Installation Details"
+                          >
+                            <Eye size={14} />
+                          </button>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => navigate(`/projects/installation/${item.id}`)}
+                              className="p-1 text-slate-500 hover:text-[#0066FF] hover:bg-blue-50 rounded"
+                              title="Edit / Open"
+                            >
+                              <Edit2 size={13} />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(item.id, item.siteLoi)}
+                              className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded"
+                              title="Delete"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -693,24 +724,28 @@ export default function SiteInstallationList() {
                         No records found
                       </h3>
                       <p className="text-[12px] text-slate-500 mt-1 max-w-[320px]">
-                        Try adjusting your filters or click on "New Site Installation" to add a record.
+                        {isReport
+                          ? 'No site installation records found for the selected filters.'
+                          : 'Try adjusting your filters or click on "New Site Installation" to add a record.'}
                       </p>
 
-                      <div className="mt-4 flex items-center gap-2">
-                        <button
-                          onClick={() => navigate('/projects/installation/new')}
-                          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[11px] font-semibold transition-all shadow-xs"
-                        >
-                          <Plus size={13} />
-                          New Site Installation
-                        </button>
-                        <button
-                          onClick={populateSampleRecords}
-                          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-medium transition-all"
-                        >
-                          Load Sample Data
-                        </button>
-                      </div>
+                      {!isReport && (
+                        <div className="mt-4 flex items-center gap-2">
+                          <button
+                            onClick={() => navigate('/projects/installation/new')}
+                            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[11px] font-semibold transition-all shadow-xs"
+                          >
+                            <Plus size={13} />
+                            New Site Installation
+                          </button>
+                          <button
+                            onClick={populateSampleRecords}
+                            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-medium transition-all"
+                          >
+                            Load Sample Data
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </td>
                 </tr>

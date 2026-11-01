@@ -16,7 +16,9 @@ import {
   RotateCcw,
   Search,
   Trash2,
+  Eye,
 } from 'lucide-react'
+import { useReportMode } from '@/hooks/useReportMode'
 import { Button } from '@/components/ui/Button'
 import { toast } from '@/components/ui/Toast'
 import { downloadCsv } from '@/lib/export'
@@ -27,6 +29,7 @@ import {
 
 export default function ApnaAppList() {
   const navigate = useNavigate()
+  const isReport = useReportMode()
   const records = useApnaAppRegistrations()
 
   // Filter States
@@ -177,33 +180,49 @@ export default function ApnaAppList() {
           <span>Workspace</span>
         </Link>
         <span>&gt;</span>
-        <Link to="/projects" className="hover:text-[#0066FF]">
-          Projects
-        </Link>
-        <span>&gt;</span>
-        <span className="font-medium text-[#1E293B]">Apna App Registration</span>
+        {isReport ? (
+          <>
+            <Link to="/reports" className="hover:text-[#0066FF]">
+              Reports & MIS
+            </Link>
+            <span>&gt;</span>
+            <span className="font-medium text-[#1E293B]">Apna App Registration Report</span>
+          </>
+        ) : (
+          <>
+            <Link to="/projects" className="hover:text-[#0066FF]">
+              Projects
+            </Link>
+            <span>&gt;</span>
+            <span className="font-medium text-[#1E293B]">Apna App Registration</span>
+          </>
+        )}
       </nav>
 
       {/* Page Header */}
       <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-[26px] font-bold tracking-tight text-[#0F172A]">
-            Apna App Registration Data
+            {isReport ? 'Apna App Registration Report' : 'Apna App Registration Data'}
           </h1>
           <p className="mt-0.5 text-[13px] text-[#64748B]">
-            View and manage Apna App user registration details for site, franchise and master franchise.
+            {isReport
+              ? 'View Apna App user registration, sync and usage report for site, franchise and master franchise.'
+              : 'View and manage Apna App user registration details for site, franchise and master franchise.'}
           </p>
         </div>
 
         {/* Primary Action Button */}
-        <Button
-          type="button"
-          size="md"
-          onClick={() => navigate('/franchise/apna-app/new')}
-          className="bg-[#0066FF] px-4 font-semibold text-white shadow-sm hover:bg-[#0052cc]"
-        >
-          <Plus size={16} className="mr-1.5" strokeWidth={2.5} /> New Registration
-        </Button>
+        {!isReport && (
+          <Button
+            type="button"
+            size="md"
+            onClick={() => navigate('/franchise/apna-app/new')}
+            className="bg-[#0066FF] px-4 font-semibold text-white shadow-sm hover:bg-[#0052cc]"
+          >
+            <Plus size={16} className="mr-1.5" strokeWidth={2.5} /> New Registration
+          </Button>
+        )}
       </div>
 
       {/* ── 1. Filter Card ─────────────────────────────────────────────────── */}
@@ -451,7 +470,7 @@ export default function ApnaAppList() {
                 paginatedRows.map((item) => (
                   <tr
                     key={item.id}
-                    onClick={() => navigate(`/franchise/apna-app/${item.id}`)}
+                    onClick={() => navigate(`/franchise/apna-app/${item.id}${isReport ? '?source=report' : ''}`)}
                     className="cursor-pointer transition-colors duration-150 hover:bg-[#F8FAFD]"
                   >
                     <td className="py-3.5 px-3 text-center font-medium text-[#64748B]">
@@ -474,22 +493,35 @@ export default function ApnaAppList() {
                     </td>
                     <td className="py-3.5 px-4 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                       <div className="inline-flex items-center justify-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => navigate(`/franchise/apna-app/${item.id}`)}
-                          className="grid h-7 w-7 place-items-center rounded-md text-[#0066FF] hover:bg-[#EAF2FD]"
-                          title="Edit Registration"
-                        >
-                          <Pencil size={14} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => handleDelete(item.id, item.sn, e)}
-                          className="grid h-7 w-7 place-items-center rounded-md text-[#EF4444] hover:bg-red-50"
-                          title="Delete Registration"
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                        {isReport ? (
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/franchise/apna-app/${item.id}?source=report`)}
+                            className="grid h-7 w-7 place-items-center rounded-md text-[#0066FF] hover:bg-[#EAF2FD]"
+                            title="View Registration"
+                          >
+                            <Eye size={14} />
+                          </button>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/franchise/apna-app/${item.id}`)}
+                              className="grid h-7 w-7 place-items-center rounded-md text-[#0066FF] hover:bg-[#EAF2FD]"
+                              title="Edit Registration"
+                            >
+                              <Pencil size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => handleDelete(item.id, item.sn, e)}
+                              className="grid h-7 w-7 place-items-center rounded-md text-[#EF4444] hover:bg-red-50"
+                              title="Delete Registration"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -504,15 +536,19 @@ export default function ApnaAppList() {
                       </div>
                       <h4 className="text-[15px] font-bold text-[#1E293B]">No records found</h4>
                       <p className="mt-1 text-[12.5px] text-[#64748B]">
-                        Try adjusting your filters or click on "New Registration" to add a record.
+                        {isReport
+                          ? 'No Apna App registration records found for the selected filters.'
+                          : 'Try adjusting your filters or click on "New Registration" to add a record.'}
                       </p>
-                      <Button
-                        size="sm"
-                        onClick={() => navigate('/franchise/apna-app/new')}
-                        className="mt-4 bg-[#0066FF] text-white"
-                      >
-                        <Plus size={14} className="mr-1" /> New Registration
-                      </Button>
+                      {!isReport && (
+                        <Button
+                          size="sm"
+                          onClick={() => navigate('/franchise/apna-app/new')}
+                          className="mt-4 bg-[#0066FF] text-white"
+                        >
+                          <Plus size={14} className="mr-1" /> New Registration
+                        </Button>
+                      )}
                     </div>
                   </td>
                 </tr>

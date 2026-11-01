@@ -15,6 +15,15 @@ import StaffSalaryRecordPage from './StaffSalaryRecord'
 import StaffExpenseList from './StaffExpenseList'
 import StaffExpenseRecordPage from './StaffExpenseRecord'
 
+import AccountManagementHub from './AccountManagementHub'
+import SettlementBankHub from './SettlementBankHub'
+import AccountMappingList from './AccountMappingList'
+import SettlementAccountMappingForm from './SettlementAccountMappingForm'
+import AcChangeRequestList from './AcChangeRequestList'
+import AcChangeRequestForm from './AcChangeRequestForm'
+import AccountOpeningList from './AccountOpeningList'
+import TdsComplianceList from './TdsComplianceList'
+
 // keyed by :id so moving between records (or new → created) remounts with fresh form state
 function ClfRecordRoute() {
   const { id = '' } = useParams()
@@ -43,6 +52,28 @@ function StaffExpenseRecordRoute() {
 
 export const financeRoutes = [
   <Route key="finance-hub" path="/finance" element={<FinanceHub />} />,
+  <Route key="finance-acc-mgmt" path="/finance/account-management" element={<AccountManagementHub />} />,
+  <Route key="finance-acc-payout" path="/finance/account-management/payout" element={<PayoutList />} />,
+  <Route key="finance-acc-payout-new" path="/finance/account-management/payout/new" element={<PayoutRecordRoute />} />,
+  <Route key="finance-acc-payout-id" path="/finance/account-management/payout/:id" element={<PayoutRecordRoute />} />,
+  <Route key="finance-settlement-bank" path="/finance/settlement-bank" element={<SettlementBankHub />} />,
+  <Route key="finance-acc-settlement-bank" path="/finance/account-management/settlement-bank" element={<SettlementBankHub />} />,
+  <Route key="finance-settlement-bank-mapping" path="/finance/settlement-bank/account-mapping" element={<AccountMappingList />} />,
+  <Route key="finance-settlement-bank-mapping-new" path="/finance/settlement-bank/account-mapping/new" element={<SettlementAccountMappingForm />} />,
+  <Route key="finance-settlement-bank-mapping-id" path="/finance/settlement-bank/account-mapping/:id" element={<SettlementAccountMappingForm />} />,
+  <Route key="finance-acc-settlement-bank-mapping" path="/finance/account-management/settlement-bank/account-mapping" element={<AccountMappingList />} />,
+  <Route key="finance-acc-settlement-bank-mapping-new" path="/finance/account-management/settlement-bank/account-mapping/new" element={<SettlementAccountMappingForm />} />,
+  <Route key="finance-acc-settlement-bank-mapping-id" path="/finance/account-management/settlement-bank/account-mapping/:id" element={<SettlementAccountMappingForm />} />,
+  <Route key="finance-settlement-bank-ac-change" path="/finance/settlement-bank/ac-change-request" element={<AcChangeRequestList />} />,
+  <Route key="finance-settlement-bank-ac-change-new" path="/finance/settlement-bank/ac-change-request/new" element={<AcChangeRequestForm />} />,
+  <Route key="finance-settlement-bank-ac-change-id" path="/finance/settlement-bank/ac-change-request/:id" element={<AcChangeRequestForm />} />,
+  <Route key="finance-acc-settlement-bank-ac-change" path="/finance/account-management/settlement-bank/ac-change-request" element={<AcChangeRequestList />} />,
+  <Route key="finance-acc-settlement-bank-ac-change-new" path="/finance/account-management/settlement-bank/ac-change-request/new" element={<AcChangeRequestForm />} />,
+  <Route key="finance-acc-settlement-bank-ac-change-id" path="/finance/account-management/settlement-bank/ac-change-request/:id" element={<AcChangeRequestForm />} />,
+  <Route key="finance-settlement-bank-opening" path="/finance/settlement-bank/account-opening" element={<AccountOpeningList />} />,
+  <Route key="finance-acc-settlement-bank-opening" path="/finance/account-management/settlement-bank/account-opening" element={<AccountOpeningList />} />,
+  <Route key="finance-tds-compliance" path="/finance/tds-compliance" element={<TdsComplianceList />} />,
+  <Route key="finance-acc-tds-compliance" path="/finance/account-management/tds-compliance" element={<TdsComplianceList />} />,
   <Route key="finance-hr-payments" path="/finance/hr-payments" element={<HrPaymentsHub />} />,
   <Route key="finance-hr-salary" path="/finance/hr-payments/salary" element={<StaffSalaryList />} />,
   <Route key="finance-hr-salary-new" path="/finance/hr-payments/salary/new" element={<StaffSalaryRecordRoute />} />,

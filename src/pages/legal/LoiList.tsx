@@ -13,9 +13,11 @@ import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { toast } from '@/components/ui/Toast'
 import { downloadCsv } from '@/lib/export'
+import { useReportMode } from '@/hooks/useReportMode'
 import { useLegal, fmtDate } from '@/data/legal'
 
 export default function LoiList() {
+  const { isReport } = useReportMode()
   const state = useLegal()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
@@ -96,13 +98,25 @@ export default function LoiList() {
           <Home size={14} />
         </Link>
         <ChevronRight size={13} className="text-slate-400" />
-        <span className="text-slate-500">Workspace</span>
-        <ChevronRight size={13} className="text-slate-400" />
-        <Link to="/legal" className="text-slate-500 hover:text-[#0066FF] transition-colors">
-          Legal
-        </Link>
-        <ChevronRight size={13} className="text-slate-400" />
-        <span className="font-semibold text-slate-800">LOI</span>
+        {isReport ? (
+          <>
+            <Link to="/reports" className="text-slate-500 hover:text-[#0066FF] transition-colors">
+              Reports & MIS
+            </Link>
+            <ChevronRight size={13} className="text-slate-400" />
+            <span className="font-semibold text-slate-800">Legal LOI Report</span>
+          </>
+        ) : (
+          <>
+            <span className="text-slate-500">Workspace</span>
+            <ChevronRight size={13} className="text-slate-400" />
+            <Link to="/legal" className="text-slate-500 hover:text-[#0066FF] transition-colors">
+              Legal
+            </Link>
+            <ChevronRight size={13} className="text-slate-400" />
+            <span className="font-semibold text-slate-800">LOI</span>
+          </>
+        )}
       </nav>
 
       {/* Header section with actions */}
@@ -114,21 +128,25 @@ export default function LoiList() {
             </span>
             <div>
               <h1 className="text-2xl sm:text-[28px] font-bold tracking-tight text-ink">
-                Letter of Intent (LOI)
+                {isReport ? 'Letter of Intent (LOI) Report' : 'Letter of Intent (LOI)'}
               </h1>
             </div>
           </div>
           <p className="mt-1 text-[13px] text-muted">
-            Manage signed LOI documents, verification status, and site onboarding workflows.
+            {isReport
+              ? 'View and audit signed LOI documents, verification status, and site onboarding records.'
+              : 'Manage signed LOI documents, verification status, and site onboarding workflows.'}
           </p>
         </div>
 
         <div className="flex items-center gap-2.5">
-          <Link to="/legal/loi/new">
-            <Button variant="primary" icon={<Plus size={15} />}>
-              New LOI
-            </Button>
-          </Link>
+          {!isReport && (
+            <Link to="/legal/loi/new">
+              <Button variant="primary" icon={<Plus size={15} />}>
+                New LOI
+              </Button>
+            </Link>
+          )}
           <Button variant="secondary" icon={<Download size={15} />} onClick={exportData}>
             Export CSV
           </Button>

@@ -8,6 +8,7 @@ import { cn } from '@/lib/cn'
 import { dmy, getSite, grp } from '@/data/cbrSites'
 import { BANDS, DENOS, GROUPS, amountOf, dailyForSite, dailyStore, getDaily, notesOf, reconcile, saveDaily, type DailyCbr, type GroupKey } from '@/data/cbr'
 import { Amt, SiteContext } from './shared'
+import { useReportMode } from '@/hooks/useReportMode'
 
 const PRINT_CSS = `
 @media print {
@@ -111,12 +112,13 @@ function GroupTable({
 }
 
 export default function DailyCbrPage() {
+  const { isReport } = useReportMode()
   const { recordId = '' } = useParams()
   const [params] = useSearchParams()
   dailyStore.use()
   const saved = getDaily(recordId)
   // ?edit=1 opens the record straight in edit mode (Figma 208:11219)
-  const [editing, setEditing] = useState(() => params.get('edit') === '1' && !!saved)
+  const [editing, setEditing] = useState(() => !isReport && params.get('edit') === '1' && !!saved)
   const [draft, setDraft] = useState<DailyCbr | null>(() => (params.get('edit') === '1' && saved ? saved : null))
   const [deno, setDeno] = useState('')
   const [hiddenDenos, setHiddenDenos] = useState<Set<number>>(new Set())
@@ -191,16 +193,20 @@ export default function DailyCbrPage() {
     <div>
       <style>{PRINT_CSS}</style>
       <div className="no-print">
-        <Link to={`/cbr/consolidated?site=${site.siteId}`} className="mb-3 inline-flex items-center gap-1.5 text-[13px] font-medium text-primary hover:underline">
+        <Link to={`/cbr/consolidated?site=${site.siteId}${isReport ? '&source=report' : ''}`} className="mb-3 inline-flex items-center gap-1.5 text-[13px] font-medium text-primary hover:underline">
           <ArrowLeft size={15} /> Back to Consolidated Datewise CBR
         </Link>
         <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="text-[28px] font-semibold tracking-tight">Daily CBR</h1>
+            <div className="flex items-center gap-3"><h1 className="text-[28px] font-semibold tracking-tight">Daily CBR</h1>{isReport && <span className="rounded-md px-2.5 py-0.5 text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">View-Only Report Mode</span>}</div>
             <p className="mt-1 text-[14px] text-muted">Denomination-wise cash movements, balances and switch counter for the selected record.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            {editing ? (
+            {isReport ? (
+              <Button variant="secondary" icon={<Printer size={16} />} onClick={() => window.print()}>
+                Print report
+              </Button>
+            ) : editing ? (
               <>
                 <Button variant="secondary" onClick={() => { setEditing(false); setDraft(null) }}>
                   Cancel
@@ -227,10 +233,10 @@ export default function DailyCbrPage() {
           lead={{ label: 'Selected date record', value: dmy(d.date) }}
           right={
             <div className="flex gap-1">
-              <Link to={prev ? `/cbr/consolidated/daily/${prev.id}` : '#'} aria-disabled={!prev} onClick={(e) => (!prev || editing) && e.preventDefault()} className={cn('grid h-8 w-8 place-items-center rounded-md border border-line', (!prev || editing) && 'pointer-events-none opacity-40')} aria-label="Previous day">
+              <Link to={prev ? `/cbr/consolidated/daily/${prev.id}${isReport ? '?source=report' : ''}` : '#'} aria-disabled={!prev} onClick={(e) => (!prev || editing) && e.preventDefault()} className={cn('grid h-8 w-8 place-items-center rounded-md border border-line', (!prev || editing) && 'pointer-events-none opacity-40')} aria-label="Previous day">
                 <ChevronLeft size={16} />
               </Link>
-              <Link to={next ? `/cbr/consolidated/daily/${next.id}` : '#'} aria-disabled={!next} onClick={(e) => (!next || editing) && e.preventDefault()} className={cn('grid h-8 w-8 place-items-center rounded-md border border-line', (!next || editing) && 'pointer-events-none opacity-40')} aria-label="Next day">
+              <Link to={next ? `/cbr/consolidated/daily/${next.id}${isReport ? '?source=report' : ''}` : '#'} aria-disabled={!next} onClick={(e) => (!next || editing) && e.preventDefault()} className={cn('grid h-8 w-8 place-items-center rounded-md border border-line', (!next || editing) && 'pointer-events-none opacity-40')} aria-label="Next day">
                 <ChevronRight size={16} />
               </Link>
             </div>

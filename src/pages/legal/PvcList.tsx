@@ -19,12 +19,15 @@ import {
   FileText,
   Edit3,
   Trash2,
+  Eye,
 } from 'lucide-react'
+import { useReportMode } from '@/hooks/useReportMode'
 import { usePvcRecords, deletePvcRecord, type PvcStatus } from '@/data/legalPvc'
 import { downloadCsv } from '@/lib/export'
 import { toast } from '@/components/ui/Toast'
 
 export default function PvcList() {
+  const isReport = useReportMode()
   const { records } = usePvcRecords()
 
   // Filter States
@@ -228,34 +231,52 @@ export default function PvcList() {
           <Home size={14} />
         </Link>
         <ChevronRight size={13} className="text-slate-400" />
-        <span className="text-slate-500">Workspace</span>
-        <ChevronRight size={13} className="text-slate-400" />
-        <Link to="/legal" className="text-slate-500 hover:text-[#0066FF] transition-colors">
-          Legal
-        </Link>
-        <ChevronRight size={13} className="text-slate-400" />
-        <span className="font-semibold text-slate-800">PVC</span>
+        {isReport ? (
+          <>
+            <span className="text-slate-500">Workspace</span>
+            <ChevronRight size={13} className="text-slate-400" />
+            <Link to="/reports" className="text-slate-500 hover:text-[#0066FF] transition-colors">
+              Reports & MIS
+            </Link>
+            <ChevronRight size={13} className="text-slate-400" />
+            <span className="font-semibold text-slate-800">PVC Status Report</span>
+          </>
+        ) : (
+          <>
+            <span className="text-slate-500">Workspace</span>
+            <ChevronRight size={13} className="text-slate-400" />
+            <Link to="/legal" className="text-slate-500 hover:text-[#0066FF] transition-colors">
+              Legal
+            </Link>
+            <ChevronRight size={13} className="text-slate-400" />
+            <span className="font-semibold text-slate-800">PVC</span>
+          </>
+        )}
       </nav>
 
       {/* Page Header */}
       <div className="flex flex-wrap items-start justify-between gap-4 mb-3">
         <div>
           <h1 className="text-[26px] font-bold tracking-tight text-slate-900 leading-tight">
-            Police Verification Certificate (PVC)
+            {isReport ? 'Police Verification Certificate (PVC) Report' : 'Police Verification Certificate (PVC)'}
           </h1>
           <p className="text-[13px] text-slate-500 mt-1">
-            View and manage Police Verification Certificate records for all sites.
+            {isReport
+              ? 'View Police Verification Certificate compliance and clearance report for all sites.'
+              : 'View and manage Police Verification Certificate records for all sites.'}
           </p>
         </div>
 
-        <Link to="/legal/pvc/new">
-          <button
-            type="button"
-            className="h-9 px-4 rounded-lg bg-[#0066FF] hover:bg-blue-700 text-white font-medium text-[13px] flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
-          >
-            <Plus size={16} /> New PVC
-          </button>
-        </Link>
+        {!isReport && (
+          <Link to="/legal/pvc/new">
+            <button
+              type="button"
+              className="h-9 px-4 rounded-lg bg-[#0066FF] hover:bg-blue-700 text-white font-medium text-[13px] flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+            >
+              <Plus size={16} /> New PVC
+            </button>
+          </Link>
+        )}
       </div>
 
       {/* CARD 1: Filter Card */}
@@ -598,7 +619,7 @@ export default function PvcList() {
                     </td>
                     <td className="py-2.5 px-3 border-r border-slate-100 font-semibold text-[#0066FF] whitespace-nowrap">
                       <Link
-                        to={`/legal/pvc/${r.id}`}
+                        to={isReport ? `/legal/pvc/${r.id}?source=report` : `/legal/pvc/${r.id}`}
                         className="hover:underline flex items-center justify-center gap-1 mx-auto"
                       >
                         {r.siteId}
@@ -624,15 +645,19 @@ export default function PvcList() {
                     </td>
                     <td className="py-2.5 px-3 border-r border-slate-100 whitespace-nowrap">
                       {r.status === 'Not Generated' ? (
-                        <Link
-                          to="/legal/pvc/new"
-                          className="inline-flex items-center justify-center gap-1 w-[88px] h-[26px] rounded-md text-[11px] font-semibold border border-[#B9D5FF] text-[#0066FF] bg-[#EEF4FF] hover:bg-blue-100 transition-colors shadow-2xs mx-auto"
-                        >
-                          <Plus size={12} strokeWidth={2.4} /> Generate
-                        </Link>
+                        !isReport ? (
+                          <Link
+                            to="/legal/pvc/new"
+                            className="inline-flex items-center justify-center gap-1 w-[88px] h-[26px] rounded-md text-[11px] font-semibold border border-[#B9D5FF] text-[#0066FF] bg-[#EEF4FF] hover:bg-blue-100 transition-colors shadow-2xs mx-auto"
+                          >
+                            <Plus size={12} strokeWidth={2.4} /> Generate
+                          </Link>
+                        ) : (
+                          <span className="text-slate-400 text-[11px] italic">Not Generated</span>
+                        )
                       ) : (
                         <Link
-                          to={`/legal/pvc/${r.id}`}
+                          to={`/legal/pvc/${r.id}${isReport ? '?source=report' : ''}`}
                           className="inline-flex items-center justify-center gap-1.5 w-[88px] h-[26px] rounded-md text-[11px] font-semibold border border-[#B9D5FF] text-[#0066FF] bg-[#EEF4FF] hover:bg-blue-100 transition-colors shadow-2xs mx-auto"
                         >
                           <FileText size={12} /> View
@@ -644,21 +669,33 @@ export default function PvcList() {
                     </td>
                     <td className="py-2.5 px-3 whitespace-nowrap sticky right-0 bg-white shadow-[-2px_0_4px_rgba(0,0,0,0.03)]">
                       <div className="flex items-center justify-center gap-1.5">
-                        <Link
-                          to={`/legal/pvc/${r.id}/edit`}
-                          className="w-6.5 h-6.5 rounded flex items-center justify-center text-[#0066FF] hover:bg-blue-50 border border-blue-200/60 transition-colors"
-                          title="Edit Record"
-                        >
-                          <Edit3 size={12} />
-                        </Link>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(r.id, r.siteId)}
-                          className="w-6.5 h-6.5 rounded flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 border border-slate-200 hover:border-red-200 transition-colors cursor-pointer"
-                          title="Delete Record"
-                        >
-                          <Trash2 size={12} />
-                        </button>
+                        {isReport ? (
+                          <Link
+                            to={`/legal/pvc/${r.id}?source=report`}
+                            className="w-6.5 h-6.5 rounded flex items-center justify-center text-[#0066FF] hover:bg-blue-50 border border-blue-200/60 transition-colors"
+                            title="View PVC Details"
+                          >
+                            <Eye size={13} />
+                          </Link>
+                        ) : (
+                          <>
+                            <Link
+                              to={`/legal/pvc/${r.id}/edit`}
+                              className="w-6.5 h-6.5 rounded flex items-center justify-center text-[#0066FF] hover:bg-blue-50 border border-blue-200/60 transition-colors"
+                              title="Edit Record"
+                            >
+                              <Edit3 size={12} />
+                            </Link>
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(r.id, r.siteId)}
+                              className="w-6.5 h-6.5 rounded flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 border border-slate-200 hover:border-red-200 transition-colors cursor-pointer"
+                              title="Delete Record"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -674,7 +711,9 @@ export default function PvcList() {
                         No PVC records found
                       </h3>
                       <p className="text-[12px] text-slate-500 mt-1 max-w-[320px]">
-                        Try adjusting your filters or click on "New PVC" to add an entry.
+                        {isReport
+                          ? 'No PVC records found for the selected filters.'
+                          : 'Try adjusting your filters or click on "New PVC" to add an entry.'}
                       </p>
                     </div>
                   </td>

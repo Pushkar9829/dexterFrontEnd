@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
+import { Link } from 'react-router-dom'
 import {
   FileText,
   FileSpreadsheet,
@@ -24,9 +25,11 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Trash2,
+  Home,
 } from 'lucide-react'
 import { downloadCsv } from '@/lib/export'
 import { toast } from '@/components/ui/Toast'
+import { useReportMode } from '@/hooks/useReportMode'
 import {
   gstStore,
   deleteGst,
@@ -45,6 +48,7 @@ import { SITES, FRANCHISEES } from '@/data/cbrSites'
 import GstInvoiceTemplate from '@/components/finance/GstInvoiceTemplate'
 
 export default function GstList() {
+  const { isReport } = useReportMode()
   const records = gstStore.use()
   const formRef = useRef<HTMLDivElement>(null)
 
@@ -392,6 +396,32 @@ export default function GstList() {
 
   return (
     <div className="space-y-4 pb-14 font-sans text-slate-800 antialiased">
+      {/* Breadcrumb */}
+      <div className="flex items-center gap-1.5 text-[12px] text-slate-500">
+        <Home size={14} className="text-slate-400 shrink-0" />
+        <Link to="/dashboard" className="hover:text-[#0066FF] transition-colors">
+          Workspace
+        </Link>
+        <ChevronRight size={12} className="text-slate-400" />
+        {isReport ? (
+          <>
+            <Link to="/reports" className="hover:text-[#0066FF] transition-colors">
+              Reports & MIS
+            </Link>
+            <ChevronRight size={12} className="text-slate-400" />
+            <span className="font-semibold text-slate-800">GST Invoice Report</span>
+          </>
+        ) : (
+          <>
+            <Link to="/finance" className="hover:text-[#0066FF] transition-colors">
+              Finance
+            </Link>
+            <ChevronRight size={12} className="text-slate-400" />
+            <span className="font-semibold text-slate-800">GST Invoice</span>
+          </>
+        )}
+      </div>
+
       {/* 1. TOP HEADER BANNER */}
       <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-[#061838] via-[#09224f] to-[#041129] px-6 py-4.5 text-white shadow-md">
         {/* Subtle geometric red & white angled brand accents on right */}
@@ -408,10 +438,10 @@ export default function GstList() {
             </div>
             <div>
               <h1 className="text-[20px] sm:text-[22px] font-bold tracking-tight text-white leading-tight">
-                GST Invoice Management
+                {isReport ? 'GST Invoice Report' : 'GST Invoice Management'}
               </h1>
               <p className="text-[12px] sm:text-[13px] text-blue-200/90 font-normal mt-0.5">
-                Franchise GST Invoice & Payout Reconciliation
+                {isReport ? 'Franchise GST Invoices and Tax Breakdown Report' : 'Franchise GST Invoice & Payout Reconciliation'}
               </p>
             </div>
           </div>
@@ -540,9 +570,10 @@ export default function GstList() {
         </div>
       )}
 
-      {/* 3. "GST INVOICE ENTRY" SECTION */}
-      <div ref={formRef} className="bg-white rounded-xl border border-slate-200/90 shadow-xs p-4 sm:p-5">
-        {/* Section Header */}
+      {/* 3. "GST INVOICE ENTRY" SECTION - hidden in Report Mode */}
+      {!isReport && (
+        <div ref={formRef} className="bg-white rounded-xl border border-slate-200/90 shadow-xs p-4 sm:p-5">
+          {/* Section Header */}
         <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
           <div className="flex items-center gap-2">
             <FileText size={17} className="text-[#0066FF]" strokeWidth={2.2} />
@@ -1096,6 +1127,7 @@ export default function GstList() {
           </button>
         </div>
       </div>
+      )}
 
       {/* 4. "GST INVOICE LIST" SECTION */}
       <div className="bg-white rounded-xl border border-slate-200/90 shadow-xs p-4 sm:p-5">
@@ -1342,101 +1374,114 @@ export default function GstList() {
                       </td>
                       <td className="py-2.5 px-3 text-center whitespace-nowrap">
                         <div className="flex items-center justify-center gap-1.5">
-                          {/* View (eye) */}
-                          <button
-                            onClick={() => loadRecordIntoForm(row)}
-                            title="View / Load into form"
-                            className="p-1 rounded text-slate-500 hover:text-[#0066FF] hover:bg-blue-50 transition-colors"
-                          >
-                            <Eye size={15} />
-                          </button>
-
-                          {/* Edit (pencil) */}
-                          <button
-                            onClick={() => loadRecordIntoForm(row)}
-                            title="Edit Record"
-                            className="p-1 rounded text-slate-500 hover:text-[#0066FF] hover:bg-blue-50 transition-colors"
-                          >
-                            <Pencil size={14} />
-                          </button>
-
-                          {/* Red PDF Icon */}
-                          <button
-                            onClick={() => setPdfModalRecord(row)}
-                            title="View Invoice PDF"
-                            className="p-1 rounded text-rose-500 hover:text-rose-700 hover:bg-rose-50 transition-colors"
-                          >
-                            <FileText size={15} />
-                          </button>
-
-                          {/* 3 dots menu */}
-                          <div className="relative">
+                          {isReport ? (
                             <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setActionMenuRowId(actionMenuRowId === row.id ? null : row.id)
-                              }}
-                              title="More actions"
-                              className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                              onClick={() => setPdfModalRecord(row)}
+                              title="View Invoice PDF"
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-blue-50 text-[#0066FF] hover:bg-blue-100 text-[11px] font-semibold border border-blue-200 transition-colors"
                             >
-                              <MoreVertical size={14} />
+                              <Eye size={13} />
+                              <span>View Invoice</span>
                             </button>
-
-                            {actionMenuRowId === row.id && (
-                              <div
-                                onClick={(e) => e.stopPropagation()}
-                                className="absolute right-0 top-7 z-30 w-44 rounded-lg bg-white shadow-lg border border-slate-200 py-1 text-[12px] text-slate-700 animate-in fade-in"
+                          ) : (
+                            <>
+                              {/* View (eye) */}
+                              <button
+                                onClick={() => loadRecordIntoForm(row)}
+                                title="View / Load into form"
+                                className="p-1 rounded text-slate-500 hover:text-[#0066FF] hover:bg-blue-50 transition-colors"
                               >
+                                <Eye size={15} />
+                              </button>
+
+                              {/* Edit (pencil) */}
+                              <button
+                                onClick={() => loadRecordIntoForm(row)}
+                                title="Edit Record"
+                                className="p-1 rounded text-slate-500 hover:text-[#0066FF] hover:bg-blue-50 transition-colors"
+                              >
+                                <Pencil size={14} />
+                              </button>
+
+                              {/* Red PDF Icon */}
+                              <button
+                                onClick={() => setPdfModalRecord(row)}
+                                title="View Invoice PDF"
+                                className="p-1 rounded text-rose-500 hover:text-rose-700 hover:bg-rose-50 transition-colors"
+                              >
+                                <FileText size={15} />
+                              </button>
+
+                              {/* 3 dots menu */}
+                              <div className="relative">
                                 <button
-                                  onClick={() => {
-                                    loadRecordIntoForm(row)
-                                    setActionMenuRowId(null)
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setActionMenuRowId(actionMenuRowId === row.id ? null : row.id)
                                   }}
-                                  className="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
+                                  title="More actions"
+                                  className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
                                 >
-                                  <Pencil size={13} /> Edit in Form
+                                  <MoreVertical size={14} />
                                 </button>
-                                <button
-                                  onClick={() => {
-                                    saveGst({
-                                      ...row,
-                                      paymentStatus: row.paymentStatus === 'Paid' ? 'Pending' : 'Paid',
-                                      paidAmount: row.paymentStatus === 'Paid' ? '0.00' : row.netAmount,
-                                      paymentDate:
-                                        row.paymentStatus === 'Paid'
-                                          ? ''
-                                          : new Date().toLocaleDateString('en-GB').replace(/\//g, '-'),
-                                    })
-                                    toast(
-                                      `Marked payment as ${row.paymentStatus === 'Paid' ? 'Pending' : 'Paid'
-                                      }`
-                                    )
-                                    setActionMenuRowId(null)
-                                  }}
-                                  className="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-                                >
-                                  <CheckCircle2 size={13} className="text-emerald-600" />
-                                  {row.paymentStatus === 'Paid' ? 'Mark Unpaid' : 'Mark as Paid'}
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setPdfModalRecord(row)
-                                    setActionMenuRowId(null)
-                                  }}
-                                  className="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-                                >
-                                  <FileText size={13} className="text-rose-500" /> Generate PDF
-                                </button>
-                                <div className="border-t border-slate-100 my-1" />
-                                <button
-                                  onClick={() => handleDeleteRow(row.id, row.franchiseeName)}
-                                  className="w-full text-left px-3 py-1.5 hover:bg-rose-50 text-rose-600 flex items-center gap-2"
-                                >
-                                  <Trash2 size={13} /> Delete Record
-                                </button>
+
+                                {actionMenuRowId === row.id && (
+                                  <div
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="absolute right-0 top-7 z-30 w-44 rounded-lg bg-white shadow-lg border border-slate-200 py-1 text-[12px] text-slate-700 animate-in fade-in"
+                                  >
+                                    <button
+                                      onClick={() => {
+                                        loadRecordIntoForm(row)
+                                        setActionMenuRowId(null)
+                                      }}
+                                      className="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
+                                    >
+                                      <Pencil size={13} /> Edit in Form
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        saveGst({
+                                          ...row,
+                                          paymentStatus: row.paymentStatus === 'Paid' ? 'Pending' : 'Paid',
+                                          paidAmount: row.paymentStatus === 'Paid' ? '0.00' : row.netAmount,
+                                          paymentDate:
+                                            row.paymentStatus === 'Paid'
+                                              ? ''
+                                              : new Date().toLocaleDateString('en-GB').replace(/\//g, '-'),
+                                        })
+                                        toast(
+                                          `Marked payment as ${row.paymentStatus === 'Paid' ? 'Pending' : 'Paid'
+                                          }`
+                                        )
+                                        setActionMenuRowId(null)
+                                      }}
+                                      className="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
+                                    >
+                                      <CheckCircle2 size={13} className="text-emerald-600" />
+                                      {row.paymentStatus === 'Paid' ? 'Mark Unpaid' : 'Mark as Paid'}
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setPdfModalRecord(row)
+                                        setActionMenuRowId(null)
+                                      }}
+                                      className="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
+                                    >
+                                      <FileText size={13} className="text-rose-500" /> Generate PDF
+                                    </button>
+                                    <div className="border-t border-slate-100 my-1" />
+                                    <button
+                                      onClick={() => handleDeleteRow(row.id, row.franchiseeName)}
+                                      className="w-full text-left px-3 py-1.5 hover:bg-rose-50 text-rose-600 flex items-center gap-2"
+                                    >
+                                      <Trash2 size={13} /> Delete Record
+                                    </button>
+                                  </div>
+                                )}
                               </div>
-                            )}
-                          </div>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>

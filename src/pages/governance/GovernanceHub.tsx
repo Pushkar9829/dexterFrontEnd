@@ -1,5 +1,5 @@
 import {
-  Bell,
+  BellRing,
   History,
   Laptop,
   Scale,
@@ -50,14 +50,14 @@ const GOVERNANCE_TILES: GovernanceTileConfig[] = [
     actionText: 'Manage security',
   },
   {
-    title: 'NOTICES',
-    sub: 'Publish, broadcast and acknowledge internal notices and advisories.',
-    to: '/notices',
-    Icon: Bell,
+    title: 'PUSH NOTIFICATIONS',
+    sub: 'Create, schedule, broadcast, and monitor push notifications across branches and departments.',
+    to: '/governance/push-notifications',
+    Icon: BellRing,
     theme: 'amber',
     tag: 'Broadcasts',
-    badge: 'Alerts',
-    actionText: 'View notices',
+    badge: 'Live',
+    actionText: 'Manage push notifications',
   },
   {
     title: 'COMPLIANCE',
@@ -77,7 +77,7 @@ export default function GovernanceHub() {
       <div className="mb-5 sm:mb-6">
         <h1 className="text-2xl sm:text-[28px] font-bold tracking-tight text-ink">Governance</h1>
         <p className="mt-1 text-[13px] text-muted">
-          Manage audit logs, user sessions, security controls, notices, and compliance in one place.
+          Manage audit logs, user sessions, security controls, push notifications, and compliance in one place.
         </p>
       </div>
 

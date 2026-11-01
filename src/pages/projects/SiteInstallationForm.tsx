@@ -26,9 +26,11 @@ import {
   type SiteInstallationRecord,
 } from '@/data/siteInstallation'
 import { toast } from '@/components/ui/Toast'
+import { useReportMode } from '@/hooks/useReportMode'
 
 export default function SiteInstallationForm() {
   const navigate = useNavigate()
+  const isReport = useReportMode()
   const { id } = useParams<{ id?: string }>()
   const { records } = useSiteInstallations()
 
@@ -781,7 +783,7 @@ export default function SiteInstallationForm() {
         {/* Back Button on Left */}
         <button
           type="button"
-          onClick={() => navigate('/projects/installation')}
+          onClick={() => navigate(isReport ? '/projects/installation?source=report' : '/projects/installation')}
           className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg border border-[#0066FF]/30 text-[#0066FF] hover:bg-blue-50/60 text-[13px] font-semibold transition-all shadow-xs"
         >
           <ChevronLeft size={16} />
@@ -790,23 +792,31 @@ export default function SiteInstallationForm() {
 
         {/* Right Action Buttons */}
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => handleSave(true)}
-            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg border border-[#0066FF]/30 text-[#0066FF] hover:bg-blue-50/60 text-[13px] font-semibold transition-all shadow-xs"
-          >
-            <Save size={15} />
-            <span>Save Draft</span>
-          </button>
+          {isReport ? (
+            <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+              View-Only Report Mode
+            </span>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => handleSave(true)}
+                className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg border border-[#0066FF]/30 text-[#0066FF] hover:bg-blue-50/60 text-[13px] font-semibold transition-all shadow-xs"
+              >
+                <Save size={15} />
+                <span>Save Draft</span>
+              </button>
 
-          <button
-            type="button"
-            onClick={() => handleSave(false)}
-            className="inline-flex items-center gap-1.5 h-9 px-5 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[13px] font-semibold transition-all shadow-sm hover:shadow"
-          >
-            <span>Save & Continue</span>
-            <ChevronRight size={16} />
-          </button>
+              <button
+                type="button"
+                onClick={() => handleSave(false)}
+                className="inline-flex items-center gap-1.5 h-9 px-5 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[13px] font-semibold transition-all shadow-sm hover:shadow"
+              >
+                <span>Save & Continue</span>
+                <ChevronRight size={16} />
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

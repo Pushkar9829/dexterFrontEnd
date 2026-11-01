@@ -13,6 +13,7 @@ import {
   User,
   Download,
 } from 'lucide-react'
+import { useReportMode } from '@/hooks/useReportMode'
 import {
   getChequeRecord,
   deleteChequeRecord,
@@ -23,6 +24,7 @@ import { toast } from '@/components/ui/Toast'
 
 export default function FmChecksRecord() {
   const navigate = useNavigate()
+  const isReport = useReportMode()
   const { id } = useParams<{ id: string }>()
   const record = id ? getChequeRecord(id) : undefined
 
@@ -111,15 +113,31 @@ export default function FmChecksRecord() {
           <Home size={14} />
         </Link>
         <ChevronRight size={13} className="text-slate-400" />
-        <span className="text-slate-500">Workspace</span>
-        <ChevronRight size={13} className="text-slate-400" />
-        <Link to="/legal" className="text-slate-500 hover:text-[#0066FF] transition-colors">
-          Legal
-        </Link>
-        <ChevronRight size={13} className="text-slate-400" />
-        <Link to="/legal/fm-checks" className="text-slate-500 hover:text-[#0066FF] transition-colors">
-          Cheques
-        </Link>
+        {isReport ? (
+          <>
+            <span className="text-slate-500">Workspace</span>
+            <ChevronRight size={13} className="text-slate-400" />
+            <Link to="/reports" className="text-slate-500 hover:text-[#0066FF] transition-colors">
+              Reports & MIS
+            </Link>
+            <ChevronRight size={13} className="text-slate-400" />
+            <Link to="/legal/fm-checks?source=report" className="text-slate-500 hover:text-[#0066FF] transition-colors">
+              FFM Cheques Report
+            </Link>
+          </>
+        ) : (
+          <>
+            <span className="text-slate-500">Workspace</span>
+            <ChevronRight size={13} className="text-slate-400" />
+            <Link to="/legal" className="text-slate-500 hover:text-[#0066FF] transition-colors">
+              Legal
+            </Link>
+            <ChevronRight size={13} className="text-slate-400" />
+            <Link to="/legal/fm-checks" className="text-slate-500 hover:text-[#0066FF] transition-colors">
+              Cheques
+            </Link>
+          </>
+        )}
         <ChevronRight size={13} className="text-slate-400" />
         <span className="font-semibold text-slate-800">{record.id}</span>
       </nav>
@@ -137,9 +155,15 @@ export default function FmChecksRecord() {
               </h1>
               {renderAcknowledgementBadge(record.acknowledgement)}
               {renderTypeBadge(record.type)}
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-                <Mail size={11} /> Connected with Daak Register
-              </span>
+              {isReport ? (
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                  View-Only Report Mode
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <Mail size={11} /> Connected with Daak Register
+                </span>
+              )}
             </div>
 
             <p className="text-[12.5px] text-slate-500 flex items-center gap-2 flex-wrap">
@@ -154,7 +178,7 @@ export default function FmChecksRecord() {
           </div>
 
           <div className="flex items-center gap-2">
-            <Link to="/legal/fm-checks">
+            <Link to={isReport ? "/legal/fm-checks?source=report" : "/legal/fm-checks"}>
               <button
                 type="button"
                 className="h-9 px-3.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium text-[12.5px] flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
@@ -162,22 +186,26 @@ export default function FmChecksRecord() {
                 <ArrowLeft size={14} /> Back
               </button>
             </Link>
-            <Link to={`/legal/fm-checks/${record.id}/edit`}>
-              <button
-                type="button"
-                className="h-9 px-3.5 rounded-lg bg-[#0066FF] hover:bg-blue-700 text-white font-medium text-[12.5px] flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
-              >
-                <Edit3 size={14} /> Edit
-              </button>
-            </Link>
-            <button
-              type="button"
-              onClick={handleDelete}
-              className="h-9 px-3 rounded-lg border border-slate-200 hover:border-red-200 bg-white hover:bg-red-50 text-slate-600 hover:text-red-600 font-medium text-[12.5px] flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
-              title="Delete record"
-            >
-              <Trash2 size={14} /> Delete
-            </button>
+            {!isReport && (
+              <>
+                <Link to={`/legal/fm-checks/${record.id}/edit`}>
+                  <button
+                    type="button"
+                    className="h-9 px-3.5 rounded-lg bg-[#0066FF] hover:bg-blue-700 text-white font-medium text-[12.5px] flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+                  >
+                    <Edit3 size={14} /> Edit
+                  </button>
+                </Link>
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  className="h-9 px-3 rounded-lg border border-slate-200 hover:border-red-200 bg-white hover:bg-red-50 text-slate-600 hover:text-red-600 font-medium text-[12.5px] flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+                  title="Delete record"
+                >
+                  <Trash2 size={14} /> Delete
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>

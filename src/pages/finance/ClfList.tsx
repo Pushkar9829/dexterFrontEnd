@@ -24,9 +24,11 @@ import {
   Trash2,
   ExternalLink,
   FileCheck,
+  Eye,
 } from 'lucide-react'
 import { downloadCsv } from '@/lib/export'
 import { toast } from '@/components/ui/Toast'
+import { useReportMode } from '@/hooks/useReportMode'
 import {
   CLF_SETTLEMENT_BANKS,
   CLF_STATUS,
@@ -36,6 +38,7 @@ import {
 
 export default function ClfList() {
   const navigate = useNavigate()
+  const { isReport } = useReportMode()
   const records = useClfRecords()
 
   // Filter States
@@ -238,40 +241,54 @@ export default function ClfList() {
 
   return (
     <div className="space-y-4 pb-12">
-      {/* Breadcrumb matching Image 1: Workspace > Finance > CLF Data */}
+      {/* Breadcrumb */}
       <div className="flex items-center gap-1.5 text-[12px] text-slate-500">
         <Home size={14} className="text-slate-400 shrink-0" />
         <Link to="/dashboard" className="hover:text-[#0066FF] transition-colors">
           Workspace
         </Link>
         <ChevronRight size={12} className="text-slate-400" />
-        <Link to="/finance" className="hover:text-[#0066FF] transition-colors">
-          Finance
-        </Link>
-        <ChevronRight size={12} className="text-slate-400" />
-        <span className="font-semibold text-slate-800">CLF Data</span>
+        {isReport ? (
+          <>
+            <Link to="/reports" className="hover:text-[#0066FF] transition-colors">
+              Reports & MIS
+            </Link>
+            <ChevronRight size={12} className="text-slate-400" />
+            <span className="font-semibold text-slate-800">Cash Loading Funds (CLF)</span>
+          </>
+        ) : (
+          <>
+            <Link to="/finance" className="hover:text-[#0066FF] transition-colors">
+              Finance
+            </Link>
+            <ChevronRight size={12} className="text-slate-400" />
+            <span className="font-semibold text-slate-800">CLF Data</span>
+          </>
+        )}
       </div>
 
       {/* Page Title & Top Action Button matching Image 1 */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-1">
         <div>
           <h1 className="text-[26px] font-bold tracking-tight text-slate-900 leading-tight">
-            CLF Data
+            {isReport ? 'Cash Loading Funds (CLF) Report' : 'CLF Data'}
           </h1>
           <p className="text-[13px] text-slate-500 mt-1">
-            View and manage Cash Loading Funds transactions.
+            {isReport ? 'View and analyse Cash Loading Funds transactions and ledgers.' : 'View and manage Cash Loading Funds transactions.'}
           </p>
         </div>
 
-        <div>
-          <button
-            onClick={() => navigate('/finance/clf/new')}
-            className="inline-flex items-center gap-2 h-9.5 px-4 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[13px] font-semibold transition-all shadow-sm hover:shadow"
-          >
-            <Plus size={16} strokeWidth={2.4} />
-            <span>New CLF</span>
-          </button>
-        </div>
+        {!isReport && (
+          <div>
+            <button
+              onClick={() => navigate('/finance/clf/new')}
+              className="inline-flex items-center gap-2 h-9.5 px-4 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[13px] font-semibold transition-all shadow-sm hover:shadow"
+            >
+              <Plus size={16} strokeWidth={2.4} />
+              <span>New CLF</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Filter Section matching Image 1 */}
@@ -742,7 +759,7 @@ export default function ClfList() {
                     </td>
                     <td className="py-2.5 px-3 border-r border-slate-100 font-semibold text-[#0066FF] whitespace-nowrap">
                       <button
-                        onClick={() => navigate(`/finance/clf/${item.id}`)}
+                        onClick={() => navigate(isReport ? `/finance/clf/${item.id}?source=report` : `/finance/clf/${item.id}`)}
                         className="hover:underline flex items-center justify-center gap-1 mx-auto"
                       >
                         {item.siteId || '—'}
@@ -778,20 +795,32 @@ export default function ClfList() {
                     </td>
                     <td className="py-2.5 px-3 whitespace-nowrap sticky right-0 bg-white shadow-[-2px_0_4px_rgba(0,0,0,0.03)]">
                       <div className="flex items-center justify-center gap-1.5">
-                        <button
-                          onClick={() => navigate(`/finance/clf/${item.id}`)}
-                          className="w-6.5 h-6.5 rounded flex items-center justify-center text-[#0066FF] hover:bg-blue-50 border border-blue-200/60 transition-colors"
-                          title="Edit"
-                        >
-                          <Edit2 size={12} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(item.id, item.franchiseeName)}
-                          className="w-6.5 h-6.5 rounded flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 border border-slate-200 hover:border-red-200 transition-colors"
-                          title="Delete"
-                        >
-                          <Trash2 size={12} />
-                        </button>
+                        {isReport ? (
+                          <button
+                            onClick={() => navigate(`/finance/clf/${item.id}?source=report`)}
+                            className="w-6.5 h-6.5 rounded flex items-center justify-center text-slate-600 hover:text-[#0066FF] hover:bg-blue-50 border border-slate-200 hover:border-blue-200 transition-colors"
+                            title="View Record"
+                          >
+                            <Eye size={12} />
+                          </button>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => navigate(`/finance/clf/${item.id}`)}
+                              className="w-6.5 h-6.5 rounded flex items-center justify-center text-[#0066FF] hover:bg-blue-50 border border-blue-200/60 transition-colors"
+                              title="Edit"
+                            >
+                              <Edit2 size={12} />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(item.id, item.franchiseeName)}
+                              className="w-6.5 h-6.5 rounded flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 border border-slate-200 hover:border-red-200 transition-colors"
+                              title="Delete"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -809,18 +838,22 @@ export default function ClfList() {
                         No records found
                       </h3>
                       <p className="text-[12px] text-slate-500 mt-1 max-w-[320px]">
-                        Try adjusting your filters or click on "New CLF" to add a record.
+                        {isReport
+                          ? 'No matching records found for the applied report filters.'
+                          : 'Try adjusting your filters or click on "New CLF" to add a record.'}
                       </p>
 
-                      <div className="mt-4 flex items-center gap-2">
-                        <button
-                          onClick={() => navigate('/finance/clf/new')}
-                          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[11px] font-semibold transition-all shadow-xs"
-                        >
-                          <Plus size={13} />
-                          New CLF
-                        </button>
-                      </div>
+                      {!isReport && (
+                        <div className="mt-4 flex items-center gap-2">
+                          <button
+                            onClick={() => navigate('/finance/clf/new')}
+                            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[11px] font-semibold transition-all shadow-xs"
+                          >
+                            <Plus size={13} />
+                            New CLF
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </td>
                 </tr>

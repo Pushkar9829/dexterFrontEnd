@@ -13,9 +13,11 @@ import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { toast } from '@/components/ui/Toast'
 import { downloadCsv } from '@/lib/export'
+import { useReportMode } from '@/hooks/useReportMode'
 import { useLegal, fmtDate } from '@/data/legal'
 
 export default function AffidavitList() {
+  const { isReport } = useReportMode()
   const state = useLegal()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
@@ -96,13 +98,25 @@ export default function AffidavitList() {
           <Home size={14} />
         </Link>
         <ChevronRight size={13} className="text-slate-400" />
-        <span className="text-slate-500">Workspace</span>
-        <ChevronRight size={13} className="text-slate-400" />
-        <Link to="/legal" className="text-slate-500 hover:text-[#0066FF] transition-colors">
-          Legal
-        </Link>
-        <ChevronRight size={13} className="text-slate-400" />
-        <span className="font-semibold text-slate-800">Affidavit</span>
+        {isReport ? (
+          <>
+            <Link to="/reports" className="text-slate-500 hover:text-[#0066FF] transition-colors">
+              Reports & MIS
+            </Link>
+            <ChevronRight size={13} className="text-slate-400" />
+            <span className="font-semibold text-slate-800">Legal Affidavit Report</span>
+          </>
+        ) : (
+          <>
+            <span className="text-slate-500">Workspace</span>
+            <ChevronRight size={13} className="text-slate-400" />
+            <Link to="/legal" className="text-slate-500 hover:text-[#0066FF] transition-colors">
+              Legal
+            </Link>
+            <ChevronRight size={13} className="text-slate-400" />
+            <span className="font-semibold text-slate-800">Affidavit</span>
+          </>
+        )}
       </nav>
 
       {/* Header section with actions */}
@@ -114,21 +128,25 @@ export default function AffidavitList() {
             </span>
             <div>
               <h1 className="text-2xl sm:text-[28px] font-bold tracking-tight text-ink">
-                Affidavits
+                {isReport ? 'Legal Affidavit Report' : 'Affidavits'}
               </h1>
             </div>
           </div>
           <p className="mt-1 text-[13px] text-muted">
-            Manage sworn affidavits, notary seals, and legal declarations for franchise locations.
+            {isReport
+              ? 'View and audit sworn affidavits, notary seals, and legal declarations for franchise locations.'
+              : 'Manage sworn affidavits, notary seals, and legal declarations for franchise locations.'}
           </p>
         </div>
 
         <div className="flex items-center gap-2.5">
-          <Link to="/legal/affidavit/new">
-            <Button variant="primary" icon={<Plus size={15} />}>
-              New Affidavit
-            </Button>
-          </Link>
+          {!isReport && (
+            <Link to="/legal/affidavit/new">
+              <Button variant="primary" icon={<Plus size={15} />}>
+                New Affidavit
+              </Button>
+            </Link>
+          )}
           <Button variant="secondary" icon={<Download size={15} />} onClick={exportData}>
             Export CSV
           </Button>

@@ -72,7 +72,7 @@ export default function Login() {
           <div className="mb-1.5 text-[11px] font-medium tracking-wide text-ink-2">AUTHENTICATION METHOD</div>
           <Segmented
             value={method}
-            onChange={setMethod}
+            onChange={(v) => setMethod(v as Method)}
             options={[
               { value: 'password', label: 'Password' },
               { value: 'otp', label: 'OTP' },
@@ -155,3 +155,4 @@ export default function Login() {
     </AuthLayout>
   )
 }
+

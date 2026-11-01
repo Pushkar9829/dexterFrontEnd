@@ -90,10 +90,10 @@ const fmtDateTime = (v: string) =>
 const fmtDate = (v: string) =>
   /^\d{4}-\d{2}-\d{2}/.test(v)
     ? new Date(`${v.slice(0, 10)}T00:00`).toLocaleDateString('en-IN', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-      })
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    })
     : v
 
 function renderCell(c: PCol, r: PRow): ReactNode {
@@ -124,8 +124,8 @@ function renderCell(c: PCol, r: PRow): ReactNode {
             /overage|late|mismatch|reorder|due in/i.test(String(v))
               ? 'amber'
               : /shortage|breach|fail/i.test(String(v))
-              ? 'red'
-              : t
+                ? 'red'
+                : t
           }
         >
           {String(v)}
@@ -160,82 +160,90 @@ export default function ReportsHub() {
 
   const q = query.trim().toLowerCase()
 
-  // ── 5 Category Definitions from Reference Image ─────────────────────────
+  // ── 5 Category Definitions strictly for Viewing & Accessing Reports ──────
   const CATEGORY_CARDS: HubCategory[] = useMemo(
     () => [
       {
         id: 'operations',
         title: 'Operations',
-        sub: 'Operational reports for day-to-day management and performance.',
-        viewAllTo: '/operations',
+        sub: '',
+        viewAllTo: '/reports/monthly-txns',
         iconBg: 'bg-[#0066FF]',
         icon: <Settings size={22} className="text-white" />,
         items: [
-          { name: 'Complaints', to: '/operations/complaints', desc: 'Customer and site complaints queue' },
-          { name: 'Daily TXNs', to: '/operations/txn-data', desc: 'Daily transaction counts and amounts' },
-          { name: 'Chargeback Disputes', to: '/operations/complaints', reportId: 'chargeback-disputes', desc: 'Disputed transactions and chargebacks' },
-          { name: 'Apna App', to: '/franchise/apna-app', reportId: 'apna-app', desc: 'Apna App sync, downloads and usage' },
-        ],
-      },
-      {
-        id: 'projects',
-        title: 'Projects',
-        sub: 'Project and implementation related reports.',
-        viewAllTo: '/projects',
-        iconBg: 'bg-[#EF4444]',
-        icon: <Briefcase size={22} className="text-white" />,
-        items: [
-          { name: 'Projects', to: '/projects/active', desc: 'Active site rollouts and status' },
-          { name: 'Task', to: '/tasks/my', desc: 'Project deliverables and milestones' },
-          { name: 'Email Tracker', to: '/email/inbox', desc: 'Incoming and outgoing communications' },
-          { name: 'Calling Report', to: '/operations', reportId: 'calling-report', desc: 'Partner and franchisee outreach log' },
-          { name: 'Notifications', to: '/notices', desc: 'Regulatory and operations broadcasts' },
+          { name: 'Monthly TXNs', to: '/reports/monthly-txns', desc: 'Monthly transaction count and amount with date-wise details' },
+          { name: 'Cash Loading Register', to: '/operations/cash-loading?source=report', desc: 'Daily cash loading and vault replenishment records' },
+          { name: 'EOD Consolidated Report', to: '/operations/eod/overview?source=report', desc: 'Consolidated end of day machine balance, physical cash and overage' },
+          { name: 'Monthly EOD (FFM & SF)', to: '/operations/eod/monthly?source=report', desc: 'Monthly EOD reconciliation for Full Funding and Self Funding sites' },
+          { name: 'CRM EOD Docket Report', to: '/operations/eod/crm?source=report', desc: 'CRM EOD request docket numbers and counter slips' },
+          { name: 'Charge Back Dispute', to: '/operations/reconciliation/charge-back?source=report', desc: 'Disputed transactions and chargebacks' },
+          { name: 'Dispute / Failed TXNs', to: '/operations/reconciliation/failed-txns?source=report', desc: 'Customer failed transaction complaints and resolution report' },
+          { name: 'Complaints Queue', to: '/operations/complaints?source=report', desc: 'Customer and site complaints queue report' },
+          { name: 'Apna App', to: '/franchise/apna-app?source=report', desc: 'Apna App sync, downloads and usage report' },
         ],
       },
       {
         id: 'accounts',
         title: 'Accounts',
-        sub: 'Financial and banking related reports.',
-        viewAllTo: '/reports/financial/bs',
+        sub: '',
+        viewAllTo: '/finance/sd?source=report',
         iconBg: 'bg-[#0F2942]',
         icon: <Landmark size={22} className="text-white" />,
         items: [
-          { name: 'Bank Statement', to: '/operations/bank-statement', reportId: 'bank-statement', desc: 'Statements and reconciliation records' },
-          { name: 'TDS Letters', to: '/operations/tds', reportId: 'tds-letters', desc: 'Tax deduction certificates and letters' },
-          { name: 'WLA Account Status / Axis / ICICI', to: '/reports/financial/axis-icd', desc: 'White label ATM account balances' },
-          { name: 'Penality data', to: '/finance/gst', reportId: 'penalty-data', desc: 'SLA breach and penalty register' },
-          { name: 'payout', to: '/finance/payout', desc: 'Franchise settlement payouts' },
-          { name: 'GST', to: '/finance/gst', desc: 'GST invoice and tax deductions' },
+          { name: 'Security Deposit', to: '/finance/sd?source=report', desc: 'Franchisee security deposits payment records and receipts' },
+          { name: 'Cash Loading Funds (CLF)', to: '/finance/clf?source=report', desc: 'CLF instalments and loading fund ledger' },
+          { name: 'GST Invoice Report', to: '/finance/gst?source=report', desc: 'GST invoice generation, tax deductions and reconciliation' },
+          { name: 'Payout Report', to: '/finance/payout?source=report', desc: 'Franchise settlement payout records' },
+          { name: 'Settlement Account Mapping', to: '/finance/settlement-bank/account-mapping?source=report', desc: 'WLA, Axis Indent, and ICICI nodal sweep mappings' },
+          { name: 'A/C Change Request', to: '/finance/settlement-bank/ac-change-request?source=report', desc: 'Settlement and payout account modification requests' },
+          { name: 'Account Opening Pipeline', to: '/finance/settlement-bank/account-opening?source=report', desc: 'Bank account opening status and KYC compliance' },
+          { name: 'WLA Statement', to: '/operations/wla-statement?source=report', desc: 'WLA monthly statements and bank reconciliation' },
+          { name: 'TDS Letters & Compliance', to: '/operations/tds?source=report', desc: 'Tax deduction certificates and letters' },
         ],
       },
       {
         id: 'daily-reports',
         title: 'Daily Reports',
-        sub: 'Daily operations and summary reports.',
-        viewAllTo: '/cbr/consolidated',
+        sub: '',
+        viewAllTo: '/reports/monthly-cbr',
         iconBg: 'bg-[#7C3AED]',
         icon: <FileText size={22} className="text-white" />,
         items: [
           { name: 'Monthly CBR report', to: '/reports/monthly-cbr', desc: 'Consolidated ATM cash loading, denomination-wise balances and CBR records' },
-          { name: 'CBR 2', to: '/cbr/eod-summary', desc: 'End of day summary and cash positions' },
-          { name: 'CBR 3', to: '/cbr/mobile', desc: 'Mobile terminal cash reconciliation' },
-          { name: 'CBR HAMP', to: '/cbr/consolidated', reportId: 'cbr-hamp', desc: 'HAMP compliance cash reports' },
-          { name: 'Cash loading Fund', to: '/reports/financial/clf', desc: 'CLF instalments and loading registers' },
-          { name: 'Additional Cash loading Fund', to: '/reports/financial/overage-deposit', desc: 'Overage deposits and auxiliary funds' },
-          { name: 'Security Deposit', to: '/reports/financial/sd', desc: 'Franchisee security deposits' },
+          { name: 'Cash Replenishment (CBR)', to: '/cbr/replenishment?source=report', desc: 'Physical cash replenishment and vault balances' },
+          { name: 'EOD Summary', to: '/cbr/eod-summary?source=report', desc: 'End of day summary and cash positions' },
+          { name: 'CBR HAMP', to: '/cbr/consolidated?source=report', desc: 'HAMP compliance cash reports' },
+          { name: 'Additional Cash loading Fund', to: '/finance/clf?source=report', desc: 'Overage deposits and auxiliary funds' },
         ],
       },
       {
         id: 'complaint',
-        title: 'Complaint',
-        sub: 'Compliance and legal documentation reports.',
-        viewAllTo: '/legal',
+        title: 'Compliance & Legal',
+        sub: '',
+        viewAllTo: '/legal/loi?source=report',
         iconBg: 'bg-[#10B981]',
         icon: <ShieldCheck size={22} className="text-white" />,
         items: [
-          { name: 'Legal - LOI / Affidavite / Agreement', to: '/legal/loi', desc: 'LOI, sworn affidavits and legal contracts' },
-          { name: 'FFM Cheques', to: '/legal/fm-checks', desc: 'Franchise fee management and cheques' },
-          { name: 'PVC Status', to: '/legal/pvc', desc: 'Police verification certificates queue' },
+          { name: 'Legal LOI Report', to: '/legal/loi?source=report', desc: 'Letters of intent and agreement status' },
+          { name: 'Legal Affidavit Report', to: '/legal/affidavit?source=report', desc: 'Sworn affidavits and notary verification records' },
+          { name: 'Legal Agreement Report', to: '/legal/agreement?source=report', desc: 'Master franchise agreements and legal contracts' },
+          { name: 'FFM Cheques', to: '/legal/fm-checks?source=report', desc: 'Franchise fee management and post-dated cheques' },
+          { name: 'PVC Status Report', to: '/legal/pvc?source=report', desc: 'Police verification certificates and security clearance' },
+        ],
+      },
+      {
+        id: 'projects',
+        title: 'Projects',
+        sub: '',
+        viewAllTo: '/projects/active?source=report',
+        iconBg: 'bg-[#EF4444]',
+        icon: <Briefcase size={22} className="text-white" />,
+        items: [
+          { name: 'Site Master / Projects', to: '/projects/active?source=report', desc: 'Active site rollouts, coordinates and readiness status' },
+          { name: 'Site Installation', to: '/projects/installation?source=report', desc: 'ATM installation, site preparation and deployment checklist' },
+          { name: 'Task Report', to: '/tasks/my?source=report', desc: 'Project deliverables, milestones and routine tasks' },
+          { name: 'Email Tracker', to: '/email/inbox?source=report', desc: 'Incoming and outgoing communications report' },
+          { name: 'Notifications Broadcast', to: '/notices?source=report', desc: 'Regulatory, system and operations broadcast history' },
         ],
       },
     ],
@@ -246,28 +254,28 @@ export default function ReportsHub() {
   const QUICK_ACCESS_ITEMS = [
     {
       title: 'Operations',
-      to: '/operations',
+      to: '/reports/monthly-txns',
       bgClass: 'bg-[#F0F6FF] hover:bg-[#E2EEFC] border-[#E0EBF7]',
       icon: <Settings size={18} className="text-[#0066FF]" />,
       arrowColor: 'text-[#0066FF]',
     },
     {
       title: 'Accounts',
-      to: '/reports/financial/bs',
+      to: '/finance/sd?source=report',
       bgClass: 'bg-[#F0F6FF] hover:bg-[#E2EEFC] border-[#E0EBF7]',
       icon: <Landmark size={18} className="text-[#0066FF]" />,
       arrowColor: 'text-[#0066FF]',
     },
     {
       title: 'Projects',
-      to: '/projects',
+      to: '/projects/active?source=report',
       bgClass: 'bg-[#FFF1F2] hover:bg-[#FFE4E6] border-[#FECDD3]',
       icon: <Briefcase size={18} className="text-[#EF4444]" />,
       arrowColor: 'text-[#EF4444]',
     },
     {
       title: 'Compliance',
-      to: '/legal',
+      to: '/legal/loi?source=report',
       bgClass: 'bg-[#F0FDF4] hover:bg-[#DCFCE7] border-[#BBF7D0]',
       icon: <ShieldCheck size={18} className="text-[#10B981]" />,
       arrowColor: 'text-[#10B981]',
@@ -367,7 +375,7 @@ export default function ReportsHub() {
           />
           {/* Smooth horizontal gradient mask fading from dark navy */}
           <div className="absolute inset-0 bg-gradient-to-r from-[#0A1A3C] via-[#0A1A3C]/80 to-transparent" />
-          
+
           {/* Sleek diagonal accent stripes */}
           <div className="absolute right-36 top-1/2 hidden -translate-y-1/2 items-center gap-2 md:flex">
             <div className="h-28 w-2 -skew-x-[24deg] rounded-full bg-[#EF4444] shadow-md shadow-red-500/25" />

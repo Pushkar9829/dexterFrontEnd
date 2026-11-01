@@ -24,9 +24,11 @@ import {
   Edit2,
   Trash2,
   ExternalLink,
+  Eye,
 } from 'lucide-react'
 import { downloadCsv } from '@/lib/export'
 import { toast } from '@/components/ui/Toast'
+import { useReportMode } from '@/hooks/useReportMode'
 import { SD_BANKS, SD_PAYMENT_TYPES } from '@/data/financeSd'
 import {
   deleteSecurityDeposit,
@@ -35,6 +37,7 @@ import {
 
 export default function SdList() {
   const navigate = useNavigate()
+  const { isReport } = useReportMode()
   const deposits = useSecurityDeposits()
 
   // Filter States
@@ -232,18 +235,30 @@ export default function SdList() {
 
   return (
     <div className="space-y-4 pb-12">
-      {/* Breadcrumb matching Image 1: Workspace > Finance > Security Deposit Data */}
+      {/* Breadcrumb */}
       <div className="flex items-center gap-1.5 text-[12px] text-slate-500">
         <Home size={14} className="text-slate-400 shrink-0" />
         <Link to="/dashboard" className="hover:text-[#0066FF] transition-colors">
           Workspace
         </Link>
         <ChevronRight size={12} className="text-slate-400" />
-        <Link to="/finance" className="hover:text-[#0066FF] transition-colors">
-          Finance
-        </Link>
-        <ChevronRight size={12} className="text-slate-400" />
-        <span className="font-semibold text-slate-800">Security Deposit</span>
+        {isReport ? (
+          <>
+            <Link to="/reports" className="hover:text-[#0066FF] transition-colors">
+              Reports & MIS
+            </Link>
+            <ChevronRight size={12} className="text-slate-400" />
+            <span className="font-semibold text-slate-800">Security Deposit</span>
+          </>
+        ) : (
+          <>
+            <Link to="/finance" className="hover:text-[#0066FF] transition-colors">
+              Finance
+            </Link>
+            <ChevronRight size={12} className="text-slate-400" />
+            <span className="font-semibold text-slate-800">Security Deposit</span>
+          </>
+        )}
       </div>
 
       {/* Page Title & Top Action Button */}
@@ -257,15 +272,17 @@ export default function SdList() {
           </p>
         </div>
 
-        <div>
-          <button
-            onClick={() => navigate('/finance/sd/new')}
-            className="inline-flex items-center gap-2 h-9.5 px-4 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[13px] font-semibold transition-all shadow-sm hover:shadow"
-          >
-            <Plus size={16} strokeWidth={2.4} />
-            <span>New Security Deposit</span>
-          </button>
-        </div>
+        {!isReport && (
+          <div>
+            <button
+              onClick={() => navigate('/finance/sd/new')}
+              className="inline-flex items-center gap-2 h-9.5 px-4 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[13px] font-semibold transition-all shadow-sm hover:shadow"
+            >
+              <Plus size={16} strokeWidth={2.4} />
+              <span>New Security Deposit</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Filter Section matching Image 1 */}
@@ -633,20 +650,32 @@ export default function SdList() {
                     </td>
                     <td className="py-2.5 px-3 whitespace-nowrap sticky right-0 bg-white shadow-[-2px_0_4px_rgba(0,0,0,0.03)]">
                       <div className="flex items-center justify-center gap-1.5">
-                        <button
-                          onClick={() => navigate(`/finance/sd/${item.id}`)}
-                          className="p-1 text-slate-500 hover:text-[#0066FF] hover:bg-blue-50 rounded"
-                          title="Edit / Open"
-                        >
-                          <Edit2 size={13} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(item.id, item.franchiseeName)}
-                          className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded"
-                          title="Delete"
-                        >
-                          <Trash2 size={13} />
-                        </button>
+                        {isReport ? (
+                          <button
+                            onClick={() => navigate(`/finance/sd/${item.id}?source=report`)}
+                            className="p-1 text-slate-500 hover:text-[#0066FF] hover:bg-blue-50 rounded"
+                            title="View Record"
+                          >
+                            <Eye size={13} />
+                          </button>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => navigate(`/finance/sd/${item.id}`)}
+                              className="p-1 text-slate-500 hover:text-[#0066FF] hover:bg-blue-50 rounded"
+                              title="Edit / Open"
+                            >
+                              <Edit2 size={13} />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(item.id, item.franchiseeName)}
+                              className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded"
+                              title="Delete"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -664,18 +693,22 @@ export default function SdList() {
                         No records found
                       </h3>
                       <p className="text-[12px] text-slate-500 mt-1 max-w-[320px]">
-                        Try adjusting your filters or click on "New Security Deposit" to add a record.
+                        {isReport
+                          ? 'No matching records found for the applied report filters.'
+                          : 'Try adjusting your filters or click on "New Security Deposit" to add a record.'}
                       </p>
 
-                      <div className="mt-4 flex items-center gap-2">
-                        <button
-                          onClick={() => navigate('/finance/sd/new')}
-                          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[11px] font-semibold transition-all shadow-xs"
-                        >
-                          <Plus size={13} />
-                          New Security Deposit
-                        </button>
-                      </div>
+                      {!isReport && (
+                        <div className="mt-4 flex items-center gap-2">
+                          <button
+                            onClick={() => navigate('/finance/sd/new')}
+                            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[11px] font-semibold transition-all shadow-xs"
+                          >
+                            <Plus size={13} />
+                            New Security Deposit
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </td>
                 </tr>

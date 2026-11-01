@@ -20,6 +20,7 @@ import {
   Users,
 } from 'lucide-react'
 import { toast } from '@/components/ui/Toast'
+import { useReportMode } from '@/hooks/useReportMode'
 
 interface CashReplenishmentFormProps {
   onBack?: () => void
@@ -46,6 +47,7 @@ export default function CashReplenishmentForm({
   initialData,
 }: CashReplenishmentFormProps) {
   const navigate = useNavigate()
+  const { isReport } = useReportMode()
 
   // Header metadata matching Image 02
   const [cbrDate, setCbrDate] = useState(initialData?.date || '18-10-2026')
@@ -218,9 +220,16 @@ export default function CashReplenishmentForm({
             <FileText size={20} />
           </div>
           <div>
-            <h1 className="text-2xl sm:text-[26px] font-bold tracking-tight text-slate-900 leading-tight">
-              Daily ATM Cash Loading / Replenishment / CBR
-            </h1>
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-2xl sm:text-[26px] font-bold tracking-tight text-slate-900 leading-tight">
+                Daily ATM Cash Loading / Replenishment / CBR
+              </h1>
+              {isReport && (
+                <span className="px-2.5 py-0.5 text-[11px] font-semibold rounded-md bg-blue-50 text-blue-700 border border-blue-200">
+                  View-Only Report Mode
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -669,23 +678,29 @@ export default function CashReplenishmentForm({
             <span>Back</span>
           </button>
 
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={handleSaveDraft}
-              className="inline-flex items-center gap-2 h-10 px-5 rounded-lg border border-[#0066FF] text-[#0066FF] hover:bg-blue-50/50 bg-white text-[13px] font-semibold transition-all shadow-2xs cursor-pointer"
-            >
-              <Save size={16} />
-              <span>Save Draft</span>
-            </button>
-            <button
-              type="submit"
-              className="inline-flex items-center gap-2 h-10 px-6 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[13px] font-semibold transition-all shadow-sm hover:shadow cursor-pointer"
-            >
-              <span>Submit CBR</span>
-              <ArrowRight size={16} />
-            </button>
-          </div>
+          {isReport ? (
+            <span className="inline-flex items-center px-4 py-2 rounded-lg text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 shadow-2xs">
+              View-Only Report Mode
+            </span>
+          ) : (
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handleSaveDraft}
+                className="inline-flex items-center gap-2 h-10 px-5 rounded-lg border border-[#0066FF] text-[#0066FF] hover:bg-blue-50/50 bg-white text-[13px] font-semibold transition-all shadow-2xs cursor-pointer"
+              >
+                <Save size={16} />
+                <span>Save Draft</span>
+              </button>
+              <button
+                type="submit"
+                className="inline-flex items-center gap-2 h-10 px-6 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[13px] font-semibold transition-all shadow-sm hover:shadow cursor-pointer"
+              >
+                <span>Submit CBR</span>
+                <ArrowRight size={16} />
+              </button>
+            </div>
+          )}
         </div>
       </form>
     </div>

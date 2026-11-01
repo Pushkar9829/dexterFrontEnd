@@ -4,6 +4,7 @@ import { Info, Plus, SquarePen, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { toast } from '@/components/ui/Toast'
 import { cn } from '@/lib/cn'
+import { useReportMode } from '@/hooks/useReportMode'
 import type { Row } from '@/data/reportsFinancial'
 
 export const FIN_TABS = [
@@ -57,6 +58,14 @@ export function EditActions({
   onAdd?: () => void
   addLabel?: string
 }) {
+  const { isReport } = useReportMode()
+  if (isReport) {
+    return (
+      <span className="inline-flex items-center px-2.5 py-1 text-[11px] font-semibold rounded-md bg-blue-50 text-blue-700 border border-blue-200">
+        View-Only Report Mode
+      </span>
+    )
+  }
   if (!editing)
     return (
       <Button icon={<SquarePen size={16} />} onClick={onUpdate}>

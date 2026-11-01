@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { CalendarDays, Eye, Plus, X } from 'lucide-react'
 import { toast } from '@/components/ui/Toast'
+import { useReportMode } from '@/hooks/useReportMode'
 import { dmy, type Attachment, type Row } from '@/data/reportsFinancial'
 import { AttachmentModal } from './Attachments'
 import { DEFS, type DefCtx, type ReportDef } from './defs'
@@ -12,6 +13,7 @@ const enc = encodeURIComponent
 
 /** v1 — consolidated list: full tab strip, report heading, toolbar, one row per record with an Action → View column. */
 export function ReportList({ def }: { def: ReportDef }) {
+  const { isReport } = useReportMode()
   const all = def.store.use()
   const navigate = useNavigate()
   const [scope, setScope] = useState(def.scope?.default ?? '')
@@ -125,10 +127,11 @@ export function ReportList({ def }: { def: ReportDef }) {
               : undefined
           }
           toolbarExtra={
-            // not in the Figma list frames — kept (creating a record needs an entry point) as a borderless text button
-            <button type="button" onClick={addRecord} className="flex h-[30px] items-center gap-1 rounded-md px-2 text-[11px] font-semibold text-primary hover:bg-primary-soft">
-              <Plus size={13} /> Add record
-            </button>
+            !isReport ? (
+              <button type="button" onClick={addRecord} className="flex h-[30px] items-center gap-1 rounded-md px-2 text-[11px] font-semibold text-primary hover:bg-primary-soft">
+                <Plus size={13} /> Add record
+              </button>
+            ) : undefined
           }
           strip={def.listStrip ? { left: `${rows.length} ${rows.length === 1 ? def.noun[0] : def.noun[1]}`, right: 'Select View to open a record · Update to edit' } : undefined}
           footer={def.listStrip ? { left: `${rows.length} ${rows.length === 1 ? def.noun[0] : def.noun[1]} · ${def.sourceCols} source columns`, right: 'Editable grid · Update on the record page' } : undefined}
@@ -148,6 +151,7 @@ export function ReportRecord() {
 }
 
 function RecordView({ def, recordId }: { def: ReportDef; recordId: string }) {
+  const { isReport } = useReportMode()
   const all = def.store.use()
   const [params, setParams] = useSearchParams()
   const saved = all.find((r) => r.id === recordId)
@@ -156,7 +160,7 @@ function RecordView({ def, recordId }: { def: ReportDef; recordId: string }) {
   if (!saved) return <Navigate to={`/reports/financial/${def.slug}`} replace />
 
   const row = draft ?? saved
-  const editing = draft !== null
+  const editing = !isReport && draft !== null
   const scope = def.scope ? row[def.scope.key] || def.scope.default : ''
   const peers = def.scope ? all.filter((r) => r[def.scope!.key] === saved[def.scope!.key]) : all
   const sn = String(peers.findIndex((r) => r.id === recordId) + 1)
@@ -174,16 +178,22 @@ function RecordView({ def, recordId }: { def: ReportDef; recordId: string }) {
         sub={def.sub(scope)}
         only={def.slug}
         tabRight={
-          <EditActions
-            editing={editing}
-            onUpdate={() => setDraft({ ...saved })}
-            onCancel={leaveEdit}
-            onSave={() => {
-              if (draft) def.store.set((list) => list.map((r) => (r.id === recordId ? draft : r)))
-              leaveEdit()
-              toast(`${def.label} record S.N. ${sn} saved`)
-            }}
-          />
+          isReport ? (
+            <span className="inline-flex items-center px-2.5 py-1 text-[11px] font-semibold rounded-md bg-blue-50 text-blue-700 border border-blue-200">
+              View-Only Report Mode
+            </span>
+          ) : (
+            <EditActions
+              editing={editing}
+              onUpdate={() => setDraft({ ...saved })}
+              onCancel={leaveEdit}
+              onSave={() => {
+                if (draft) def.store.set((list) => list.map((r) => (r.id === recordId ? draft : r)))
+                leaveEdit()
+                toast(`${def.label} record S.N. ${sn} saved`)
+              }}
+            />
+          )
         }
         name={def.heading(scope)}
         chip={def.chip}

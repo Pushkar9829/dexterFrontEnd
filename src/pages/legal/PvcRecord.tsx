@@ -14,10 +14,12 @@ import {
 } from 'lucide-react'
 import { getPvcRecord, type PvcStatus } from '@/data/legalPvc'
 import { toast } from '@/components/ui/Toast'
+import { useReportMode } from '@/hooks/useReportMode'
 
 export default function PvcRecord() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const isReport = useReportMode()
 
   const record = id ? getPvcRecord(id) : undefined
 
@@ -27,7 +29,7 @@ export default function PvcRecord() {
         <h2 className="text-xl font-bold text-slate-800">PVC Record Not Found</h2>
         <p className="text-sm text-slate-500">The requested PVC record does not exist or has been removed.</p>
         <Link
-          to="/legal/pvc"
+          to={isReport ? "/legal/pvc?source=report" : "/legal/pvc"}
           className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#0066FF] text-white text-sm font-medium"
         >
           <ArrowLeft size={16} /> Back to PVC List
@@ -87,15 +89,31 @@ export default function PvcRecord() {
           <Home size={14} />
         </Link>
         <ChevronRight size={13} className="text-slate-400" />
-        <span className="text-slate-500">Workspace</span>
-        <ChevronRight size={13} className="text-slate-400" />
-        <Link to="/legal" className="text-slate-500 hover:text-[#0066FF] transition-colors">
-          Legal
-        </Link>
-        <ChevronRight size={13} className="text-slate-400" />
-        <Link to="/legal/pvc" className="text-slate-500 hover:text-[#0066FF] transition-colors">
-          PVC
-        </Link>
+        {isReport ? (
+          <>
+            <span className="text-slate-500">Workspace</span>
+            <ChevronRight size={13} className="text-slate-400" />
+            <Link to="/reports" className="text-slate-500 hover:text-[#0066FF] transition-colors">
+              Reports & MIS
+            </Link>
+            <ChevronRight size={13} className="text-slate-400" />
+            <Link to="/legal/pvc?source=report" className="text-slate-500 hover:text-[#0066FF] transition-colors">
+              PVC Status Report
+            </Link>
+          </>
+        ) : (
+          <>
+            <span className="text-slate-500">Workspace</span>
+            <ChevronRight size={13} className="text-slate-400" />
+            <Link to="/legal" className="text-slate-500 hover:text-[#0066FF] transition-colors">
+              Legal
+            </Link>
+            <ChevronRight size={13} className="text-slate-400" />
+            <Link to="/legal/pvc" className="text-slate-500 hover:text-[#0066FF] transition-colors">
+              PVC
+            </Link>
+          </>
+        )}
         <ChevronRight size={13} className="text-slate-400" />
         <span className="font-semibold text-slate-800">{record.siteId}</span>
       </nav>
@@ -108,6 +126,11 @@ export default function PvcRecord() {
               PVC Details — {record.siteId}
             </h1>
             {renderStatusBadge(record.status)}
+            {isReport && (
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                View-Only Report Mode
+              </span>
+            )}
           </div>
           <p className="text-[13px] text-slate-500 mt-1">
             Police Verification Certificate (PVC) information and attached records.
@@ -115,17 +138,19 @@ export default function PvcRecord() {
         </div>
 
         <div className="flex items-center gap-2.5">
-          <Link to={`/legal/pvc/${record.id}/edit`}>
-            <button
-              type="button"
-              className="h-9 px-4 rounded-lg bg-[#0066FF] hover:bg-blue-700 text-white font-medium text-[13px] flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
-            >
-              <Edit3 size={15} /> Edit Record
-            </button>
-          </Link>
+          {!isReport && (
+            <Link to={`/legal/pvc/${record.id}/edit`}>
+              <button
+                type="button"
+                className="h-9 px-4 rounded-lg bg-[#0066FF] hover:bg-blue-700 text-white font-medium text-[13px] flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+              >
+                <Edit3 size={15} /> Edit Record
+              </button>
+            </Link>
+          )}
           <button
             type="button"
-            onClick={() => navigate('/legal/pvc')}
+            onClick={() => navigate(isReport ? '/legal/pvc?source=report' : '/legal/pvc')}
             className="h-9 px-4 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 font-medium text-[13px] flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
           >
             <ArrowLeft size={15} /> Back to List

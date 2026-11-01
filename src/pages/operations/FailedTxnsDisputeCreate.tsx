@@ -23,10 +23,12 @@ import {
 } from 'lucide-react'
 import { useDisputeStore, ATM_LIST, INITIAL_DUMMY_DISPUTES } from '@/data/failedTxnDisputes'
 import { toast } from '@/components/ui/Toast'
+import { useReportMode } from '@/hooks/useReportMode'
 
 export default function FailedTxnsDisputeCreate() {
   const navigate = useNavigate()
   const { id } = useParams<{ id?: string }>()
+  const { isReport } = useReportMode()
   const { records, addRecord, updateRecord } = useDisputeStore()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -653,31 +655,34 @@ export default function FailedTxnsDisputeCreate() {
       {/* Bottom Action Bar */}
       <div className="flex items-center justify-between pt-2">
         {/* Back Button */}
-        <Link
-          to="/operations/reconciliation/failed-txns"
+        <button
+          type="button"
+          onClick={() => navigate(isReport ? '/operations/reconciliation/failed-txns?source=report' : '/operations/reconciliation/failed-txns')}
           className="flex items-center gap-1.5 rounded-xl border border-[#CBD5E1] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#1E293B] shadow-xs transition-colors hover:bg-slate-50 cursor-pointer"
         >
           <ArrowLeft size={16} /> Back
-        </Link>
+        </button>
 
         {/* Right Actions */}
-        <div className="flex items-center gap-2.5">
-          <button
-            type="button"
-            onClick={() => handleSave(true)}
-            className="flex items-center gap-2 rounded-xl border border-[#CBD5E1] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#1E293B] shadow-xs transition-colors hover:bg-slate-50 cursor-pointer"
-          >
-            <Save size={16} className="text-[#0066FF]" /> Save Draft
-          </button>
+        {!isReport && (
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => handleSave(true)}
+              className="flex items-center gap-2 rounded-xl border border-[#CBD5E1] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#1E293B] shadow-xs transition-colors hover:bg-slate-50 cursor-pointer"
+            >
+              <Save size={16} className="text-[#0066FF]" /> Save Draft
+            </button>
 
-          <button
-            type="button"
-            onClick={() => handleSave(false)}
-            className="flex items-center gap-2 rounded-xl bg-[#0066FF] px-5 py-2.5 text-[13px] font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 cursor-pointer"
-          >
-            <Send size={15} /> {existing ? 'Update Complaint' : 'Submit Complaint'}
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={() => handleSave(false)}
+              className="flex items-center gap-2 rounded-xl bg-[#0066FF] px-5 py-2.5 text-[13px] font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 cursor-pointer"
+            >
+              <Send size={15} /> {existing ? 'Update Complaint' : 'Submit Complaint'}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )

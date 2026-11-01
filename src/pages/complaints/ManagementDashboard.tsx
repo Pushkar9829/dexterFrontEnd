@@ -27,6 +27,7 @@ import {
 } from '@/data/complaints'
 import { BarRow, Banner, CHART, Chip, ComplaintsShell, GridCard, Kpi, Panel, PriorityBadge, SlaText, StatusBadge, ViewAll, BASE, useNow } from './shared'
 import { FilterBar, filterStore } from './FilterBar'
+import { useReportMode } from '@/hooks/useReportMode'
 import { daysBetween, matches, percentile, priorRange, shortRange, stateOf } from './filters'
 
 type Quick = 'All' | 'Open' | 'Priority' | 'Critical' | 'At risk' | 'Breached' | 'Escalated' | 'Closed'
@@ -43,6 +44,7 @@ export const complaintCsv = (name: string, rows: Complaint[], now: number) =>
   )
 
 export default function ManagementDashboard() {
+  const isReport = useReportMode()
   const all = complaintStore.use()
   const filter = filterStore.use()
   const now = useNow()
@@ -293,8 +295,8 @@ export default function ManagementDashboard() {
           columns={allCols}
           rowId={(c) => c.id}
           searchPlaceholder="Search ID, ATM, owner…"
-          selectable
-          bulkActions={(ids, clear) => (
+          selectable={!isReport}
+          bulkActions={!isReport ? (ids, clear) => (
             <span className="flex items-center gap-2">
               <select value={bulkOwner} onChange={(e) => setBulkOwner(e.target.value)} aria-label="New owner" className="h-7 rounded border border-line bg-white px-2 text-[12px]">
                 <option value="">Assign owner…</option>
@@ -315,7 +317,7 @@ export default function ManagementDashboard() {
                 Apply
               </Button>
             </span>
-          )}
+          ) : undefined}
           exportName="complaints"
           noun="complaints"
           pageSize={10}

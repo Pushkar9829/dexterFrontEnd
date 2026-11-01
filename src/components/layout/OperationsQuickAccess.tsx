@@ -29,7 +29,7 @@ export const QUICK_ACCESS_ITEMS = [
   },
   {
     label: 'EOD',
-    to: '/cbr/eod-summary',
+    to: '/operations/eod',
     Icon: CalendarCheck,
   },
   {
@@ -38,8 +38,8 @@ export const QUICK_ACCESS_ITEMS = [
     Icon: Banknote,
   },
   {
-    label: 'Bank Statement',
-    to: '/operations/bank-statement',
+    label: 'WLA Statement',
+    to: '/operations/wla-statement',
     Icon: Building2,
   },
   {

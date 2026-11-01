@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { toast } from '@/components/ui/Toast'
+import { useReportMode } from '@/hooks/useReportMode'
 import {
   createEmptyApnaAppRegistration,
   getApnaAppRegistration,
@@ -28,6 +29,7 @@ import {
 
 export default function ApnaAppRecord() {
   const navigate = useNavigate()
+  const isReport = useReportMode()
   const { id } = useParams<{ id: string }>()
   const isNew = !id || id === 'new'
 
@@ -115,30 +117,53 @@ export default function ApnaAppRecord() {
 
   return (
     <div className="mx-auto max-w-[1200px] pb-16 font-sans">
-      {/* Breadcrumb matching Page 02 screenshot */}
+      {/* Breadcrumb */}
       <nav className="mb-2.5 flex items-center gap-1.5 text-[12px] text-[#64748B]">
         <Link to="/dashboard" className="flex items-center gap-1 hover:text-[#0066FF]">
           <Home size={13} className="text-[#64748B]" />
           <span>Workspace</span>
         </Link>
         <span>&gt;</span>
-        <Link to="/projects" className="hover:text-[#0066FF]">
-          Projects
-        </Link>
-        <span>&gt;</span>
-        <Link to="/franchise/apna-app" className="hover:text-[#0066FF]">
-          Apna App Registration
-        </Link>
+        {isReport ? (
+          <>
+            <Link to="/reports" className="hover:text-[#0066FF]">
+              Reports & MIS
+            </Link>
+            <span>&gt;</span>
+            <Link to="/franchise/apna-app?source=report" className="hover:text-[#0066FF]">
+              Apna App Registration Report
+            </Link>
+          </>
+        ) : (
+          <>
+            <Link to="/projects" className="hover:text-[#0066FF]">
+              Projects
+            </Link>
+            <span>&gt;</span>
+            <Link to="/franchise/apna-app" className="hover:text-[#0066FF]">
+              Apna App Registration
+            </Link>
+          </>
+        )}
       </nav>
 
       {/* Page Header */}
-      <div className="mb-6">
-        <h1 className="text-[26px] font-bold tracking-tight text-[#0F172A]">
-          Apna App Registration
-        </h1>
-        <p className="mt-0.5 text-[13px] text-[#64748B]">
-          Create and manage Apna App user registration details for site, franchise and master franchise.
-        </p>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="text-[26px] font-bold tracking-tight text-[#0F172A]">
+            {isReport ? 'Apna App User Details (Report)' : 'Apna App Registration'}
+          </h1>
+          <p className="mt-0.5 text-[13px] text-[#64748B]">
+            {isReport
+              ? 'View Apna App user credentials and registration details.'
+              : 'Create and manage Apna App user registration details for site, franchise and master franchise.'}
+          </p>
+        </div>
+        {isReport && (
+          <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+            View-Only Report Mode
+          </span>
+        )}
       </div>
 
       {/* Main Form Container */}
@@ -413,15 +438,21 @@ export default function ApnaAppRecord() {
               <label className="mb-1 block text-[12px] font-semibold text-[#334155]">
                 Action
               </label>
-              <Button
-                type="button"
-                variant="secondary"
-                size="md"
-                onClick={handleResetPassword}
-                className="h-9 w-full border-[#CBD5E1] bg-white font-medium text-[#0066FF] hover:bg-[#EAF2FD] text-[12.5px]"
-              >
-                <RotateCcw size={14} className="mr-1.5 text-[#0066FF]" /> Reset Password
-              </Button>
+              {!isReport ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="md"
+                  onClick={handleResetPassword}
+                  className="h-9 w-full border-[#CBD5E1] bg-white font-medium text-[#0066FF] hover:bg-[#EAF2FD] text-[12.5px]"
+                >
+                  <RotateCcw size={14} className="mr-1.5 text-[#0066FF]" /> Reset Password
+                </Button>
+              ) : (
+                <div className="h-9 w-full flex items-center justify-center text-xs text-slate-400 border border-slate-200 rounded-lg bg-slate-50">
+                  Read Only
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -432,30 +463,34 @@ export default function ApnaAppRecord() {
             type="button"
             variant="secondary"
             size="md"
-            onClick={() => navigate('/franchise/apna-app')}
+            onClick={() => navigate(isReport ? '/franchise/apna-app?source=report' : '/franchise/apna-app')}
             className="border-[#CBD5E1] bg-white px-5 text-[#334155] hover:bg-[#F8FAFC]"
           >
-            Cancel
+            {isReport ? 'Back to Report' : 'Cancel'}
           </Button>
 
-          <Button
-            type="button"
-            variant="secondary"
-            size="md"
-            onClick={handleSaveAndAddNew}
-            className="border-[#0066FF] bg-white px-5 font-semibold text-[#0066FF] hover:bg-[#EAF2FD]"
-          >
-            Save &amp; Add New
-          </Button>
+          {!isReport && (
+            <>
+              <Button
+                type="button"
+                variant="secondary"
+                size="md"
+                onClick={handleSaveAndAddNew}
+                className="border-[#0066FF] bg-white px-5 font-semibold text-[#0066FF] hover:bg-[#EAF2FD]"
+              >
+                Save &amp; Add New
+              </Button>
 
-          <Button
-            type="button"
-            size="md"
-            onClick={handleSave}
-            className="bg-[#0066FF] px-6 font-semibold text-white shadow-sm hover:bg-[#0052cc]"
-          >
-            Save
-          </Button>
+              <Button
+                type="button"
+                size="md"
+                onClick={handleSave}
+                className="bg-[#0066FF] px-6 font-semibold text-white shadow-sm hover:bg-[#0052cc]"
+              >
+                Save
+              </Button>
+            </>
+          )}
         </div>
       </div>
     </div>

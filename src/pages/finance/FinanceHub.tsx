@@ -5,7 +5,7 @@ import {
   Landmark,
   ShieldCheck,
   Users,
-  Wallet,
+  WalletCards,
   Zap,
 } from 'lucide-react'
 import { HubTile, type HubTileTheme } from '@/components/ui/HubTile'
@@ -50,13 +50,13 @@ const FINANCE_TILES: FinanceTileConfig[] = [
     reportsCount: '7 Reports',
   },
   {
-    title: 'Payouts',
-    sub: 'Process and track payouts for partners and vendors.',
-    to: '/finance/payout',
-    Icon: Wallet,
+    title: 'Account Management',
+    sub: 'Manage partner payouts, settlement bank accounts, and TDS compliance.',
+    to: '/finance/account-management',
+    Icon: WalletCards,
     theme: 'rose',
-    tag: 'Settlements',
-    reportsCount: '8 Reports',
+    tag: 'Banking & Tax',
+    reportsCount: '3 Modules',
   },
   {
     title: 'HR Payments',
@@ -89,10 +89,10 @@ const QUICK_ACCESS_ITEMS = [
     Icon: FileText,
   },
   {
-    title: 'Payouts',
-    to: '/finance/payout',
+    title: 'Account Management',
+    to: '/finance/account-management',
     iconBg: 'bg-rose-50 text-rose-600 border-rose-200',
-    Icon: Wallet,
+    Icon: WalletCards,
   },
   {
     title: 'HR Payments',

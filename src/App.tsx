@@ -16,6 +16,10 @@ import EmployeeOnboardingForm from '@/pages/onboarding/employee/EmployeeOnboardi
 import KycHub from '@/pages/onboarding/KycHub'
 import KycUpload from '@/pages/onboarding/KycUpload'
 import SetupHub, { BusinessSettingsHub, EscalationMatrixHub } from '@/pages/onboarding/SetupHub'
+import SlaRules from '@/pages/setup/SlaRules'
+import EscalationHierarchy from '@/pages/setup/EscalationHierarchy'
+import OrgUnitList from '@/pages/setup/OrgUnitList'
+import OnboardingApprovals from '@/pages/onboarding/OnboardingApprovals'
 import { Toaster } from '@/components/ui/Toast'
 import { FranchiseHub, FranchiseRegistration, MasterData, TierList } from '@/pages/franchise/FranchisePages'
 import Dossier from '@/pages/franchise/Dossier'
@@ -28,6 +32,7 @@ import { projectRoutes } from '@/pages/projects/routes'
 import { reportRoutes } from '@/pages/reports/routes'
 import { financeRoutes } from '@/pages/finance/routes'
 import { cbrRoutes } from '@/pages/cbr/routes'
+import { operationsRoutes } from '@/pages/operations/routes'
 import { taskRoutes } from '@/pages/tasks/routes'
 import { emailRoutes } from '@/pages/email/routes'
 import { complaintRoutes } from '@/pages/complaints/routes'
@@ -65,6 +70,7 @@ export default function App() {
           <Route path="/employee-onboarding" element={<Navigate to="/onboarding/users/new" replace />} />
           <Route path="/onboarding/applications" element={<Applications />} />
           <Route path="/onboarding/applications/:appId" element={<Applications />} />
+          <Route path="/onboarding/approvals" element={<OnboardingApprovals />} />
           <Route path="/franchise" element={<FranchiseHub />} />
           <Route path="/franchise/registration" element={<FranchiseRegistration />} />
           <Route path="/franchise/master-data" element={<MasterData />} />
@@ -79,13 +85,17 @@ export default function App() {
           <Route path="/kyc/verification" element={<KycQueue />} />
           <Route path="/kyc/verification/:caseId" element={<KycWorkspace />} />
           <Route path="/setup" element={<SetupHub />} />
+          <Route path="/setup/sla-rules" element={<SlaRules />} />
           <Route path="/setup/escalation-matrix" element={<EscalationMatrixHub />} />
+          <Route path="/setup/escalation-matrix/hierarchy" element={<EscalationHierarchy />} />
           <Route path="/setup/business-settings" element={<BusinessSettingsHub />} />
+          <Route path="/setup/business-settings/org-unit" element={<OrgUnitList />} />
           {legalRoutes}
           {projectRoutes}
           {reportRoutes}
           {financeRoutes}
           {cbrRoutes}
+          {operationsRoutes}
           {taskRoutes}
           {emailRoutes}
           {complaintRoutes}

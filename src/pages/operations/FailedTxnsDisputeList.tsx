@@ -27,9 +27,11 @@ import {
   ATM_LIST,
 } from '@/data/failedTxnDisputes'
 import { toast } from '@/components/ui/Toast'
+import { useReportMode } from '@/hooks/useReportMode'
 
 export default function FailedTxnsDisputeList() {
   const navigate = useNavigate()
+  const { isReport } = useReportMode()
   const { records, deleteRecord, resetDummyData } = useDisputeStore()
 
   // Filter states
@@ -150,22 +152,34 @@ export default function FailedTxnsDisputeList() {
 
   return (
     <div className="mx-auto max-w-[1500px] min-w-0 pb-12 font-sans space-y-4">
-      {/* Breadcrumb matching Page 01: Workspace > Operations > Dispute / Failed TXN > Dispute Failed TXNs Data */}
+      {/* Breadcrumb */}
       <div className="flex items-center gap-1.5 text-[12px] text-slate-500">
         <Home size={14} className="text-slate-400 shrink-0" />
         <Link to="/dashboard" className="hover:text-[#0066FF] transition-colors">
           Workspace
         </Link>
         <ChevronRight size={12} className="text-slate-400 shrink-0" />
-        <Link to="/operations" className="hover:text-[#0066FF] transition-colors">
-          Operations
-        </Link>
-        <ChevronRight size={12} className="text-slate-400 shrink-0" />
-        <Link to="/operations/reconciliation" className="hover:text-[#0066FF] transition-colors">
-          Dispute / Failed TXN
-        </Link>
-        <ChevronRight size={12} className="text-slate-400 shrink-0" />
-        <span className="font-semibold text-slate-800">Dispute Failed TXNs Data</span>
+        {isReport ? (
+          <>
+            <Link to="/reports" className="hover:text-[#0066FF] transition-colors">
+              Reports & MIS
+            </Link>
+            <ChevronRight size={12} className="text-slate-400 shrink-0" />
+            <span className="font-semibold text-slate-800">Dispute / Failed TXNs Report</span>
+          </>
+        ) : (
+          <>
+            <Link to="/operations" className="hover:text-[#0066FF] transition-colors">
+              Operations
+            </Link>
+            <ChevronRight size={12} className="text-slate-400 shrink-0" />
+            <Link to="/operations/reconciliation" className="hover:text-[#0066FF] transition-colors">
+              Dispute / Failed TXN
+            </Link>
+            <ChevronRight size={12} className="text-slate-400 shrink-0" />
+            <span className="font-semibold text-slate-800">Dispute Failed TXNs Data</span>
+          </>
+        )}
       </div>
 
       {/* Page Header */}
@@ -176,33 +190,37 @@ export default function FailedTxnsDisputeList() {
           </div>
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-[#1E293B] sm:text-[26px]">
-              Dispute Failed TXNs Data
+              {isReport ? 'Dispute / Failed TXNs Report' : 'Dispute Failed TXNs Data'}
             </h1>
             <p className="mt-0.5 text-[13px] text-[#64748B]">
-              View and manage all failed / disputed transactions with complete details.
+              {isReport
+                ? 'Audit and review customer failed transaction complaints, dispute logs, and resolution details.'
+                : 'View and manage all failed / disputed transactions with complete details.'}
             </p>
           </div>
         </div>
 
         {/* Top Right Action: + New Dispute TXN */}
-        <div className="flex items-center gap-2 self-start sm:self-auto">
-          {records.length === 0 && (
-            <button
-              type="button"
-              onClick={resetDummyData}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-[#CBD5E1] bg-white px-3 py-2 text-[12.5px] font-semibold text-[#1E293B] hover:bg-slate-50 cursor-pointer shadow-xs"
-            >
-              <RotateCcw size={14} className="text-[#0066FF]" /> Load Sample Data
-            </button>
-          )}
+        {!isReport && (
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            {records.length === 0 && (
+              <button
+                type="button"
+                onClick={resetDummyData}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[#CBD5E1] bg-white px-3 py-2 text-[12.5px] font-semibold text-[#1E293B] hover:bg-slate-50 cursor-pointer shadow-xs"
+              >
+                <RotateCcw size={14} className="text-[#0066FF]" /> Load Sample Data
+              </button>
+            )}
 
-          <Link
-            to="/operations/reconciliation/failed-txns/new"
-            className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#0066FF] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 cursor-pointer"
-          >
-            <Plus size={16} /> New Dispute TXN
-          </Link>
-        </div>
+            <Link
+              to="/operations/reconciliation/failed-txns/new"
+              className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#0066FF] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 cursor-pointer"
+            >
+              <Plus size={16} /> New Dispute TXN
+            </Link>
+          </div>
+        )}
       </div>
 
       {/* Filter Card */}
@@ -520,30 +538,34 @@ export default function FailedTxnsDisputeList() {
                       <div className="flex items-center justify-center gap-1.5">
                         <button
                           type="button"
-                          onClick={() => navigate(`/operations/reconciliation/failed-txns/${r.id}`)}
+                          onClick={() => navigate(isReport ? `/operations/reconciliation/failed-txns/${r.id}?source=report` : `/operations/reconciliation/failed-txns/${r.id}`)}
                           className="h-7 w-7 rounded-md flex items-center justify-center text-[#0066FF] hover:bg-blue-50 border border-blue-200/80 transition-colors cursor-pointer"
-                          title="View / Open Form"
+                          title="View Dispute Details"
                         >
                           <Eye size={13} />
                         </button>
 
-                        <button
-                          type="button"
-                          onClick={() => navigate(`/operations/reconciliation/failed-txns/${r.id}`)}
-                          className="h-7 w-7 rounded-md flex items-center justify-center text-[#0066FF] hover:bg-blue-50 border border-blue-200/80 transition-colors cursor-pointer"
-                          title="Edit Dispute"
-                        >
-                          <Edit2 size={13} />
-                        </button>
+                        {!isReport && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/operations/reconciliation/failed-txns/${r.id}`)}
+                              className="h-7 w-7 rounded-md flex items-center justify-center text-[#0066FF] hover:bg-blue-50 border border-blue-200/80 transition-colors cursor-pointer"
+                              title="Edit Dispute"
+                            >
+                              <Edit2 size={13} />
+                            </button>
 
-                        <button
-                          type="button"
-                          onClick={() => setDeletingId(r.id)}
-                          className="h-7 w-7 rounded-md flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 border border-slate-200 hover:border-red-200 transition-colors cursor-pointer"
-                          title="Delete Dispute"
-                        >
-                          <Trash2 size={13} />
-                        </button>
+                            <button
+                              type="button"
+                              onClick={() => setDeletingId(r.id)}
+                              className="h-7 w-7 rounded-md flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 border border-slate-200 hover:border-red-200 transition-colors cursor-pointer"
+                              title="Delete Dispute"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>

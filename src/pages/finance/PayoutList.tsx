@@ -23,9 +23,11 @@ import {
   Trash2,
   ExternalLink,
   FileCheck,
+  Eye,
 } from 'lucide-react'
 import { downloadCsv } from '@/lib/export'
 import { toast } from '@/components/ui/Toast'
+import { useReportMode } from '@/hooks/useReportMode'
 import {
   PAYOUT_STATUSES,
   deletePayout,
@@ -35,6 +37,7 @@ import {
 
 export default function PayoutList() {
   const navigate = useNavigate()
+  const { isReport } = useReportMode()
   const records = payoutStore.use()
 
   // Filter States
@@ -198,40 +201,60 @@ export default function PayoutList() {
 
   return (
     <div className="space-y-4 pb-12">
-      {/* Breadcrumb: Workspace > Finance > Payout Data */}
+      {/* Breadcrumb */}
       <div className="flex items-center gap-1.5 text-[12px] text-slate-500">
         <Home size={14} className="text-slate-400 shrink-0" />
         <Link to="/dashboard" className="hover:text-[#0066FF] transition-colors">
           Workspace
         </Link>
         <ChevronRight size={12} className="text-slate-400" />
-        <Link to="/finance" className="hover:text-[#0066FF] transition-colors">
-          Finance
-        </Link>
-        <ChevronRight size={12} className="text-slate-400" />
-        <span className="font-semibold text-slate-800">Payout Data</span>
+        {isReport ? (
+          <>
+            <Link to="/reports" className="hover:text-[#0066FF] transition-colors">
+              Reports & MIS
+            </Link>
+            <ChevronRight size={12} className="text-slate-400" />
+            <span className="font-semibold text-slate-800">Payout Report</span>
+          </>
+        ) : (
+          <>
+            <Link to="/finance" className="hover:text-[#0066FF] transition-colors">
+              Finance
+            </Link>
+            <ChevronRight size={12} className="text-slate-400" />
+            <Link to="/finance/account-management" className="hover:text-[#0066FF] transition-colors">
+              Account Management
+            </Link>
+            <ChevronRight size={12} className="text-slate-400" />
+            <span className="font-semibold text-slate-800">Payout Data</span>
+          </>
+        )}
       </div>
 
       {/* Page Title & Top Action Button */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-1">
         <div>
           <h1 className="text-[26px] font-bold tracking-tight text-slate-900 leading-tight">
-            Payout
+            {isReport ? 'Payout Report' : 'Payout'}
           </h1>
           <p className="text-[13px] text-slate-500 mt-1">
-            Manage settlement accounts, PAN verification, bank routing, and disbursement records.
+            {isReport
+              ? 'View settlement accounts, PAN verification, bank routing, and disbursement records.'
+              : 'Manage settlement accounts, PAN verification, bank routing, and disbursement records.'}
           </p>
         </div>
 
-        <div>
-          <button
-            onClick={() => navigate('/finance/payout/new')}
-            className="inline-flex items-center gap-2 h-9.5 px-4 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[13px] font-semibold transition-all shadow-sm hover:shadow"
-          >
-            <Plus size={16} strokeWidth={2.4} />
-            <span>New Payout Record</span>
-          </button>
-        </div>
+        {!isReport && (
+          <div>
+            <button
+              onClick={() => navigate('/finance/payout/new')}
+              className="inline-flex items-center gap-2 h-9.5 px-4 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[13px] font-semibold transition-all shadow-sm hover:shadow"
+            >
+              <Plus size={16} strokeWidth={2.4} />
+              <span>New Payout Record</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Filter Section */}
@@ -574,7 +597,7 @@ export default function PayoutList() {
                     </td>
                     <td className="py-2.5 px-3 border-r border-slate-100 font-semibold text-[#0066FF] whitespace-nowrap">
                       <button
-                        onClick={() => navigate(`/finance/payout/${item.id}`)}
+                        onClick={() => navigate(isReport ? `/finance/payout/${item.id}?source=report` : `/finance/payout/${item.id}`)}
                         className="hover:underline flex items-center justify-center gap-1 mx-auto"
                       >
                         {item.atmId || '—'}
@@ -619,20 +642,32 @@ export default function PayoutList() {
                     </td>
                     <td className="py-2.5 px-3 whitespace-nowrap sticky right-0 bg-white shadow-[-2px_0_4px_rgba(0,0,0,0.03)]">
                       <div className="flex items-center justify-center gap-1.5">
-                        <button
-                          onClick={() => navigate(`/finance/payout/${item.id}`)}
-                          className="w-6.5 h-6.5 rounded flex items-center justify-center text-[#0066FF] hover:bg-blue-50 border border-blue-200/60 transition-colors"
-                          title="Edit / Open"
-                        >
-                          <Edit2 size={12} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(item.id, item.panName || item.atmId)}
-                          className="w-6.5 h-6.5 rounded flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 border border-slate-200 hover:border-red-200 transition-colors"
-                          title="Delete"
-                        >
-                          <Trash2 size={12} />
-                        </button>
+                        {isReport ? (
+                          <button
+                            onClick={() => navigate(`/finance/payout/${item.id}?source=report`)}
+                            className="w-6.5 h-6.5 rounded flex items-center justify-center text-slate-600 hover:text-[#0066FF] hover:bg-blue-50 border border-slate-200 hover:border-blue-200 transition-colors"
+                            title="View Record"
+                          >
+                            <Eye size={12} />
+                          </button>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => navigate(`/finance/payout/${item.id}`)}
+                              className="w-6.5 h-6.5 rounded flex items-center justify-center text-[#0066FF] hover:bg-blue-50 border border-blue-200/60 transition-colors"
+                              title="Edit / Open"
+                            >
+                              <Edit2 size={12} />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(item.id, item.panName || item.atmId)}
+                              className="w-6.5 h-6.5 rounded flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 border border-slate-200 hover:border-red-200 transition-colors"
+                              title="Delete"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -650,18 +685,22 @@ export default function PayoutList() {
                         No records found
                       </h3>
                       <p className="text-[12px] text-slate-500 mt-1 max-w-[320px]">
-                        Try adjusting your filters or click on "New Payout Record" to add an entry.
+                        {isReport
+                          ? 'No matching payout records found for the applied report filters.'
+                          : 'Try adjusting your filters or click on "New Payout Record" to add an entry.'}
                       </p>
 
-                      <div className="mt-4 flex items-center gap-2">
-                        <button
-                          onClick={() => navigate('/finance/payout/new')}
-                          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[11px] font-semibold transition-all shadow-xs"
-                        >
-                          <Plus size={13} />
-                          New Payout Record
-                        </button>
-                      </div>
+                      {!isReport && (
+                        <div className="mt-4 flex items-center gap-2">
+                          <button
+                            onClick={() => navigate('/finance/payout/new')}
+                            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[11px] font-semibold transition-all shadow-xs"
+                          >
+                            <Plus size={13} />
+                            New Payout Record
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </td>
                 </tr>

@@ -27,9 +27,11 @@ import {
   INITIAL_CHARGE_BACK_DISPUTES,
 } from '@/data/chargeBackDisputes'
 import { toast } from '@/components/ui/Toast'
+import { useReportMode } from '@/hooks/useReportMode'
 
 export default function ChargeBackDisputeForm() {
   const navigate = useNavigate()
+  const isReport = useReportMode()
   const { id } = useParams<{ id?: string }>()
   const { records, addRecord, updateRecord } = useChargeBackStore()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -261,16 +263,30 @@ export default function ChargeBackDisputeForm() {
           Workspace
         </Link>
         <ChevronRight size={12} className="text-slate-400 shrink-0" />
-        <Link to="/operations" className="hover:text-[#0066FF] transition-colors">
-          Operations
-        </Link>
-        <ChevronRight size={12} className="text-slate-400 shrink-0" />
-        <Link to="/operations/reconciliation/charge-back" className="hover:text-[#0066FF] transition-colors">
-          Charge Back Dispute
-        </Link>
+        {isReport ? (
+          <>
+            <Link to="/reports" className="hover:text-[#0066FF] transition-colors">
+              Reports & MIS
+            </Link>
+            <ChevronRight size={12} className="text-slate-400 shrink-0" />
+            <Link to="/operations/reconciliation/charge-back?source=report" className="hover:text-[#0066FF] transition-colors">
+              Charge Back Dispute
+            </Link>
+          </>
+        ) : (
+          <>
+            <Link to="/operations" className="hover:text-[#0066FF] transition-colors">
+              Operations
+            </Link>
+            <ChevronRight size={12} className="text-slate-400 shrink-0" />
+            <Link to="/operations/reconciliation/charge-back" className="hover:text-[#0066FF] transition-colors">
+              Charge Back Dispute
+            </Link>
+          </>
+        )}
         <ChevronRight size={12} className="text-slate-400 shrink-0" />
         <span className="font-semibold text-slate-800">
-          {activeTab === 'FFM' ? 'Full Funding Sites' : 'Self Funding Sites'}
+          {existing?.ticketNumber || (activeTab === 'FFM' ? 'Full Funding Sites' : 'Self Funding Sites')}
         </span>
       </div>
 
@@ -1187,37 +1203,45 @@ export default function ChargeBackDisputeForm() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-2">
         <button
           type="button"
-          onClick={() => navigate('/operations/reconciliation/charge-back')}
+          onClick={() => navigate(isReport ? '/operations/reconciliation/charge-back?source=report' : '/operations/reconciliation/charge-back')}
           className="flex items-center gap-1.5 rounded-xl border border-[#CBD5E1] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#334155] shadow-xs hover:bg-slate-50 cursor-pointer self-start sm:self-auto"
         >
           <ArrowLeft size={16} /> Back
         </button>
 
         <div className="flex flex-wrap items-center gap-2 self-end sm:self-auto">
-          {/* Apply / Send Email button as specified in Image 2 & 4 */}
-          <button
-            type="button"
-            onClick={() => setShowEmailModal(true)}
-            className="flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50/80 px-4 py-2.5 text-[13px] font-bold text-[#0066FF] shadow-xs hover:bg-blue-100 cursor-pointer transition-colors"
-          >
-            <Mail size={15} /> Apply / Send Email
-          </button>
+          {isReport ? (
+            <span className="inline-flex items-center px-4 py-2 rounded-xl text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+              View-Only Report Mode
+            </span>
+          ) : (
+            <>
+              {/* Apply / Send Email button as specified in Image 2 & 4 */}
+              <button
+                type="button"
+                onClick={() => setShowEmailModal(true)}
+                className="flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50/80 px-4 py-2.5 text-[13px] font-bold text-[#0066FF] shadow-xs hover:bg-blue-100 cursor-pointer transition-colors"
+              >
+                <Mail size={15} /> Apply / Send Email
+              </button>
 
-          <button
-            type="button"
-            onClick={() => handleSubmit('Draft')}
-            className="flex items-center gap-1.5 rounded-xl border border-[#CBD5E1] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#1E293B] shadow-xs hover:bg-slate-50 cursor-pointer transition-colors"
-          >
-            <Save size={15} className="text-[#0066FF]" /> Save Draft
-          </button>
+              <button
+                type="button"
+                onClick={() => handleSubmit('Draft')}
+                className="flex items-center gap-1.5 rounded-xl border border-[#CBD5E1] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#1E293B] shadow-xs hover:bg-slate-50 cursor-pointer transition-colors"
+              >
+                <Save size={15} className="text-[#0066FF]" /> Save Draft
+              </button>
 
-          <button
-            type="button"
-            onClick={() => handleSubmit('Pending')}
-            className="flex items-center gap-1.5 rounded-xl bg-[#0066FF] px-5 py-2.5 text-[13px] font-bold text-white shadow-sm hover:bg-blue-700 cursor-pointer transition-colors"
-          >
-            <Send size={15} /> {existing ? 'Update Dispute' : 'Submit Dispute'}
-          </button>
+              <button
+                type="button"
+                onClick={() => handleSubmit('Pending')}
+                className="flex items-center gap-1.5 rounded-xl bg-[#0066FF] px-5 py-2.5 text-[13px] font-bold text-white shadow-sm hover:bg-blue-700 cursor-pointer transition-colors"
+              >
+                <Send size={15} /> {existing ? 'Update Dispute' : 'Submit Dispute'}
+              </button>
+            </>
+          )}
         </div>
       </div>
 

@@ -9,6 +9,7 @@ import { SITES, dmy, getSite } from '@/data/cbrSites'
 import { CBR_DATES, CBR_END, dailyForSite, dailyStore, reconcile, toConsolidated, type ConsolidatedRow } from '@/data/cbr'
 import { rowMark, useRowNav } from '../finance/shared'
 import { Amt, SiteContext } from './shared'
+import { useReportMode } from '@/hooks/useReportMode'
 
 type Sort = { key: string; dir: 'asc' | 'desc' } | null
 type HeadCtx = {
@@ -53,6 +54,15 @@ type ColDef = GridColumn<ConsolidatedRow> & {
   filterable?: boolean
 }
 
+function DailyDateCell({ r }: { r: ConsolidatedRow }) {
+  const { isReport } = useReportMode()
+  return (
+    <Link to={`/cbr/consolidated/daily/${r.id}${isReport ? '?source=report' : ''}`} className="font-medium text-primary hover:underline">
+      {dmy(r.date)}
+    </Link>
+  )
+}
+
 const BAND_A: ColDef[] = [
   {
     key: 'date',
@@ -60,11 +70,7 @@ const BAND_A: ColDef[] = [
     header: 'Date',
     width: 120,
     value: (r) => dmy(r.date),
-    render: (r) => (
-      <Link to={`/cbr/consolidated/daily/${r.id}`} className="font-medium text-primary hover:underline">
-        {dmy(r.date)}
-      </Link>
-    ),
+    render: (r) => <DailyDateCell r={r} />,
   },
   {
     key: 'atmId',

@@ -18,7 +18,9 @@ import {
   Edit3,
   Trash2,
   FileText,
+  Eye,
 } from 'lucide-react'
+import { useReportMode } from '@/hooks/useReportMode'
 import {
   useChequeRecords,
   deleteChequeRecord,
@@ -30,6 +32,7 @@ import { toast } from '@/components/ui/Toast'
 
 export default function FmChecksList() {
   const navigate = useNavigate()
+  const isReport = useReportMode()
   const { records } = useChequeRecords()
 
   // Filter States
@@ -265,26 +268,50 @@ export default function FmChecksList() {
           <Home size={14} />
         </Link>
         <ChevronRight size={13} className="text-slate-400" />
-        <span className="text-slate-500">Workspace</span>
-        <ChevronRight size={13} className="text-slate-400" />
-        <Link to="/legal" className="text-slate-500 hover:text-[#0066FF] transition-colors">
-          Legal
-        </Link>
-        <ChevronRight size={13} className="text-slate-400" />
-        <span className="font-semibold text-slate-800">Cheques</span>
+        {isReport ? (
+          <>
+            <span className="text-slate-500">Workspace</span>
+            <ChevronRight size={13} className="text-slate-400" />
+            <Link to="/reports" className="text-slate-500 hover:text-[#0066FF] transition-colors">
+              Reports & MIS
+            </Link>
+            <ChevronRight size={13} className="text-slate-400" />
+            <span className="font-semibold text-slate-800">FFM Cheques Report</span>
+          </>
+        ) : (
+          <>
+            <span className="text-slate-500">Workspace</span>
+            <ChevronRight size={13} className="text-slate-400" />
+            <Link to="/legal" className="text-slate-500 hover:text-[#0066FF] transition-colors">
+              Legal
+            </Link>
+            <ChevronRight size={13} className="text-slate-400" />
+            <span className="font-semibold text-slate-800">Cheques</span>
+          </>
+        )}
       </nav>
 
       {/* Page Header */}
-      <div className="flex flex-wrap items-start justify-between gap-4 mb-3">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-3">
+        {isReport ? (
+          <div>
+            <h1 className="text-xl font-bold text-slate-900 tracking-tight">FFM Cheques Report</h1>
+            <p className="text-[12px] text-slate-500">Franchise fee management and post-dated cheques records</p>
+          </div>
+        ) : (
+          <div />
+        )}
 
-        <Link to="/legal/fm-checks/new">
-          <button
-            type="button"
-            className="h-9 px-4 rounded-lg bg-[#0066FF] hover:bg-blue-700 text-white font-medium text-[13px] flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
-          >
-            <Plus size={16} /> New Cheque
-          </button>
-        </Link>
+        {!isReport && (
+          <Link to="/legal/fm-checks/new">
+            <button
+              type="button"
+              className="h-9 px-4 rounded-lg bg-[#0066FF] hover:bg-blue-700 text-white font-medium text-[13px] flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+            >
+              <Plus size={16} /> New Cheque
+            </button>
+          </Link>
+        )}
       </div>
 
       {/* CARD 1: Filter Card matching Page 01 */}
@@ -736,22 +763,34 @@ export default function FmChecksList() {
                     </td>
                     <td className="py-2.5 px-3 whitespace-nowrap sticky right-0 bg-white shadow-[-2px_0_4px_rgba(0,0,0,0.03)]">
                       <div className="flex items-center justify-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => navigate(`/legal/fm-checks/${r.id}/edit`)}
-                          className="w-6.5 h-6.5 rounded flex items-center justify-center text-[#0066FF] hover:bg-blue-50 border border-blue-200/60 transition-colors cursor-pointer"
-                          title="Edit Record"
-                        >
-                          <Edit3 size={12} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(r.id, r.siteId)}
-                          className="w-6.5 h-6.5 rounded flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 border border-slate-200 hover:border-red-200 transition-colors cursor-pointer"
-                          title="Delete Record"
-                        >
-                          <Trash2 size={12} />
-                        </button>
+                        {isReport ? (
+                          <Link
+                            to={`/legal/fm-checks/${r.id}?source=report`}
+                            className="w-6.5 h-6.5 rounded flex items-center justify-center text-[#0066FF] hover:bg-blue-50 border border-blue-200/60 transition-colors cursor-pointer"
+                            title="View Cheque Details"
+                          >
+                            <Eye size={13} />
+                          </Link>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/legal/fm-checks/${r.id}/edit`)}
+                              className="w-6.5 h-6.5 rounded flex items-center justify-center text-[#0066FF] hover:bg-blue-50 border border-blue-200/60 transition-colors cursor-pointer"
+                              title="Edit Record"
+                            >
+                              <Edit3 size={12} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(r.id, r.siteId)}
+                              className="w-6.5 h-6.5 rounded flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 border border-slate-200 hover:border-red-200 transition-colors cursor-pointer"
+                              title="Delete Record"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -768,18 +807,22 @@ export default function FmChecksList() {
                         No records found
                       </h3>
                       <p className="text-[12px] text-slate-500 mt-1 max-w-[320px]">
-                        Try adjusting your filters or click on "New Cheque" to add a record.
+                        {isReport
+                          ? 'No cheque records found for the selected filters.'
+                          : 'Try adjusting your filters or click on "New Cheque" to add a record.'}
                       </p>
-                      <div className="mt-4">
-                        <Link to="/legal/fm-checks/new">
-                          <button
-                            type="button"
-                            className="h-8.5 px-4 rounded-lg bg-[#0066FF] hover:bg-blue-700 text-white font-medium text-[12px] flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
-                          >
-                            <Plus size={14} /> New Cheque
-                          </button>
-                        </Link>
-                      </div>
+                      {!isReport && (
+                        <div className="mt-4">
+                          <Link to="/legal/fm-checks/new">
+                            <button
+                              type="button"
+                              className="h-8.5 px-4 rounded-lg bg-[#0066FF] hover:bg-blue-700 text-white font-medium text-[12px] flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+                            >
+                              <Plus size={14} /> New Cheque
+                            </button>
+                          </Link>
+                        </div>
+                      )}
                     </div>
                   </td>
                 </tr>

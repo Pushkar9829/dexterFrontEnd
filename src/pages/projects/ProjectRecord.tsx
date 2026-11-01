@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Download, PenSquare, RotateCcw, Table2, Trash2 } from 'lucide-react'
+import { Download, PenSquare, RotateCcw, Table2, Trash2, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { SelectField, TextAreaField } from '@/components/ui/Form'
@@ -8,6 +8,7 @@ import { toast } from '@/components/ui/Toast'
 import { fmtDateTime } from '@/data/legal'
 import { archiveProject, exportProjects, getProject, restoreProject, saveProjectFields, useProjects, type Project } from '@/data/projects'
 import { ProjectSheet, SheetFooter, StatusReference, useSheet } from './bands'
+import { useReportMode } from '@/hooks/useReportMode'
 
 const DELETE_REASONS = ['Site dropped', 'Duplicate entry', 'Franchise agreement terminated', 'Location changed · new record created']
 
@@ -28,6 +29,7 @@ export default function ProjectRecord() {
 
 function RecordView({ p, path }: { p: Project; path: string }) {
   const navigate = useNavigate()
+  const isReport = useReportMode()
   // ?edit=1 opens the record straight in the editable grid (same as pressing Update project)
   const [params] = useSearchParams()
   const [draft, setDraft] = useState<Record<string, string> | null>(() => (params.get('edit') === '1' && !p.archived ? { ...p.f } : null))
@@ -50,6 +52,11 @@ function RecordView({ p, path }: { p: Project; path: string }) {
 
   return (
     <div>
+      {isReport && (
+        <Link to="/projects/active?source=report" className="mb-3 inline-flex items-center gap-1.5 text-[13px] font-medium text-primary hover:underline">
+          <ArrowLeft size={15} /> Back to Site Master & Projects Report
+        </Link>
+      )}
       <div className="mb-3 flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <h1 className="text-[28px] font-semibold tracking-tight">{p.f.siteLoi || p.id}</h1>
@@ -72,6 +79,10 @@ function RecordView({ p, path }: { p: Project; path: string }) {
             >
               Restore
             </Button>
+          ) : isReport ? (
+            <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+              View-Only Report Mode
+            </span>
           ) : (
             <>
               <Button

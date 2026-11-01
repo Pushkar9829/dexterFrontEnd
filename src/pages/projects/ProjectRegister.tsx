@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button'
 import { toast } from '@/components/ui/Toast'
 import { exportProjects, restoreProject, useProjects, type Project } from '@/data/projects'
 import { ProjectSheet, SheetFooter, StatusReference, useSheet } from './bands'
+import { useReportMode } from '@/hooks/useReportMode'
 
 /**
  * Active / Archived Projects — consolidated register (Figma 75:5630 / 189:11557).
@@ -17,12 +18,13 @@ export default function ProjectRegister() {
 
 function Register({ archived }: { archived: boolean }) {
   const navigate = useNavigate()
+  const isReport = useReportMode()
   const { projects } = useProjects()
   const base = useMemo(() => projects.filter((p) => p.archived === archived), [projects, archived])
   const sheet = useSheet(base)
   const models = [...new Set(projects.map((p) => p.f.model).filter(Boolean))].sort()
   const path = archived ? '/projects/archived' : '/projects/active'
-  const name = archived ? 'Archived Projects' : 'Active Projects'
+  const name = isReport ? 'Site Master / Projects Report' : (archived ? 'Archived Projects' : 'Active Projects')
   const sel = [...sheet.selected].filter((id) => base.some((p) => p.id === id))
 
   const doExport = (rows: Project[], file: string) => {
@@ -32,8 +34,8 @@ function Register({ archived }: { archived: boolean }) {
 
   return (
     <div>
-      <Link to="/projects" className="mb-3 inline-flex items-center gap-1.5 text-[13px] font-medium text-primary hover:underline">
-        <ArrowLeft size={15} /> Back to Projects
+      <Link to={isReport ? "/reports" : "/projects"} className="mb-3 inline-flex items-center gap-1.5 text-[13px] font-medium text-primary hover:underline">
+        <ArrowLeft size={15} /> {isReport ? "Back to Reports & MIS" : "Back to Projects"}
       </Link>
       <div className="mb-3 flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -69,9 +71,9 @@ function Register({ archived }: { archived: boolean }) {
         models={models}
         selectable
         editing={false}
-        onRowClick={(id) => navigate(`${path}/${id}`)}
+        onRowClick={(id) => navigate(`${path}/${id}${isReport ? '?source=report' : ''}`)}
         link={(p) => (
-          <Link to={`${path}/${p.id}`} className="font-medium text-primary hover:underline">
+          <Link to={`${path}/${p.id}${isReport ? '?source=report' : ''}`} className="font-medium text-primary hover:underline">
             {p.f.siteLoi || '—'}
           </Link>
         )}

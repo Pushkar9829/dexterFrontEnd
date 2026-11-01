@@ -8,6 +8,7 @@ import { Modal } from '@/components/ui/Modal'
 import { SelectField, TextField } from '@/components/ui/Form'
 import { toast } from '@/components/ui/Toast'
 import { cn } from '@/lib/cn'
+import { useReportMode } from '@/hooks/useReportMode'
 import { SITES, dmy } from '@/data/cbrSites'
 import { CBR_END, EOD_DATES, counterStore, uploadKey, uploadStore, type CounterClear } from '@/data/cbr'
 import { rowMark, useRowNav } from '../finance/shared'
@@ -28,12 +29,13 @@ const nowLocal = () => {
 }
 const fmtDT = (iso?: string) => (iso ? `${dmy(iso.slice(0, 10))} ${iso.slice(11, 16)}` : '')
 /** Daily CBR record id for an ATM-day (see data/cbr.ts: `<siteId>-<yyyymmdd>`). */
-const dailyPath = (siteId: string, date: string) => `/cbr/consolidated/daily/${siteId}-${date.replace(/-/g, '')}`
+const dailyPath = (siteId: string, date: string, isRep?: boolean) => `/cbr/consolidated/daily/${siteId}-${date.replace(/-/g, '')}${isRep ? '?source=report' : ''}`
 /** upload ids contain "|" which is not usable in a class name marker */
 const markId = (r: UploadRow) => `${r.siteId}~${r.date}`
 
 /** Figma 209:12015 — "CBR" page: CBR EOD Summary upload tracker + CBR LAST COUNTER CLEARED. View → Edit → Save. */
 export default function EodSummary() {
+  const { isReport } = useReportMode()
   const uploads = uploadStore.use()
   const counters = counterStore.use()
   const [editing, setEditing] = useState(false)
@@ -42,7 +44,7 @@ export default function EodSummary() {
   const pendingUpload = useRef<string[]>([])
   const onRow = useRowNav((id) => {
     const [siteId, d] = id.split('~')
-    return dailyPath(siteId, d)
+    return dailyPath(siteId, d, isReport)
   })
 
   const all: UploadRow[] = EOD_DATES.slice()
@@ -85,7 +87,7 @@ export default function EodSummary() {
         editing ? (
           r.atmId
         ) : (
-          <Link to={dailyPath(r.siteId, r.date)} className="hover:text-primary hover:underline" aria-label={`Open CBR ${r.atmId} ${dmy(r.date)}`}>
+          <Link to={dailyPath(r.siteId, r.date, isReport)} className="hover:text-primary hover:underline" aria-label={`Open CBR ${r.atmId} ${dmy(r.date)}`}>
             {r.atmId}
           </Link>
         ),
@@ -188,9 +190,11 @@ export default function EodSummary() {
                 <Button variant="secondary" icon={<Printer size={16} />} onClick={() => window.print()}>
                   Print report
                 </Button>
-                <Button icon={<Pencil size={16} />} onClick={() => setEditing(true)}>
-                  Edit
-                </Button>
+                {!isReport && (
+                  <Button icon={<Pencil size={16} />} onClick={() => setEditing(true)}>
+                    Edit
+                  </Button>
+                )}
               </>
             )
           }
@@ -215,7 +219,7 @@ export default function EodSummary() {
             <p className="mt-0.5 text-[12px] text-muted">Daily detail report · CBR upload status per ATM and last counter clear · Last 7 days to {dmy(CBR_END)}</p>
           </div>
           <span className={cn('rounded-md px-2.5 py-1 text-[11px] font-semibold', editing ? 'bg-amber-50 text-amber-700' : 'bg-primary-soft text-primary')}>
-            {editing ? 'Editing · uploads and counter clears' : 'Source values preserved'}
+            {editing ? 'Editing · uploads and counter clears' : isReport ? 'View-Only Report Mode' : 'Source values preserved'}
           </span>
         </div>
 

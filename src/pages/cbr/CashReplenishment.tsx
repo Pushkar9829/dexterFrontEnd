@@ -21,6 +21,7 @@ import {
 } from 'lucide-react'
 import { downloadCsv } from '@/lib/export'
 import { toast } from '@/components/ui/Toast'
+import { useReportMode } from '@/hooks/useReportMode'
 import CashReplenishmentForm from './CashReplenishmentForm'
 
 interface CBRRow {
@@ -66,12 +67,13 @@ const INITIAL_RECORDS: CBRRow[] = Array.from({ length: 31 }, (_, i) => {
 })
 
 export default function CashReplenishment() {
+  const { isReport } = useReportMode()
   const [searchParams, setSearchParams] = useSearchParams()
   const currentView = searchParams.get('view') || 'list'
 
   // View state: 'list' (Page 01) or 'form' (Page 02)
   const setView = (view: 'list' | 'form') => {
-    setSearchParams({ view })
+    setSearchParams(isReport ? { view, source: 'report' } : { view })
   }
 
   // Selected row for editing/viewing in form
@@ -217,17 +219,31 @@ export default function CashReplenishment() {
           Workspace
         </Link>
         <ChevronRight size={12} className="text-slate-400" />
-        <Link to="/operations" className="hover:text-[#0066FF] transition-colors">
-          Operations
-        </Link>
-        <ChevronRight size={12} className="text-slate-400" />
-        <Link to="/cbr" className="hover:text-[#0066FF] transition-colors">
-          CBR
-        </Link>
-        <ChevronRight size={12} className="text-slate-400" />
-        <span className="font-semibold text-slate-800">
-          Consolidated CBR Report
-        </span>
+        {isReport ? (
+          <>
+            <Link to="/reports" className="hover:text-[#0066FF] transition-colors">
+              Reports & MIS
+            </Link>
+            <ChevronRight size={12} className="text-slate-400" />
+            <span className="font-semibold text-slate-800">
+              Cash Replenishment (CBR) Report
+            </span>
+          </>
+        ) : (
+          <>
+            <Link to="/operations" className="hover:text-[#0066FF] transition-colors">
+              Operations
+            </Link>
+            <ChevronRight size={12} className="text-slate-400" />
+            <Link to="/cbr" className="hover:text-[#0066FF] transition-colors">
+              CBR
+            </Link>
+            <ChevronRight size={12} className="text-slate-400" />
+            <span className="font-semibold text-slate-800">
+              Consolidated CBR Report
+            </span>
+          </>
+        )}
       </div>
 
       {/* Header Bar: Icon + Consolidated CBR Report + (+ CBR Button) */}
@@ -238,27 +254,29 @@ export default function CashReplenishment() {
           </div>
           <div>
             <h1 className="text-2xl sm:text-[26px] font-bold tracking-tight text-slate-900 leading-tight">
-              Consolidated CBR Report
+              {isReport ? 'Cash Replenishment (CBR) Report' : 'Consolidated CBR Report'}
             </h1>
           </div>
         </div>
 
         {/* Page Switcher / Actions */}
-        <div className="flex items-center gap-2.5">
-          {/* Direct + CBR button matching Image 01 with black border callout indicator */}
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedRecord(null)
-              setView('form')
-            }}
-            className="inline-flex items-center gap-2 h-10 px-5 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[13px] font-bold transition-all shadow-sm hover:shadow cursor-pointer border border-[#0066FF]"
-            title="Open Daily ATM Cash Loading / Replenishment / CBR Form"
-          >
-            <Plus size={16} strokeWidth={2.5} />
-            <span>New CBR</span>
-          </button>
-        </div>
+        {!isReport && (
+          <div className="flex items-center gap-2.5">
+            {/* Direct + CBR button matching Image 01 with black border callout indicator */}
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedRecord(null)
+                setView('form')
+              }}
+              className="inline-flex items-center gap-2 h-10 px-5 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[13px] font-bold transition-all shadow-sm hover:shadow cursor-pointer border border-[#0066FF]"
+              title="Open Daily ATM Cash Loading / Replenishment / CBR Form"
+            >
+              <Plus size={16} strokeWidth={2.5} />
+              <span>New CBR</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Filter Card matching Image 01 */}
@@ -596,22 +614,26 @@ export default function CashReplenishment() {
                         >
                           <Eye size={13.5} />
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => handleEditRow(r)}
-                          className="p-1 text-slate-500 hover:text-[#0066FF] hover:bg-blue-50 rounded transition-colors cursor-pointer"
-                          title="Edit Replenishment"
-                        >
-                          <Edit2 size={13} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteRow(r.no)}
-                          className="p-1 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors cursor-pointer"
-                          title="Delete Record"
-                        >
-                          <Trash2 size={13.5} />
-                        </button>
+                        {!isReport && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleEditRow(r)}
+                              className="p-1 text-slate-500 hover:text-[#0066FF] hover:bg-blue-50 rounded transition-colors cursor-pointer"
+                              title="Edit Replenishment"
+                            >
+                              <Edit2 size={13} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteRow(r.no)}
+                              className="p-1 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors cursor-pointer"
+                              title="Delete Record"
+                            >
+                              <Trash2 size={13.5} />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>

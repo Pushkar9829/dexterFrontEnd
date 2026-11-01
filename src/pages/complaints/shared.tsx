@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ArrowRight, ChevronDown, Download, Plus, Table2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
+import { useReportMode } from '@/hooks/useReportMode'
 import { PageHeader } from '@/components/ui/Card'
 import { Badge, type Tone } from '@/components/ui/Badge'
 import { cn } from '@/lib/cn'
@@ -22,13 +23,18 @@ const TABS = [
 
 export function SubNav() {
   const { pathname } = useLocation()
-  const fixed = TABS.filter((t) => t.to !== '360').map((t) => t.to)
+  const isReport = useReportMode()
+  const visibleTabs = isReport ? TABS.filter((t) => t.to !== `${BASE}/new`) : TABS
+  const fixed = visibleTabs.filter((t) => t.to !== '360').map((t) => t.to)
   const isActive = (to: string) => (to === '360' ? pathname.startsWith(`${BASE}/`) && !fixed.includes(pathname) : pathname === to)
   return (
     <nav aria-label="Complaints sections" className="scroll-thin mb-[18px] overflow-x-auto rounded-xl border border-line bg-white px-4">
       <div className="flex min-w-max gap-6">
-        {TABS.map((t) => {
-          const to = t.to === '360' ? `${BASE}/${getLastOpened()}` : t.to
+        {visibleTabs.map((t) => {
+          let to = t.to === '360' ? `${BASE}/${getLastOpened()}` : t.to
+          if (isReport) {
+            to = to.includes('?') ? `${to}&source=report` : `${to}?source=report`
+          }
           const active = isActive(t.to)
           return (
             <Link
@@ -63,6 +69,7 @@ export function ComplaintsShell({
   footer?: boolean
 }) {
   const nav = useNavigate()
+  const isReport = useReportMode()
   return (
     <div className="mx-auto max-w-[1400px]">
       <PageHeader
@@ -74,9 +81,11 @@ export function ComplaintsShell({
             <Button variant="secondary" icon={<Download size={15} />} onClick={onExport}>
               Export
             </Button>
-            <Button icon={<Plus size={15} />} onClick={() => nav(`${BASE}/new`)}>
-              Create complaint
-            </Button>
+            {!isReport && (
+              <Button icon={<Plus size={15} />} onClick={() => nav(`${BASE}/new`)}>
+                Create complaint
+              </Button>
+            )}
             </>
           )
         }

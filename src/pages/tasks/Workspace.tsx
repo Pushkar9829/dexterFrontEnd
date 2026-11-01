@@ -200,13 +200,13 @@ export default function Workspace({ view }: { view: WorkspaceView }) {
           </TabBtn>
         </div>
         <div className="flex flex-wrap gap-2">
-          <PillSelect label="Priority" icon={<ChevronDown size={14} />} value={priority} onChange={setPriority} options={[{ value: 'all', label: 'All priorities' }, ...PRIORITIES.map((p) => ({ value: p, label: p }))]} />
-          <PillSelect label="Status" icon={<ChevronDown size={14} />} value={status} onChange={setStatus} options={[{ value: 'all', label: 'All statuses' }, ...STATUSES.map((p) => ({ value: p, label: p }))]} />
+          <PillSelect label="Priority" icon={<ChevronDown size={14} />} value={priority} onChange={(v: any) => setPriority(v)} options={[{ value: 'all', label: 'All priorities' }, ...PRIORITIES.map((p) => ({ value: p, label: p }))]} />
+          <PillSelect label="Status" icon={<ChevronDown size={14} />} value={status} onChange={(v: any) => setStatus(v)} options={[{ value: 'all', label: 'All statuses' }, ...STATUSES.map((p) => ({ value: p, label: p }))]} />
           <PillSelect
             label="Due date"
             icon={<CalendarDays size={13} />}
             value={due}
-            onChange={setDue}
+            onChange={(v: any) => setDue(v)}
             options={[
               { value: 'any', label: 'Due date' },
               { value: 'today', label: 'Due today' },
@@ -219,7 +219,7 @@ export default function Workspace({ view }: { view: WorkspaceView }) {
             label="Sort"
             icon={<ArrowDownUp size={13} />}
             value={sort}
-            onChange={setSort}
+            onChange={(v: any) => setSort(v)}
             options={[
               { value: 'soonest', label: 'SLA: Soonest first' },
               { value: 'latest', label: 'SLA: Latest first' },
