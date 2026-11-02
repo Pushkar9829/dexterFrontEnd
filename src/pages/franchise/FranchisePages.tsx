@@ -391,7 +391,7 @@ function FranchiseListPage({ mode, currentTier }: { mode: 'tier' | 'master'; cur
   // Explicitly hidden from:
   // - http://localhost:5310/franchise/master-data (mode === 'master')
   // - http://localhost:5310/franchise/franchise (currentTier === 'Franchise')
-  const showAddButton = mode === 'tier' && currentTier !== 'Franchise'
+  const showAddButton = mode === 'tier'
 
   return (
     <div className="space-y-4 pb-12 max-w-[1500px]">
@@ -483,8 +483,8 @@ function FranchiseListPage({ mode, currentTier }: { mode: 'tier' | 'master'; cur
                 setCurrentPage(1)
               }}
               className={`flex items-center justify-between gap-2.5 h-[52px] px-3.5 rounded-xl transition-all duration-150 cursor-pointer text-left ${isActive
-                  ? `${t.activeBorder} ${t.activeBg}`
-                  : `${t.inactiveBorder} ${t.inactiveBg}`
+                ? `${t.activeBorder} ${t.activeBg}`
+                : `${t.inactiveBorder} ${t.inactiveBg}`
                 }`}
             >
               <div className="flex items-center gap-2.5 min-w-0">
@@ -496,8 +496,8 @@ function FranchiseListPage({ mode, currentTier }: { mode: 'tier' | 'master'; cur
 
               <span
                 className={`min-w-[28px] h-7 px-2 flex items-center justify-center rounded-lg text-[13px] font-bold shrink-0 transition-colors ${isActive
-                    ? t.activeBadge
-                    : 'bg-white shadow-2xs border border-slate-200/40 text-[#1E1B4B]'
+                  ? t.activeBadge
+                  : 'bg-white shadow-2xs border border-slate-200/40 text-[#1E1B4B]'
                   }`}
               >
                 {count}
