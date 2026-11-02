@@ -23,7 +23,7 @@ const TABS = [
 
 export function SubNav() {
   const { pathname } = useLocation()
-  const isReport = useReportMode()
+  const { isReport } = useReportMode()
   const visibleTabs = isReport ? TABS.filter((t) => t.to !== `${BASE}/new`) : TABS
   const fixed = visibleTabs.filter((t) => t.to !== '360').map((t) => t.to)
   const isActive = (to: string) => (to === '360' ? pathname.startsWith(`${BASE}/`) && !fixed.includes(pathname) : pathname === to)
@@ -69,7 +69,7 @@ export function ComplaintsShell({
   footer?: boolean
 }) {
   const nav = useNavigate()
-  const isReport = useReportMode()
+  const { isReport } = useReportMode()
   return (
     <div className="mx-auto max-w-[1400px]">
       <PageHeader

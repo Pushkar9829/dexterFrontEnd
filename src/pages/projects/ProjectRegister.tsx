@@ -18,7 +18,7 @@ export default function ProjectRegister() {
 
 function Register({ archived }: { archived: boolean }) {
   const navigate = useNavigate()
-  const isReport = useReportMode()
+  const { isReport } = useReportMode()
   const { projects } = useProjects()
   const base = useMemo(() => projects.filter((p) => p.archived === archived), [projects, archived])
   const sheet = useSheet(base)

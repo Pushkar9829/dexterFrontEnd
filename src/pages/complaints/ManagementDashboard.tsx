@@ -44,7 +44,7 @@ export const complaintCsv = (name: string, rows: Complaint[], now: number) =>
   )
 
 export default function ManagementDashboard() {
-  const isReport = useReportMode()
+  const { isReport } = useReportMode()
   const all = complaintStore.use()
   const filter = filterStore.use()
   const now = useNow()

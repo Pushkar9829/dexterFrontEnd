@@ -29,7 +29,7 @@ export default function ProjectRecord() {
 
 function RecordView({ p, path }: { p: Project; path: string }) {
   const navigate = useNavigate()
-  const isReport = useReportMode()
+  const { isReport } = useReportMode()
   // ?edit=1 opens the record straight in the editable grid (same as pressing Update project)
   const [params] = useSearchParams()
   const [draft, setDraft] = useState<Record<string, string> | null>(() => (params.get('edit') === '1' && !p.archived ? { ...p.f } : null))

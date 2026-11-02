@@ -35,7 +35,7 @@ import { useReportMode } from '@/hooks/useReportMode'
 
 export default function TdsLettersList() {
   const navigate = useNavigate()
-  const isReport = useReportMode()
+  const { isReport } = useReportMode()
   const { records, resetDummyData } = useTdsLetters()
 
   // Primary filters

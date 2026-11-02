@@ -24,7 +24,7 @@ import { toast } from '@/components/ui/Toast'
 
 export default function FmChecksRecord() {
   const navigate = useNavigate()
-  const isReport = useReportMode()
+  const { isReport } = useReportMode()
   const { id } = useParams<{ id: string }>()
   const record = id ? getChequeRecord(id) : undefined
 

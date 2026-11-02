@@ -31,7 +31,7 @@ import { useReportMode } from '@/hooks/useReportMode'
 
 export default function ChargeBackDisputeForm() {
   const navigate = useNavigate()
-  const isReport = useReportMode()
+  const { isReport } = useReportMode()
   const { id } = useParams<{ id?: string }>()
   const { records, addRecord, updateRecord } = useChargeBackStore()
   const fileInputRef = useRef<HTMLInputElement>(null)

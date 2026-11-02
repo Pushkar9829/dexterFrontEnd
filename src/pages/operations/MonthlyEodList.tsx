@@ -31,7 +31,7 @@ import { useReportMode } from '@/hooks/useReportMode'
 
 export default function MonthlyEodList() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const isReport = useReportMode()
+  const { isReport } = useReportMode()
   const { records } = useFfmSfEod()
 
   // ── Tab state: 'FFM' | 'SF' ──────────────────────────────────────────────

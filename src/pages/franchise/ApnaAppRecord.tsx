@@ -29,7 +29,7 @@ import {
 
 export default function ApnaAppRecord() {
   const navigate = useNavigate()
-  const isReport = useReportMode()
+  const { isReport } = useReportMode()
   const { id } = useParams<{ id: string }>()
   const isNew = !id || id === 'new'
 
@@ -136,8 +136,8 @@ export default function ApnaAppRecord() {
           </>
         ) : (
           <>
-            <Link to="/projects" className="hover:text-[#0066FF]">
-              Projects
+            <Link to="/franchise" className="hover:text-[#0066FF]">
+              Franchise Management
             </Link>
             <span>&gt;</span>
             <Link to="/franchise/apna-app" className="hover:text-[#0066FF]">

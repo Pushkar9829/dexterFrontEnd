@@ -30,7 +30,7 @@ import { useReportMode } from '@/hooks/useReportMode'
 
 export default function SiteInstallationForm() {
   const navigate = useNavigate()
-  const isReport = useReportMode()
+  const { isReport } = useReportMode()
   const { id } = useParams<{ id?: string }>()
   const { records } = useSiteInstallations()
 

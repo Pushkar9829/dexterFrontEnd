@@ -27,7 +27,7 @@ import { downloadCsv } from '@/lib/export'
 import { toast } from '@/components/ui/Toast'
 
 export default function PvcList() {
-  const isReport = useReportMode()
+  const { isReport } = useReportMode()
   const { records } = usePvcRecords()
 
   // Filter States

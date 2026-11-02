@@ -36,7 +36,7 @@ import { toast } from '@/components/ui/Toast'
 
 export default function SiteInstallationList() {
   const navigate = useNavigate()
-  const isReport = useReportMode()
+  const { isReport } = useReportMode()
   const { records } = useSiteInstallations()
 
   // Filter States

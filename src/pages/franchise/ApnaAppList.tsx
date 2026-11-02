@@ -29,7 +29,7 @@ import {
 
 export default function ApnaAppList() {
   const navigate = useNavigate()
-  const isReport = useReportMode()
+  const { isReport } = useReportMode()
   const records = useApnaAppRegistrations()
 
   // Filter States
@@ -190,8 +190,8 @@ export default function ApnaAppList() {
           </>
         ) : (
           <>
-            <Link to="/projects" className="hover:text-[#0066FF]">
-              Projects
+            <Link to="/franchise" className="hover:text-[#0066FF]">
+              Franchise Management
             </Link>
             <span>&gt;</span>
             <span className="font-medium text-[#1E293B]">Apna App Registration</span>

@@ -32,7 +32,7 @@ import { toast } from '@/components/ui/Toast'
 
 export default function FmChecksList() {
   const navigate = useNavigate()
-  const isReport = useReportMode()
+  const { isReport } = useReportMode()
   const { records } = useChequeRecords()
 
   // Filter States

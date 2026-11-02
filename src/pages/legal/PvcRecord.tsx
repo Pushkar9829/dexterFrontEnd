@@ -19,7 +19,7 @@ import { useReportMode } from '@/hooks/useReportMode'
 export default function PvcRecord() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const isReport = useReportMode()
+  const { isReport } = useReportMode()
 
   const record = id ? getPvcRecord(id) : undefined
 
