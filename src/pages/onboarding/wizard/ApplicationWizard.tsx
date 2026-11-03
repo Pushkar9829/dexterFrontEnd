@@ -20,6 +20,7 @@ import { addFranchise, saveDossier, type Franchise, type Tier } from '@/data/fra
 import { CraAtms, Documents, FranchiseBank, ImagesOffice, ShopDimensions, SiteDetails, type StepProps } from './steps'
 import { Review } from './Review'
 import { validateStep, type Errors } from './validate'
+import { MasterFranchiseForm } from './master/MasterFranchiseForm'
 
 export const STEPS_CONFIG = [
   { num: '01', title: 'Site Details', icon: MapPin },
@@ -43,7 +44,9 @@ export interface ApplicationWizardProps {
 }
 
 /**
- * 7-step WLA Franchise Application form matching the reference design layout.
+ * WLA Franchise Application form supporting:
+ * 1) Dedicated 12-section Master & Super Master Franchise Application (Sections A to L)
+ * 2) 7-step Unit ATM Franchise Application
  */
 export function ApplicationWizard({ app, onClose, initialTier, onFranchiseAdded }: ApplicationWizardProps) {
   const readOnly = !!app && app.status !== 'Draft'
@@ -52,11 +55,27 @@ export function ApplicationWizard({ app, onClose, initialTier, onFranchiseAdded 
     if (app?.form) return app.form
     const base = emptyForm()
     if (initialTier) {
-      if (initialTier === 'Super Master') base.projectType = 'WLA Franchise Model'
-      else if (initialTier === 'Master') base.projectType = 'WLA Franchise Model'
+      if (initialTier === 'Super Master') {
+        base.projectType = 'WLA Franchise Model'
+        base.franchiseCategory = 'Super Master Franchise'
+      } else if (initialTier === 'Master') {
+        base.projectType = 'WLA Franchise Model'
+        base.franchiseCategory = 'Master Franchise'
+      } else {
+        base.franchiseCategory = 'Franchise'
+      }
     }
     return base
   })
+
+  // Check if Master or Super Master Franchise is active
+  const isMasterOrSuperMaster =
+    initialTier === 'Super Master' ||
+    initialTier === 'Master' ||
+    app?.type === 'Super Master Franchise' ||
+    app?.type === 'Master Franchise' ||
+    form.franchiseCategory === 'Super Master Franchise' ||
+    form.franchiseCategory === 'Master Franchise'
 
   // dev/QA aid: ?step=N opens the wizard on step N (1-7)
   const [step, setStep] = useState(() => {
@@ -169,9 +188,84 @@ export function ApplicationWizard({ app, onClose, initialTier, onFranchiseAdded 
     onClose()
   }
 
+  // State for master wizard step info header
+  const [masterStepInfo, setMasterStepInfo] = useState({ key: 'A', index: 1, title: 'Franchise & Territory' })
+
+  // ── Render Dedicated Master & Super Master Franchise Application ─────────
+  if (isMasterOrSuperMaster) {
+    return (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-navy-950/50 backdrop-blur-[2px] p-2 sm:p-4 lg:p-6"
+        onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+      >
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="WLA Franchise Application Form"
+          className="flex h-full w-full max-w-[1400px] max-h-[96vh] flex-col rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden"
+        >
+          {/* Header */}
+          <header className="px-6 pt-5 pb-4 border-b border-slate-100 flex items-start justify-between bg-white shrink-0">
+            <div>
+              <div className="flex items-center gap-2.5">
+                <h1 className="text-2xl font-bold text-[#0a192f] tracking-tight">
+                  WLA Franchise Application Form
+                </h1>
+                <span className="rounded-full bg-amber-100 px-3 py-0.5 text-xs font-bold text-amber-900 border border-amber-300">
+                  {form.franchiseCategory || (initialTier === 'Super Master' ? 'Super Master Franchise' : 'Master Franchise')}
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                Step {masterStepInfo.index} of 12 - {masterStepInfo.title} • Fields marked <span className="text-red-500 font-bold">*</span> are required
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              {!readOnly && !initialTier && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-500 font-medium">Switch category:</span>
+                  <select
+                    value={form.franchiseCategory || 'Master Franchise'}
+                    onChange={(e) => set({ franchiseCategory: e.target.value as any })}
+                    className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-800"
+                  >
+                    <option value="Franchise">Unit Franchise (ATM Site)</option>
+                    <option value="Master Franchise">Master Franchise</option>
+                    <option value="Super Master Franchise">Super Master Franchise</option>
+                  </select>
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={onClose}
+                className="grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+                aria-label="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+          </header>
+
+          {/* Master Form Body */}
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <MasterFranchiseForm
+              app={app}
+              onClose={onClose}
+              initialTier={initialTier}
+              onFranchiseAdded={onFranchiseAdded}
+              form={form}
+              set={set}
+              readOnly={readOnly}
+              onSectionChange={(key, index, title) => setMasterStepInfo({ key, index, title })}
+            />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Render Unit Franchise 7-Step Application ──────────────────────────────
   const View = STEP_VIEWS[step - 1]
   const props: StepProps = { form, set, errors, readOnly, initialTier }
-
   const currentStepConfig = STEPS_CONFIG[step - 1]
 
   return (
@@ -185,7 +279,7 @@ export function ApplicationWizard({ app, onClose, initialTier, onFranchiseAdded 
         aria-label="WLA Franchise Application Form"
         className="flex h-full w-full max-w-[1360px] max-h-[96vh] flex-col rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden"
       >
-        {/* Header matching image */}
+        {/* Header */}
         <header className="px-6 pt-6 pb-4 border-b border-slate-100 flex items-start justify-between">
           <div>
             <h1 className="text-2xl font-bold text-[#0a192f] tracking-tight">
@@ -195,17 +289,33 @@ export function ApplicationWizard({ app, onClose, initialTier, onFranchiseAdded 
               Step {step} of 7 - {currentStepConfig.title} • Fields marked <span className="text-red-500 font-bold">*</span> are required
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
-            aria-label="Close"
-          >
-            <X size={18} />
-          </button>
+          <div className="flex items-center gap-3">
+            {!readOnly && !initialTier && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-500 font-medium">Category:</span>
+                <select
+                  value={form.franchiseCategory || 'Franchise'}
+                  onChange={(e) => set({ franchiseCategory: e.target.value as any })}
+                  className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-800"
+                >
+                  <option value="Franchise">Unit Franchise (ATM Site)</option>
+                  <option value="Master Franchise">Master Franchise</option>
+                  <option value="Super Master Franchise">Super Master Franchise</option>
+                </select>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+              aria-label="Close"
+            >
+              <X size={18} />
+            </button>
+          </div>
         </header>
 
-        {/* 7 Horizontal Step Tabs matching the exact reference image */}
+        {/* 7 Horizontal Step Tabs matching reference design */}
         <div className="px-6 py-4 border-b border-slate-100 bg-[#fafcff]/60">
           <nav className="scroll-thin flex gap-3 overflow-x-auto">
             {STEPS_CONFIG.map((s, i) => {
@@ -277,7 +387,7 @@ export function ApplicationWizard({ app, onClose, initialTier, onFranchiseAdded 
               onClick={onClose}
               className="rounded-lg border border-slate-300 bg-white px-5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs"
             >
-              {readOnly ? 'Close' : 'Close'}
+              Close
             </button>
 
             {!readOnly && (

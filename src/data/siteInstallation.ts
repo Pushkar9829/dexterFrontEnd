@@ -15,7 +15,14 @@ export interface SiteInstallationRecord {
   tisStatus: string
   // Installation Status (ATM & accessories)
   atmMachine: string
+  atmMachineType?: string
+  isolationTransformer?: string
+  stabilizer?: string
+  batteryCage?: string
+  camera?: string
+  dvr?: string
   vsat: string
+  routerVsatCompany?: string
   ups: string
   grouting: string
   signage: string
@@ -110,7 +117,14 @@ export const DEMO_RECORDS: SiteInstallationRecord[] = [
     electrical: 'Complete',
     tisStatus: 'Complete',
     atmMachine: 'Delivered / Pending / Installation Pending',
+    atmMachineType: 'NCR',
+    isolationTransformer: 'Installation Done',
+    stabilizer: 'Installation Done',
+    batteryCage: 'Done',
+    camera: 'Working / Live',
+    dvr: 'Configured / Live',
     vsat: 'Installation Done',
+    routerVsatCompany: 'Hughes',
     ups: 'Delivered',
     grouting: 'Done',
     signage: 'Done',
@@ -143,7 +157,14 @@ export const DEMO_RECORDS: SiteInstallationRecord[] = [
     electrical: 'Complete',
     tisStatus: 'Complete',
     atmMachine: 'Installation Done',
-    vsat: 'Installation Done',
+    atmMachineType: 'CRM',
+    isolationTransformer: 'Installation Done',
+    stabilizer: 'Installation Done',
+    batteryCage: 'Done',
+    camera: 'Working / Live',
+    dvr: 'Configured / Live',
+    vsat: 'Router (Substitute) - Installation Done',
+    routerVsatCompany: 'Airtel',
     ups: 'Installation Done',
     grouting: 'Done',
     signage: 'Done',
@@ -176,7 +197,14 @@ export const DEMO_RECORDS: SiteInstallationRecord[] = [
     electrical: 'Pending',
     tisStatus: 'Pending',
     atmMachine: 'Pending',
+    atmMachineType: 'Perto',
+    isolationTransformer: 'Pending',
+    stabilizer: 'Pending',
+    batteryCage: 'Pending',
+    camera: 'Pending',
+    dvr: 'Pending',
     vsat: 'Pending',
+    routerVsatCompany: 'Nelco',
     ups: 'Pending',
     grouting: 'Pending',
     signage: 'Pending',
@@ -264,8 +292,15 @@ export function exportSiteInstallationCsv(records: SiteInstallationRecord[], fil
     'SD Status',
     'Electrical Work',
     'TIS Status',
+    'ATM Machine Type',
     'ATM Machine',
-    'V-SAT',
+    'Isolation Transformer (IT)',
+    'Stabilizer',
+    'Battery Cage',
+    'Camera',
+    'DVR',
+    'V-SAT / Router (Substitute)',
+    'Router / Vsat Company',
     'UPS',
     'Grouting',
     'Signage Board',
@@ -294,8 +329,15 @@ export function exportSiteInstallationCsv(records: SiteInstallationRecord[], fil
     r.sdStatus,
     r.electrical,
     r.tisStatus,
+    r.atmMachineType || '—',
     r.atmMachine,
+    r.isolationTransformer || '—',
+    r.stabilizer || '—',
+    r.batteryCage || '—',
+    r.camera || '—',
+    r.dvr || '—',
     r.vsat,
+    r.routerVsatCompany || '—',
     r.ups,
     r.grouting,
     r.signage,

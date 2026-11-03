@@ -85,3 +85,106 @@ export function stepStatus(step: number, f: ApplicationForm): { label: string; t
   }
   return { label: '', tone: 'green' }
 }
+
+// ── Master & Super Master Franchise Validation ──────────────────────────────
+const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/
+const GSTIN_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/
+
+export function validateMasterSection(sectionKey: string, f: ApplicationForm): Errors {
+  const e: Errors = {}
+  switch (sectionKey) {
+    case 'A': {
+      if (!f.franchiseName.trim()) e.franchiseName = 'Franchise Name is required'
+      if (!f.territoryType) e.territoryType = 'Territory Type is required'
+      if (!f.state) e.state = 'State is required'
+      if (!f.district.trim()) e.district = 'District is required'
+      if (!f.proposedOperationalTerritory.trim()) e.proposedOperationalTerritory = 'Proposed Operational Territory is required'
+      if (!f.applicationSource) e.applicationSource = 'Application Source is required'
+      if (['Employee', 'Vendor', 'Referral'].includes(f.applicationSource) && !f.referredBy.trim()) {
+        e.referredBy = 'Referral source details required'
+      }
+      break
+    }
+    case 'B': {
+      if (!f.applicantType) e.applicantType = 'Applicant Type is required'
+      if (f.applicantType !== 'Individual' && !f.legalBusinessName.trim()) {
+        e.legalBusinessName = 'Legal Business Name is required for business entities'
+      }
+      if (!f.businessTypeNature.trim()) e.businessTypeNature = 'Business nature is required'
+      if (f.pan && !PAN_REGEX.test(f.pan.toUpperCase())) e.pan = 'Enter valid 10-character PAN (e.g. ABCDE1234F)'
+      if (f.gstin && !GSTIN_REGEX.test(f.gstin.toUpperCase())) e.gstin = 'Enter valid 15-character GSTIN'
+      if (!f.businessEmail.trim()) e.businessEmail = 'Business Email is required'
+      else if (!EMAIL.test(f.businessEmail)) e.businessEmail = 'Enter a valid business email'
+      if (!f.businessMobile.trim()) e.businessMobile = 'Business Mobile is required'
+      else if (!PHONE.test(digits(f.businessMobile))) e.businessMobile = 'Enter a valid 10-digit mobile number'
+      break
+    }
+    case 'C': {
+      if (!f.applicantAuthorizedPersonName.trim()) e.applicantAuthorizedPersonName = 'Applicant Name is required'
+      if (!f.personalMobile.trim()) e.personalMobile = 'Personal Mobile is required'
+      else if (!PHONE.test(digits(f.personalMobile))) e.personalMobile = 'Enter a valid 10-digit mobile number'
+      if (f.personalEmail && !EMAIL.test(f.personalEmail)) e.personalEmail = 'Enter a valid email address'
+      break
+    }
+    case 'D': {
+      if (!f.registeredPermanentAddress.trim()) e.registeredPermanentAddress = 'Permanent Address is required'
+      if (f.commSameAsPermanent === 'No' && !f.communicationAddress.trim()) {
+        e.communicationAddress = 'Communication address is required'
+      }
+      if (!f.cityDistrict.trim()) e.cityDistrict = 'City / District is required'
+      if (!f.addressState) e.addressState = 'State is required'
+      if (!f.pinCode.trim()) e.pinCode = 'PIN code is required'
+      else if (!PIN.test(f.pinCode)) e.pinCode = 'Enter a valid 6-digit PIN code'
+      break
+    }
+    case 'E': {
+      if (!f.officeOwnership) e.officeOwnership = 'Office Ownership is required'
+      if (!f.officeAddress.trim()) e.officeAddress = 'Office Address is required'
+      if (!f.investmentCapacity) e.investmentCapacity = 'Investment Capacity is required'
+      if (!f.existingBusinessOccupation.trim()) e.existingBusinessOccupation = 'Current Business / Occupation is required'
+      break
+    }
+    case 'G': {
+      if (!f.bankName) e.bankName = 'Bank Name is required'
+      if (!f.branchName.trim()) e.branchName = 'Branch Name is required'
+      if (!f.beneficiaryName.trim()) e.beneficiaryName = 'Beneficiary Name is required'
+      if (!f.bankAccountNumber.trim()) e.bankAccountNumber = 'Bank Account Number is required'
+      if (!f.confirmBankAccountNumber.trim()) e.confirmBankAccountNumber = 'Please confirm account number'
+      else if (f.bankAccountNumber !== f.confirmBankAccountNumber) e.confirmBankAccountNumber = 'Account numbers do not match'
+      if (!f.ifscCode.trim()) e.ifscCode = 'IFSC Code is required'
+      else if (!IFSC.test(f.ifscCode)) e.ifscCode = 'IFSC format is HDFC0001234'
+      if (!f.accountType) e.accountType = 'Account Type is required'
+      break
+    }
+    case 'I': {
+      if (!f.declarationInfoAccuracy) e.declarationInfoAccuracy = 'Accuracy declaration is mandatory'
+      if (!f.declarationKycConsent) e.declarationKycConsent = 'KYC verification consent is mandatory'
+      if (!f.agreementTermsAccepted) e.agreementTermsAccepted = 'Terms acceptance is mandatory before execution'
+      if (!f.declarationPlace.trim()) e.declarationPlace = 'Declaration place is required'
+      if (!f.declarationDate.trim()) e.declarationDate = 'Declaration date is required'
+      if (!f.signatoryName.trim()) e.signatoryName = 'Authorized Signatory Name is required'
+      break
+    }
+  }
+  return e
+}
+
+export function masterSectionStatus(sectionKey: string, f: ApplicationForm): { label: string; tone: 'green' | 'amber' | 'red' | 'gray' } {
+  const errs = validateMasterSection(sectionKey, f)
+  if (Object.keys(errs).length > 0) return { label: 'Incomplete', tone: 'amber' }
+  switch (sectionKey) {
+    case 'A': return f.franchiseName ? { label: 'Complete', tone: 'green' } : { label: 'Pending', tone: 'gray' }
+    case 'B': return f.legalBusinessName || f.pan ? { label: 'Verified', tone: 'green' } : { label: 'Pending', tone: 'gray' }
+    case 'C': return f.applicantAuthorizedPersonName ? { label: 'Complete', tone: 'green' } : { label: 'Pending', tone: 'gray' }
+    case 'D': return f.registeredPermanentAddress ? { label: 'Complete', tone: 'green' } : { label: 'Pending', tone: 'gray' }
+    case 'E': return f.officeAddress ? { label: 'Configured', tone: 'green' } : { label: 'Pending', tone: 'gray' }
+    case 'F': return (f.panCardDoc || f.applicantPhoto) ? { label: 'Docs Uploaded', tone: 'green' } : { label: 'Docs Pending', tone: 'amber' }
+    case 'G': return f.bankAccountNumber ? { label: 'Bank Linked', tone: 'green' } : { label: 'Pending', tone: 'gray' }
+    case 'H': return f.ref1Name ? { label: 'Recorded', tone: 'green' } : { label: 'Optional', tone: 'gray' }
+    case 'I': return f.agreementTermsAccepted ? { label: 'Accepted', tone: 'green' } : { label: 'Consent Needed', tone: 'amber' }
+    case 'J': return f.paymentRefNumber || f.paymentVerificationStatus === 'Verified' ? { label: 'Recorded', tone: 'green' } : { label: 'Pending', tone: 'gray' }
+    case 'K': return f.finalDecision ? { label: f.finalDecision, tone: f.finalDecision === 'Approved' ? 'green' : 'amber' } : { label: 'Under Review', tone: 'gray' }
+    case 'L': return f.submissionStatus === 'Completed' ? { label: 'Completed', tone: 'green' } : { label: 'Checklist Open', tone: 'amber' }
+  }
+  return { label: 'Pending', tone: 'gray' }
+}

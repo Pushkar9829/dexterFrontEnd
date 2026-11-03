@@ -475,10 +475,10 @@ export default function SiteInstallationList() {
             </div>
           </div>
 
-          {/* 10. V-SAT */}
+          {/* 10. V-SAT / Router */}
           <div>
             <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-              V-SAT
+              V-SAT / Router
             </label>
             <div className="relative">
               <List size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none" />
@@ -492,6 +492,7 @@ export default function SiteInstallationList() {
                 <option value="Pending">Pending</option>
                 <option value="Installation Pending">Installation Pending</option>
                 <option value="Installation Done">Installation Done</option>
+                <option value="Router (Substitute)">Router (Substitute)</option>
               </select>
               <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             </div>

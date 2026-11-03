@@ -58,9 +58,16 @@ export default function SiteInstallationForm() {
   const [monkeyCage, setMonkeyCage] = useState(existingRecord?.monkeyCage || '')
 
   // Section 2: ATM / Equipment Status
+  const [atmMachineType, setAtmMachineType] = useState(existingRecord?.atmMachineType || '')
   const [atmMachine, setAtmMachine] = useState(existingRecord?.atmMachine || '')
+  const [isolationTransformer, setIsolationTransformer] = useState(existingRecord?.isolationTransformer || '')
+  const [stabilizer, setStabilizer] = useState(existingRecord?.stabilizer || '')
   const [ups, setUps] = useState(existingRecord?.ups || '')
+  const [batteryCage, setBatteryCage] = useState(existingRecord?.batteryCage || '')
+  const [camera, setCamera] = useState(existingRecord?.camera || '')
+  const [dvr, setDvr] = useState(existingRecord?.dvr || '')
   const [vsat, setVsat] = useState(existingRecord?.vsat || '')
+  const [routerVsatCompany, setRouterVsatCompany] = useState(existingRecord?.routerVsatCompany || '')
 
   // Section 3: Operational Status
   const [techLive, setTechLive] = useState(existingRecord?.techLive || '')
@@ -148,7 +155,14 @@ export default function SiteInstallationForm() {
       electrical: electrical || 'Pending',
       tisStatus: tisStatus || 'Pending',
       atmMachine: atmMachine || 'Pending',
+      atmMachineType: atmMachineType || '',
+      isolationTransformer: isolationTransformer || '',
+      stabilizer: stabilizer || '',
+      batteryCage: batteryCage || '',
+      camera: camera || '',
+      dvr: dvr || '',
       vsat: vsat || 'Pending',
+      routerVsatCompany: routerVsatCompany || '',
       ups: ups || 'Pending',
       grouting: grouting || 'Pending',
       signage: signage || 'Pending',
@@ -491,9 +505,34 @@ export default function SiteInstallationForm() {
         </div>
 
         <div className="p-4 sm:p-5 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+          {/* 1. ATM Machine Type */}
           <div>
             <label className="block text-[11px] font-bold text-slate-700 mb-1">
-              ATM Machine
+              ATM Machine Type
+            </label>
+            <div className="relative">
+              <select
+                value={atmMachineType}
+                onChange={(e) => setAtmMachineType(e.target.value)}
+                className="w-full h-8.5 px-3 pr-7 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] appearance-none font-medium"
+              >
+                <option value="">Select ATM Machine Type</option>
+                <option value="NCR">NCR</option>
+                <option value="Perto">Perto</option>
+                <option value="CRM">CRM (Cash Recycler Machine)</option>
+                <option value="Hitachi">Hitachi</option>
+                <option value="Diebold Nixdorf">Diebold Nixdorf</option>
+                <option value="Hyosung">Hyosung</option>
+                <option value="Other">Other</option>
+              </select>
+              <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            </div>
+          </div>
+
+          {/* 2. ATM Machine Status */}
+          <div>
+            <label className="block text-[11px] font-bold text-slate-700 mb-1">
+              ATM Machine Status
             </label>
             <div className="relative">
               <select
@@ -514,6 +553,51 @@ export default function SiteInstallationForm() {
             </div>
           </div>
 
+          {/* 3. Isolation Transformer (IT) */}
+          <div>
+            <label className="block text-[11px] font-bold text-slate-700 mb-1">
+              Isolation Transformer (IT)
+            </label>
+            <div className="relative">
+              <select
+                value={isolationTransformer}
+                onChange={(e) => setIsolationTransformer(e.target.value)}
+                className="w-full h-8.5 px-3 pr-7 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] appearance-none"
+              >
+                <option value="">Select status</option>
+                <option value="Delivered">Delivered</option>
+                <option value="Installation Pending">Installation Pending</option>
+                <option value="Installation Done">Installation Done</option>
+                <option value="Pending">Pending</option>
+                <option value="Not Required">Not Required</option>
+              </select>
+              <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            </div>
+          </div>
+
+          {/* 4. Stabilizer */}
+          <div>
+            <label className="block text-[11px] font-bold text-slate-700 mb-1">
+              Stabilizer
+            </label>
+            <div className="relative">
+              <select
+                value={stabilizer}
+                onChange={(e) => setStabilizer(e.target.value)}
+                className="w-full h-8.5 px-3 pr-7 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] appearance-none"
+              >
+                <option value="">Select status</option>
+                <option value="Delivered">Delivered</option>
+                <option value="Installation Pending">Installation Pending</option>
+                <option value="Installation Done">Installation Done</option>
+                <option value="Pending">Pending</option>
+                <option value="Not Required">Not Required</option>
+              </select>
+              <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            </div>
+          </div>
+
+          {/* 5. UPS */}
           <div>
             <label className="block text-[11px] font-bold text-slate-700 mb-1">
               UPS
@@ -534,9 +618,77 @@ export default function SiteInstallationForm() {
             </div>
           </div>
 
+          {/* 6. Battery Cage */}
           <div>
             <label className="block text-[11px] font-bold text-slate-700 mb-1">
-              V-SAT
+              Battery Cage
+            </label>
+            <div className="relative">
+              <select
+                value={batteryCage}
+                onChange={(e) => setBatteryCage(e.target.value)}
+                className="w-full h-8.5 px-3 pr-7 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] appearance-none"
+              >
+                <option value="">Select status</option>
+                <option value="Delivered">Delivered</option>
+                <option value="Installation Done">Installation Done</option>
+                <option value="Pending">Pending</option>
+                <option value="Not Required">Not Required</option>
+              </select>
+              <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            </div>
+          </div>
+
+          {/* 7. Camera */}
+          <div>
+            <label className="block text-[11px] font-bold text-slate-700 mb-1">
+              Camera
+            </label>
+            <div className="relative">
+              <select
+                value={camera}
+                onChange={(e) => setCamera(e.target.value)}
+                className="w-full h-8.5 px-3 pr-7 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] appearance-none"
+              >
+                <option value="">Select status</option>
+                <option value="Delivered">Delivered</option>
+                <option value="Installation Pending">Installation Pending</option>
+                <option value="Installation Done">Installation Done</option>
+                <option value="Working / Live">Working / Live</option>
+                <option value="Pending">Pending</option>
+                <option value="Not Required">Not Required</option>
+              </select>
+              <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            </div>
+          </div>
+
+          {/* 8. DVR */}
+          <div>
+            <label className="block text-[11px] font-bold text-slate-700 mb-1">
+              DVR
+            </label>
+            <div className="relative">
+              <select
+                value={dvr}
+                onChange={(e) => setDvr(e.target.value)}
+                className="w-full h-8.5 px-3 pr-7 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] appearance-none"
+              >
+                <option value="">Select status</option>
+                <option value="Delivered">Delivered</option>
+                <option value="Installation Pending">Installation Pending</option>
+                <option value="Installation Done">Installation Done</option>
+                <option value="Configured / Live">Configured / Live</option>
+                <option value="Pending">Pending</option>
+                <option value="Not Required">Not Required</option>
+              </select>
+              <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            </div>
+          </div>
+
+          {/* 9. V-SAT / Router (Substitute) */}
+          <div>
+            <label className="block text-[11px] font-bold text-slate-700 mb-1">
+              V-SAT / Router (Substitute)
             </label>
             <div className="relative">
               <select
@@ -544,14 +696,32 @@ export default function SiteInstallationForm() {
                 onChange={(e) => setVsat(e.target.value)}
                 className="w-full h-8.5 px-3 pr-7 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] appearance-none"
               >
-                <option value="">Select status</option>
+                <option value="">Select status / option</option>
                 <option value="Delivered">Delivered</option>
                 <option value="Installation Pending">Installation Pending</option>
                 <option value="Installation Done">Installation Done</option>
+                <option value="Router (Substitute)">Router (Substitute)</option>
+                <option value="Router (Substitute) - Delivered">Router (Substitute) - Delivered</option>
+                <option value="Router (Substitute) - Installation Done">Router (Substitute) - Installation Done</option>
                 <option value="Pending">Pending</option>
+                <option value="Not Required">Not Required</option>
               </select>
               <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             </div>
+          </div>
+
+          {/* 10. Router / Vsat - company name */}
+          <div>
+            <label className="block text-[11px] font-bold text-slate-700 mb-1">
+              Router / Vsat - Company Name
+            </label>
+            <input
+              type="text"
+              value={routerVsatCompany}
+              onChange={(e) => setRouterVsatCompany(e.target.value)}
+              placeholder="e.g. Nelco, Hughes, Airtel, Tata Teleservices, Jio"
+              className="w-full h-8.5 px-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] placeholder:text-slate-400"
+            />
           </div>
         </div>
       </div>
