@@ -1,16 +1,14 @@
 import { useState, useRef, useEffect } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowLeft,
   Award,
   Briefcase,
   CheckCircle2,
-  ChevronRight,
   Eye,
   EyeOff,
   FileText,
   GraduationCap,
-  Home,
   Landmark,
   MapPin,
   Pencil,
@@ -231,25 +229,6 @@ export default function EmployeeOnboardingForm() {
 
   return (
     <div className="mx-auto max-w-[1320px] pb-16">
-      {/* Breadcrumb matching pattern: Workspace > Onboarding > User / Employee Management */}
-      <div className="flex items-center gap-1.5 text-[12px] text-slate-500 mb-3">
-        <Home size={14} className="text-slate-400 shrink-0" />
-        <Link to="/dashboard" className="hover:text-[#0066FF] transition-colors">
-          Workspace
-        </Link>
-        <ChevronRight size={12} className="text-slate-400" />
-        <Link to="/onboarding" className="hover:text-[#0066FF] transition-colors">
-          Onboarding
-        </Link>
-        <ChevronRight size={12} className="text-slate-400" />
-        <Link to="/onboarding/users" className="hover:text-[#0066FF] transition-colors">
-          User / Employee Management
-        </Link>
-        <ChevronRight size={12} className="text-slate-400" />
-        <span className="font-semibold text-slate-800">
-          {isNew ? 'New Employee' : `Edit ${employee.fullName || employee.employeeCode}`}
-        </span>
-      </div>
 
       {/* Top Header Bar */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
@@ -313,7 +292,7 @@ export default function EmployeeOnboardingForm() {
           <span className="mr-1 flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#64748B] shrink-0">
             Form Sections:
           </span>
-          {SECTIONS.map((sec, idx) => (
+          {SECTIONS.map((sec) => (
             <button
               key={sec.id}
               type="button"
@@ -326,9 +305,6 @@ export default function EmployeeOnboardingForm() {
               }}
               className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-[#E2EEFB] bg-[#F8FAFD] px-3 py-1.5 text-[11.5px] font-semibold text-[#334155] transition-all hover:border-[#0066FF]/40 hover:bg-[#EAF3FD] hover:text-[#0066FF]"
             >
-              <span className="grid h-4 w-4 place-items-center rounded-full bg-white text-[10px] font-bold text-[#0066FF] shadow-xs">
-                {idx + 1}
-              </span>
               {sec.label}
             </button>
           ))}
@@ -344,212 +320,212 @@ export default function EmployeeOnboardingForm() {
           </div>
 
           <div className="p-5">
-              <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
-                {/* Left 3 Columns: Basic Fields */}
-                <div className="space-y-4 lg:col-span-3">
-                  {/* Row 1: Onboard As, Employee Code, TP Code */}
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                    <div>
-                      <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
-                        Onboard Employee As <span className="text-red-500">*</span>
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
+              {/* Left 3 Columns: Basic Fields */}
+              <div className="space-y-4 lg:col-span-3">
+                {/* Row 1: Onboard As, Employee Code, TP Code */}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <div>
+                    <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
+                      Onboard Employee As <span className="text-red-500">*</span>
+                    </label>
+                    <div className="flex items-center gap-4 pt-1.5">
+                      <label className="flex cursor-pointer items-center gap-2 text-[12px] font-medium text-[#334155]">
+                        <input
+                          type="radio"
+                          name="onboardAs"
+                          checked={employee.onboardAs === 'Permanent'}
+                          onChange={() => {
+                            updateField('onboardAs', 'Permanent')
+                            updateField('jobType', 'Permanent')
+                          }}
+                          className="h-4 w-4 accent-[#0066FF]"
+                        />
+                        Permanent
                       </label>
-                      <div className="flex items-center gap-4 pt-1.5">
-                        <label className="flex cursor-pointer items-center gap-2 text-[12px] font-medium text-[#334155]">
-                          <input
-                            type="radio"
-                            name="onboardAs"
-                            checked={employee.onboardAs === 'Permanent'}
-                            onChange={() => {
-                              updateField('onboardAs', 'Permanent')
-                              updateField('jobType', 'Permanent')
-                            }}
-                            className="h-4 w-4 accent-[#0066FF]"
-                          />
-                          Permanent
-                        </label>
-                        <label className="flex cursor-pointer items-center gap-2 text-[12px] font-medium text-[#334155]">
-                          <input
-                            type="radio"
-                            name="onboardAs"
-                            checked={employee.onboardAs === 'Contractual'}
-                            onChange={() => {
-                              updateField('onboardAs', 'Contractual')
-                              updateField('jobType', 'Contractual')
-                            }}
-                            className="h-4 w-4 accent-[#0066FF]"
-                          />
-                          Contractual
-                        </label>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
-                        Employee Code
+                      <label className="flex cursor-pointer items-center gap-2 text-[12px] font-medium text-[#334155]">
+                        <input
+                          type="radio"
+                          name="onboardAs"
+                          checked={employee.onboardAs === 'Contractual'}
+                          onChange={() => {
+                            updateField('onboardAs', 'Contractual')
+                            updateField('jobType', 'Contractual')
+                          }}
+                          className="h-4 w-4 accent-[#0066FF]"
+                        />
+                        Contractual
                       </label>
-                      <input
-                        type="text"
-                        value={employee.employeeCode}
-                        readOnly
-                        className="h-9 w-full rounded-md border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-[12.5px] font-medium text-[#475569] outline-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
-                        TP Code
-                      </label>
-                      <input
-                        type="text"
-                        value={employee.tpCode}
-                        onChange={(e) => updateField('tpCode', e.target.value)}
-                        className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF] focus:ring-2 focus:ring-[#0066FF]/10"
-                      />
                     </div>
                   </div>
 
-                  {/* Row 2: Full Name, Mobile, Email */}
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                    <div>
-                      <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
-                        Employee Full Name <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={employee.fullName}
-                        onChange={(e) => updateField('fullName', e.target.value)}
-                        placeholder="Enter full name"
-                        className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF] focus:ring-2 focus:ring-[#0066FF]/10"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
-                        Employee Mobile Number <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="tel"
-                        maxLength={10}
-                        value={employee.mobile}
-                        onChange={(e) => updateField('mobile', e.target.value)}
-                        placeholder="7895945800"
-                        className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF] focus:ring-2 focus:ring-[#0066FF]/10"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
-                        Email (Optional)
-                      </label>
-                      <input
-                        type="email"
-                        value={employee.email}
-                        onChange={(e) => updateField('email', e.target.value)}
-                        placeholder="employee@example.com"
-                        className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF] focus:ring-2 focus:ring-[#0066FF]/10"
-                      />
-                    </div>
+                  <div>
+                    <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
+                      Employee Code
+                    </label>
+                    <input
+                      type="text"
+                      value={employee.employeeCode}
+                      readOnly
+                      className="h-9 w-full rounded-md border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-[12.5px] font-medium text-[#475569] outline-none"
+                    />
                   </div>
 
-                  {/* Row 3: Send Notification, Date of Joining, Employee Status */}
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                    <div>
-                      <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
-                        Send Notification to Employee ? <span className="text-red-500">*</span>
-                      </label>
-                      <div className="flex items-center gap-4 pt-1.5">
-                        <label className="flex cursor-pointer items-center gap-2 text-[12px] font-medium text-[#334155]">
-                          <input
-                            type="radio"
-                            name="sendNotification"
-                            checked={employee.sendNotification}
-                            onChange={() => updateField('sendNotification', true)}
-                            className="h-4 w-4 accent-[#0066FF]"
-                          />
-                          Yes
-                        </label>
-                        <label className="flex cursor-pointer items-center gap-2 text-[12px] font-medium text-[#334155]">
-                          <input
-                            type="radio"
-                            name="sendNotification"
-                            checked={!employee.sendNotification}
-                            onChange={() => updateField('sendNotification', false)}
-                            className="h-4 w-4 accent-[#0066FF]"
-                          />
-                          No
-                        </label>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
-                        Date of Joining <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="date"
-                        value={employee.dateOfJoining}
-                        onChange={(e) => updateField('dateOfJoining', e.target.value)}
-                        className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF] focus:ring-2 focus:ring-[#0066FF]/10"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
-                        Employee Status
-                      </label>
-                      <select
-                        value={employee.status}
-                        onChange={(e) => updateField('status', e.target.value as any)}
-                        className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF]"
-                      >
-                        <option value="Pending">Pending</option>
-                        <option value="Active">Active</option>
-                        <option value="Probation">Probation</option>
-                        <option value="Inactive">Inactive</option>
-                      </select>
-                    </div>
+                  <div>
+                    <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
+                      TP Code
+                    </label>
+                    <input
+                      type="text"
+                      value={employee.tpCode}
+                      onChange={(e) => updateField('tpCode', e.target.value)}
+                      className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF] focus:ring-2 focus:ring-[#0066FF]/10"
+                    />
                   </div>
                 </div>
 
-                {/* Right 1 Column: Employee Photograph matching screenshot */}
-                <div className="flex flex-col items-center justify-start rounded-lg border border-[#E2EEFB] bg-[#F8FAFD] p-3 text-center">
-                  <span className="mb-2 text-[11.5px] font-semibold text-[#334155]">
-                    Employee Photograph
-                  </span>
-                  <div className="relative mb-3 h-[110px] w-[110px] overflow-hidden rounded-lg border-2 border-dashed border-[#CBD5E1] bg-white shadow-xs">
-                    {employee.photoUrl ? (
-                      <img
-                        src={employee.photoUrl}
-                        alt="Employee"
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <div className="grid h-full w-full place-items-center text-[#94A3B8]">
-                        <User size={40} strokeWidth={1.5} />
-                      </div>
-                    )}
+                {/* Row 2: Full Name, Mobile, Email */}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <div>
+                    <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
+                      Employee Full Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={employee.fullName}
+                      onChange={(e) => updateField('fullName', e.target.value)}
+                      placeholder="Enter full name"
+                      className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF] focus:ring-2 focus:ring-[#0066FF]/10"
+                    />
                   </div>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handlePhotoUpload}
-                    className="hidden"
-                  />
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="border-[#0066FF] text-[#0066FF] hover:bg-[#EAF2FD]"
-                  >
-                    <Upload size={13} className="mr-1" /> Upload Photo
-                  </Button>
-                  <span className="mt-1.5 text-[10px] text-[#64748B]">JPG, PNG (Max 2 MB)</span>
+
+                  <div>
+                    <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
+                      Employee Mobile Number <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="tel"
+                      maxLength={10}
+                      value={employee.mobile}
+                      onChange={(e) => updateField('mobile', e.target.value)}
+                      placeholder="7895945800"
+                      className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF] focus:ring-2 focus:ring-[#0066FF]/10"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
+                      Email (Optional)
+                    </label>
+                    <input
+                      type="email"
+                      value={employee.email}
+                      onChange={(e) => updateField('email', e.target.value)}
+                      placeholder="employee@example.com"
+                      className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF] focus:ring-2 focus:ring-[#0066FF]/10"
+                    />
+                  </div>
                 </div>
+
+                {/* Row 3: Send Notification, Date of Joining, Employee Status */}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <div>
+                    <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
+                      Send Notification to Employee ? <span className="text-red-500">*</span>
+                    </label>
+                    <div className="flex items-center gap-4 pt-1.5">
+                      <label className="flex cursor-pointer items-center gap-2 text-[12px] font-medium text-[#334155]">
+                        <input
+                          type="radio"
+                          name="sendNotification"
+                          checked={employee.sendNotification}
+                          onChange={() => updateField('sendNotification', true)}
+                          className="h-4 w-4 accent-[#0066FF]"
+                        />
+                        Yes
+                      </label>
+                      <label className="flex cursor-pointer items-center gap-2 text-[12px] font-medium text-[#334155]">
+                        <input
+                          type="radio"
+                          name="sendNotification"
+                          checked={!employee.sendNotification}
+                          onChange={() => updateField('sendNotification', false)}
+                          className="h-4 w-4 accent-[#0066FF]"
+                        />
+                        No
+                      </label>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
+                      Date of Joining <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={employee.dateOfJoining}
+                      onChange={(e) => updateField('dateOfJoining', e.target.value)}
+                      className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF] focus:ring-2 focus:ring-[#0066FF]/10"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
+                      Employee Status
+                    </label>
+                    <select
+                      value={employee.status}
+                      onChange={(e) => updateField('status', e.target.value as any)}
+                      className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF]"
+                    >
+                      <option value="Pending">Pending</option>
+                      <option value="Active">Active</option>
+                      <option value="Probation">Probation</option>
+                      <option value="Inactive">Inactive</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right 1 Column: Employee Photograph matching screenshot */}
+              <div className="flex flex-col items-center justify-start rounded-lg border border-[#E2EEFB] bg-[#F8FAFD] p-3 text-center">
+                <span className="mb-2 text-[11.5px] font-semibold text-[#334155]">
+                  Employee Photograph
+                </span>
+                <div className="relative mb-3 h-[110px] w-[110px] overflow-hidden rounded-lg border-2 border-dashed border-[#CBD5E1] bg-white shadow-xs">
+                  {employee.photoUrl ? (
+                    <img
+                      src={employee.photoUrl}
+                      alt="Employee"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="grid h-full w-full place-items-center text-[#94A3B8]">
+                      <User size={40} strokeWidth={1.5} />
+                    </div>
+                  )}
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handlePhotoUpload}
+                  className="hidden"
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="border-[#0066FF] text-[#0066FF] hover:bg-[#EAF2FD]"
+                >
+                  <Upload size={13} className="mr-1" /> Upload Photo
+                </Button>
+                <span className="mt-1.5 text-[10px] text-[#64748B]">JPG, PNG (Max 2 MB)</span>
               </div>
             </div>
           </div>
+        </div>
 
         {/* SECTION 2: Personal Information */}
         <div id="section-personal" className="scroll-mt-24 overflow-hidden rounded-xl border border-[#DCE8F6] bg-white shadow-xs">
@@ -558,214 +534,214 @@ export default function EmployeeOnboardingForm() {
             <h2 className="text-[13.5px] font-bold text-[#0066FF]">2. Personal Information & Identity Documents</h2>
           </div>
 
-            <div className="space-y-4 p-5">
-              {/* Row 1: DOB, Gender, Father/Husband, Mother, Spouse */}
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-                <div>
-                  <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
-                    Date of Birth
-                  </label>
-                  <input
-                    type="date"
-                    value={employee.dob}
-                    onChange={(e) => updateField('dob', e.target.value)}
-                    className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF]"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
-                    Gender
-                  </label>
-                  <select
-                    value={employee.gender}
-                    onChange={(e) => updateField('gender', e.target.value)}
-                    className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF]"
-                  >
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
-                    Father / Husband's Name
-                  </label>
-                  <input
-                    type="text"
-                    value={employee.fatherHusbandName}
-                    onChange={(e) => updateField('fatherHusbandName', e.target.value)}
-                    placeholder="Enter father / husband name"
-                    className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF]"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
-                    Mother's Name
-                  </label>
-                  <input
-                    type="text"
-                    value={employee.motherName}
-                    onChange={(e) => updateField('motherName', e.target.value)}
-                    placeholder="Enter mother's name"
-                    className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF]"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
-                    Spouse Name
-                  </label>
-                  <input
-                    type="text"
-                    value={employee.spouseName}
-                    onChange={(e) => updateField('spouseName', e.target.value)}
-                    placeholder="Enter spouse name"
-                    className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF]"
-                  />
-                </div>
+          <div className="space-y-4 p-5">
+            {/* Row 1: DOB, Gender, Father/Husband, Mother, Spouse */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+              <div>
+                <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
+                  Date of Birth
+                </label>
+                <input
+                  type="date"
+                  value={employee.dob}
+                  onChange={(e) => updateField('dob', e.target.value)}
+                  className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF]"
+                />
               </div>
 
-              {/* Row 2: Marital Status, Nationality, Blood Group, Relation Name, PAN */}
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-                <div>
-                  <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
-                    Marital Status
-                  </label>
-                  <select
-                    value={employee.maritalStatus}
-                    onChange={(e) => updateField('maritalStatus', e.target.value)}
-                    className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF]"
-                  >
-                    <option value="Unmarried">Unmarried</option>
-                    <option value="Married">Married</option>
-                    <option value="Divorced">Divorced</option>
-                    <option value="Widowed">Widowed</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
-                    Nationality
-                  </label>
-                  <select
-                    value={employee.nationality}
-                    onChange={(e) => updateField('nationality', e.target.value)}
-                    className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF]"
-                  >
-                    <option value="Indian">Indian</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
-                    Blood Group
-                  </label>
-                  <select
-                    value={employee.bloodGroup}
-                    onChange={(e) => updateField('bloodGroup', e.target.value)}
-                    className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF]"
-                  >
-                    <option value="">Select</option>
-                    <option value="A+">A+</option>
-                    <option value="A-">A-</option>
-                    <option value="B+">B+</option>
-                    <option value="B-">B-</option>
-                    <option value="O+">O+</option>
-                    <option value="O-">O-</option>
-                    <option value="AB+">AB+</option>
-                    <option value="AB-">AB-</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
-                    Relation Name
-                  </label>
-                  <input
-                    type="text"
-                    value={employee.relationName}
-                    onChange={(e) => updateField('relationName', e.target.value)}
-                    placeholder="Father"
-                    className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF]"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
-                    PAN No.
-                  </label>
-                  <input
-                    type="text"
-                    maxLength={10}
-                    value={employee.panNo}
-                    onChange={(e) => updateField('panNo', e.target.value.toUpperCase())}
-                    placeholder="Enter PAN number"
-                    className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] uppercase outline-none focus:border-[#0066FF]"
-                  />
-                </div>
+              <div>
+                <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
+                  Gender
+                </label>
+                <select
+                  value={employee.gender}
+                  onChange={(e) => updateField('gender', e.target.value)}
+                  className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF]"
+                >
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                  <option value="Other">Other</option>
+                </select>
               </div>
 
-              {/* Row 3: Personal Email, Personal Mobile, Emergency Person, Emergency Contact */}
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <div>
-                  <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
-                    Personal Email ID
-                  </label>
-                  <input
-                    type="email"
-                    value={employee.personalEmail}
-                    onChange={(e) => updateField('personalEmail', e.target.value)}
-                    placeholder="personal@gmail.com"
-                    className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF]"
-                  />
-                </div>
+              <div>
+                <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
+                  Father / Husband's Name
+                </label>
+                <input
+                  type="text"
+                  value={employee.fatherHusbandName}
+                  onChange={(e) => updateField('fatherHusbandName', e.target.value)}
+                  placeholder="Enter father / husband name"
+                  className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF]"
+                />
+              </div>
 
-                <div>
-                  <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
-                    Personal Mobile Number
-                  </label>
-                  <input
-                    type="tel"
-                    maxLength={10}
-                    value={employee.personalMobile}
-                    onChange={(e) => updateField('personalMobile', e.target.value)}
-                    placeholder="Enter personal mobile number"
-                    className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF]"
-                  />
-                </div>
+              <div>
+                <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
+                  Mother's Name
+                </label>
+                <input
+                  type="text"
+                  value={employee.motherName}
+                  onChange={(e) => updateField('motherName', e.target.value)}
+                  placeholder="Enter mother's name"
+                  className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF]"
+                />
+              </div>
 
-                <div>
-                  <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
-                    Emergency Contact Person Name
-                  </label>
-                  <input
-                    type="text"
-                    value={employee.emergencyContactPerson}
-                    onChange={(e) => updateField('emergencyContactPerson', e.target.value)}
-                    placeholder="Enter emergency contact person name"
-                    className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF]"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
-                    Emergency Contact No.
-                  </label>
-                  <input
-                    type="tel"
-                    maxLength={10}
-                    value={employee.emergencyContactNo}
-                    onChange={(e) => updateField('emergencyContactNo', e.target.value)}
-                    placeholder="7451008232"
-                    className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF]"
-                  />
-                </div>
+              <div>
+                <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
+                  Spouse Name
+                </label>
+                <input
+                  type="text"
+                  value={employee.spouseName}
+                  onChange={(e) => updateField('spouseName', e.target.value)}
+                  placeholder="Enter spouse name"
+                  className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF]"
+                />
               </div>
             </div>
+
+            {/* Row 2: Marital Status, Nationality, Blood Group, Relation Name, PAN */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+              <div>
+                <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
+                  Marital Status
+                </label>
+                <select
+                  value={employee.maritalStatus}
+                  onChange={(e) => updateField('maritalStatus', e.target.value)}
+                  className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF]"
+                >
+                  <option value="Unmarried">Unmarried</option>
+                  <option value="Married">Married</option>
+                  <option value="Divorced">Divorced</option>
+                  <option value="Widowed">Widowed</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
+                  Nationality
+                </label>
+                <select
+                  value={employee.nationality}
+                  onChange={(e) => updateField('nationality', e.target.value)}
+                  className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF]"
+                >
+                  <option value="Indian">Indian</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
+                  Blood Group
+                </label>
+                <select
+                  value={employee.bloodGroup}
+                  onChange={(e) => updateField('bloodGroup', e.target.value)}
+                  className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF]"
+                >
+                  <option value="">Select</option>
+                  <option value="A+">A+</option>
+                  <option value="A-">A-</option>
+                  <option value="B+">B+</option>
+                  <option value="B-">B-</option>
+                  <option value="O+">O+</option>
+                  <option value="O-">O-</option>
+                  <option value="AB+">AB+</option>
+                  <option value="AB-">AB-</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
+                  Relation Name
+                </label>
+                <input
+                  type="text"
+                  value={employee.relationName}
+                  onChange={(e) => updateField('relationName', e.target.value)}
+                  placeholder="Father"
+                  className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF]"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
+                  PAN No.
+                </label>
+                <input
+                  type="text"
+                  maxLength={10}
+                  value={employee.panNo}
+                  onChange={(e) => updateField('panNo', e.target.value.toUpperCase())}
+                  placeholder="Enter PAN number"
+                  className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] uppercase outline-none focus:border-[#0066FF]"
+                />
+              </div>
+            </div>
+
+            {/* Row 3: Personal Email, Personal Mobile, Emergency Person, Emergency Contact */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div>
+                <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
+                  Personal Email ID
+                </label>
+                <input
+                  type="email"
+                  value={employee.personalEmail}
+                  onChange={(e) => updateField('personalEmail', e.target.value)}
+                  placeholder="personal@gmail.com"
+                  className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF]"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
+                  Personal Mobile Number
+                </label>
+                <input
+                  type="tel"
+                  maxLength={10}
+                  value={employee.personalMobile}
+                  onChange={(e) => updateField('personalMobile', e.target.value)}
+                  placeholder="Enter personal mobile number"
+                  className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF]"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
+                  Emergency Contact Person Name
+                </label>
+                <input
+                  type="text"
+                  value={employee.emergencyContactPerson}
+                  onChange={(e) => updateField('emergencyContactPerson', e.target.value)}
+                  placeholder="Enter emergency contact person name"
+                  className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF]"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-[11px] font-semibold text-[#1E293B]">
+                  Emergency Contact No.
+                </label>
+                <input
+                  type="tel"
+                  maxLength={10}
+                  value={employee.emergencyContactNo}
+                  onChange={(e) => updateField('emergencyContactNo', e.target.value)}
+                  placeholder="7451008232"
+                  className="h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF]"
+                />
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* SECTION 3: Address & Contact Details */}
@@ -1301,90 +1277,90 @@ export default function EmployeeOnboardingForm() {
                 5. Education / Academic Details
               </h2>
             </div>
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => {
-                  setEditingEdu(null)
-                  setEduModalOpen(true)
-                }}
-                className="h-7 bg-[#0066FF] px-2.5 text-[11.5px] text-white hover:bg-[#0052cc]"
-              >
-                <Plus size={13} className="mr-1" /> Add Education
-              </Button>
-            </div>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => {
+                setEditingEdu(null)
+                setEduModalOpen(true)
+              }}
+              className="h-7 bg-[#0066FF] px-2.5 text-[11.5px] text-white hover:bg-[#0052cc]"
+            >
+              <Plus size={13} className="mr-1" /> Add Education
+            </Button>
+          </div>
 
-            <div className="overflow-x-auto p-4">
-              <table className="w-full text-left text-[12px]">
-                <thead>
-                  <tr className="border-b border-[#E2EEFB] text-[11px] font-semibold uppercase tracking-wider text-[#64748B]">
-                    <th className="py-2.5 px-3">S.No.</th>
-                    <th className="py-2.5 px-3">Course</th>
-                    <th className="py-2.5 px-3">Specialization</th>
-                    <th className="py-2.5 px-3">State</th>
-                    <th className="py-2.5 px-3">University / College</th>
-                    <th className="py-2.5 px-3">Course Type</th>
-                    <th className="py-2.5 px-3">Passing Year</th>
-                    <th className="py-2.5 px-3">Percentage / CGPA</th>
-                    <th className="py-2.5 px-3">Attachment</th>
-                    <th className="py-2.5 px-3 text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#F1F5F9]">
-                  {employee.education.length > 0 ? (
-                    employee.education.map((item, idx) => (
-                      <tr key={item.id} className="hover:bg-[#F8FAFD]">
-                        <td className="py-2.5 px-3 font-medium text-[#475569]">{idx + 1}</td>
-                        <td className="py-2.5 px-3 font-semibold text-[#1E293B]">{item.course}</td>
-                        <td className="py-2.5 px-3 text-[#334155]">{item.specialization}</td>
-                        <td className="py-2.5 px-3 text-[#334155]">{item.state}</td>
-                        <td className="py-2.5 px-3 text-[#334155]">{item.university}</td>
-                        <td className="py-2.5 px-3 text-[#334155]">{item.courseType}</td>
-                        <td className="py-2.5 px-3 text-[#334155]">{item.passingYear}</td>
-                        <td className="py-2.5 px-3 font-medium text-[#1E293B]">{item.percentage}</td>
-                        <td className="py-2.5 px-3">
-                          {item.attachment ? (
-                            <span className="inline-flex items-center gap-1 rounded bg-[#EAF2FD] px-2 py-0.5 text-[11px] font-medium text-[#0066FF]">
-                              <FileText size={12} /> {item.attachment}
-                            </span>
-                          ) : (
-                            <span className="text-[#94A3B8]">None</span>
-                          )}
-                        </td>
-                        <td className="py-2.5 px-3 text-right">
-                          <div className="inline-flex items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditingEdu(item)
-                                setEduModalOpen(true)
-                              }}
-                              className="p-1 text-[#0066FF] hover:bg-[#EAF2FD] rounded"
-                            >
-                              <Pencil size={14} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteEdu(item.id)}
-                              className="p-1 text-red-500 hover:bg-red-50 rounded"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={10} className="py-6 text-center text-[#94A3B8]">
-                        No education records added yet. Click "+ Add Education" to add one.
+          <div className="overflow-x-auto p-4">
+            <table className="w-full text-left text-[12px]">
+              <thead>
+                <tr className="border-b border-[#E2EEFB] text-[11px] font-semibold uppercase tracking-wider text-[#64748B]">
+                  <th className="py-2.5 px-3">S.No.</th>
+                  <th className="py-2.5 px-3">Course</th>
+                  <th className="py-2.5 px-3">Specialization</th>
+                  <th className="py-2.5 px-3">State</th>
+                  <th className="py-2.5 px-3">University / College</th>
+                  <th className="py-2.5 px-3">Course Type</th>
+                  <th className="py-2.5 px-3">Passing Year</th>
+                  <th className="py-2.5 px-3">Percentage / CGPA</th>
+                  <th className="py-2.5 px-3">Attachment</th>
+                  <th className="py-2.5 px-3 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#F1F5F9]">
+                {employee.education.length > 0 ? (
+                  employee.education.map((item, idx) => (
+                    <tr key={item.id} className="hover:bg-[#F8FAFD]">
+                      <td className="py-2.5 px-3 font-medium text-[#475569]">{idx + 1}</td>
+                      <td className="py-2.5 px-3 font-semibold text-[#1E293B]">{item.course}</td>
+                      <td className="py-2.5 px-3 text-[#334155]">{item.specialization}</td>
+                      <td className="py-2.5 px-3 text-[#334155]">{item.state}</td>
+                      <td className="py-2.5 px-3 text-[#334155]">{item.university}</td>
+                      <td className="py-2.5 px-3 text-[#334155]">{item.courseType}</td>
+                      <td className="py-2.5 px-3 text-[#334155]">{item.passingYear}</td>
+                      <td className="py-2.5 px-3 font-medium text-[#1E293B]">{item.percentage}</td>
+                      <td className="py-2.5 px-3">
+                        {item.attachment ? (
+                          <span className="inline-flex items-center gap-1 rounded bg-[#EAF2FD] px-2 py-0.5 text-[11px] font-medium text-[#0066FF]">
+                            <FileText size={12} /> {item.attachment}
+                          </span>
+                        ) : (
+                          <span className="text-[#94A3B8]">None</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-3 text-right">
+                        <div className="inline-flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingEdu(item)
+                              setEduModalOpen(true)
+                            }}
+                            className="p-1 text-[#0066FF] hover:bg-[#EAF2FD] rounded"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteEdu(item.id)}
+                            className="p-1 text-red-500 hover:bg-red-50 rounded"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={10} className="py-6 text-center text-[#94A3B8]">
+                      No education records added yet. Click "+ Add Education" to add one.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
+        </div>
 
         {/* SECTION 6: Work Experience Details */}
         <div id="section-experience" className="scroll-mt-24 overflow-hidden rounded-xl border border-[#DCE8F6] bg-white shadow-xs">
@@ -1395,96 +1371,96 @@ export default function EmployeeOnboardingForm() {
                 6. Work Experience (Descending Order)
               </h2>
             </div>
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => {
-                  setEditingExp(null)
-                  setExpModalOpen(true)
-                }}
-                className="h-7 bg-[#0066FF] px-2.5 text-[11.5px] text-white hover:bg-[#0052cc]"
-              >
-                <Plus size={13} className="mr-1" /> Add Experience
-              </Button>
-            </div>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => {
+                setEditingExp(null)
+                setExpModalOpen(true)
+              }}
+              className="h-7 bg-[#0066FF] px-2.5 text-[11.5px] text-white hover:bg-[#0052cc]"
+            >
+              <Plus size={13} className="mr-1" /> Add Experience
+            </Button>
+          </div>
 
-            <div className="overflow-x-auto p-4">
-              <table className="w-full text-left text-[12px]">
-                <thead>
-                  <tr className="border-b border-[#E2EEFB] text-[11px] font-semibold uppercase tracking-wider text-[#64748B]">
-                    <th className="py-2.5 px-3">S.No.</th>
-                    <th className="py-2.5 px-3">Company Name</th>
-                    <th className="py-2.5 px-3">Job Title</th>
-                    <th className="py-2.5 px-3">From Date</th>
-                    <th className="py-2.5 px-3">To Date</th>
-                    <th className="py-2.5 px-3">Job Description</th>
-                    <th className="py-2.5 px-3">Attachment</th>
-                    <th className="py-2.5 px-3">Skills</th>
-                    <th className="py-2.5 px-3">Total Experience</th>
-                    <th className="py-2.5 px-3">Last Take-home</th>
-                    <th className="py-2.5 px-3">Leaving Reason</th>
-                    <th className="py-2.5 px-3 text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#F1F5F9]">
-                  {employee.workExperience.length > 0 ? (
-                    employee.workExperience.map((item, idx) => (
-                      <tr key={item.id} className="hover:bg-[#F8FAFD]">
-                        <td className="py-2.5 px-3 font-medium text-[#475569]">{idx + 1}</td>
-                        <td className="py-2.5 px-3 font-semibold text-[#1E293B]">{item.companyName}</td>
-                        <td className="py-2.5 px-3 text-[#334155]">{item.jobTitle}</td>
-                        <td className="py-2.5 px-3 text-[#334155]">{item.fromDate}</td>
-                        <td className="py-2.5 px-3 text-[#334155]">{item.toDate}</td>
-                        <td className="py-2.5 px-3 text-[#64748B] max-w-[180px] truncate">
-                          {item.jobDescription}
-                        </td>
-                        <td className="py-2.5 px-3">
-                          {item.attachment ? (
-                            <span className="inline-flex items-center gap-1 rounded bg-[#EAF2FD] px-2 py-0.5 text-[11px] font-medium text-[#0066FF]">
-                              <FileText size={12} /> {item.attachment}
-                            </span>
-                          ) : (
-                            <span className="text-[#94A3B8]">None</span>
-                          )}
-                        </td>
-                        <td className="py-2.5 px-3 text-[#334155]">{item.skills}</td>
-                        <td className="py-2.5 px-3 font-medium text-[#1E293B]">{item.totalExperience}</td>
-                        <td className="py-2.5 px-3 font-medium text-[#1E293B]">{item.lastTakeHome}</td>
-                        <td className="py-2.5 px-3 text-[#64748B]">{item.leavingReason}</td>
-                        <td className="py-2.5 px-3 text-right">
-                          <div className="inline-flex items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditingExp(item)
-                                setExpModalOpen(true)
-                              }}
-                              className="p-1 text-[#0066FF] hover:bg-[#EAF2FD] rounded"
-                            >
-                              <Pencil size={14} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteExp(item.id)}
-                              className="p-1 text-red-500 hover:bg-red-50 rounded"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={12} className="py-6 text-center text-[#94A3B8]">
-                        No experience records added yet. Click "+ Add Experience" to add one.
+          <div className="overflow-x-auto p-4">
+            <table className="w-full text-left text-[12px]">
+              <thead>
+                <tr className="border-b border-[#E2EEFB] text-[11px] font-semibold uppercase tracking-wider text-[#64748B]">
+                  <th className="py-2.5 px-3">S.No.</th>
+                  <th className="py-2.5 px-3">Company Name</th>
+                  <th className="py-2.5 px-3">Job Title</th>
+                  <th className="py-2.5 px-3">From Date</th>
+                  <th className="py-2.5 px-3">To Date</th>
+                  <th className="py-2.5 px-3">Job Description</th>
+                  <th className="py-2.5 px-3">Attachment</th>
+                  <th className="py-2.5 px-3">Skills</th>
+                  <th className="py-2.5 px-3">Total Experience</th>
+                  <th className="py-2.5 px-3">Last Take-home</th>
+                  <th className="py-2.5 px-3">Leaving Reason</th>
+                  <th className="py-2.5 px-3 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#F1F5F9]">
+                {employee.workExperience.length > 0 ? (
+                  employee.workExperience.map((item, idx) => (
+                    <tr key={item.id} className="hover:bg-[#F8FAFD]">
+                      <td className="py-2.5 px-3 font-medium text-[#475569]">{idx + 1}</td>
+                      <td className="py-2.5 px-3 font-semibold text-[#1E293B]">{item.companyName}</td>
+                      <td className="py-2.5 px-3 text-[#334155]">{item.jobTitle}</td>
+                      <td className="py-2.5 px-3 text-[#334155]">{item.fromDate}</td>
+                      <td className="py-2.5 px-3 text-[#334155]">{item.toDate}</td>
+                      <td className="py-2.5 px-3 text-[#64748B] max-w-[180px] truncate">
+                        {item.jobDescription}
+                      </td>
+                      <td className="py-2.5 px-3">
+                        {item.attachment ? (
+                          <span className="inline-flex items-center gap-1 rounded bg-[#EAF2FD] px-2 py-0.5 text-[11px] font-medium text-[#0066FF]">
+                            <FileText size={12} /> {item.attachment}
+                          </span>
+                        ) : (
+                          <span className="text-[#94A3B8]">None</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-3 text-[#334155]">{item.skills}</td>
+                      <td className="py-2.5 px-3 font-medium text-[#1E293B]">{item.totalExperience}</td>
+                      <td className="py-2.5 px-3 font-medium text-[#1E293B]">{item.lastTakeHome}</td>
+                      <td className="py-2.5 px-3 text-[#64748B]">{item.leavingReason}</td>
+                      <td className="py-2.5 px-3 text-right">
+                        <div className="inline-flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingExp(item)
+                              setExpModalOpen(true)
+                            }}
+                            className="p-1 text-[#0066FF] hover:bg-[#EAF2FD] rounded"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteExp(item.id)}
+                            className="p-1 text-red-500 hover:bg-red-50 rounded"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={12} className="py-6 text-center text-[#94A3B8]">
+                      No experience records added yet. Click "+ Add Experience" to add one.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
+        </div>
 
         {/* SECTION 7: Training Details */}
         <div id="section-training" className="scroll-mt-24 overflow-hidden rounded-xl border border-[#DCE8F6] bg-white shadow-xs">
@@ -1493,85 +1469,85 @@ export default function EmployeeOnboardingForm() {
               <Award size={18} className="text-[#0066FF]" />
               <h2 className="text-[13.5px] font-bold text-[#0066FF]">7. Training & Certifications</h2>
             </div>
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => {
-                  setEditingTrain(null)
-                  setTrainModalOpen(true)
-                }}
-                className="h-7 bg-[#0066FF] px-2.5 text-[11.5px] text-white hover:bg-[#0052cc]"
-              >
-                <Plus size={13} className="mr-1" /> Add Training
-              </Button>
-            </div>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => {
+                setEditingTrain(null)
+                setTrainModalOpen(true)
+              }}
+              className="h-7 bg-[#0066FF] px-2.5 text-[11.5px] text-white hover:bg-[#0052cc]"
+            >
+              <Plus size={13} className="mr-1" /> Add Training
+            </Button>
+          </div>
 
-            <div className="overflow-x-auto p-4">
-              <table className="w-full text-left text-[12px]">
-                <thead>
-                  <tr className="border-b border-[#E2EEFB] text-[11px] font-semibold uppercase tracking-wider text-[#64748B]">
-                    <th className="py-2.5 px-3">S.No.</th>
-                    <th className="py-2.5 px-3">Training</th>
-                    <th className="py-2.5 px-3">Date of Completion</th>
-                    <th className="py-2.5 px-3">Certification</th>
-                    <th className="py-2.5 px-3">Institute</th>
-                    <th className="py-2.5 px-3">Grade / Marks</th>
-                    <th className="py-2.5 px-3">Attachment</th>
-                    <th className="py-2.5 px-3 text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#F1F5F9]">
-                  {employee.training.length > 0 ? (
-                    employee.training.map((item, idx) => (
-                      <tr key={item.id} className="hover:bg-[#F8FAFD]">
-                        <td className="py-2.5 px-3 font-medium text-[#475569]">{idx + 1}</td>
-                        <td className="py-2.5 px-3 font-semibold text-[#1E293B]">{item.training}</td>
-                        <td className="py-2.5 px-3 text-[#334155]">{item.dateOfCompletion}</td>
-                        <td className="py-2.5 px-3 text-[#334155]">{item.certification}</td>
-                        <td className="py-2.5 px-3 text-[#334155]">{item.institute}</td>
-                        <td className="py-2.5 px-3 font-medium text-[#1E293B]">{item.grade}</td>
-                        <td className="py-2.5 px-3">
-                          {item.attachment ? (
-                            <span className="inline-flex items-center gap-1 rounded bg-[#EAF2FD] px-2 py-0.5 text-[11px] font-medium text-[#0066FF]">
-                              <FileText size={12} /> {item.attachment}
-                            </span>
-                          ) : (
-                            <span className="text-[#94A3B8]">None</span>
-                          )}
-                        </td>
-                        <td className="py-2.5 px-3 text-right">
-                          <div className="inline-flex items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditingTrain(item)
-                                setTrainModalOpen(true)
-                              }}
-                              className="p-1 text-[#0066FF] hover:bg-[#EAF2FD] rounded"
-                            >
-                              <Pencil size={14} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteTrain(item.id)}
-                              className="p-1 text-red-500 hover:bg-red-50 rounded"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={8} className="py-6 text-center text-[#94A3B8]">
-                        No training records added yet. Click "+ Add Training" to add one.
+          <div className="overflow-x-auto p-4">
+            <table className="w-full text-left text-[12px]">
+              <thead>
+                <tr className="border-b border-[#E2EEFB] text-[11px] font-semibold uppercase tracking-wider text-[#64748B]">
+                  <th className="py-2.5 px-3">S.No.</th>
+                  <th className="py-2.5 px-3">Training</th>
+                  <th className="py-2.5 px-3">Date of Completion</th>
+                  <th className="py-2.5 px-3">Certification</th>
+                  <th className="py-2.5 px-3">Institute</th>
+                  <th className="py-2.5 px-3">Grade / Marks</th>
+                  <th className="py-2.5 px-3">Attachment</th>
+                  <th className="py-2.5 px-3 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#F1F5F9]">
+                {employee.training.length > 0 ? (
+                  employee.training.map((item, idx) => (
+                    <tr key={item.id} className="hover:bg-[#F8FAFD]">
+                      <td className="py-2.5 px-3 font-medium text-[#475569]">{idx + 1}</td>
+                      <td className="py-2.5 px-3 font-semibold text-[#1E293B]">{item.training}</td>
+                      <td className="py-2.5 px-3 text-[#334155]">{item.dateOfCompletion}</td>
+                      <td className="py-2.5 px-3 text-[#334155]">{item.certification}</td>
+                      <td className="py-2.5 px-3 text-[#334155]">{item.institute}</td>
+                      <td className="py-2.5 px-3 font-medium text-[#1E293B]">{item.grade}</td>
+                      <td className="py-2.5 px-3">
+                        {item.attachment ? (
+                          <span className="inline-flex items-center gap-1 rounded bg-[#EAF2FD] px-2 py-0.5 text-[11px] font-medium text-[#0066FF]">
+                            <FileText size={12} /> {item.attachment}
+                          </span>
+                        ) : (
+                          <span className="text-[#94A3B8]">None</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-3 text-right">
+                        <div className="inline-flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingTrain(item)
+                              setTrainModalOpen(true)
+                            }}
+                            className="p-1 text-[#0066FF] hover:bg-[#EAF2FD] rounded"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteTrain(item.id)}
+                            className="p-1 text-red-500 hover:bg-red-50 rounded"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={8} className="py-6 text-center text-[#94A3B8]">
+                      No training records added yet. Click "+ Add Training" to add one.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {/* SECTION 8: Bank & Salary Payout Details */}
