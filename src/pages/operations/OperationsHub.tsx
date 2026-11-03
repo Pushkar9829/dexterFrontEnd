@@ -8,10 +8,10 @@ import {
   FileText,
   Landmark,
   Mail,
-  MessageSquare,
   Scale,
   Zap,
 } from 'lucide-react'
+import { RpRollsIcon } from '@/components/icons/RpRollsIcon'
 import { HubTile, type HubTileTheme } from '@/components/ui/HubTile'
 import { cn } from '@/lib/cn'
 
@@ -19,7 +19,7 @@ interface OperationTileConfig {
   title: string
   sub: string
   to: string
-  Icon: typeof MessageSquare
+  Icon: React.ComponentType<{ size?: number; className?: string; color?: string }>
   theme: HubTileTheme
   tag: string
   reportsCount: string
@@ -29,15 +29,15 @@ interface OperationTileConfig {
 
 const OPERATION_TILES: OperationTileConfig[] = [
   {
-    title: 'COMPLAINTS',
-    sub: 'View, manage and resolve customer complaints.',
-    to: '/operations/complaints',
-    Icon: MessageSquare,
+    title: 'RP ROLLS',
+    sub: 'Manage RP roll dispatch, courier and delivery details.',
+    to: '/operations/rp-rolls',
+    Icon: RpRollsIcon,
     theme: 'blue',
-    tag: 'Service Desk',
-    reportsCount: '16 Reports',
-    badge: '16 Reports',
-    actionText: 'Manage complaints',
+    tag: 'Roll Management',
+    reportsCount: 'Consolidated Data',
+    badge: 'Consolidated Data',
+    actionText: 'Manage RP rolls',
   },
   {
     title: 'CBR',
@@ -131,10 +131,10 @@ const OPERATION_TILES: OperationTileConfig[] = [
 
 const QUICK_ACCESS_ITEMS = [
   {
-    title: 'Complaints',
-    to: '/operations/complaints',
+    title: 'RP Rolls',
+    to: '/operations/rp-rolls',
     iconBg: 'bg-blue-50 text-blue-600 border-blue-200',
-    Icon: MessageSquare,
+    Icon: RpRollsIcon,
   },
   {
     title: 'CBR',

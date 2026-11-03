@@ -155,7 +155,7 @@ export interface HubTileProps {
   title: string
   sub: string
   to: string
-  Icon: LucideIcon
+  Icon: LucideIcon | React.ComponentType<{ size?: number; className?: string; color?: string }>
   theme?: HubTileTheme
   tag?: string
   badge?: string

@@ -9,18 +9,18 @@ import {
   FileText,
   Landmark,
   Mail,
-  MessageSquare,
   Scale,
   X,
   Zap,
 } from 'lucide-react'
+import { RpRollsIcon } from '@/components/icons/RpRollsIcon'
 import { cn } from '@/lib/cn'
 
 export const QUICK_ACCESS_ITEMS = [
   {
-    label: 'Complaints',
-    to: '/operations/complaints',
-    Icon: MessageSquare,
+    label: 'RP Rolls',
+    to: '/operations/rp-rolls',
+    Icon: RpRollsIcon,
   },
   {
     label: 'CBR',

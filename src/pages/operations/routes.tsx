@@ -19,9 +19,15 @@ import FailedTxnsDisputeCreate from './FailedTxnsDisputeCreate'
 import ChargeBackDisputeList from './ChargeBackDisputeList'
 import ChargeBackDisputeForm from './ChargeBackDisputeForm'
 import DaakHub from './daak/DaakHub'
+import RpRollsList from './rp-rolls/RpRollsList'
+import RpRollsEntryForm from './rp-rolls/RpRollsEntryForm'
 
 export const operationsRoutes = [
   <Route key="ops-hub" path="/operations" element={<OperationsHub />} />,
+  <Route key="ops-rp-rolls" path="/operations/rp-rolls" element={<RpRollsList />} />,
+  <Route key="ops-rp-rolls-entry" path="/operations/rp-rolls/entry" element={<RpRollsEntryForm />} />,
+  <Route key="ops-rp-rolls-request" path="/operations/rp-rolls/request" element={<RpRollsEntryForm />} />,
+  <Route key="ops-rp-rolls-new" path="/operations/rp-rolls/new" element={<RpRollsEntryForm />} />,
   <Route key="ops-daak" path="/operations/daak" element={<DaakHub />} />,
   <Route key="ops-daak-sub" path="/operations/daak/:sub" element={<DaakHub />} />,
   <Route key="ops-cash-loading" path="/operations/cash-loading" element={<CashLoadingRegister />} />,
