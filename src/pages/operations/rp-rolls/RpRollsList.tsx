@@ -51,8 +51,6 @@ export default function RpRollsList() {
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
 
-  // Scale state for wide tables
-  const [tableScale, setTableScale] = useState<'fit' | 'compact' | 'normal'>('normal')
 
   // Filter states
   const [searchQuery, setSearchQuery] = useState('')
@@ -554,9 +552,6 @@ export default function RpRollsList() {
         {/* Scaled Table Container */}
         <div
           className="overflow-x-auto scroll-thin w-full transition-all"
-          style={{
-            zoom: tableScale === 'fit' ? 0.88 : tableScale === 'compact' ? 0.92 : 1,
-          }}
         >
           <table className="w-full border-collapse text-left text-[11.5px]">
             <thead>
