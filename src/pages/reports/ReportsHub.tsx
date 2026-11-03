@@ -192,7 +192,7 @@ export default function ReportsHub() {
         items: [
           { name: 'Security Deposit', to: '/finance/sd?source=report', desc: 'Franchisee security deposits payment records and receipts' },
           { name: 'Cash Loading Funds (CLF)', to: '/finance/clf?source=report', desc: 'CLF instalments and loading fund ledger' },
-          { name: 'GST Invoice Report', to: '/finance/gst?source=report', desc: 'GST invoice generation, tax deductions and reconciliation' },
+          { name: 'GST Invoice Report', to: '/finance/gst/invoice/data?source=report', desc: 'GST invoice generation, tax deductions and reconciliation' },
           { name: 'Payout Report', to: '/finance/payout?source=report', desc: 'Franchise settlement payout records' },
           { name: 'Settlement Account Mapping', to: '/finance/settlement-bank/account-mapping?source=report', desc: 'WLA, Axis Indent, and ICICI nodal sweep mappings' },
           { name: 'A/C Change Request', to: '/finance/settlement-bank/ac-change-request?source=report', desc: 'Settlement and payout account modification requests' },

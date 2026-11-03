@@ -5,20 +5,26 @@ import { NAV, activeRoute, containsPath, type NavItem } from '@/data/nav'
 import { cn } from '@/lib/cn'
 import { Brand } from './Brand'
 import { DEMO_USER, getSession } from '@/lib/auth'
+import { useReportMode } from '@/hooks/useReportMode'
 
 function SubItem({ item, depth }: { item: NavItem; depth: number }) {
   const { pathname } = useLocation()
-  const [open, setOpen] = useState(() => containsPath(item, pathname))
+  const { isReport } = useReportMode()
+  const [open, setOpen] = useState(() => !isReport && containsPath(item, pathname))
   const pad = depth === 1 ? 'pl-[40px]' : depth === 2 ? 'pl-[52px]' : 'pl-[64px]'
 
   useEffect(() => {
+    if (isReport) {
+      setOpen(false)
+      return
+    }
     if (containsPath(item, pathname)) {
       setOpen(true)
     }
-  }, [pathname, item])
+  }, [pathname, item, isReport])
 
   if (item.children) {
-    const isCurrent = item.to ? activeRoute(pathname) === item.to : false
+    const isCurrent = !isReport && (item.to ? activeRoute(pathname) === item.to : false)
     return (
       <div className="mt-0.5">
         <div
@@ -70,7 +76,7 @@ function SubItem({ item, depth }: { item: NavItem; depth: number }) {
     )
   }
 
-  const isCurrent = activeRoute(pathname) === item.to
+  const isCurrent = !isReport && activeRoute(pathname) === item.to
   return (
     <NavLink
       to={item.to!}
@@ -102,14 +108,19 @@ function SubItem({ item, depth }: { item: NavItem; depth: number }) {
 
 export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { pathname } = useLocation()
+  const { isReport } = useReportMode()
   const [expanded, setExpanded] = useState<string | null>(
-    () => NAV.find((g) => containsPath(g, pathname))?.label ?? null,
+    () => (isReport ? null : NAV.find((g) => containsPath(g, pathname))?.label ?? null),
   )
 
   useEffect(() => {
+    if (isReport) {
+      setExpanded(null)
+      return
+    }
     const current = NAV.find((g) => containsPath(g, pathname))?.label
     if (current) setExpanded(current)
-  }, [pathname])
+  }, [pathname, isReport])
 
   const user = getSession() ?? DEMO_USER
   const username = user.name || 'Dexter'
@@ -156,10 +167,11 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
         <nav className="scroll-thin mt-2 flex-1 overflow-y-auto px-3 pb-3 space-y-1">
           {NAV.map((g) => {
             const hasChildren = Boolean(g.children && g.children.length > 0)
-            const active =
-              containsPath(g, pathname) ||
-              (g.to && (pathname === g.to || pathname.startsWith(g.to + '/'))) ||
-              (g.to === '/dashboard' && pathname === '/notices')
+            const active = isReport
+              ? g.label === 'Reports & MIS'
+              : containsPath(g, pathname) ||
+                (g.to && (pathname === g.to || pathname.startsWith(g.to + '/'))) ||
+                (g.to === '/dashboard' && pathname === '/notices')
 
             if (!hasChildren && g.to) {
               return (
@@ -198,8 +210,8 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
               )
             }
 
-            const isOpen = expanded === g.label
-            const isCurrent = g.to ? activeRoute(pathname) === g.to : false
+            const isOpen = !isReport && expanded === g.label
+            const isCurrent = !isReport && (g.to ? activeRoute(pathname) === g.to : false)
 
             return (
               <div key={g.label}>
@@ -304,4 +316,3 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
     </>
   )
 }
-

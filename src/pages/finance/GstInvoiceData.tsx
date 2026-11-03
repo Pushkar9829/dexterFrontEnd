@@ -33,8 +33,10 @@ import {
 import GstInvoiceTemplate from '@/components/finance/GstInvoiceTemplate'
 import { downloadCsv } from '@/lib/export'
 import { toast } from '@/components/ui/Toast'
+import { useReportMode } from '@/hooks/useReportMode'
 
 export default function GstInvoiceData() {
+  const { isReport } = useReportMode()
   const records = gstStore.use()
 
   // Modal preview state
@@ -189,24 +191,38 @@ export default function GstInvoiceData() {
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
         <div>
           <div className="flex items-center gap-2 text-[12px] text-muted">
-            <Link to="/finance" className="hover:text-primary transition-colors">
-              Finance
-            </Link>
-            <span>/</span>
-            <Link to="/finance/gst" className="hover:text-primary transition-colors">
-              GST Module
-            </Link>
-            <span>/</span>
-            <Link to="/finance/gst/invoice" className="hover:text-primary transition-colors">
-              GST Invoice
-            </Link>
-            <span>/</span>
-            <span className="font-semibold text-ink">Invoice Data</span>
+            {isReport ? (
+              <>
+                <Link to="/reports" className="hover:text-primary transition-colors">
+                  Reports &amp; MIS
+                </Link>
+                <span>/</span>
+                <span className="font-semibold text-ink">GST Invoice Report</span>
+              </>
+            ) : (
+              <>
+                <Link to="/finance" className="hover:text-primary transition-colors">
+                  Finance
+                </Link>
+                <span>/</span>
+                <Link to="/finance/gst" className="hover:text-primary transition-colors">
+                  GST Module
+                </Link>
+                <span>/</span>
+                <Link to="/finance/gst/invoice" className="hover:text-primary transition-colors">
+                  GST Invoice
+                </Link>
+                <span>/</span>
+                <span className="font-semibold text-ink">Invoice Data</span>
+              </>
+            )}
           </div>
           <div className="flex items-center gap-2 mt-1">
-            <h1 className="text-xl sm:text-2xl font-bold text-ink">GST Invoice Data</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-ink">
+              {isReport ? 'GST Invoice Report' : 'GST Invoice Data'}
+            </h1>
             <span className="rounded-full bg-blue-50 border border-blue-200 px-2.5 py-0.5 text-[11px] font-semibold text-primary">
-              Invoice Register & Reconciliation
+              {isReport ? 'Report & Reconciliation' : 'Invoice Register & Reconciliation'}
             </span>
           </div>
           <p className="text-[12px] text-muted">
@@ -215,13 +231,23 @@ export default function GstInvoiceData() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Link
-            to="/finance/gst/invoice"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[12px] font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs"
-          >
-            <ArrowLeft size={13} />
-            <span>GST Invoice Hub</span>
-          </Link>
+          {isReport ? (
+            <Link
+              to="/reports"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[12px] font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs"
+            >
+              <ArrowLeft size={13} />
+              <span>Back to Reports</span>
+            </Link>
+          ) : (
+            <Link
+              to="/finance/gst/invoice"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[12px] font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs"
+            >
+              <ArrowLeft size={13} />
+              <span>GST Invoice Hub</span>
+            </Link>
+          )}
           <button
             type="button"
             onClick={handleExportCsv}
@@ -230,36 +256,40 @@ export default function GstInvoiceData() {
             <Download size={13} />
             <span>Export CSV</span>
           </button>
-          <Link
-            to="/finance/gst/invoice/new"
-            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-1.5 text-[12px] font-semibold text-white hover:bg-primary-hover shadow-xs transition-colors"
-          >
-            <Plus size={14} />
-            <span>New GST Invoice Entry</span>
-          </Link>
+          {!isReport && (
+            <Link
+              to="/finance/gst/invoice/new"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-1.5 text-[12px] font-semibold text-white hover:bg-primary-hover shadow-xs transition-colors"
+            >
+              <Plus size={14} />
+              <span>New GST Invoice Entry</span>
+            </Link>
+          )}
         </div>
       </div>
 
       {/* Sub-Navigation Switcher Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-200">
-        <Link
-          to="/finance/gst/invoice/data"
-          className="inline-flex items-center gap-2 border-b-2 border-primary px-4 py-2 text-[13px] font-bold text-primary"
-        >
-          <FileSpreadsheet size={15} />
-          <span>GST Invoice Data</span>
-          <span className="rounded-full bg-blue-100 px-2 py-0.2 text-[10px] font-bold text-primary">
-            {records.length}
-          </span>
-        </Link>
-        <Link
-          to="/finance/gst/invoice/new"
-          className="inline-flex items-center gap-2 border-b-2 border-transparent px-4 py-2 text-[13px] font-medium text-slate-600 hover:border-slate-300 hover:text-slate-900 transition-colors"
-        >
-          <Plus size={15} />
-          <span>New GST Invoice Entry</span>
-        </Link>
-      </div>
+      {!isReport && (
+        <div className="flex items-center gap-2 border-b border-slate-200">
+          <Link
+            to="/finance/gst/invoice/data"
+            className="inline-flex items-center gap-2 border-b-2 border-primary px-4 py-2 text-[13px] font-bold text-primary"
+          >
+            <FileSpreadsheet size={15} />
+            <span>GST Invoice Data</span>
+            <span className="rounded-full bg-blue-100 px-2 py-0.2 text-[10px] font-bold text-primary">
+              {records.length}
+            </span>
+          </Link>
+          <Link
+            to="/finance/gst/invoice/new"
+            className="inline-flex items-center gap-2 border-b-2 border-transparent px-4 py-2 text-[13px] font-medium text-slate-600 hover:border-slate-300 hover:text-slate-900 transition-colors"
+          >
+            <Plus size={15} />
+            <span>New GST Invoice Entry</span>
+          </Link>
+        </div>
+      )}
 
       {/* Quick KPI Status Cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
