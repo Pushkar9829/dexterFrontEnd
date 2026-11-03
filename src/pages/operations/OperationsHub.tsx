@@ -106,7 +106,7 @@ const OPERATION_TILES: OperationTileConfig[] = [
     actionText: 'Track TXN data',
   },
   {
-    title: 'DAAK MANAGEMENT',
+    title: 'Postal & Courier Management',
     sub: 'Manage daak (mail) records and related activities.',
     to: '/operations/daak',
     Icon: Mail,
@@ -173,7 +173,7 @@ const QUICK_ACCESS_ITEMS = [
     Icon: ArrowLeftRight,
   },
   {
-    title: 'Daak Management',
+    title: 'Postal & Courier Management',
     to: '/operations/daak',
     iconBg: 'bg-teal-50 text-teal-600 border-teal-200',
     Icon: Mail,

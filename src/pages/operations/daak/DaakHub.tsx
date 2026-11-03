@@ -14,7 +14,6 @@ import {
   Download,
   ExternalLink,
   Eye,
-  FileCheck,
   FileText,
   Home,
   Landmark,
@@ -25,6 +24,7 @@ import {
   Package,
   Paperclip,
   Plus,
+  Printer,
   RefreshCw,
   Search,
   Send,
@@ -43,6 +43,7 @@ import {
   type CourierService,
   type DocumentCategory,
   type DakDirection,
+  type DakAttachment,
 } from '@/data/daakData'
 import { Modal } from '@/components/ui/Modal'
 import { toast } from '@/components/ui/Toast'
@@ -81,6 +82,24 @@ const COURIER_OPTIONS: CourierService[] = [
   'Hand Delivery',
 ]
 
+const ATTACHMENT_DOCUMENT_TYPES = [
+  'Franchise Agreement (Stamp Paper)',
+  'WLA Franchise Application Form',
+  'Security Cheque Copy',
+  'KYC Dossier (PAN, Aadhaar, Bank Details)',
+  'NOC & Bank Solvency Certificate',
+  'Affidavit & Indemnity Bond',
+  'ATM Key Handover Memo',
+  'Cash Loading Register physical copy',
+  'Courier Booking Slip / Consignment Receipt (POD)',
+  'Postal Charges Receipt / Challan',
+  'Welcome Kit & ATM Dongle',
+  'Termination & Legal Notice',
+  'Tax Invoice / Bill of Supply',
+  'Board Resolution / Authority Letter',
+  'Other Commercial Document',
+]
+
 export default function DaakHub() {
   const [searchParams, setSearchParams] = useSearchParams()
   const daakState = useDaakState()
@@ -112,6 +131,7 @@ export default function DaakHub() {
   const [viewingDak, setViewingDak] = useState<DakRecord | null>(null)
   const [viewingCheque, setViewingCheque] = useState<ChequeRecord | null>(null)
   const [viewingPod, setViewingPod] = useState<{ title: string; filename: string; type: string } | null>(null)
+  const [viewingDoc, setViewingDoc] = useState<DakAttachment | null>(null)
 
   // ----------------------------------------------------
   // Calculated Metrics
@@ -278,7 +298,7 @@ export default function DaakHub() {
           Operations
         </Link>
         <ChevronRight size={13} />
-        <span className="font-semibold text-ink">Daak Management</span>
+        <span className="font-semibold text-ink">Postal & Courier Management</span>
       </div>
 
       {/* Header Bar */}
@@ -757,8 +777,8 @@ export default function DaakHub() {
                         b.health === 'Optimal'
                           ? 'bg-emerald-100 text-emerald-800'
                           : b.health === 'Warning'
-                          ? 'bg-amber-100 text-amber-800'
-                          : 'bg-rose-100 text-rose-800'
+                            ? 'bg-amber-100 text-amber-800'
+                            : 'bg-rose-100 text-rose-800'
                       )}
                     >
                       {b.health}
@@ -1045,19 +1065,38 @@ export default function DaakHub() {
                         </td>
                         <td className="py-3 px-3">
                           <div className="font-mono font-medium text-slate-800">{rec.docketNumber}</div>
-                          <span className="inline-block rounded bg-slate-100 px-1.5 py-0.2 text-[10px] font-semibold text-slate-600">
-                            {rec.courierType}
-                          </span>
+                          <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                            <span className="inline-block rounded bg-slate-100 px-1.5 py-0.2 text-[10px] font-semibold text-slate-600">
+                              {rec.courierType}
+                            </span>
+                            {rec.postalCharges !== undefined && rec.postalCharges !== null && rec.postalCharges !== '' && (
+                              <span className="inline-block rounded bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 text-[10px] font-bold text-emerald-800">
+                                ₹{Number(rec.postalCharges).toLocaleString('en-IN')}
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="py-3 px-3">
                           <div className="flex items-center gap-1.5">
                             <span className="font-semibold text-ink">{rec.documents.length} Items</span>
+                            {rec.attachments && rec.attachments.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => setViewingDoc(rec.attachments![0])}
+                                title={`View ${rec.attachments.length} attached document(s)`}
+                                className="inline-flex items-center gap-1 rounded bg-blue-50 text-primary border border-blue-200 px-1.5 py-0.2 text-[10px] font-bold hover:bg-blue-100 transition-colors"
+                              >
+                                <Paperclip size={10} /> {rec.attachments.length} doc{rec.attachments.length > 1 ? 's' : ''}
+                              </button>
+                            )}
                             <span className="text-[11px] text-muted">
-                              ({rec.documents.reduce((acc, d) => acc + d.count, 0)} pages/files)
+                              ({rec.documents.reduce((acc, d) => acc + d.count, 0)} units)
                             </span>
                           </div>
                           <div className="line-clamp-1 text-[11px] text-slate-500 max-w-[180px]">
-                            {rec.documents.map((d) => d.category).join(', ')}
+                            {rec.attachments && rec.attachments.length > 0
+                              ? rec.attachments.map((a) => a.name).join(', ')
+                              : rec.documents.map((d) => d.category).join(', ')}
                           </div>
                         </td>
                         <td className="py-3 px-3">
@@ -1113,7 +1152,16 @@ export default function DaakHub() {
                             >
                               <Eye size={14} />
                             </button>
-                            {rec.podAttachment && (
+                            {rec.attachments && rec.attachments.length > 0 ? (
+                              <button
+                                type="button"
+                                onClick={() => setViewingDoc(rec.attachments![0])}
+                                title={`View Attached Document: ${rec.attachments[0].name}`}
+                                className="rounded-md border border-slate-200 p-1.5 text-slate-600 hover:border-blue-400 hover:bg-blue-50 hover:text-primary transition-colors"
+                              >
+                                <Paperclip size={14} />
+                              </button>
+                            ) : rec.podAttachment ? (
                               <button
                                 type="button"
                                 onClick={() =>
@@ -1128,7 +1176,7 @@ export default function DaakHub() {
                               >
                                 <Paperclip size={14} />
                               </button>
-                            )}
+                            ) : null}
                             {rec.hasCheques && !rec.isLinked && (
                               <button
                                 type="button"
@@ -1334,6 +1382,7 @@ export default function DaakHub() {
             setViewingDak(null)
             setLinkingDakRecord(current)
           }}
+          onViewDocument={(doc) => setViewingDoc(doc)}
         />
       )}
 
@@ -1355,41 +1404,28 @@ export default function DaakHub() {
       )}
 
       {/* ============================================================== */}
-      {/* MODAL 6: POD / ENVELOPE ATTACHMENT PREVIEW */}
+      {/* MODAL 6: DOCUMENT / POD ATTACHMENT PREVIEW */}
       {/* ============================================================== */}
+      {viewingDoc && (
+        <DocumentViewerModal
+          doc={viewingDoc}
+          onClose={() => setViewingDoc(null)}
+        />
+      )}
+
       {viewingPod && (
-        <Modal
-          title={viewingPod.title}
+        <DocumentViewerModal
+          doc={{
+            id: 'pod-preview',
+            name: viewingPod.title,
+            category: 'Courier Booking Slip (POD)',
+            fileName: viewingPod.filename,
+            sizeKb: 185,
+            type: viewingPod.type,
+            uploadedAt: new Date().toISOString().replace('T', ' ').slice(0, 16),
+          }}
           onClose={() => setViewingPod(null)}
-          width={520}
-        >
-          <div className="p-4 text-center">
-            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
-              <FileCheck size={40} />
-            </div>
-            <h4 className="mt-3 text-sm font-bold text-ink">{viewingPod.filename}</h4>
-            <p className="mt-1 text-[12px] text-muted">
-              Document Format: {viewingPod.type} • Digitally verified carrier receipt
-            </p>
-            <div className="mt-5 rounded-lg border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
-              <span className="text-[12px] text-slate-500">
-                [Proof of Delivery / Consignment Envelope Preview]
-              </span>
-              <div className="mt-2 text-[11px] text-slate-400">
-                Courier Tracking verified with automated barcode scan & physical receiver sign-off.
-              </div>
-            </div>
-            <div className="mt-5 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setViewingPod(null)}
-                className="rounded-lg bg-slate-800 px-4 py-2 text-[12px] font-semibold text-white hover:bg-slate-900"
-              >
-                Close Preview
-              </button>
-            </div>
-          </div>
-        </Modal>
+        />
       )}
     </div>
   )
@@ -1490,11 +1526,11 @@ function IncomingDakModal({
       documents: docItems,
       podAttachment: hasPodUpload
         ? {
-            name: podFileName || `POD_${docketNumber}.pdf`,
-            sizeKb: 285,
-            type: 'application/pdf',
-            uploadedAt: new Date().toISOString().replace('T', ' ').slice(0, 16),
-          }
+          name: podFileName || `POD_${docketNumber}.pdf`,
+          sizeKb: 285,
+          type: 'application/pdf',
+          uploadedAt: new Date().toISOString().replace('T', ' ').slice(0, 16),
+        }
         : undefined,
       envelopeAttachment: {
         name: `Envelope_${docketNumber}.jpg`,
@@ -1796,6 +1832,299 @@ function IncomingDakModal({
 }
 
 // ====================================================================
+// SUB-COMPONENT: DOCUMENT / ENCLOSURE PREVIEW VIEWER MODAL
+// ====================================================================
+function DocumentViewerModal({
+  doc,
+  docketNumber,
+  partyName,
+  branch,
+  onClose,
+}: {
+  doc: DakAttachment | { title?: string; name?: string; category?: string; fileName?: string; sizeKb?: number; type?: string; uploadedAt?: string; previewUrl?: string } | null
+  docketNumber?: string
+  partyName?: string
+  branch?: string
+  onClose: () => void
+}) {
+  const [zoomLevel, setZoomLevel] = useState<number>(100)
+  if (!doc) return null
+
+  const title =
+    'name' in doc && doc.name
+      ? doc.name
+      : 'title' in doc && (doc as { title?: string }).title
+        ? (doc as { title?: string }).title!
+        : doc.fileName || 'Consignment Document'
+  const category = doc.category || 'General Consignment Enclosure'
+  const fileName = doc.fileName || `${title.replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`
+  const sizeKb = doc.sizeKb || 185
+  const isImage = doc.type?.includes('image') || fileName.match(/\.(jpg|jpeg|png|webp)$/i)
+  const uploadedAt = doc.uploadedAt || new Date().toISOString().replace('T', ' ').slice(0, 16)
+
+  const handleDownload = () => {
+    toast(`Downloading document "${fileName}"...`, 'info')
+  }
+
+  const handlePrint = () => {
+    window.print()
+  }
+
+  return (
+    <Modal
+      title={`Document Inspection: ${title}`}
+      sub={`${category} • ${fileName} (${sizeKb} KB) • Uploaded ${uploadedAt}`}
+      onClose={onClose}
+      width={780}
+    >
+      <div className="space-y-4">
+        {/* Controls Toolbar */}
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-100 p-2 text-[12px]">
+          <div className="flex items-center gap-1.5">
+            <span className="font-semibold text-slate-700">Zoom:</span>
+            <button
+              type="button"
+              onClick={() => setZoomLevel((z) => Math.max(50, z - 15))}
+              className="rounded bg-white px-2 py-0.5 font-bold shadow-2xs hover:bg-slate-50"
+              title="Zoom Out"
+            >
+              -
+            </button>
+            <span className="min-w-[42px] text-center font-mono font-semibold">{zoomLevel}%</span>
+            <button
+              type="button"
+              onClick={() => setZoomLevel((z) => Math.min(150, z + 15))}
+              className="rounded bg-white px-2 py-0.5 font-bold shadow-2xs hover:bg-slate-50"
+              title="Zoom In"
+            >
+              +
+            </button>
+            <button
+              type="button"
+              onClick={() => setZoomLevel(100)}
+              className="ml-1 rounded bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-600 shadow-2xs hover:bg-slate-50"
+            >
+              Reset
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handlePrint}
+              className="inline-flex items-center gap-1 rounded bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 shadow-2xs hover:bg-slate-50"
+            >
+              <Printer size={13} /> Print
+            </button>
+            <button
+              type="button"
+              onClick={handleDownload}
+              className="inline-flex items-center gap-1 rounded bg-primary px-2.5 py-1 text-[11px] font-semibold text-white shadow-2xs hover:bg-primary-hover"
+            >
+              <Download size={13} /> Download
+            </button>
+          </div>
+        </div>
+
+        {/* Document Preview Canvas */}
+        <div className="overflow-auto max-h-[520px] rounded-xl border border-slate-300 bg-slate-200/70 p-4 flex justify-center">
+          <div
+            style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top center', transition: 'transform 0.15s ease' }}
+            className="w-full max-w-[620px] bg-white rounded-lg shadow-xl border border-slate-300 p-8 text-slate-800 font-sans relative select-none"
+          >
+            {/* Watermark */}
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-[0.04]">
+              <span className="rotate-[-35deg] text-6xl font-black uppercase text-slate-900 tracking-widest text-center">
+                DEXTER INDIA<br />OFFICIAL RECORD
+              </span>
+            </div>
+
+            {/* If actual image URL exists */}
+            {isImage && doc.previewUrl ? (
+              <div className="text-center">
+                <img
+                  src={doc.previewUrl}
+                  alt={title}
+                  className="mx-auto max-h-[460px] object-contain rounded border border-slate-200 shadow-sm"
+                />
+                <div className="mt-3 text-xs text-slate-500 font-mono">
+                  {fileName} • {sizeKb} KB
+                </div>
+              </div>
+            ) : (
+              <div>
+                {/* Official Header */}
+                <div className="border-b-2 border-slate-900 pb-4">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <div className="h-7 w-7 rounded bg-primary text-white flex items-center justify-center font-black text-sm">
+                          D
+                        </div>
+                        <h2 className="text-base font-black tracking-wide text-slate-900 uppercase">
+                          Dexter India Limited
+                        </h2>
+                      </div>
+                      <p className="mt-1 text-[10px] text-slate-600 font-medium">
+                        White Label ATM Operations & Logistics Management Division
+                      </p>
+                      <p className="text-[9px] text-slate-400 font-mono">
+                        CIN: U74999MH2021PTC361234 • GSTIN: 27AABCD1234E1Z5
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <span className="inline-block rounded border border-emerald-600 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-800 uppercase tracking-wider">
+                        Digitally Verified
+                      </span>
+                      <div className="mt-1 font-mono text-[10px] text-slate-500">
+                        REF: DX-DAK-{(docketNumber || 'DOC-2026').slice(0, 12)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Document Banner */}
+                <div className="my-4 rounded-md bg-slate-50 border border-slate-200 p-3 text-center">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
+                    {category}
+                  </span>
+                  <h3 className="mt-0.5 text-sm font-extrabold text-slate-900">
+                    {title}
+                  </h3>
+                </div>
+
+                {/* Metadata Grid */}
+                <div className="grid grid-cols-2 gap-2 rounded border border-slate-200 bg-slate-50/50 p-2.5 text-[11px] mb-4">
+                  <div>
+                    <span className="text-slate-500">Associated Consignment / Docket:</span>
+                    <div className="font-mono font-bold text-slate-800">{docketNumber || 'PENDING DISPATCH'}</div>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">Party / Recipient Entity:</span>
+                    <div className="font-bold text-slate-800">{partyName || 'Registered Franchisee Partner'}</div>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">Hub / Branch Office:</span>
+                    <div className="font-medium text-slate-800">{branch || 'Delhi Central Hub'}</div>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">Security Checksum:</span>
+                    <div className="font-mono text-[10px] text-emerald-700 font-semibold">SHA-256: 7f8a9...b4c2e</div>
+                  </div>
+                </div>
+
+                {/* Dynamic Content based on category */}
+                <div className="border-t border-b border-slate-200 py-3 text-[11px] leading-relaxed text-slate-700 space-y-2.5 min-h-[160px]">
+                  {category.includes('Franchise Agreement') ? (
+                    <>
+                      <p className="font-semibold text-slate-900">
+                        MASTER OPERATING & DEPLOYMENT AGREEMENT EXCERPT:
+                      </p>
+                      <p>
+                        This document constitutes the executed binding agreement between Dexter India Limited and the designated Franchisee for the rollout, site management, cash loading supervision, and operational maintenance of White Label ATMs under RBI / NPCI guidelines.
+                      </p>
+                      <p className="text-[10px] text-slate-600 bg-slate-50 p-2 rounded border border-slate-100">
+                        • Article 4.2: Uptime SLA minimum 98.5% with 24/7 CCTV surveillance and e-surveillance integration.<br />
+                        • Article 7.1: Strict adherence to dual-custody cash replenishment SOP and physical log register records.<br />
+                        • Article 9.4: Non-exclusive territory allocation subject to zonal expansion terms.
+                      </p>
+                    </>
+                  ) : category.includes('Postal Charges') || category.includes('Booking Slip') ? (
+                    <>
+                      <p className="font-semibold text-slate-900">
+                        OFFICIAL POSTAL & COURIER DISPATCH CONSIGNMENT RECEIPT:
+                      </p>
+                      <div className="grid grid-cols-2 gap-2 text-[10px] bg-slate-50 p-2.5 rounded border border-slate-100">
+                        <div>Carrier Provider: <strong className="text-slate-800">BlueDart / Speed Post Express</strong></div>
+                        <div>Consignment Weight: <strong className="text-slate-800">450 grams</strong></div>
+                        <div>Booking Hub: <strong className="text-slate-800">{branch || 'Central Dispatch'}</strong></div>
+                        <div>Transit Insurance: <strong className="text-emerald-700">Covered up to ₹ 50,000</strong></div>
+                      </div>
+                      <div className="mt-2 text-[10px] text-slate-500 font-mono text-center">
+                        ||||| ||||||| |||| |||||||||| |||||||| ||||||| |||||
+                        <br />
+                        *{docketNumber || 'BD-994102911'}*
+                      </div>
+                    </>
+                  ) : category.includes('Security Cheque') ? (
+                    <div className="rounded-md border border-indigo-200 bg-indigo-50/40 p-4">
+                      <div className="flex justify-between items-center text-[10px] font-bold text-indigo-900 mb-2">
+                        <span>INSTRUMENT VERIFICATION MEMO</span>
+                        <span className="font-mono">A/C PAYEE ONLY</span>
+                      </div>
+                      <div className="text-[11px] font-semibold text-slate-800">
+                        Valid White Label ATM Security Deposit Guarantee Instrument deposited in vault storage.
+                      </div>
+                      <div className="mt-3 font-mono text-[10px] text-slate-600 border-t border-indigo-200 pt-2 text-center">
+                        ⑈ 482019 ⑈ 110024012 ⑆ 004829 ⑈ 10
+                      </div>
+                    </div>
+                  ) : category.includes('KYC') ? (
+                    <>
+                      <p className="font-semibold text-slate-900">
+                        KYC COMPLIANCE & IDENTITY VERIFICATION DOSSIER:
+                      </p>
+                      <p>
+                        All mandatory identification instruments, corporate PAN, Aadhaar authentication, authorized signatory board resolution, and bank solvency proof have been indexed into the central compliance vault.
+                      </p>
+                      <div className="flex items-center gap-2 text-emerald-800 text-[10px] font-bold bg-emerald-50 p-2 rounded">
+                        <CheckCircle2 size={14} /> Full KYC Verification Completed & Digitally Archived
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <p className="font-semibold text-slate-900">
+                        CONSIGNMENT ENCLOSURE SPECIFICATION:
+                      </p>
+                      <p>
+                        This document has been physically dispatched with the consignment under secure tamper-evident packaging. All serial identifiers, dual signatures, and company stamps have been cross-checked prior to carrier handover.
+                      </p>
+                      <p className="text-[10px] text-slate-500">
+                        Document indexed under central operations registry file: {fileName}.
+                      </p>
+                    </>
+                  )}
+                </div>
+
+                {/* Sign-off & Seal */}
+                <div className="mt-4 flex items-end justify-between pt-2">
+                  <div className="text-[9px] text-slate-500">
+                    <div>Dexter India Postal & Logistics Desk</div>
+                    <div>Electronically verified & catalogued</div>
+                    <div className="font-mono mt-0.5">{uploadedAt}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="inline-block rounded border border-blue-200 bg-blue-50 px-3 py-1 text-center">
+                      <div className="text-[9px] font-black uppercase tracking-wider text-blue-900">
+                        DEXTER INDIA LTD
+                      </div>
+                      <div className="text-[8px] font-semibold text-blue-700">
+                        OPERATIONS & AUDIT
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex justify-end pt-1">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg bg-slate-800 px-4 py-2 text-[12px] font-semibold text-white hover:bg-slate-900 transition-colors"
+          >
+            Close Preview
+          </button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+// ====================================================================
 // SUB-COMPONENT: OUTGOING DAK DISPATCH SCREEN
 // ====================================================================
 function OutgoingDakModal({
@@ -1814,6 +2143,7 @@ function OutgoingDakModal({
   const [handledByStaff, setHandledByStaff] = useState('Sunil Sharma')
   const [docketNumber, setDocketNumber] = useState('')
   const [courierType, setCourierType] = useState<CourierService>('BlueDart')
+  const [postalCharges, setPostalCharges] = useState<string>('')
   const [remarks, setRemarks] = useState('')
 
   const [docItems, setDocItems] = useState<
@@ -1829,6 +2159,81 @@ function OutgoingDakModal({
       count: 1,
     },
   ])
+
+  // Multiple document upload state
+  const [attachments, setAttachments] = useState<DakAttachment[]>([
+    {
+      id: 'att-init-1',
+      name: 'Countersigned Franchise Agreement',
+      category: 'Franchise Agreement (Stamp Paper)',
+      fileName: 'Franchise_Agreement_Countersigned.pdf',
+      sizeKb: 284,
+      type: 'application/pdf',
+      uploadedAt: new Date().toISOString().replace('T', ' ').slice(0, 16),
+    },
+  ])
+
+  // Document upload form controls (Dropdown menu + Custom Name + File selector)
+  const [uploadDocCategory, setUploadDocCategory] = useState<string>(ATTACHMENT_DOCUMENT_TYPES[0])
+  const [uploadDocName, setUploadDocName] = useState<string>(ATTACHMENT_DOCUMENT_TYPES[0])
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [selectedFilePreview, setSelectedFilePreview] = useState<string>('')
+
+  // State to preview document from inside this modal
+  const [viewingLocalDoc, setViewingLocalDoc] = useState<DakAttachment | null>(null)
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setSelectedFile(file)
+      if (file.type.startsWith('image/')) {
+        const url = URL.createObjectURL(file)
+        setSelectedFilePreview(url)
+      } else {
+        setSelectedFilePreview('')
+      }
+    }
+  }
+
+  const handleAddAttachment = () => {
+    const docName = uploadDocName.trim() || uploadDocCategory
+    if (!docName) {
+      toast('Please enter or select a Document Name', 'error')
+      return
+    }
+
+    const fileExt = selectedFile?.name ? selectedFile.name.split('.').pop() : 'pdf'
+    const fileName = selectedFile
+      ? selectedFile.name
+      : `${docName.replace(/[^a-zA-Z0-9_-]/g, '_')}.${fileExt}`
+    const sizeKb = selectedFile
+      ? Math.max(1, Math.round(selectedFile.size / 1024))
+      : Math.floor(Math.random() * 180) + 120
+
+    const newAtt: DakAttachment = {
+      id: `att-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      name: docName,
+      category: uploadDocCategory,
+      fileName,
+      sizeKb,
+      type: selectedFile?.type || 'application/pdf',
+      uploadedAt: new Date().toISOString().replace('T', ' ').slice(0, 16),
+      previewUrl: selectedFilePreview || undefined,
+    }
+
+    setAttachments((prev) => [...prev, newAtt])
+    toast(`Document "${docName}" attached!`, 'success')
+
+    // Reset picker & name for next upload
+    setSelectedFile(null)
+    setSelectedFilePreview('')
+    setUploadDocName('')
+  }
+
+  const handleRemoveAttachment = (id: string) => {
+    setAttachments((prev) => prev.filter((a) => a.id !== id))
+    toast('Document removed from attachments', 'info')
+  }
 
   const handleAddDocItem = () => {
     setDocItems((prev) => [
@@ -1866,6 +2271,10 @@ function OutgoingDakModal({
       return
     }
 
+    const podSlipDoc = attachments.find(
+      (a) => a.category.includes('POD') || a.category.includes('Booking Slip') || a.category.includes('Receipt')
+    )
+
     const newRecord = addOutgoingDak({
       branch,
       recipientName,
@@ -1876,13 +2285,22 @@ function OutgoingDakModal({
       handledByStaff,
       docketNumber,
       courierType,
+      postalCharges: postalCharges.trim() ? Number(postalCharges) : undefined,
+      attachments,
       documents: docItems,
-      podAttachment: {
-        name: `Booking_Slip_${docketNumber}.pdf`,
-        sizeKb: 190,
-        type: 'application/pdf',
-        uploadedAt: new Date().toISOString().replace('T', ' ').slice(0, 16),
-      },
+      podAttachment: podSlipDoc
+        ? {
+            name: podSlipDoc.fileName,
+            sizeKb: podSlipDoc.sizeKb,
+            type: podSlipDoc.type,
+            uploadedAt: podSlipDoc.uploadedAt,
+          }
+        : {
+            name: `Booking_Slip_${docketNumber}.pdf`,
+            sizeKb: 190,
+            type: 'application/pdf',
+            uploadedAt: new Date().toISOString().replace('T', ' ').slice(0, 16),
+          },
       remarks,
     })
 
@@ -1890,228 +2308,430 @@ function OutgoingDakModal({
   }
 
   return (
-    <Modal title="New Outgoing Dak — Dispatch Consignment" onClose={onClose} width={760}>
-      <form onSubmit={handleSubmit} className="space-y-6 text-[13px]">
-        {/* Recipient Details */}
-        <div>
-          <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
-            <ArrowUpRight size={16} className="text-primary" />
-            <h3 className="text-sm font-bold text-ink">1. Destination & Recipient Information</h3>
+    <>
+      <Modal title="New Outgoing Dak — Dispatch Consignment" onClose={onClose} width={820}>
+        <form onSubmit={handleSubmit} className="space-y-6 text-[13px]">
+          {/* Destination & Recipient Information */}
+          <div>
+            <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+              <ArrowUpRight size={16} className="text-primary" />
+              <h3 className="text-sm font-bold text-ink">1. Destination & Recipient Information</h3>
+            </div>
+
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+              <div>
+                <label className="mb-1 block font-semibold text-slate-700">Dispatching Branch / Hub *</label>
+                <select
+                  value={branch}
+                  onChange={(e) => setBranch(e.target.value)}
+                  className="w-full rounded-lg border border-slate-200 bg-white p-2 text-[12px] focus:border-primary focus:outline-hidden"
+                >
+                  <option value="Delhi Central Hub">Delhi Central Hub</option>
+                  <option value="Agra Zonal Office">Agra Zonal Office</option>
+                  <option value="Jaipur Regional Office">Jaipur Regional Office</option>
+                  <option value="Mumbai Headquarters (BKC)">Mumbai Headquarters (BKC)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1 block font-semibold text-slate-700">Courier Provider *</label>
+                <select
+                  value={courierType}
+                  onChange={(e) => setCourierType(e.target.value as CourierService)}
+                  className="w-full rounded-lg border border-slate-200 bg-white p-2 text-[12px] focus:border-primary focus:outline-hidden"
+                >
+                  {COURIER_OPTIONS.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1 block font-semibold text-slate-700">Docket / AWB Tracking Number *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. BD-994102911"
+                  value={docketNumber}
+                  onChange={(e) => setDocketNumber(e.target.value)}
+                  className="w-full rounded-lg border border-slate-200 p-2 text-[12px] font-mono focus:border-primary focus:outline-hidden"
+                />
+              </div>
+
+              {/* POSTAL CHARGES FIELD */}
+              <div>
+                <label className="mb-1 block font-semibold text-slate-700">
+                  Postal / Courier Charges (₹)
+                </label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-2.5 text-slate-500 font-bold text-[12px]">
+                    ₹
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    placeholder="e.g. 150.00"
+                    value={postalCharges}
+                    onChange={(e) => setPostalCharges(e.target.value)}
+                    className="w-full rounded-lg border border-slate-200 pl-7 p-2 text-[12px] font-mono focus:border-primary focus:outline-hidden"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1 block font-semibold text-slate-700">Recipient Name / Entity *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Franchisee / Bank Manager / Vendor"
+                  value={recipientName}
+                  onChange={(e) => setRecipientName(e.target.value)}
+                  className="w-full rounded-lg border border-slate-200 p-2 text-[12px] focus:border-primary focus:outline-hidden"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block font-semibold text-slate-700">Recipient Phone</label>
+                <input
+                  type="text"
+                  placeholder="+91 98250 XXXXX"
+                  value={recipientPhone}
+                  onChange={(e) => setRecipientPhone(e.target.value)}
+                  className="w-full rounded-lg border border-slate-200 p-2 text-[12px] focus:border-primary focus:outline-hidden"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block font-semibold text-slate-700">Recipient Email</label>
+                <input
+                  type="email"
+                  placeholder="recipient@domain.com"
+                  value={recipientEmail}
+                  onChange={(e) => setRecipientEmail(e.target.value)}
+                  className="w-full rounded-lg border border-slate-200 p-2 text-[12px] focus:border-primary focus:outline-hidden"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block font-semibold text-slate-700">Dispatching Department</label>
+                <input
+                  type="text"
+                  value={internalDepartment}
+                  onChange={(e) => setInternalDepartment(e.target.value)}
+                  className="w-full rounded-lg border border-slate-200 p-2 text-[12px] focus:border-primary focus:outline-hidden"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block font-semibold text-slate-700">Handled By Staff</label>
+                <input
+                  type="text"
+                  value={handledByStaff}
+                  onChange={(e) => setHandledByStaff(e.target.value)}
+                  className="w-full rounded-lg border border-slate-200 p-2 text-[12px] focus:border-primary focus:outline-hidden"
+                />
+              </div>
+
+              <div className="sm:col-span-2 md:col-span-3">
+                <label className="mb-1 block font-semibold text-slate-700">Delivery Street Address & Pincode</label>
+                <input
+                  type="text"
+                  placeholder="Complete destination address"
+                  value={recipientAddress}
+                  onChange={(e) => setRecipientAddress(e.target.value)}
+                  className="w-full rounded-lg border border-slate-200 p-2 text-[12px] focus:border-primary focus:outline-hidden"
+                />
+              </div>
+
+              <div className="sm:col-span-2 md:col-span-3">
+                <label className="mb-1 block font-semibold text-slate-700">Dispatch Remarks / Bag Barcode</label>
+                <input
+                  type="text"
+                  placeholder="e.g. High security sealed bag #SE-8841029"
+                  value={remarks}
+                  onChange={(e) => setRemarks(e.target.value)}
+                  className="w-full rounded-lg border border-slate-200 p-2 text-[12px] focus:border-primary focus:outline-hidden"
+                />
+              </div>
+            </div>
           </div>
 
-          <div className="mt-3 grid gap-3 sm:grid-cols-2 md:grid-cols-3">
-            <div>
-              <label className="mb-1 block font-semibold text-slate-700">Dispatching Branch / Hub *</label>
-              <select
-                value={branch}
-                onChange={(e) => setBranch(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 bg-white p-2 text-[12px] focus:border-primary focus:outline-hidden"
+          {/* Section 2: Contents Being Sent */}
+          <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+              <h3 className="text-sm font-bold text-ink">2. Consignment Content Itemization</h3>
+              <button
+                type="button"
+                onClick={handleAddDocItem}
+                className="inline-flex items-center gap-1 rounded-md bg-white border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-primary hover:bg-blue-50"
               >
-                <option value="Delhi Central Hub">Delhi Central Hub</option>
-                <option value="Agra Zonal Office">Agra Zonal Office</option>
-                <option value="Jaipur Regional Office">Jaipur Regional Office</option>
-                <option value="Mumbai Headquarters (BKC)">Mumbai Headquarters (BKC)</option>
-              </select>
+                <Plus size={13} /> Add Item Row
+              </button>
             </div>
 
-            <div>
-              <label className="mb-1 block font-semibold text-slate-700">Courier Provider *</label>
-              <select
-                value={courierType}
-                onChange={(e) => setCourierType(e.target.value as CourierService)}
-                className="w-full rounded-lg border border-slate-200 bg-white p-2 text-[12px] focus:border-primary focus:outline-hidden"
-              >
-                {COURIER_OPTIONS.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <div className="mt-3 space-y-2.5">
+              {docItems.map((item, idx) => (
+                <div
+                  key={idx}
+                  className="grid gap-2 rounded-lg border border-slate-200 bg-white p-3 sm:grid-cols-12 items-center"
+                >
+                  <div className="sm:col-span-5">
+                    <label className="block text-[10px] font-semibold text-slate-500">Document Category *</label>
+                    <select
+                      value={item.category}
+                      onChange={(e) =>
+                        handleDocChange(idx, 'category', e.target.value as DocumentCategory)
+                      }
+                      className="mt-0.5 w-full rounded-md border border-slate-200 bg-white p-1.5 text-[11px] font-medium text-slate-800"
+                    >
+                      {DOCUMENT_CATEGORIES.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-            <div>
-              <label className="mb-1 block font-semibold text-slate-700">Docket / AWB Tracking Number *</label>
-              <input
-                type="text"
-                required
-                placeholder="e.g. BD-994102911"
-                value={docketNumber}
-                onChange={(e) => setDocketNumber(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 p-2 text-[12px] font-mono focus:border-primary focus:outline-hidden"
-              />
-            </div>
+                  <div className="sm:col-span-5">
+                    <label className="block text-[10px] font-semibold text-slate-500">Particulars / Description</label>
+                    <input
+                      type="text"
+                      placeholder="Details of contents..."
+                      value={item.description}
+                      onChange={(e) => handleDocChange(idx, 'description', e.target.value)}
+                      className="mt-0.5 w-full rounded-md border border-slate-200 p-1.5 text-[11px]"
+                    />
+                  </div>
 
-            <div>
-              <label className="mb-1 block font-semibold text-slate-700">Recipient Name / Entity *</label>
-              <input
-                type="text"
-                required
-                placeholder="Franchisee / Bank Manager / Vendor"
-                value={recipientName}
-                onChange={(e) => setRecipientName(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 p-2 text-[12px] focus:border-primary focus:outline-hidden"
-              />
-            </div>
+                  <div className="sm:col-span-1">
+                    <label className="block text-[10px] font-semibold text-slate-500">Count</label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={item.count}
+                      onChange={(e) => handleDocChange(idx, 'count', parseInt(e.target.value) || 1)}
+                      className="mt-0.5 w-full rounded-md border border-slate-200 p-1.5 text-center text-[11px] font-bold"
+                    />
+                  </div>
 
-            <div>
-              <label className="mb-1 block font-semibold text-slate-700">Recipient Phone</label>
-              <input
-                type="text"
-                placeholder="+91 98250 XXXXX"
-                value={recipientPhone}
-                onChange={(e) => setRecipientPhone(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 p-2 text-[12px] focus:border-primary focus:outline-hidden"
-              />
-            </div>
-
-            <div>
-              <label className="mb-1 block font-semibold text-slate-700">Recipient Email</label>
-              <input
-                type="email"
-                placeholder="recipient@domain.com"
-                value={recipientEmail}
-                onChange={(e) => setRecipientEmail(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 p-2 text-[12px] focus:border-primary focus:outline-hidden"
-              />
-            </div>
-
-            <div>
-              <label className="mb-1 block font-semibold text-slate-700">Dispatching Department</label>
-              <input
-                type="text"
-                value={internalDepartment}
-                onChange={(e) => setInternalDepartment(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 p-2 text-[12px] focus:border-primary focus:outline-hidden"
-              />
-            </div>
-
-            <div>
-              <label className="mb-1 block font-semibold text-slate-700">Handled By Staff</label>
-              <input
-                type="text"
-                value={handledByStaff}
-                onChange={(e) => setHandledByStaff(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 p-2 text-[12px] focus:border-primary focus:outline-hidden"
-              />
-            </div>
-
-            <div className="sm:col-span-3">
-              <label className="mb-1 block font-semibold text-slate-700">Delivery Street Address & Pincode</label>
-              <input
-                type="text"
-                placeholder="Complete destination address"
-                value={recipientAddress}
-                onChange={(e) => setRecipientAddress(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 p-2 text-[12px] focus:border-primary focus:outline-hidden"
-              />
-            </div>
-
-            <div className="sm:col-span-3">
-              <label className="mb-1 block font-semibold text-slate-700">Dispatch Remarks / Bag Barcode</label>
-              <input
-                type="text"
-                placeholder="e.g. High security sealed bag #SE-8841029"
-                value={remarks}
-                onChange={(e) => setRemarks(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 p-2 text-[12px] focus:border-primary focus:outline-hidden"
-              />
+                  <div className="sm:col-span-1 flex justify-end">
+                    {docItems.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveDocItem(idx)}
+                        className="p-1 text-slate-400 hover:text-rose-600"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-        </div>
 
-        {/* Documents Sent */}
-        <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
-          <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-            <h3 className="text-sm font-bold text-ink">2. Documents / Contents Being Sent</h3>
-            <button
-              type="button"
-              onClick={handleAddDocItem}
-              className="inline-flex items-center gap-1 rounded-md bg-white border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-primary hover:bg-blue-50"
-            >
-              <Plus size={13} /> Add Item Row
-            </button>
-          </div>
+          {/* Section 3: Upload Consignment Documents (Dropdown Menu + Custom Name + Multi-Upload + View Option) */}
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2">
+              <div className="flex items-center gap-2">
+                <Paperclip size={16} className="text-primary" />
+                <h3 className="text-sm font-bold text-ink">3. Upload Consignment Documents & Enclosures</h3>
+              </div>
+              <span className="text-[11px] font-medium text-slate-500">
+                Choose document from dropdown menu • Assign specific name • Upload & View
+              </span>
+            </div>
 
-          <div className="mt-3 space-y-2.5">
-            {docItems.map((item, idx) => (
-              <div
-                key={idx}
-                className="grid gap-2 rounded-lg border border-slate-200 bg-white p-3 sm:grid-cols-12 items-center"
-              >
-                <div className="sm:col-span-5">
-                  <label className="block text-[10px] font-semibold text-slate-500">Document Category *</label>
+            {/* Document Upload Input Bar */}
+            <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50/80 p-3.5">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-2.5">
+                Add New Document Enclosure
+              </div>
+              <div className="grid gap-3 sm:grid-cols-12 items-end">
+                {/* Dropdown Menu for Document Type */}
+                <div className="sm:col-span-4">
+                  <label className="mb-1 block text-[11px] font-semibold text-slate-700">
+                    Document Dropdown Menu *
+                  </label>
                   <select
-                    value={item.category}
-                    onChange={(e) =>
-                      handleDocChange(idx, 'category', e.target.value as DocumentCategory)
-                    }
-                    className="mt-0.5 w-full rounded-md border border-slate-200 bg-white p-1.5 text-[11px] font-medium text-slate-800"
+                    value={uploadDocCategory}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      setUploadDocCategory(val)
+                      setUploadDocName(val)
+                    }}
+                    className="w-full rounded-lg border border-slate-200 bg-white p-2 text-[12px] font-medium text-slate-800 focus:border-primary focus:outline-hidden"
                   >
-                    {DOCUMENT_CATEGORIES.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
+                    {ATTACHMENT_DOCUMENT_TYPES.map((type) => (
+                      <option key={type} value={type}>
+                        {type}
                       </option>
                     ))}
                   </select>
                 </div>
 
-                <div className="sm:col-span-5">
-                  <label className="block text-[10px] font-semibold text-slate-500">Particulars / Description</label>
+                {/* Specific Document Name */}
+                <div className="sm:col-span-4">
+                  <label className="mb-1 block text-[11px] font-semibold text-slate-700">
+                    Document Name / Title *
+                  </label>
                   <input
                     type="text"
-                    placeholder="Details of contents..."
-                    value={item.description}
-                    onChange={(e) => handleDocChange(idx, 'description', e.target.value)}
-                    className="mt-0.5 w-full rounded-md border border-slate-200 p-1.5 text-[11px]"
+                    placeholder="e.g. Countersigned Agreement - Agra Master"
+                    value={uploadDocName}
+                    onChange={(e) => setUploadDocName(e.target.value)}
+                    className="w-full rounded-lg border border-slate-200 bg-white p-2 text-[12px] focus:border-primary focus:outline-hidden"
                   />
                 </div>
 
-                <div className="sm:col-span-1">
-                  <label className="block text-[10px] font-semibold text-slate-500">Count</label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={item.count}
-                    onChange={(e) => handleDocChange(idx, 'count', parseInt(e.target.value) || 1)}
-                    className="mt-0.5 w-full rounded-md border border-slate-200 p-1.5 text-center text-[11px] font-bold"
-                  />
-                </div>
-
-                <div className="sm:col-span-1 flex justify-end">
-                  {docItems.length > 1 && (
+                {/* File Upload Selector & Upload Button */}
+                <div className="sm:col-span-4">
+                  <label className="mb-1 block text-[11px] font-semibold text-slate-700">
+                    Choose File (PDF, Image, Doc)
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="file"
+                      id="outgoing-dak-doc-upload"
+                      accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+                      onChange={handleFileChange}
+                      className="hidden"
+                    />
+                    <label
+                      htmlFor="outgoing-dak-doc-upload"
+                      className="flex-1 cursor-pointer truncate rounded-lg border border-dashed border-slate-300 bg-white px-3 py-2 text-center text-[11px] font-medium text-slate-600 hover:border-primary hover:text-primary transition-colors"
+                      title={selectedFile ? selectedFile.name : 'Click to select file'}
+                    >
+                      {selectedFile ? selectedFile.name : 'Browse File...'}
+                    </label>
                     <button
                       type="button"
-                      onClick={() => handleRemoveDocItem(idx)}
-                      className="p-1 text-slate-400 hover:text-rose-600"
+                      onClick={handleAddAttachment}
+                      className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-2 text-[12px] font-semibold text-white shadow-xs hover:bg-primary-hover transition-colors whitespace-nowrap"
                     >
-                      <Trash2 size={15} />
+                      <Upload size={13} />
+                      <span>Upload</span>
                     </button>
-                  )}
+                  </div>
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
 
-        {/* Buttons */}
-        <div className="flex items-center justify-end gap-2 border-t border-slate-200 pt-4">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-[12px] font-semibold text-slate-700 hover:bg-slate-50"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-5 py-2 text-[12px] font-semibold text-white shadow-sm hover:bg-primary-hover transition-colors"
-          >
-            <Send size={15} />
-            <span>Dispatch & Log Outgoing Dak</span>
-          </button>
-        </div>
-      </form>
-    </Modal>
+              {selectedFile && (
+                <div className="mt-2 flex items-center justify-between text-[11px] text-slate-600 bg-blue-50/70 border border-blue-100 rounded px-2.5 py-1">
+                  <span>Selected file: <strong className="text-slate-900">{selectedFile.name}</strong> ({(selectedFile.size / 1024).toFixed(1)} KB)</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedFile(null)
+                      setSelectedFilePreview('')
+                    }}
+                    className="text-rose-600 hover:underline text-[10px] font-semibold"
+                  >
+                    Clear selection
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* List of Uploaded Documents with View Option */}
+            <div className="mt-4">
+              <div className="flex items-center justify-between pb-1.5">
+                <div className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                  Uploaded Consignment Documents ({attachments.length})
+                </div>
+                <span className="text-[10px] text-muted">Click "View" to inspect any document</span>
+              </div>
+
+              {attachments.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-slate-200 p-4 text-center text-[12px] text-slate-400">
+                  No documents uploaded yet. Select a document name from the dropdown menu and click "Upload" above.
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
+                  {attachments.map((att) => (
+                    <div
+                      key={att.id}
+                      className="flex items-center justify-between p-3 text-[12px] hover:bg-slate-50/80 transition-colors"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-primary border border-blue-100 font-bold text-[10px]">
+                          {att.type?.includes('image') ? 'IMG' : 'PDF'}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="font-bold text-ink truncate">{att.name}</div>
+                          <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+                            <span className="rounded bg-slate-100 px-1.5 py-0.2 font-medium text-slate-700">
+                              {att.category}
+                            </span>
+                            <span>•</span>
+                            <span className="truncate max-w-[170px]">{att.fileName}</span>
+                            <span>•</span>
+                            <span>{att.sizeKb} KB</span>
+                            <span>•</span>
+                            <span>{att.uploadedAt}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0 ml-3">
+                        <button
+                          type="button"
+                          onClick={() => setViewingLocalDoc(att)}
+                          className="inline-flex items-center gap-1 rounded-md bg-blue-50 border border-blue-200 px-2.5 py-1 text-[11px] font-semibold text-primary hover:bg-primary hover:text-white transition-colors"
+                        >
+                          <Eye size={13} />
+                          <span>View</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveAttachment(att.id)}
+                          className="p-1 text-slate-400 hover:text-rose-600 transition-colors"
+                          title="Remove attachment"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Form Action Buttons */}
+          <div className="flex items-center justify-end gap-2 border-t border-slate-200 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-[12px] font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-5 py-2 text-[12px] font-semibold text-white shadow-sm hover:bg-primary-hover transition-colors"
+            >
+              <Send size={15} />
+              <span>Dispatch & Log Outgoing Dak</span>
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Embedded Document Viewer Modal for inspecting uploaded files inside form */}
+      {viewingLocalDoc && (
+        <DocumentViewerModal
+          doc={viewingLocalDoc}
+          docketNumber={docketNumber}
+          partyName={recipientName}
+          branch={branch}
+          onClose={() => setViewingLocalDoc(null)}
+        />
+      )}
+    </>
   )
 }
 
@@ -2373,10 +2993,12 @@ function DakDetailModal({
   dak,
   onClose,
   onLinkCheques,
+  onViewDocument,
 }: {
   dak: DakRecord
   onClose: () => void
   onLinkCheques: () => void
+  onViewDocument?: (doc: DakAttachment) => void
 }) {
   return (
     <Modal title={`Dak Dossier: ${dak.id}`} onClose={onClose} width={760}>
@@ -2439,6 +3061,14 @@ function DakDetailModal({
             <div className="mt-1 text-[11px] text-slate-600">
               Department: {dak.internalDepartment} ({dak.handledByStaff})
             </div>
+            {dak.postalCharges !== undefined && dak.postalCharges !== null && dak.postalCharges !== '' && (
+              <div className="mt-1 flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700">
+                <span>Postal / Courier Charges:</span>
+                <span className="font-mono font-bold bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded text-emerald-800">
+                  ₹ {Number(dak.postalCharges).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -2466,6 +3096,58 @@ function DakDetailModal({
             ))}
           </div>
         </div>
+
+        {/* Uploaded Consignment Documents (With View Option) */}
+        {dak.attachments && dak.attachments.length > 0 && (
+          <div className="rounded-xl border border-slate-200 bg-white p-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+              <div className="flex items-center gap-2">
+                <Paperclip size={16} className="text-primary" />
+                <h4 className="text-sm font-bold text-ink">
+                  Uploaded Enclosures ({dak.attachments.length})
+                </h4>
+              </div>
+              <span className="text-[11px] text-muted">Named & indexed consignment files</span>
+            </div>
+
+            <div className="mt-3 space-y-2">
+              {dak.attachments.map((att) => (
+                <div
+                  key={att.id}
+                  className="flex items-center justify-between rounded-lg border border-slate-200 p-2.5 bg-slate-50/70 hover:bg-slate-50 transition-colors"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-primary border border-blue-100 font-bold text-[10px]">
+                      {att.type?.includes('image') ? 'IMG' : 'PDF'}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-[12px] font-bold text-ink truncate">{att.name}</div>
+                      <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+                        <span className="rounded bg-white border border-slate-200 px-1.5 py-0.2 font-medium text-slate-700">
+                          {att.category}
+                        </span>
+                        <span>•</span>
+                        <span className="truncate max-w-[160px]">{att.fileName}</span>
+                        <span>•</span>
+                        <span>{att.sizeKb} KB</span>
+                        <span>•</span>
+                        <span>{att.uploadedAt}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onViewDocument && onViewDocument(att)}
+                    className="inline-flex items-center gap-1 rounded-md bg-blue-50 border border-blue-200 px-2.5 py-1 text-[11px] font-semibold text-primary hover:bg-primary hover:text-white transition-colors shrink-0 ml-2"
+                  >
+                    <Eye size={13} />
+                    <span>View Document</span>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Linked Cheques Cards */}
         {dak.linkedCheques.length > 0 && (
@@ -2502,9 +3184,32 @@ function DakDetailModal({
               <div className="text-[11px] text-muted">Digitally indexed consignment delivery memo</div>
             </div>
           </div>
-          <span className="rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
-            Attached
-          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                const podDoc: DakAttachment = {
+                  id: `pod-${dak.docketNumber}`,
+                  name: `Proof of Delivery - ${dak.docketNumber}`,
+                  category: 'Courier Booking Slip / Consignment Receipt (POD)',
+                  fileName: dak.podAttachment?.name || `POD_${dak.docketNumber}.pdf`,
+                  sizeKb: dak.podAttachment?.sizeKb || 190,
+                  type: dak.podAttachment?.type || 'application/pdf',
+                  uploadedAt: dak.podAttachment?.uploadedAt || dak.date,
+                }
+                if (onViewDocument) {
+                  onViewDocument(podDoc)
+                }
+              }}
+              className="inline-flex items-center gap-1 rounded bg-white border border-slate-200 px-2 py-1 text-[11px] font-semibold text-primary hover:bg-blue-50 transition-colors"
+            >
+              <Eye size={12} />
+              <span>View POD</span>
+            </button>
+            <span className="rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
+              Attached
+            </span>
+          </div>
         </div>
 
         {/* Close Button */}

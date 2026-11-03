@@ -40,7 +40,7 @@ const WORK_MANAGEMENT_TILES: WorkManagementTileConfig[] = [
   {
     title: 'BROADCAST',
     sub: 'Publish, broadcast and acknowledge internal notices, alerts, and operational bulletins.',
-    to: '/notices',
+    to: '/work-management/broadcast',
     Icon: Megaphone,
     theme: 'amber',
     tag: 'Bulletins',

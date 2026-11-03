@@ -2,6 +2,11 @@ import { Route, useParams } from 'react-router-dom'
 import FinanceHub from './FinanceHub'
 import ClfList from './ClfList'
 import ClfRecordPage from './ClfRecord'
+import GstHub from './GstHub'
+import GstMapping from './GstMapping'
+import GstInvoiceHub from './GstInvoiceHub'
+import GstInvoiceData from './GstInvoiceData'
+import GstInvoiceEntry from './GstInvoiceEntry'
 import GstList from './GstList'
 import GstRecordPage from './GstRecord'
 import PayoutList from './PayoutList'
@@ -98,9 +103,18 @@ export const financeRoutes = [
   <Route key="operations-clf-new" path="/operations/clf/new" element={<ClfRecordRoute />} />,
   <Route key="operations-clf-id" path="/operations/clf/:id" element={<ClfRecordRoute />} />,
   <Route key="reports-financial-clf" path="/reports/financial/clf" element={<ClfList />} />,
-  <Route key="finance-gst" path="/finance/gst" element={<GstList />} />,
-  <Route key="finance-gst-new" path="/finance/gst/new" element={<GstRecordRoute />} />,
-  <Route key="finance-gst-id" path="/finance/gst/:id" element={<GstRecordRoute />} />,
+  // GST Module Routes
+  <Route key="finance-gst" path="/finance/gst" element={<GstHub />} />,
+  <Route key="finance-gst-mapping" path="/finance/gst/mapping" element={<GstMapping />} />,
+  <Route key="finance-gst-invoice" path="/finance/gst/invoice" element={<GstInvoiceHub />} />,
+  <Route key="finance-gst-invoice-data" path="/finance/gst/invoice/data" element={<GstInvoiceData />} />,
+  <Route key="finance-gst-invoices" path="/finance/gst/invoices" element={<GstInvoiceData />} />,
+  <Route key="finance-gst-invoice-new" path="/finance/gst/invoice/new" element={<GstInvoiceEntry />} />,
+  <Route key="finance-gst-invoice-edit" path="/finance/gst/invoice/:id/edit" element={<GstInvoiceEntry />} />,
+  <Route key="finance-gst-new" path="/finance/gst/new" element={<GstInvoiceEntry />} />,
+  <Route key="finance-gst-id" path="/finance/gst/:id" element={<GstInvoiceEntry />} />,
+  <Route key="finance-gst-legacy-list" path="/finance/gst/legacy-list" element={<GstList />} />,
+  <Route key="finance-gst-legacy-record" path="/finance/gst/legacy-record/:id" element={<GstRecordRoute />} />,
   <Route key="finance-payout" path="/finance/payout" element={<PayoutList />} />,
   <Route key="finance-payout-new" path="/finance/payout/new" element={<PayoutRecordRoute />} />,
   <Route key="finance-payout-id" path="/finance/payout/:id" element={<PayoutRecordRoute />} />,

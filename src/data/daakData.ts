@@ -60,6 +60,17 @@ export interface PodAttachment {
   previewUrl?: string
 }
 
+export interface DakAttachment {
+  id: string
+  name: string
+  category: string
+  fileName: string
+  sizeKb: number
+  type: string
+  uploadedAt: string
+  previewUrl?: string
+}
+
 export interface CustodianHandover {
   handedOverTo: string
   handoverDate: string
@@ -94,6 +105,8 @@ export interface DakRecord {
   discrepancyNote?: string
   custodianHandover?: CustodianHandover
   remarks?: string
+  postalCharges?: number | string
+  attachments?: DakAttachment[]
   createdAt: string
   updatedAt: string
 }
@@ -458,6 +471,27 @@ const SEED_DAK_RECORDS: DakRecord[] = [
       type: 'application/pdf',
       uploadedAt: '2026-10-25 16:30',
     },
+    postalCharges: 240,
+    attachments: [
+      {
+        id: 'att-0089-1',
+        name: 'Countersigned Franchise Agreement - Apex ATM',
+        category: 'Franchise Agreement (Stamp Paper)',
+        fileName: 'Franchise_Agreement_Apex_0089.pdf',
+        sizeKb: 345,
+        type: 'application/pdf',
+        uploadedAt: '2026-10-25 16:20',
+      },
+      {
+        id: 'att-0089-2',
+        name: 'Postal Speed Booking Receipt',
+        category: 'Postal Charges Receipt / Challan',
+        fileName: 'BlueDart_Postal_Receipt_991204821.pdf',
+        sizeKb: 142,
+        type: 'application/pdf',
+        uploadedAt: '2026-10-25 16:25',
+      },
+    ],
     remarks: 'Dispatched via Priority Air Cargo with insured seal.',
     createdAt: '2026-10-25T16:15:00Z',
     updatedAt: '2026-10-25T16:30:00Z',
@@ -682,6 +716,27 @@ const SEED_DAK_RECORDS: DakRecord[] = [
       type: 'application/pdf',
       uploadedAt: '2026-10-30 15:45',
     },
+    postalCharges: 185,
+    attachments: [
+      {
+        id: 'att-0095-1',
+        name: 'Dual-Custody Key Handover Memo',
+        category: 'ATM Key Handover Memo',
+        fileName: 'Key_Memo_Hitachi_883921004.pdf',
+        sizeKb: 210,
+        type: 'application/pdf',
+        uploadedAt: '2026-10-30 15:35',
+      },
+      {
+        id: 'att-0095-2',
+        name: 'Postal Dispatch Slip & Barcode Manifest',
+        category: 'Postal Charges Receipt / Challan',
+        fileName: 'Postal_Receipt_Agra_883921004.pdf',
+        sizeKb: 120,
+        type: 'application/pdf',
+        uploadedAt: '2026-10-30 15:40',
+      },
+    ],
     remarks: 'High-security tamper-evident bag barcode: SE-8841029.',
     createdAt: '2026-10-30T15:30:00Z',
     updatedAt: '2026-10-30T15:45:00Z',
@@ -816,6 +871,8 @@ export function addOutgoingDak(data: {
   courierType: CourierService
   documents: Omit<DakDocumentItem, 'id' | 'chequeIncluded'>[]
   podAttachment?: PodAttachment
+  postalCharges?: number | string
+  attachments?: DakAttachment[]
   remarks?: string
 }): DakRecord {
   const current = daakStore.get()
@@ -853,6 +910,8 @@ export function addOutgoingDak(data: {
     isLinked: false,
     linkedCheques: [],
     podAttachment: data.podAttachment,
+    postalCharges: data.postalCharges,
+    attachments: data.attachments || [],
     remarks: data.remarks,
     createdAt: now.toISOString(),
     updatedAt: now.toISOString(),

@@ -53,7 +53,7 @@ export const QUICK_ACCESS_ITEMS = [
     Icon: ArrowLeftRight,
   },
   {
-    label: 'Daak Management',
+    label: 'Postal & Courier Management',
     to: '/operations/daak',
     Icon: Mail,
   },
