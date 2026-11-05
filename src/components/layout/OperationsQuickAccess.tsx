@@ -6,8 +6,8 @@ import {
   Building2,
   CalendarCheck,
   ChevronRight,
+  FileSpreadsheet,
   FileText,
-  Landmark,
   Mail,
   Scale,
   X,
@@ -23,9 +23,9 @@ export const QUICK_ACCESS_ITEMS = [
     Icon: RpRollsIcon,
   },
   {
-    label: 'CBR',
-    to: '/operations/cbr',
-    Icon: Landmark,
+    label: 'HAMP Report',
+    to: '/operations/hamp-report',
+    Icon: FileSpreadsheet,
   },
   {
     label: 'EOD',

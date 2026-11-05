@@ -44,14 +44,14 @@ const LEGAL_TILES: LegalTileConfig[] = [
     actionText: 'Manage agreements',
   },
   {
-    title: 'FM CHECKS',
-    sub: 'Review and track FM checks and verification.',
+    title: 'CHEQUES REPORT',
+    sub: 'Review and track cheques and verification.',
     to: '/legal/fm-checks',
     Icon: ClipboardCheck,
     theme: 'amber',
     tag: 'Site Verification',
     badge: 'Audits',
-    actionText: 'Track FM checks',
+    actionText: 'Track Cheques Report',
   },
   {
     title: 'PVC',

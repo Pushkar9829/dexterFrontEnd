@@ -52,7 +52,7 @@ const CATEGORY_MAP: Record<string, CategoryMeta> = {
     color: 'text-emerald-600 bg-emerald-50 border-emerald-200',
   },
   'fm-checks': {
-    title: 'FM Checks & Verification',
+    title: 'Cheques & Verification',
     sub: 'Track field manager physical checks, location compliance, and sign-offs.',
     Icon: ClipboardCheck,
     color: 'text-amber-600 bg-amber-50 border-amber-200',

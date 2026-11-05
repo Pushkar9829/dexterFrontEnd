@@ -172,7 +172,7 @@ export default function ReportsHub() {
         icon: <Settings size={22} className="text-white" />,
         items: [
           { name: 'Monthly TXNs', to: '/reports/monthly-txns', desc: 'Monthly transaction count and amount with date-wise details' },
-          { name: 'Cash Loading Register', to: '/operations/cash-loading?source=report', desc: 'Daily cash loading and vault replenishment records' },
+          { name: 'Cash Loading Register', to: '/operations/cash-loading/register?source=report', desc: 'Daily cash loading and vault replenishment records' },
           { name: 'EOD Consolidated Report', to: '/operations/eod/overview?source=report', desc: 'Consolidated end of day machine balance, physical cash and overage' },
           { name: 'Monthly EOD (FFM & SF)', to: '/operations/eod/monthly?source=report', desc: 'Monthly EOD reconciliation for Full Funding and Self Funding sites' },
           { name: 'CRM EOD Docket Report', to: '/operations/eod/crm?source=report', desc: 'CRM EOD request docket numbers and counter slips' },

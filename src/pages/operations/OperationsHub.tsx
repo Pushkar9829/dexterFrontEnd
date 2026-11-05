@@ -5,11 +5,13 @@ import {
   Building2,
   CalendarCheck,
   ChevronRight,
+  FileSpreadsheet,
   FileText,
   Landmark,
   Mail,
   Scale,
   Zap,
+  MessageSquare
 } from 'lucide-react'
 import { RpRollsIcon } from '@/components/icons/RpRollsIcon'
 import { HubTile, type HubTileTheme } from '@/components/ui/HubTile'
@@ -29,15 +31,15 @@ interface OperationTileConfig {
 
 const OPERATION_TILES: OperationTileConfig[] = [
   {
-    title: 'RP ROLLS',
-    sub: 'Manage RP roll dispatch, courier and delivery details.',
-    to: '/operations/rp-rolls',
-    Icon: RpRollsIcon,
+    title: 'COMPLAINTS',
+    sub: 'View, manage and resolve customer complaints.',
+    to: '/operations/complaints',
+    Icon: MessageSquare,
     theme: 'blue',
-    tag: 'Roll Management',
-    reportsCount: 'Consolidated Data',
-    badge: 'Consolidated Data',
-    actionText: 'Manage RP rolls',
+    tag: 'Service Desk',
+    reportsCount: '16 Reports',
+    badge: '16 Reports',
+    actionText: 'Manage complaints',
   },
   {
     title: 'CBR',
@@ -137,10 +139,10 @@ const QUICK_ACCESS_ITEMS = [
     Icon: RpRollsIcon,
   },
   {
-    title: 'CBR',
-    to: '/cbr/consolidated',
+    title: 'HAMP Report',
+    to: '/operations/hamp-report',
     iconBg: 'bg-purple-50 text-purple-600 border-purple-200',
-    Icon: Landmark,
+    Icon: FileSpreadsheet,
   },
   {
     title: 'EOD',

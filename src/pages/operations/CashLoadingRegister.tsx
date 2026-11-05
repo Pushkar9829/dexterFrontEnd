@@ -18,6 +18,7 @@ import {
   Trash2,
   User,
   Building2,
+  ArrowLeft,
 } from 'lucide-react'
 import { downloadCsv } from '@/lib/export'
 import { toast } from '@/components/ui/Toast'
@@ -233,12 +234,16 @@ export default function CashLoadingRegister() {
               Operations
             </Link>
             <ChevronRight size={12} className="text-slate-400" />
-            <span className="font-semibold text-slate-800">Cash Loading Register</span>
+            <Link to="/operations/cash-loading" className="hover:text-[#0066FF] transition-colors">
+              Cash Loading Register
+            </Link>
+            <ChevronRight size={12} className="text-slate-400" />
+            <span className="font-semibold text-slate-800">Register</span>
           </>
         )}
       </div>
 
-      {/* Header Bar: Icon + Cash Loading Register + (+ New Cash Loading Button) */}
+      {/* Header Bar: Icon + Cash Loading Register + Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-1">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-[#0066FF] flex items-center justify-center text-white shadow-sm shrink-0">
@@ -256,9 +261,18 @@ export default function CashLoadingRegister() {
           </div>
         </div>
 
-        {/* Top Right Action: + New Cash Loading */}
-        {!isReport && (
-          <div className="flex items-center gap-2.5">
+        {/* Top Right Action: + New Cash Loading & Back Link */}
+        <div className="flex items-center gap-2.5">
+          {!isReport && (
+            <Link
+              to="/operations/cash-loading"
+              className="inline-flex items-center gap-1.5 h-10 px-3.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-[13px] font-semibold transition-colors shadow-2xs"
+            >
+              <ArrowLeft size={14} />
+              <span>Back to Hub</span>
+            </Link>
+          )}
+          {!isReport && (
             <button
               type="button"
               onClick={() => {
@@ -271,8 +285,8 @@ export default function CashLoadingRegister() {
               <Plus size={16} strokeWidth={2.5} />
               <span>New Cash Loading</span>
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Filter Card */}

@@ -1,5 +1,7 @@
 import { Route } from 'react-router-dom'
 import OperationsHub from './OperationsHub'
+import CashLoadingHub from './CashLoadingHub'
+import CashLoadingOverview from './CashLoadingOverview'
 import CashLoadingRegister from './CashLoadingRegister'
 import CashLoadingForm from './CashLoadingForm'
 import WlaStatementList from './WlaStatementList'
@@ -21,8 +23,11 @@ import ChargeBackDisputeForm from './ChargeBackDisputeForm'
 import DaakHub from './daak/DaakHub'
 import RpRollsList from './rp-rolls/RpRollsList'
 import RpRollsEntryForm from './rp-rolls/RpRollsEntryForm'
+import HampReport from './HampReport'
 
 export const operationsRoutes = [
+  <Route key="ops-hamp-report" path="/operations/hamp-report" element={<HampReport />} />,
+  <Route key="ops-hamp" path="/operations/hamp" element={<HampReport />} />,
   <Route key="ops-hub" path="/operations" element={<OperationsHub />} />,
   <Route key="ops-rp-rolls" path="/operations/rp-rolls" element={<RpRollsList />} />,
   <Route key="ops-rp-rolls-entry" path="/operations/rp-rolls/entry" element={<RpRollsEntryForm />} />,
@@ -30,9 +35,16 @@ export const operationsRoutes = [
   <Route key="ops-rp-rolls-new" path="/operations/rp-rolls/new" element={<RpRollsEntryForm />} />,
   <Route key="ops-daak" path="/operations/daak" element={<DaakHub />} />,
   <Route key="ops-daak-sub" path="/operations/daak/:sub" element={<DaakHub />} />,
-  <Route key="ops-cash-loading" path="/operations/cash-loading" element={<CashLoadingRegister />} />,
+  // Cash Loading Module: Hub tiles, Overview report (SF), and Register
+  <Route key="ops-cash-loading" path="/operations/cash-loading" element={<CashLoadingHub />} />,
+  <Route key="ops-cash-loading-overview" path="/operations/cash-loading/overview" element={<CashLoadingOverview />} />,
+  <Route key="ops-cash-loading-register" path="/operations/cash-loading/register" element={<CashLoadingRegister />} />,
+  <Route key="ops-cash-loading-list" path="/operations/cash-loading/list" element={<CashLoadingRegister />} />,
+  <Route key="ops-cash-loading-data" path="/operations/cash-loading/data" element={<CashLoadingRegister />} />,
   <Route key="ops-cash-loading-new" path="/operations/cash-loading/new" element={<CashLoadingForm />} />,
+  <Route key="ops-cash-loading-reg-new" path="/operations/cash-loading/register/new" element={<CashLoadingForm />} />,
   <Route key="ops-cash-loading-edit" path="/operations/cash-loading/edit" element={<CashLoadingForm />} />,
+  <Route key="ops-cash-loading-edit-id" path="/operations/cash-loading/edit/:id" element={<CashLoadingForm />} />,
   <Route key="ops-wla" path="/operations/wla-statement" element={<WlaStatementList />} />,
   <Route key="ops-wla-upload" path="/operations/wla-statement/upload" element={<WlaStatementUpload />} />,
   <Route key="ops-wla-new" path="/operations/wla-statement/new" element={<WlaStatementUpload />} />,
