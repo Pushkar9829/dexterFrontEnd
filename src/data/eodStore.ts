@@ -274,6 +274,13 @@ export interface CrmEodDocketRecord {
   counterFile?: string
   siteType: 'FFM' | 'SF'
   status?: 'Submitted' | 'Saved' | 'Cancelled' | 'Rejected'
+  cbrData?: {
+    matrix: Record<string, (string | number)[]>
+    remarks: string
+    physicalTotal?: number
+    replenishTotal?: number
+    submittedAt?: string
+  }
 }
 
 export const KNOWN_CRM_ATMS: Record<string, { franchise: string; mobileNo: string; machine: string; siteType: 'FFM' | 'SF' }> = {
@@ -1032,6 +1039,9 @@ export function useFfmSfEod() {
         }
         return [rec, ...prev]
       })
+    },
+    deleteRecord: (id: string) => {
+      ffmSfStore.set((prev) => prev.filter((r) => r.id !== id))
     },
     resetData: () => ffmSfStore.reset(),
   }

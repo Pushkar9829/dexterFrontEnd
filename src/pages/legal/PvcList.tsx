@@ -132,7 +132,7 @@ export default function PvcList() {
         'Franchise Name',
         'Mobile Number',
         'Model',
-        'PVC Date',
+        'PVC Issuance Date',
         'Expiry Date',
         'Status',
         'Remark',
@@ -410,7 +410,7 @@ export default function PvcList() {
             {/* PVC Date From */}
             <div>
               <label className="block text-[11.5px] font-semibold text-slate-700 mb-1">
-                PVC Date From
+                PVC Issuance Date From
               </label>
               <div className="relative">
                 <Calendar size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-blue-500 pointer-events-none" />
@@ -430,7 +430,7 @@ export default function PvcList() {
             {/* PVC Date To */}
             <div>
               <label className="block text-[11.5px] font-semibold text-slate-700 mb-1">
-                PVC Date To
+                PVC Issuance Date To
               </label>
               <div className="relative">
                 <Calendar size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-blue-500 pointer-events-none" />
@@ -588,7 +588,7 @@ export default function PvcList() {
                   Model
                 </th>
                 <th className="py-2.5 px-3 border-r border-[#D9E5F5] whitespace-nowrap">
-                  PVC Date
+                  PVC Issuance Date
                 </th>
                 <th className="py-2.5 px-3 border-r border-[#D9E5F5] whitespace-nowrap">
                   Expiry Date

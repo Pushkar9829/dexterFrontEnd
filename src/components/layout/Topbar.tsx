@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { Plus, Bell, Calendar, ChevronDown, LogOut, Menu, Search } from 'lucide-react'
+import { Bell, Calendar, ChevronDown, LogOut, Menu, Search } from 'lucide-react'
 import { getSession, signOut, DEMO_USER } from '@/lib/auth'
 
 export function Topbar({ onMenu }: { onMenu: () => void }) {
@@ -34,14 +34,28 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
       </div>
 
       <div className="ml-auto flex items-center gap-3 sm:gap-4">
-        {pathname.startsWith('/tasks/') && (
+        {/* Dexter Mobile App Simulator Button */}
+        {/* <button
+          onClick={() => navigate('/mobile')}
+          className="flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50/90 px-3 py-1.5 text-[12px] font-bold text-blue-700 hover:bg-blue-100 hover:border-blue-300 transition-all shadow-xs active:scale-95"
+          title="Open Dexter Mobile App Simulator"
+        >
+          <Smartphone size={15} className="text-blue-600" />
+          <span className="hidden sm:inline">Mobile App Simulator</span>
+          <span className="sm:hidden">App</span>
+          <span className="rounded bg-blue-600 px-1 py-0.2 text-[9px] font-extrabold text-white">
+            Demo
+          </span>
+        </button> */}
+
+        {/* {pathname.startsWith('/tasks/') && !pathname.startsWith('/tasks/create') && !pathname.startsWith('/tasks/new') && (
           <button
-            onClick={() => navigate(/^\/tasks\/(my|today|daily|monthly|overdue|blocked|approval-pending)$/.test(pathname) ? `${pathname}?create=1` : '/tasks/my?create=1')}
+            onClick={() => navigate(/^\/tasks\/(my|today|daily|monthly|overdue|blocked|approval-pending)$/.test(pathname) ? `${pathname}?create=1` : '/tasks/create')}
             className="hidden h-9 shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-[12px] font-semibold text-white hover:bg-primary-hover sm:flex"
           >
             <Plus size={15} /> Create Task
           </button>
-        )}
+        )} */}
         <button className="relative p-1 text-ink-2 hover:text-ink transition-colors" aria-label="Notifications" onClick={() => navigate('/notices')}>
           <Bell size={19} />
           <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-red px-1 text-[9px] font-bold text-white ring-2 ring-white">

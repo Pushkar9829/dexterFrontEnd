@@ -1,6 +1,15 @@
 import { createStore } from '@/lib/store'
 import { downloadCsv } from '@/lib/export'
 
+export interface AssetPhoto {
+  id: string
+  name: string
+  dataUrl: string
+  size: string
+  uploadedAt: string
+  angle?: string
+}
+
 export interface SiteInstallationRecord {
   id: string
   sn: number
@@ -16,22 +25,28 @@ export interface SiteInstallationRecord {
   // Installation Status (ATM & accessories)
   atmMachine: string
   atmMachineType?: string
+  dbBox?: string
   isolationTransformer?: string
   stabilizer?: string
+  ups: string
+  battery?: string
   batteryCage?: string
   camera?: string
   dvr?: string
   vsat: string
   routerVsatCompany?: string
-  ups: string
   grouting: string
   signage: string
   lollypop: string
   hitachi: string
   monkeyCage: string
+  // ATM Assets & Infrastructure - Photo Upload Mapping
+  assetPhotos?: Record<string, AssetPhoto[]>
   // Operational Status
   techLive: string
+  techLiveDate?: string
   cashLive: string
+  cashLiveDate?: string
   projectionDate: string
   // Documentation / Account Status
   agreementStatus: string
@@ -294,21 +309,25 @@ export function exportSiteInstallationCsv(records: SiteInstallationRecord[], fil
     'TIS Status',
     'ATM Machine Type',
     'ATM Machine',
+    'DB Box',
     'Isolation Transformer (IT)',
     'Stabilizer',
+    'UPS',
+    'Battery',
     'Battery Cage',
     'Camera',
     'DVR',
     'V-SAT / Router (Substitute)',
     'Router / Vsat Company',
-    'UPS',
     'Grouting',
     'Signage Board',
     'Lollipop',
     "Hitachi's Branding",
     'Monkey Cage',
     'Tech Live',
+    'Tech Live Date',
     'Cash Live',
+    'Cash Live Date',
     'Projection Completion Date',
     'Agreement Status',
     'Apna App Registration',
@@ -331,21 +350,25 @@ export function exportSiteInstallationCsv(records: SiteInstallationRecord[], fil
     r.tisStatus,
     r.atmMachineType || '—',
     r.atmMachine,
+    r.dbBox || '—',
     r.isolationTransformer || '—',
     r.stabilizer || '—',
+    r.ups,
+    r.battery || '—',
     r.batteryCage || '—',
     r.camera || '—',
     r.dvr || '—',
     r.vsat,
     r.routerVsatCompany || '—',
-    r.ups,
     r.grouting,
     r.signage,
     r.lollypop,
     r.hitachi,
     r.monkeyCage,
     r.techLive,
+    r.techLiveDate || '—',
     r.cashLive,
+    r.cashLiveDate || '—',
     r.projectionDate,
     r.agreementStatus,
     r.apnaApp,

@@ -35,13 +35,13 @@ const PROJECT_TILES: ProjectTileConfig[] = [
   },
   {
     title: 'OTHER',
-    sub: 'Access additional project workspaces as required.',
-    to: '/projects/archived',
+    sub: 'Archived and closed site project records.',
+    to: '/projects/other',
     Icon: FolderOpen,
     theme: 'indigo',
-    tag: 'Document Vault',
-    badge: 'Archives',
-    actionText: 'Access workspaces',
+    tag: 'Archived & Closed',
+    badge: 'Archived / Closed',
+    actionText: 'View records',
   },
 ]
 

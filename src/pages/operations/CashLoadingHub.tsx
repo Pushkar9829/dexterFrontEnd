@@ -16,13 +16,13 @@ interface CashLoadingTileConfig {
 const CASH_LOADING_TILES: CashLoadingTileConfig[] = [
   {
     title: 'OVERVIEW',
-    sub: 'View system-generated daily CBR and counter update reports across Self Funding (SF) ATM sites.',
+    sub: 'Review consolidated cash replenishment metrics, terminal vault balances, dispense totals, and register overview.',
     to: '/operations/cash-loading/overview',
     Icon: FileSpreadsheet,
     theme: 'blue',
-    tag: 'System Generated Report',
-    badge: 'SF Sites',
-    actionText: 'View Overview Report',
+    tag: 'Register Analytics',
+    badge: 'Register Overview',
+    actionText: 'View Register Overview',
   },
   {
     title: 'CASH LOADING REGISTER',

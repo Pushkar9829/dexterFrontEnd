@@ -6,6 +6,7 @@ import {
   Clock,
   FileCheck,
   LayoutDashboard,
+  ListPlus,
   RotateCw,
   type LucideIcon,
 } from 'lucide-react'
@@ -32,6 +33,16 @@ const TASK_TILES: TaskTileConfig[] = [
     tag: 'Overview',
     badge: 'Live SLA',
     actionText: 'Open Command Center',
+  },
+  {
+    title: 'CREATE TASK',
+    sub: 'Initiate operational tasks, assign team owners, define target SLAs, dependencies, and expected outcomes.',
+    to: '/tasks/create',
+    Icon: ListPlus,
+    theme: 'blue',
+    tag: 'Action',
+    badge: 'New Task',
+    actionText: 'Create new task',
   },
   {
     title: 'MY TASKS',

@@ -24,48 +24,12 @@ import { downloadCsv } from '@/lib/export'
 import { toast } from '@/components/ui/Toast'
 import { useReportMode } from '@/hooks/useReportMode'
 import CashLoadingForm from './CashLoadingForm'
+import {
+  useCashLoadingRegister,
+  type CashLoadingRow,
+} from '@/data/cashLoadingRegisterStore'
 
-export interface CashLoadingRow {
-  no: number
-  date: string
-  atmId: string
-  mfName: string
-  indentNo: string
-  eodTime: string
-  openingBalance: number
-  dispense: number
-  purgeBin: number
-  overage: number
-  shortage: number
-  physicalCash: number
-  loading: number
-  closingBalance: number
-  remarks: string
-  switchBalance: number
-}
-
-// Generate 31 realistic Cash Loading records matching the reference layout
-const INITIAL_LOADING_RECORDS: CashLoadingRow[] = Array.from({ length: 31 }, (_, i) => {
-  const rowNo = i + 1
-  return {
-    no: rowNo,
-    date: '18-10-2026',
-    atmId: 'MBP13124',
-    mfName: 'FR',
-    indentNo: 'IND-13124-001',
-    eodTime: '10:30',
-    openingBalance: 350000,
-    dispense: 180000,
-    purgeBin: 0,
-    overage: 0,
-    shortage: 0,
-    physicalCash: 170000,
-    loading: 800000,
-    closingBalance: 970000,
-    remarks: 'Routine cash loading verified',
-    switchBalance: 970000,
-  }
-})
+export type { CashLoadingRow }
 
 export default function CashLoadingRegister() {
   const { isReport } = useReportMode()
@@ -92,7 +56,7 @@ export default function CashLoadingRegister() {
   const [pageSize, setPageSize] = useState(15)
 
   // Records state
-  const [records, setRecords] = useState<CashLoadingRow[]>(INITIAL_LOADING_RECORDS)
+  const { records, deleteRow, resetRecords } = useCashLoadingRegister()
   const [exportOpen, setExportOpen] = useState(false)
 
   // Filter application
@@ -128,7 +92,7 @@ export default function CashLoadingRegister() {
     setSelectedMf('Select MF Name')
     setSelectedFranchise('Select Franchise')
     setCurrentPage(1)
-    setRecords(INITIAL_LOADING_RECORDS)
+    resetRecords()
     toast('Filters reset to default', 'info')
   }
 
@@ -145,7 +109,7 @@ export default function CashLoadingRegister() {
   }
 
   const handleDeleteRow = (rowNo: number) => {
-    setRecords((prev) => prev.filter((r) => r.no !== rowNo))
+    deleteRow(rowNo)
     toast(`Record #${rowNo} deleted successfully`, 'success')
   }
 

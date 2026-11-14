@@ -27,7 +27,7 @@ const kpiIcons: Record<string, ReactNode> = {
 }
 const financeIcon = { amber: <Wallet size={14} />, purple: <Receipt size={14} />, green: <ShieldCheck size={14} />, blue: <CircleDollarSign size={14} /> }
 const financeBg = { amber: 'bg-amber-50 text-amber-600', purple: 'bg-violet-50 text-violet-600', green: 'bg-emerald-50 text-emerald-600', blue: 'bg-blue-50 text-blue-600' }
-const quickIcons = [Users, Store, IdCard, Building, TicketCheck, ListChecks, BarChart3]
+const quickIcons = [Store, IdCard, Building, TicketCheck, ListChecks, BarChart3, Wallet, Receipt]
 const tileStyle = {
   blue: { box: 'border-blue-100 bg-blue-50/60', icon: 'bg-primary', link: 'text-primary', Icon: FileText },
   sky: { box: 'border-sky-100 bg-sky-50/60', icon: 'bg-accent-blue', link: 'text-accent-blue', Icon: FolderKanban },
@@ -299,7 +299,7 @@ export default function Dashboard() {
             <CardHeader title="Quick Access" icon={<Zap size={16} />} className="pb-3.5" />
             <ul className="space-y-2 px-4 pb-4">
               {quickAccess.map((q, i) => {
-                const Icon = quickIcons[i]
+                const Icon = q.icon ?? quickIcons[i] ?? Zap
                 return (
                   <li key={q.label}>
                     <Link to={q.to} className="flex h-[33.5px] items-center gap-3 rounded-md bg-primary-soft/70 px-3 text-[11px] font-medium text-primary hover:bg-primary-soft">

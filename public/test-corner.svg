@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 75" width="200" height="150">
+  <defs>
+    <linearGradient id="dexterBlue" x1="0%" y1="100%" x2="100%" y2="10%">
+      <stop offset="0%" stop-color="#38BDF8" />
+      <stop offset="18%" stop-color="#00A2FF" />
+      <stop offset="55%" stop-color="#1675F8" />
+      <stop offset="100%" stop-color="#0A52D4" />
+    </linearGradient>
+    <linearGradient id="dexterRed" x1="20%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F22E34" />
+      <stop offset="100%" stop-color="#D7141B" />
+    </linearGradient>
+    <clipPath id="cornerClip">
+      <path d="M 0 0 L 100 0 L 100 55 C 100 68, 93 75, 78 75 L 0 75 Z" />
+    </clipPath>
+  </defs>
+  
+  <g clip-path="url(#cornerClip)">
+    <!-- Blue fluid S-curve wave ribbon -->
+    <path
+      d="M 0 75 C 22 75, 38 67, 50 53 C 62 40, 78 24, 100 11 L 100 42 C 84 50, 68 60, 48 71 C 36 75, 20 75, 0 75 Z"
+      fill="url(#dexterBlue)"
+    />
+    
+    <!-- Red fluid corner wedge -->
+    <path
+      d="M 48 71 C 68 60, 84 50, 100 42 L 100 75 L 48 75 Z"
+      fill="url(#dexterRed)"
+    />
+  </g>
+</svg>

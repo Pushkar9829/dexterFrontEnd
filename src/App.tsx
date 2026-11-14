@@ -41,11 +41,16 @@ import { workManagementRoutes } from '@/pages/work-management/routes'
 import { hrmsRoutes } from '@/pages/hrms/routes'
 import { userRoutes } from '@/pages/user/routes'
 import { getSession } from '@/lib/auth'
+import { MobileAppShell } from '@/pages/mobile/MobileAppShell'
 
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Dedicated Native Mobile App Simulator Experience */}
+        <Route path="/mobile" element={<MobileAppShell />} />
+        <Route path="/mobile/*" element={<MobileAppShell />} />
+
         {/* Auth */}
         <Route path="/login" element={<Login />} />
         <Route path="/verify-otp" element={<VerifyOtp />} />

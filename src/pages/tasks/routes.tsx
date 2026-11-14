@@ -3,9 +3,12 @@ import TasksHub from './TasksHub'
 import CommandCenter from './CommandCenter'
 import Workspace from './Workspace'
 import TaskDetail from './TaskDetail'
+import CreateTaskPage from './CreateTaskPage'
 
 export const taskRoutes = [
   <Route key="tasks-hub" path="/tasks" element={<TasksHub />} />,
+  <Route key="tasks-create" path="/tasks/create" element={<CreateTaskPage />} />,
+  <Route key="tasks-new" path="/tasks/new" element={<CreateTaskPage />} />,
   <Route key="tasks-cc" path="/tasks/command-center" element={<CommandCenter />} />,
   <Route key="tasks-my" path="/tasks/my" element={<Workspace key="my" view="my" />} />,
   <Route key="tasks-detail" path="/tasks/my/:taskId" element={<TaskDetail />} />,

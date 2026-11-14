@@ -20,11 +20,16 @@ import {
   FileSpreadsheet,
   FileText,
   SlidersHorizontal,
+  Plus,
+  Pencil,
+  Trash2,
+  X,
 } from 'lucide-react'
 import {
   useFfmSfEod,
   exportFfmSfEodCsv,
   getMonthDates,
+  type FfmSfMonthlyEodRecord,
 } from '@/data/eodStore'
 import { toast } from '@/components/ui/Toast'
 import { useReportMode } from '@/hooks/useReportMode'
@@ -32,7 +37,30 @@ import { useReportMode } from '@/hooks/useReportMode'
 export default function MonthlyEodList() {
   const [searchParams, setSearchParams] = useSearchParams()
   const { isReport } = useReportMode()
-  const { records } = useFfmSfEod()
+  const { records, addOrUpdateRecord, deleteRecord } = useFfmSfEod()
+
+  // ── Modal state for Add / Edit ──────────────────────────────────────────
+  const [showModal, setShowModal] = useState(false)
+  const [editingRecord, setEditingRecord] = useState<FfmSfMonthlyEodRecord | null>(null)
+
+  const [formData, setFormData] = useState({
+    fundingType: 'FFM' as 'FFM' | 'SF',
+    month: 'October 2026',
+    siteId: '',
+    atmId: '',
+    frName: '',
+    state: 'Uttar Pradesh',
+    openDms: '',
+    openPhys: '',
+    openOverage: '0',
+    hpyFund: '',
+    frLoading: '',
+    apnaDispense: '',
+    actualMachine: '',
+    closeDms: '',
+    closePhys: '',
+    closeOverage: '0',
+  })
 
   // ── Tab state: 'FFM' | 'SF' ──────────────────────────────────────────────
   const activeTab: 'FFM' | 'SF' =
@@ -217,6 +245,120 @@ export default function MonthlyEodList() {
     toast(`Exported ${activeTab} EOD report for Excel`)
   }
 
+  // ── Add / Edit Handlers ──
+  const handleOpenAdd = () => {
+    setEditingRecord(null)
+    setFormData({
+      fundingType: activeTab,
+      month: appliedFilters.month || selectedMonth || 'October 2026',
+      siteId: '',
+      atmId: '',
+      frName: '',
+      state: filterState !== 'All States' ? filterState : 'Uttar Pradesh',
+      openDms: '',
+      openPhys: '',
+      openOverage: '0',
+      hpyFund: '',
+      frLoading: '',
+      apnaDispense: '',
+      actualMachine: '',
+      closeDms: '',
+      closePhys: '',
+      closeOverage: '0',
+    })
+    setShowModal(true)
+  }
+
+  const handleOpenEdit = (rec: FfmSfMonthlyEodRecord) => {
+    setEditingRecord(rec)
+    setFormData({
+      fundingType: rec.fundingType,
+      month: rec.month,
+      siteId: rec.siteId,
+      atmId: rec.atmId,
+      frName: rec.frName,
+      state: rec.state,
+      openDms: String(rec.openDms ?? ''),
+      openPhys: String(rec.openPhys ?? ''),
+      openOverage: String(rec.openOverage ?? '0'),
+      hpyFund: String(rec.hpyFund ?? ''),
+      frLoading: String(rec.frLoading ?? ''),
+      apnaDispense: String(rec.apnaDispense ?? ''),
+      actualMachine: String(rec.actualMachine ?? ''),
+      closeDms: String(rec.closeDms ?? ''),
+      closePhys: String(rec.closePhys ?? ''),
+      closeOverage: String(rec.closeOverage ?? '0'),
+    })
+    setShowModal(true)
+  }
+
+  const handleAtmChange = (val: string) => {
+    const atmUpper = val.toUpperCase()
+    const match = records.find((r) => r.atmId.toUpperCase() === atmUpper)
+    if (match) {
+      setFormData((prev) => ({
+        ...prev,
+        atmId: atmUpper,
+        siteId: match.siteId || prev.siteId,
+        frName: match.frName || prev.frName,
+        state: match.state || prev.state,
+        fundingType: match.fundingType || prev.fundingType,
+      }))
+    } else {
+      setFormData((prev) => ({ ...prev, atmId: atmUpper }))
+    }
+  }
+
+  const handleSubmitForm = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!formData.atmId.trim()) {
+      toast('Please enter ATM ID', 'error')
+      return
+    }
+    if (!formData.frName.trim()) {
+      toast('Please enter Franchise Name', 'error')
+      return
+    }
+
+    const id = editingRecord ? editingRecord.id : `FFMSF-${Date.now()}`
+    const recordToSave: FfmSfMonthlyEodRecord = {
+      id,
+      fundingType: formData.fundingType,
+      month: formData.month,
+      siteId: formData.siteId.trim() || `ST-${formData.atmId.trim()}`,
+      atmId: formData.atmId.trim(),
+      frName: formData.frName.trim(),
+      state: formData.state.trim() || 'Uttar Pradesh',
+      openDms: Number(formData.openDms) || 0,
+      openPhys: Number(formData.openPhys) || 0,
+      openOverage: Number(formData.openOverage) || 0,
+      hpyFund: Number(formData.hpyFund) || 0,
+      frLoading: Number(formData.frLoading) || 0,
+      apnaDispense: Number(formData.apnaDispense) || 0,
+      actualMachine: Number(formData.actualMachine) || 0,
+      closeDms: Number(formData.closeDms) || 0,
+      closePhys: Number(formData.closePhys) || 0,
+      closeOverage: Number(formData.closeOverage) || 0,
+    }
+
+    addOrUpdateRecord(recordToSave)
+    toast(
+      editingRecord
+        ? `Updated EOD record for ${recordToSave.atmId}`
+        : `Added new EOD record for ${recordToSave.atmId}`,
+      'success'
+    )
+    setShowModal(false)
+    setEditingRecord(null)
+  }
+
+  const handleDelete = (id: string, atmId: string) => {
+    if (window.confirm(`Are you sure you want to delete the EOD record for ${atmId}?`)) {
+      deleteRecord(id)
+      toast(`Deleted EOD record for ${atmId}`)
+    }
+  }
+
   // Format currency helper (displays standard Indian numeric or empty)
   const formatINR = (val: number | undefined) => {
     if (val === undefined || isNaN(val)) return '—'
@@ -279,29 +421,40 @@ export default function MonthlyEodList() {
           </div>
         </div>
 
-        {/* ── Top Tab Bar: Full Funding (FFM) vs Self Funding (SF) matching Image 01 ── */}
-        <div className="flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50/70 p-1 self-start sm:self-auto shadow-xs">
+        {/* ── Top Tab Bar + Add Record Button ── */}
+        <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-auto">
+          <div className="flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50/70 p-1 shadow-xs">
+            <button
+              type="button"
+              onClick={() => handleTabSwitch('FFM')}
+              className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-[13px] font-bold transition-all cursor-pointer ${
+                activeTab === 'FFM'
+                  ? 'bg-[#0066FF] text-white shadow-sm'
+                  : 'text-[#0066FF] hover:bg-white/80'
+              }`}
+            >
+              <span>Full Funding (FFM)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleTabSwitch('SF')}
+              className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-[13px] font-bold transition-all cursor-pointer ${
+                activeTab === 'SF'
+                  ? 'bg-[#0066FF] text-white shadow-sm'
+                  : 'text-[#0066FF] hover:bg-white/80'
+              }`}
+            >
+              <span>Self Funding (SF)</span>
+            </button>
+          </div>
+
           <button
             type="button"
-            onClick={() => handleTabSwitch('FFM')}
-            className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-[13px] font-bold transition-all cursor-pointer ${
-              activeTab === 'FFM'
-                ? 'bg-[#0066FF] text-white shadow-sm'
-                : 'text-[#0066FF] hover:bg-white/80'
-            }`}
+            onClick={handleOpenAdd}
+            className="inline-flex items-center gap-1.5 h-10 px-4 rounded-xl bg-[#0066FF] hover:bg-[#0052CC] text-white text-[13px] font-semibold transition-colors shadow-xs cursor-pointer"
           >
-            <span>Full Funding (FFM)</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => handleTabSwitch('SF')}
-            className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-[13px] font-bold transition-all cursor-pointer ${
-              activeTab === 'SF'
-                ? 'bg-[#0066FF] text-white shadow-sm'
-                : 'text-[#0066FF] hover:bg-white/80'
-            }`}
-          >
-            <span>Self Funding (SF)</span>
+            <Plus size={15} />
+            <span>Add Record</span>
           </button>
         </div>
       </div>
@@ -563,6 +716,14 @@ export default function MonthlyEodList() {
           </div>
 
           <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleOpenAdd}
+              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[12px] font-semibold transition-colors shadow-xs cursor-pointer"
+            >
+              <Plus size={13} />
+              <span>Add Record</span>
+            </button>
             <span className="text-[12.5px] text-slate-600 font-medium">
               Total Records: <strong className="text-slate-900 font-bold">{totalRecords}</strong>
             </span>
@@ -624,8 +785,11 @@ export default function MonthlyEodList() {
                 <th className="py-2.5 px-2 text-center border-r border-amber-300 w-[170px] uppercase select-none">
                   Physical Balance as per FR @11:00 PM ({dates.closingDate})
                 </th>
-                <th className="py-2.5 px-2 text-center w-[140px] uppercase select-none">
+                <th className="py-2.5 px-2 text-center border-r border-amber-300 w-[140px] uppercase select-none">
                   Actual Overage as on {dates.closingDate}
+                </th>
+                <th className="py-2.5 px-2 text-center w-[90px] uppercase select-none">
+                  Action
                 </th>
               </tr>
             </thead>
@@ -712,12 +876,36 @@ export default function MonthlyEodList() {
                       </td>
 
                       {/* 13. Actual Overage (Closing) */}
-                      <td className="py-2.5 px-2.5 text-right font-medium text-slate-700">
+                      <td className="py-2.5 px-2.5 text-right font-medium text-slate-700 border-r border-slate-100">
                         {rec.closeOverage > 0 ? (
                           <span className="text-emerald-700 font-semibold">{formatINR(rec.closeOverage)}</span>
                         ) : (
                           '0'
                         )}
+                      </td>
+
+                      {/* 14. Action buttons */}
+                      <td className="py-2 px-2 text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEdit(rec)}
+                            className="p-1 rounded-md text-[#0066FF] hover:bg-blue-100/70 transition-colors cursor-pointer"
+                            title="Edit Record"
+                            aria-label={`Edit ${rec.atmId}`}
+                          >
+                            <Pencil size={13} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(rec.id, rec.atmId)}
+                            className="p-1 rounded-md text-red-500 hover:bg-red-100/70 transition-colors cursor-pointer"
+                            title="Delete Record"
+                            aria-label={`Delete ${rec.atmId}`}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )
@@ -729,6 +917,7 @@ export default function MonthlyEodList() {
                     <td className="py-2 px-2 text-center font-semibold text-slate-500 border-r border-slate-100">
                       {idx + 1}
                     </td>
+                    <td className="py-2 px-2.5 text-center text-slate-300 border-r border-slate-100">—</td>
                     <td className="py-2 px-2.5 text-center text-slate-300 border-r border-slate-100">—</td>
                     <td className="py-2 px-2.5 text-center text-slate-300 border-r border-slate-100">—</td>
                     <td className="py-2 px-2.5 text-center text-slate-300 border-r border-slate-100">—</td>
@@ -820,6 +1009,316 @@ export default function MonthlyEodList() {
           </div>
         </div>
       </div>
+
+      {/* ── Add / Edit Monthly EOD Record Modal ── */}
+      {showModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-xs"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setShowModal(false)
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="flex max-h-[92vh] w-full max-w-3xl flex-col rounded-2xl bg-white shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150 overflow-hidden"
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 bg-slate-50/50">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#0066FF] text-white shadow-xs">
+                  {editingRecord ? <Pencil size={16} /> : <Plus size={18} />}
+                </div>
+                <div>
+                  <h3 className="text-[16px] font-bold text-slate-900 leading-tight">
+                    {editingRecord ? 'Edit Monthly EOD Record' : 'Add Monthly EOD Record'}
+                  </h3>
+                  <p className="text-[12px] text-slate-500 mt-0.5">
+                    {editingRecord
+                      ? `Updating record for ATM ${editingRecord.atmId} · ${editingRecord.month}`
+                      : `Enter details for ${formData.fundingType} monthly EOD record`}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowModal(false)}
+                className="grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+                aria-label="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Scrollable Form Body */}
+            <form onSubmit={handleSubmitForm} className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+              {/* 1. Identity & Location */}
+              <div>
+                <h4 className="text-[12px] font-bold text-slate-900 uppercase tracking-wider mb-2.5 flex items-center gap-1.5 text-[#0066FF]">
+                  <Building2 size={14} /> Site &amp; Identity Details
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      Funding Type <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={formData.fundingType}
+                      onChange={(e) => setFormData({ ...formData, fundingType: e.target.value as 'FFM' | 'SF' })}
+                      className="w-full h-8.5 px-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 font-medium outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]"
+                    >
+                      <option value="FFM">Full Funding (FFM)</option>
+                      <option value="SF">Self Funding (SF)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      Month &amp; Year <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={formData.month}
+                      onChange={(e) => setFormData({ ...formData, month: e.target.value })}
+                      className="w-full h-8.5 px-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 font-medium outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]"
+                    >
+                      {monthOptions.map((m) => (
+                        <option key={m} value={m}>{m}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      State <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.state}
+                      onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                      placeholder="e.g. Uttar Pradesh"
+                      className="w-full h-8.5 px-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      ATM ID <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.atmId}
+                      onChange={(e) => handleAtmChange(e.target.value)}
+                      placeholder="e.g. MCRM7303"
+                      className="w-full h-8.5 px-3 text-[12px] font-mono uppercase font-bold rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      Site ID <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.siteId}
+                      onChange={(e) => setFormData({ ...formData, siteId: e.target.value })}
+                      placeholder="e.g. ST-UP-LKO-00305"
+                      className="w-full h-8.5 px-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      Franchise Name (FR Name) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.frName}
+                      onChange={(e) => setFormData({ ...formData, frName: e.target.value })}
+                      placeholder="e.g. Shree Sai Financial Services"
+                      className="w-full h-8.5 px-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. Opening Balance Positions */}
+              <div className="pt-2 border-t border-slate-100">
+                <h4 className="text-[12px] font-bold text-slate-900 uppercase tracking-wider mb-2.5 flex items-center gap-1.5 text-[#0066FF]">
+                  <Calendar size={14} /> Opening Balance Position ({dates.openingDate} @ 11:00 PM)
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      Machine Balance as per DMS (₹)
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.openDms}
+                      onChange={(e) => setFormData({ ...formData, openDms: e.target.value })}
+                      placeholder="e.g. 500000"
+                      className="w-full h-8.5 px-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      Physical Balance as per FR (₹)
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.openPhys}
+                      onChange={(e) => setFormData({ ...formData, openPhys: e.target.value })}
+                      placeholder="e.g. 500000"
+                      className="w-full h-8.5 px-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      Actual Overage on {dates.openingDate} (₹)
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.openOverage}
+                      onChange={(e) => setFormData({ ...formData, openOverage: e.target.value })}
+                      placeholder="e.g. 0"
+                      className="w-full h-8.5 px-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. Funds Movement in Month */}
+              <div className="pt-2 border-t border-slate-100">
+                <h4 className="text-[12px] font-bold text-slate-900 uppercase tracking-wider mb-2.5 flex items-center gap-1.5 text-[#0066FF]">
+                  <SlidersHorizontal size={14} /> Fund Movements ({dates.monthYear})
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      HPY Gen Fund (₹)
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.hpyFund}
+                      onChange={(e) => setFormData({ ...formData, hpyFund: e.target.value })}
+                      placeholder="e.g. 150000"
+                      className="w-full h-8.5 px-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      FR Loading Fund (₹)
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.frLoading}
+                      onChange={(e) => setFormData({ ...formData, frLoading: e.target.value })}
+                      placeholder="e.g. 200000"
+                      className="w-full h-8.5 px-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      Apna App Dispenser Fund (₹)
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.apnaDispense}
+                      onChange={(e) => setFormData({ ...formData, apnaDispense: e.target.value })}
+                      placeholder="e.g. 180000"
+                      className="w-full h-8.5 px-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* 4. Closing Balance Positions */}
+              <div className="pt-2 border-t border-slate-100">
+                <h4 className="text-[12px] font-bold text-slate-900 uppercase tracking-wider mb-2.5 flex items-center gap-1.5 text-[#0066FF]">
+                  <Calendar size={14} /> Closing Balance Position ({dates.closingDate} @ 11:00 PM)
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      Actual Machine Balance (₹)
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.actualMachine}
+                      onChange={(e) => setFormData({ ...formData, actualMachine: e.target.value })}
+                      placeholder="e.g. 480000"
+                      className="w-full h-8.5 px-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      DMS Balance (Closing) (₹)
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.closeDms}
+                      onChange={(e) => setFormData({ ...formData, closeDms: e.target.value })}
+                      placeholder="e.g. 480000"
+                      className="w-full h-8.5 px-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      Physical Balance (Closing) (₹)
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.closePhys}
+                      onChange={(e) => setFormData({ ...formData, closePhys: e.target.value })}
+                      placeholder="e.g. 480000"
+                      className="w-full h-8.5 px-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      Actual Overage (Closing) (₹)
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.closeOverage}
+                      onChange={(e) => setFormData({ ...formData, closeOverage: e.target.value })}
+                      placeholder="e.g. 0"
+                      className="w-full h-8.5 px-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="h-9 px-4 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-[12.5px] font-medium transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="h-9 px-5 rounded-xl bg-[#0066FF] hover:bg-[#0052CC] text-white text-[12.5px] font-semibold transition-colors shadow-xs cursor-pointer inline-flex items-center gap-1.5"
+                >
+                  {editingRecord ? 'Save Changes' : 'Add Record'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

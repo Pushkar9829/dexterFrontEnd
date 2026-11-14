@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   ChevronRight,
@@ -24,7 +24,9 @@ import {
   updateSiteInstallationRecord,
   KNOWN_SITES,
   type SiteInstallationRecord,
+  type AssetPhoto,
 } from '@/data/siteInstallation'
+import { AtmAssetPhotoUpload } from './AtmAssetPhotoUpload'
 import { toast } from '@/components/ui/Toast'
 import { useReportMode } from '@/hooks/useReportMode'
 
@@ -60,19 +62,59 @@ export default function SiteInstallationForm() {
   // Section 2: ATM / Equipment Status
   const [atmMachineType, setAtmMachineType] = useState(existingRecord?.atmMachineType || '')
   const [atmMachine, setAtmMachine] = useState(existingRecord?.atmMachine || '')
+  const [dbBox, setDbBox] = useState(existingRecord?.dbBox || '')
   const [isolationTransformer, setIsolationTransformer] = useState(existingRecord?.isolationTransformer || '')
   const [stabilizer, setStabilizer] = useState(existingRecord?.stabilizer || '')
   const [ups, setUps] = useState(existingRecord?.ups || '')
+  const [battery, setBattery] = useState(existingRecord?.battery || '')
   const [batteryCage, setBatteryCage] = useState(existingRecord?.batteryCage || '')
-  const [camera, setCamera] = useState(existingRecord?.camera || '')
-  const [dvr, setDvr] = useState(existingRecord?.dvr || '')
   const [vsat, setVsat] = useState(existingRecord?.vsat || '')
   const [routerVsatCompany, setRouterVsatCompany] = useState(existingRecord?.routerVsatCompany || '')
+  const [camera, setCamera] = useState(existingRecord?.camera || '')
+  const [dvr, setDvr] = useState(existingRecord?.dvr || '')
+
+  // ATM Assets & Infrastructure - Photo Upload Mapping
+  const [assetPhotos, setAssetPhotos] = useState<Record<string, AssetPhoto[]>>(
+    existingRecord?.assetPhotos || {}
+  )
+
+  const statusValues = useMemo(
+    () => ({
+      atm_machine_type: atmMachineType,
+      atm_machine_status: atmMachine,
+      db_box: dbBox,
+      isolation_transformer: isolationTransformer,
+      stabilizer: stabilizer,
+      ups: ups,
+      battery: battery,
+      battery_cage: batteryCage,
+      vsat_router: vsat,
+      vsat_router_company: routerVsatCompany,
+      camera: camera,
+      dvr: dvr,
+    }),
+    [
+      atmMachineType,
+      atmMachine,
+      dbBox,
+      isolationTransformer,
+      stabilizer,
+      ups,
+      battery,
+      batteryCage,
+      vsat,
+      routerVsatCompany,
+      camera,
+      dvr,
+    ]
+  )
 
   // Section 3: Operational Status
   const [techLive, setTechLive] = useState(existingRecord?.techLive || '')
-  const [projectionDate, setProjectionDate] = useState(existingRecord?.projectionDate || '')
+  const [techLiveDate, setTechLiveDate] = useState(existingRecord?.techLiveDate || '')
   const [cashLive, setCashLive] = useState(existingRecord?.cashLive || '')
+  const [cashLiveDate, setCashLiveDate] = useState(existingRecord?.cashLiveDate || '')
+  const [projectionDate, setProjectionDate] = useState(existingRecord?.projectionDate || '')
 
   // Section 4: Documentation / Account Status
   const [agreementStatus, setAgreementStatus] = useState(existingRecord?.agreementStatus || '')
@@ -156,21 +198,26 @@ export default function SiteInstallationForm() {
       tisStatus: tisStatus || 'Pending',
       atmMachine: atmMachine || 'Pending',
       atmMachineType: atmMachineType || '',
+      dbBox: dbBox || '',
       isolationTransformer: isolationTransformer || '',
       stabilizer: stabilizer || '',
+      ups: ups || 'Pending',
+      battery: battery || '',
       batteryCage: batteryCage || '',
       camera: camera || '',
       dvr: dvr || '',
       vsat: vsat || 'Pending',
       routerVsatCompany: routerVsatCompany || '',
-      ups: ups || 'Pending',
+      assetPhotos: assetPhotos,
       grouting: grouting || 'Pending',
       signage: signage || 'Pending',
       lollypop: lollypop || 'Pending',
       hitachi: hitachi || 'Pending',
       monkeyCage: monkeyCage || 'Pending',
       techLive: techLive || 'Pending',
+      techLiveDate: techLiveDate || '',
       cashLive: cashLive || 'Pending',
+      cashLiveDate: cashLiveDate || '',
       projectionDate: projectionDate || '',
       agreementStatus: agreementStatus || 'Pending',
       apnaApp: apnaApp || 'Pending',
@@ -499,241 +546,306 @@ export default function SiteInstallationForm() {
 
       {/* SECTION 2: ATM / Equipment Status */}
       <div className="rounded-xl border border-slate-200 overflow-hidden shadow-sm bg-white">
-        <div className="bg-[#EAF3FD] px-4 py-3 border-b border-[#D5E5F8] flex items-center gap-2">
-          <Monitor size={18} className="text-[#0066FF]" />
-          <h2 className="text-[14px] font-bold text-[#0066FF]">2. ATM / Equipment Status</h2>
+        <div className="bg-[#EAF3FD] px-4 py-3 border-b border-[#D5E5F8] flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Monitor size={18} className="text-[#0066FF]" />
+            <h2 className="text-[14px] font-bold text-[#0066FF]">2. ATM / Equipment Status</h2>
+          </div>
+          <span className="text-[11px] font-semibold text-slate-500 bg-white px-2.5 py-0.5 rounded-full border border-blue-200">
+            12 Assets &amp; Photo Documentation
+          </span>
         </div>
 
-        <div className="p-4 sm:p-5 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-          {/* 1. ATM Machine Type */}
-          <div>
-            <label className="block text-[11px] font-bold text-slate-700 mb-1">
-              ATM Machine Type
-            </label>
-            <div className="relative">
-              <select
-                value={atmMachineType}
-                onChange={(e) => setAtmMachineType(e.target.value)}
-                className="w-full h-8.5 px-3 pr-7 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] appearance-none font-medium"
-              >
-                <option value="">Select ATM Machine Type</option>
-                <option value="NCR">NCR</option>
-                <option value="Perto">Perto</option>
-                <option value="CRM">CRM (Cash Recycler Machine)</option>
-                <option value="Hitachi">Hitachi</option>
-                <option value="Diebold Nixdorf">Diebold Nixdorf</option>
-                <option value="Hyosung">Hyosung</option>
-                <option value="Other">Other</option>
-              </select>
-              <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+        <div className="p-4 sm:p-5">
+          {/* Equipment Status Inputs (Sequence 1 to 12) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+            {/* 1. ATM Machine Type */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                1. ATM Machine Type
+              </label>
+              <div className="relative">
+                <select
+                  value={atmMachineType}
+                  onChange={(e) => setAtmMachineType(e.target.value)}
+                  className="w-full h-8.5 px-3 pr-7 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] appearance-none font-medium"
+                >
+                  <option value="">Select ATM Machine Type</option>
+                  <option value="NCR">NCR</option>
+                  <option value="Perto">Perto</option>
+                  <option value="CRM">CRM (Cash Recycler Machine)</option>
+                  <option value="Hitachi">Hitachi</option>
+                  <option value="Diebold Nixdorf">Diebold Nixdorf</option>
+                  <option value="Hyosung">Hyosung</option>
+                  <option value="Other">Other</option>
+                </select>
+                <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* 2. ATM Machine Status */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                2. ATM Machine Status
+              </label>
+              <div className="relative">
+                <select
+                  value={atmMachine}
+                  onChange={(e) => setAtmMachine(e.target.value)}
+                  className="w-full h-8.5 px-3 pr-7 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] appearance-none"
+                >
+                  <option value="">Delivered / Pending / Installation Pending</option>
+                  <option value="Delivered / Pending / Installation Pending">
+                    Delivered / Pending / Installation Pending
+                  </option>
+                  <option value="Delivered">Delivered</option>
+                  <option value="Installation Pending">Installation Pending</option>
+                  <option value="Installation Done">Installation Done</option>
+                  <option value="Pending">Pending</option>
+                </select>
+                <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* 3. DB Box */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                3. DB Box
+              </label>
+              <div className="relative">
+                <select
+                  value={dbBox}
+                  onChange={(e) => setDbBox(e.target.value)}
+                  className="w-full h-8.5 px-3 pr-7 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] appearance-none"
+                >
+                  <option value="">Select status</option>
+                  <option value="Delivered">Delivered</option>
+                  <option value="Installation Pending">Installation Pending</option>
+                  <option value="Installation Done">Installation Done</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Not Required">Not Required</option>
+                </select>
+                <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* 4. Isolation Transformer (IT) */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                4. Isolation Transformer (IT)
+              </label>
+              <div className="relative">
+                <select
+                  value={isolationTransformer}
+                  onChange={(e) => setIsolationTransformer(e.target.value)}
+                  className="w-full h-8.5 px-3 pr-7 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] appearance-none"
+                >
+                  <option value="">Select status</option>
+                  <option value="Delivered">Delivered</option>
+                  <option value="Installation Pending">Installation Pending</option>
+                  <option value="Installation Done">Installation Done</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Not Required">Not Required</option>
+                </select>
+                <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* 5. Stabilizer */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                5. Stabilizer
+              </label>
+              <div className="relative">
+                <select
+                  value={stabilizer}
+                  onChange={(e) => setStabilizer(e.target.value)}
+                  className="w-full h-8.5 px-3 pr-7 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] appearance-none"
+                >
+                  <option value="">Select status</option>
+                  <option value="Delivered">Delivered</option>
+                  <option value="Installation Pending">Installation Pending</option>
+                  <option value="Installation Done">Installation Done</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Not Required">Not Required</option>
+                </select>
+                <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* 6. UPS */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                6. UPS
+              </label>
+              <div className="relative">
+                <select
+                  value={ups}
+                  onChange={(e) => setUps(e.target.value)}
+                  className="w-full h-8.5 px-3 pr-7 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] appearance-none"
+                >
+                  <option value="">Select status</option>
+                  <option value="Delivered">Delivered</option>
+                  <option value="Installation Pending">Installation Pending</option>
+                  <option value="Installation Done">Installation Done</option>
+                  <option value="Pending">Pending</option>
+                </select>
+                <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* 7. Battery */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                7. Battery
+              </label>
+              <div className="relative">
+                <select
+                  value={battery}
+                  onChange={(e) => setBattery(e.target.value)}
+                  className="w-full h-8.5 px-3 pr-7 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] appearance-none"
+                >
+                  <option value="">Select status</option>
+                  <option value="Delivered">Delivered</option>
+                  <option value="Installation Pending">Installation Pending</option>
+                  <option value="Installation Done">Installation Done</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Not Required">Not Required</option>
+                </select>
+                <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* 8. Battery Cage */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                8. Battery Cage
+              </label>
+              <div className="relative">
+                <select
+                  value={batteryCage}
+                  onChange={(e) => setBatteryCage(e.target.value)}
+                  className="w-full h-8.5 px-3 pr-7 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] appearance-none"
+                >
+                  <option value="">Select status</option>
+                  <option value="Delivered">Delivered</option>
+                  <option value="Installation Done">Installation Done</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Not Required">Not Required</option>
+                </select>
+                <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* 9. V-SAT / Router */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                9. V-SAT / Router
+              </label>
+              <div className="relative">
+                <select
+                  value={vsat}
+                  onChange={(e) => setVsat(e.target.value)}
+                  className="w-full h-8.5 px-3 pr-7 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] appearance-none"
+                >
+                  <option value="">Select status / option</option>
+                  <option value="Delivered">Delivered</option>
+                  <option value="Installation Pending">Installation Pending</option>
+                  <option value="Installation Done">Installation Done</option>
+                  <option value="Router (Substitute)">Router (Substitute)</option>
+                  <option value="Router (Substitute) - Delivered">Router (Substitute) - Delivered</option>
+                  <option value="Router (Substitute) - Installation Done">Router (Substitute) - Installation Done</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Not Required">Not Required</option>
+                </select>
+                <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* 10. V-SAT / Router Company */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                10. V-SAT / Router Company
+              </label>
+              <input
+                type="text"
+                value={routerVsatCompany}
+                onChange={(e) => setRouterVsatCompany(e.target.value)}
+                placeholder="e.g. Nelco, Hughes, Airtel, Tata Teleservices, Jio"
+                className="w-full h-8.5 px-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] placeholder:text-slate-400"
+              />
+            </div>
+
+            {/* 11. Camera */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                11. Camera
+              </label>
+              <div className="relative">
+                <select
+                  value={camera}
+                  onChange={(e) => setCamera(e.target.value)}
+                  className="w-full h-8.5 px-3 pr-7 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] appearance-none"
+                >
+                  <option value="">Select status</option>
+                  <option value="Delivered">Delivered</option>
+                  <option value="Installation Pending">Installation Pending</option>
+                  <option value="Installation Done">Installation Done</option>
+                  <option value="Working / Live">Working / Live</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Not Required">Not Required</option>
+                </select>
+                <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* 12. DVR */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                12. DVR
+              </label>
+              <div className="relative">
+                <select
+                  value={dvr}
+                  onChange={(e) => setDvr(e.target.value)}
+                  className="w-full h-8.5 px-3 pr-7 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] appearance-none"
+                >
+                  <option value="">Select status</option>
+                  <option value="Delivered">Delivered</option>
+                  <option value="Installation Pending">Installation Pending</option>
+                  <option value="Installation Done">Installation Done</option>
+                  <option value="Configured / Live">Configured / Live</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Not Required">Not Required</option>
+                </select>
+                <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              </div>
             </div>
           </div>
 
-          {/* 2. ATM Machine Status */}
-          <div>
-            <label className="block text-[11px] font-bold text-slate-700 mb-1">
-              ATM Machine Status
-            </label>
-            <div className="relative">
-              <select
-                value={atmMachine}
-                onChange={(e) => setAtmMachine(e.target.value)}
-                className="w-full h-8.5 px-3 pr-7 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] appearance-none"
-              >
-                <option value="">Delivered / Pending / Installation Pending</option>
-                <option value="Delivered / Pending / Installation Pending">
-                  Delivered / Pending / Installation Pending
-                </option>
-                <option value="Delivered">Delivered</option>
-                <option value="Installation Pending">Installation Pending</option>
-                <option value="Installation Done">Installation Done</option>
-                <option value="Pending">Pending</option>
-              </select>
-              <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-            </div>
-          </div>
-
-          {/* 3. Isolation Transformer (IT) */}
-          <div>
-            <label className="block text-[11px] font-bold text-slate-700 mb-1">
-              Isolation Transformer (IT)
-            </label>
-            <div className="relative">
-              <select
-                value={isolationTransformer}
-                onChange={(e) => setIsolationTransformer(e.target.value)}
-                className="w-full h-8.5 px-3 pr-7 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] appearance-none"
-              >
-                <option value="">Select status</option>
-                <option value="Delivered">Delivered</option>
-                <option value="Installation Pending">Installation Pending</option>
-                <option value="Installation Done">Installation Done</option>
-                <option value="Pending">Pending</option>
-                <option value="Not Required">Not Required</option>
-              </select>
-              <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-            </div>
-          </div>
-
-          {/* 4. Stabilizer */}
-          <div>
-            <label className="block text-[11px] font-bold text-slate-700 mb-1">
-              Stabilizer
-            </label>
-            <div className="relative">
-              <select
-                value={stabilizer}
-                onChange={(e) => setStabilizer(e.target.value)}
-                className="w-full h-8.5 px-3 pr-7 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] appearance-none"
-              >
-                <option value="">Select status</option>
-                <option value="Delivered">Delivered</option>
-                <option value="Installation Pending">Installation Pending</option>
-                <option value="Installation Done">Installation Done</option>
-                <option value="Pending">Pending</option>
-                <option value="Not Required">Not Required</option>
-              </select>
-              <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-            </div>
-          </div>
-
-          {/* 5. UPS */}
-          <div>
-            <label className="block text-[11px] font-bold text-slate-700 mb-1">
-              UPS
-            </label>
-            <div className="relative">
-              <select
-                value={ups}
-                onChange={(e) => setUps(e.target.value)}
-                className="w-full h-8.5 px-3 pr-7 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] appearance-none"
-              >
-                <option value="">Select status</option>
-                <option value="Delivered">Delivered</option>
-                <option value="Installation Pending">Installation Pending</option>
-                <option value="Installation Done">Installation Done</option>
-                <option value="Pending">Pending</option>
-              </select>
-              <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-            </div>
-          </div>
-
-          {/* 6. Battery Cage */}
-          <div>
-            <label className="block text-[11px] font-bold text-slate-700 mb-1">
-              Battery Cage
-            </label>
-            <div className="relative">
-              <select
-                value={batteryCage}
-                onChange={(e) => setBatteryCage(e.target.value)}
-                className="w-full h-8.5 px-3 pr-7 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] appearance-none"
-              >
-                <option value="">Select status</option>
-                <option value="Delivered">Delivered</option>
-                <option value="Installation Done">Installation Done</option>
-                <option value="Pending">Pending</option>
-                <option value="Not Required">Not Required</option>
-              </select>
-              <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-            </div>
-          </div>
-
-          {/* 7. Camera */}
-          <div>
-            <label className="block text-[11px] font-bold text-slate-700 mb-1">
-              Camera
-            </label>
-            <div className="relative">
-              <select
-                value={camera}
-                onChange={(e) => setCamera(e.target.value)}
-                className="w-full h-8.5 px-3 pr-7 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] appearance-none"
-              >
-                <option value="">Select status</option>
-                <option value="Delivered">Delivered</option>
-                <option value="Installation Pending">Installation Pending</option>
-                <option value="Installation Done">Installation Done</option>
-                <option value="Working / Live">Working / Live</option>
-                <option value="Pending">Pending</option>
-                <option value="Not Required">Not Required</option>
-              </select>
-              <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-            </div>
-          </div>
-
-          {/* 8. DVR */}
-          <div>
-            <label className="block text-[11px] font-bold text-slate-700 mb-1">
-              DVR
-            </label>
-            <div className="relative">
-              <select
-                value={dvr}
-                onChange={(e) => setDvr(e.target.value)}
-                className="w-full h-8.5 px-3 pr-7 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] appearance-none"
-              >
-                <option value="">Select status</option>
-                <option value="Delivered">Delivered</option>
-                <option value="Installation Pending">Installation Pending</option>
-                <option value="Installation Done">Installation Done</option>
-                <option value="Configured / Live">Configured / Live</option>
-                <option value="Pending">Pending</option>
-                <option value="Not Required">Not Required</option>
-              </select>
-              <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-            </div>
-          </div>
-
-          {/* 9. V-SAT / Router (Substitute) */}
-          <div>
-            <label className="block text-[11px] font-bold text-slate-700 mb-1">
-              V-SAT / Router (Substitute)
-            </label>
-            <div className="relative">
-              <select
-                value={vsat}
-                onChange={(e) => setVsat(e.target.value)}
-                className="w-full h-8.5 px-3 pr-7 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] appearance-none"
-              >
-                <option value="">Select status / option</option>
-                <option value="Delivered">Delivered</option>
-                <option value="Installation Pending">Installation Pending</option>
-                <option value="Installation Done">Installation Done</option>
-                <option value="Router (Substitute)">Router (Substitute)</option>
-                <option value="Router (Substitute) - Delivered">Router (Substitute) - Delivered</option>
-                <option value="Router (Substitute) - Installation Done">Router (Substitute) - Installation Done</option>
-                <option value="Pending">Pending</option>
-                <option value="Not Required">Not Required</option>
-              </select>
-              <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-            </div>
-          </div>
-
-          {/* 10. Router / Vsat - company name */}
-          <div>
-            <label className="block text-[11px] font-bold text-slate-700 mb-1">
-              Router / Vsat - Company Name
-            </label>
-            <input
-              type="text"
-              value={routerVsatCompany}
-              onChange={(e) => setRouterVsatCompany(e.target.value)}
-              placeholder="e.g. Nelco, Hughes, Airtel, Tata Teleservices, Jio"
-              className="w-full h-8.5 px-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] placeholder:text-slate-400"
-            />
-          </div>
+          {/* ATM Assets & Infrastructure – Photo Upload */}
+          <AtmAssetPhotoUpload
+            assetPhotos={assetPhotos}
+            onChange={setAssetPhotos}
+            statusValues={statusValues}
+          />
         </div>
       </div>
 
       {/* SECTION 3: Operational Status */}
       <div className="rounded-xl border border-slate-200 overflow-hidden shadow-sm bg-white">
-        <div className="bg-[#EAF3FD] px-4 py-3 border-b border-[#D5E5F8] flex items-center gap-2">
-          <PlayCircle size={18} className="text-[#0066FF]" />
-          <h2 className="text-[14px] font-bold text-[#0066FF]">3. Operational Status</h2>
+        <div className="bg-[#EAF3FD] px-4 py-3 border-b border-[#D5E5F8] flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <PlayCircle size={18} className="text-[#0066FF]" />
+            <h2 className="text-[14px] font-bold text-[#0066FF]">3. Operational Status</h2>
+          </div>
+          <span className="text-[11px] font-semibold text-slate-500 bg-white px-2.5 py-0.5 rounded-full border border-blue-200">
+            Go-Live Dates &amp; Projections
+          </span>
         </div>
 
         <div className="p-4 sm:p-5 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+          {/* Tech Live */}
           <div>
             <label className="block text-[11px] font-bold text-slate-700 mb-1">
               Tech Live
@@ -753,22 +865,23 @@ export default function SiteInstallationForm() {
             </div>
           </div>
 
+          {/* Tech Live Date */}
           <div>
             <label className="block text-[11px] font-bold text-slate-700 mb-1">
-              Projection Completion Date
+              Tech Live Date
             </label>
             <div className="relative">
               <Calendar size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none" />
               <input
                 type="date"
-                value={projectionDate}
-                onChange={(e) => setProjectionDate(e.target.value)}
-                placeholder="Select date"
+                value={techLiveDate}
+                onChange={(e) => setTechLiveDate(e.target.value)}
                 className="w-full h-8.5 pl-8 pr-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF]"
               />
             </div>
           </div>
 
+          {/* Cash Live */}
           <div>
             <label className="block text-[11px] font-bold text-slate-700 mb-1">
               Cash Live
@@ -785,6 +898,39 @@ export default function SiteInstallationForm() {
                 <option value="Scheduled">Scheduled</option>
               </select>
               <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            </div>
+          </div>
+
+          {/* Cash Live Date */}
+          <div>
+            <label className="block text-[11px] font-bold text-slate-700 mb-1">
+              Cash Live Date
+            </label>
+            <div className="relative">
+              <Calendar size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none" />
+              <input
+                type="date"
+                value={cashLiveDate}
+                onChange={(e) => setCashLiveDate(e.target.value)}
+                className="w-full h-8.5 pl-8 pr-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF]"
+              />
+            </div>
+          </div>
+
+          {/* Projection Completion Date */}
+          <div className="md:col-span-2">
+            <label className="block text-[11px] font-bold text-slate-700 mb-1">
+              Projection Completion Date
+            </label>
+            <div className="relative max-w-md">
+              <Calendar size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none" />
+              <input
+                type="date"
+                value={projectionDate}
+                onChange={(e) => setProjectionDate(e.target.value)}
+                placeholder="Select date"
+                className="w-full h-8.5 pl-8 pr-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF]"
+              />
             </div>
           </div>
         </div>

@@ -125,8 +125,9 @@ export function ProjectSheet({
   noun = 'records',
   footerLeft,
   footerRight,
+  children,
 }: {
-  tabs: { to: string; label: string; active: boolean }[]
+  tabs: { to: string; label: string; active: boolean; badge?: number | string; icon?: ReactNode }[]
   tabNote: string
   bands: number[]
   sheet: Sheet
@@ -143,61 +144,82 @@ export function ProjectSheet({
   noun?: string
   footerLeft?: ReactNode
   footerRight?: ReactNode
+  children?: ReactNode
 }) {
   const starts = PROJECT_BANDS.map((_, i) => PROJECT_BANDS.slice(0, i).reduce((n, b) => n + b.fields.length, 0))
   return (
     <section className="overflow-hidden rounded-xl border border-line bg-white">
-      <div className="flex flex-wrap items-center gap-x-6 border-b border-line px-4">
+      <div className="flex flex-wrap items-center gap-x-5 border-b border-line px-4">
         {tabs.map((t) => (
           <Link
             key={t.to}
             to={t.to}
-            className={cn('-mb-px border-b-2 py-3 text-[12px]', t.active ? 'border-primary font-semibold text-primary' : 'border-transparent text-muted hover:text-ink')}
+            className={cn(
+              '-mb-px inline-flex items-center gap-1.5 border-b-2 py-3 text-[12px] transition-colors',
+              t.active ? 'border-primary font-semibold text-primary' : 'border-transparent text-muted hover:text-ink'
+            )}
           >
-            {t.label}
+            {t.icon}
+            <span>{t.label}</span>
+            {t.badge !== undefined && (
+              <span
+                className={cn(
+                  'rounded-full px-1.5 py-0.5 text-[10.5px] font-medium leading-none',
+                  t.active ? 'bg-primary/10 text-primary' : 'bg-slate-100 text-muted'
+                )}
+              >
+                {t.badge}
+              </span>
+            )}
           </Link>
         ))}
         <span className="ml-auto py-3 text-[10.5px] text-muted">{tabNote}</span>
       </div>
 
-      {bands.map((bi, i) => {
-        const b = PROJECT_BANDS[bi]
-        return (
-          <div key={b.title}>
-            <div className={cn('flex flex-wrap items-center gap-x-2.5 gap-y-1 border-b border-line bg-primary-soft/60 px-3.5 py-2 text-[11px]', i > 0 && 'border-t')}>
-              <span className="font-semibold text-primary">{b.range}</span>
-              <span className="font-semibold text-ink">{b.title}</span>
-              <span className="text-[10.5px] text-muted">{b.sub}</span>
-              <span className="ml-auto text-[10.5px] text-muted">{bandNote}</span>
-            </div>
-            {i === 0 && <Toolbar sheet={sheet} title={title} models={models} onExport={onExport} />}
-            <BandGrid
-              fields={b.fields}
-              offset={starts[bi]}
-              first={bi === 0}
-              sheet={sheet}
-              rows={pagination ? sheet.visible : sheet.rows}
-              selectable={selectable}
-              editing={editing}
-              link={link}
-              onRowClick={onRowClick}
-              onCellChange={onCellChange}
-            />
-          </div>
-        )
-      })}
+      {children ? (
+        children
+      ) : (
+        <>
+          {bands.map((bi, i) => {
+            const b = PROJECT_BANDS[bi]
+            return (
+              <div key={b.title}>
+                <div className={cn('flex flex-wrap items-center gap-x-2.5 gap-y-1 border-b border-line bg-primary-soft/60 px-3.5 py-2 text-[11px]', i > 0 && 'border-t')}>
+                  <span className="font-semibold text-primary">{b.range}</span>
+                  <span className="font-semibold text-ink">{b.title}</span>
+                  <span className="text-[10.5px] text-muted">{b.sub}</span>
+                  <span className="ml-auto text-[10.5px] text-muted">{bandNote}</span>
+                </div>
+                {i === 0 && <Toolbar sheet={sheet} title={title} models={models} onExport={onExport} />}
+                <BandGrid
+                  fields={b.fields}
+                  offset={starts[bi]}
+                  first={bi === 0}
+                  sheet={sheet}
+                  rows={pagination ? sheet.visible : sheet.rows}
+                  selectable={selectable}
+                  editing={editing}
+                  link={link}
+                  onRowClick={onRowClick}
+                  onCellChange={onCellChange}
+                />
+              </div>
+            )
+          })}
 
-      {sheet.rows.length === 0 && <div className="border-b border-line px-6 py-12 text-center text-[13px] text-muted">No projects match this view.</div>}
-      {pagination && (
-        <div className="border-b border-line">
-          <Pagination page={sheet.page} pageSize={sheet.pageSize} total={sheet.rows.length} onPage={sheet.setPage} onPageSize={sheet.setPageSize} noun={noun} />
-        </div>
-      )}
-      {(footerLeft || footerRight) && (
-        <div className="flex flex-wrap items-center justify-between gap-2 bg-surface/60 px-3.5 py-2 text-[10.5px] text-muted">
-          <span>{footerLeft}</span>
-          <span className="text-primary">{footerRight}</span>
-        </div>
+          {sheet.rows.length === 0 && <div className="border-b border-line px-6 py-12 text-center text-[13px] text-muted">No projects match this view.</div>}
+          {pagination && (
+            <div className="border-b border-line">
+              <Pagination page={sheet.page} pageSize={sheet.pageSize} total={sheet.rows.length} onPage={sheet.setPage} onPageSize={sheet.setPageSize} noun={noun} />
+            </div>
+          )}
+          {(footerLeft || footerRight) && (
+            <div className="flex flex-wrap items-center justify-between gap-2 bg-surface/60 px-3.5 py-2 text-[10.5px] text-muted">
+              <span>{footerLeft}</span>
+              <span className="text-primary">{footerRight}</span>
+            </div>
+          )}
+        </>
       )}
     </section>
   )

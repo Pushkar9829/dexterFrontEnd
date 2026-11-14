@@ -433,6 +433,7 @@ export type NewTaskInput = {
   entityLabel?: string
   source?: string
   createdBy?: string
+  kind?: TaskKind
 }
 
 export function createTask(x: NewTaskInput): Task {
@@ -448,7 +449,7 @@ export function createTask(x: NewTaskInput): Task {
     status: x.assignee ? 'Assigned' : 'New',
     department: x.department,
     region: regionOf(x.entityId),
-    kind: 'Ad-hoc',
+    kind: x.kind ?? 'Ad-hoc',
     source: x.source ?? 'Manual',
     entityId: x.entityId || undefined,
     entityLabel: x.entityLabel || x.entityId || x.department,

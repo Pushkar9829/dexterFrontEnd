@@ -3,15 +3,23 @@ import { Link } from 'react-router-dom'
 import {
   Home,
   ChevronRight,
-  Calendar,
   Download,
   Search,
-  Filter,
   Plus,
-  AlertCircle,
   X,
   ArrowLeft,
-  Building2,
+  Banknote,
+  LayoutGrid,
+  CheckCircle2,
+  AlertTriangle,
+  ArrowUpRight,
+  Layers,
+  SlidersHorizontal,
+  RotateCcw,
+  Eye,
+  ChevronsLeft,
+  ChevronLeft,
+  ChevronsRight,
 } from 'lucide-react'
 import {
   cashLoadingOverviewStore,
@@ -21,25 +29,139 @@ import {
   SF_STATUS_OPTIONS,
   type SfMachineType,
 } from '@/data/cashLoadingOverview'
+import {
+  useCashLoadingRegister,
+  exportCashLoadingRegisterCsv,
+} from '@/data/cashLoadingRegisterStore'
 import { downloadCsv } from '@/lib/export'
 import { toast } from '@/components/ui/Toast'
 import { cn } from '@/lib/cn'
 
+const formatINR = (n: number | undefined) => {
+  if (n === undefined || isNaN(n)) return '—'
+  return '₹ ' + n.toLocaleString('en-IN')
+}
+
 export default function CashLoadingOverview() {
-  const rows = cashLoadingOverviewStore.use()
+  // ── Top Tab Switcher: 'register' (Overview of Register) vs 'sf-checklist' (SF Site Verification) ──
+  const [activeTab, setActiveTab] = useState<'register' | 'sf-checklist'>('register')
 
-  // Selected date in header
-  const [selectedDate, setSelectedDate] = useState('2026-11-03')
+  // ──────────────────────────────────────────────────────────────────────────
+  // 1. DATA FROM CASH LOADING REGISTER STORE
+  // ──────────────────────────────────────────────────────────────────────────
+  const { records: registerRecords } = useCashLoadingRegister()
 
-  // Search & Filters
+  // Register Filters state
   const [searchQuery, setSearchQuery] = useState('')
+  const [atmFilter, setAtmFilter] = useState('ALL')
+  const [varianceFilter, setVarianceFilter] = useState<'ALL' | 'VARIANCE_ONLY' | 'BALANCED_ONLY'>('ALL')
+  const [dateFilter, setDateFilter] = useState('ALL')
+
+  // Register Pagination
+  const [pageSize, setPageSize] = useState(15)
+  const [currentPage, setCurrentPage] = useState(1)
+
+  // ATM Options
+  const atmOptions = useMemo(() => {
+    const list = registerRecords.map((r) => r.atmId).filter(Boolean)
+    return ['ALL', ...Array.from(new Set(list)).sort()]
+  }, [registerRecords])
+
+  // Date Options
+  const dateOptions = useMemo(() => {
+    const list = registerRecords.map((r) => r.date).filter(Boolean)
+    return ['ALL', ...Array.from(new Set(list))]
+  }, [registerRecords])
+
+  // Filtered Register Records
+  const filteredRegisterRecords = useMemo(() => {
+    return registerRecords.filter((r) => {
+      if (atmFilter !== 'ALL' && r.atmId !== atmFilter) return false
+      if (dateFilter !== 'ALL' && r.date !== dateFilter) return false
+      const hasVariance = r.overage > 0 || r.shortage > 0 || r.purgeBin > 0 || r.closingBalance !== r.switchBalance
+      if (varianceFilter === 'VARIANCE_ONLY' && !hasVariance) return false
+      if (varianceFilter === 'BALANCED_ONLY' && hasVariance) return false
+
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase()
+        const matchAtm = r.atmId.toLowerCase().includes(q)
+        const matchIndent = r.indentNo.toLowerCase().includes(q)
+        const matchMf = r.mfName.toLowerCase().includes(q)
+        const matchRemarks = r.remarks.toLowerCase().includes(q)
+        if (!matchAtm && !matchIndent && !matchMf && !matchRemarks) return false
+      }
+      return true
+    })
+  }, [registerRecords, atmFilter, dateFilter, varianceFilter, searchQuery])
+
+  // Executive Totals & KPIs calculated from Register
+  const metrics = useMemo(() => {
+    const totalLoading = registerRecords.reduce((s, r) => s + (r.loading || 0), 0)
+    const totalDispense = registerRecords.reduce((s, r) => s + (r.dispense || 0), 0)
+    const totalPhysical = registerRecords.reduce((s, r) => s + (r.physicalCash || 0), 0)
+    const totalClosing = registerRecords.reduce((s, r) => s + (r.closingBalance || 0), 0)
+    const totalOpening = registerRecords.reduce((s, r) => s + (r.openingBalance || 0), 0)
+    const totalPurge = registerRecords.reduce((s, r) => s + (r.purgeBin || 0), 0)
+    const totalOverage = registerRecords.reduce((s, r) => s + (r.overage || 0), 0)
+    const totalShortage = registerRecords.reduce((s, r) => s + (r.shortage || 0), 0)
+
+    const varianceCount = registerRecords.filter(
+      (r) => r.overage > 0 || r.shortage > 0 || r.purgeBin > 0 || r.closingBalance !== r.switchBalance,
+    ).length
+
+    const balancedCount = registerRecords.length - varianceCount
+    const avgLoad = registerRecords.length > 0 ? Math.round(totalLoading / registerRecords.length) : 0
+
+    return {
+      totalLoading,
+      totalDispense,
+      totalPhysical,
+      totalClosing,
+      totalOpening,
+      totalPurge,
+      totalOverage,
+      totalShortage,
+      varianceCount,
+      balancedCount,
+      avgLoad,
+      totalCycles: registerRecords.length,
+    }
+  }, [registerRecords])
+
+  // Register Pagination slices
+  const totalRegisterRows = filteredRegisterRecords.length
+  const totalRegisterPages = Math.max(1, Math.ceil(totalRegisterRows / pageSize))
+  const safePage = Math.min(currentPage, totalRegisterPages)
+  const startIndex = (safePage - 1) * pageSize
+  const endIndex = Math.min(startIndex + pageSize, totalRegisterRows)
+  const paginatedRegisterRecords = filteredRegisterRecords.slice(startIndex, endIndex)
+
+  const handleResetRegisterFilters = () => {
+    setSearchQuery('')
+    setAtmFilter('ALL')
+    setDateFilter('ALL')
+    setVarianceFilter('ALL')
+    setCurrentPage(1)
+    toast('Filters reset to default', 'info')
+  }
+
+  const handleExportRegisterCsv = () => {
+    exportCashLoadingRegisterCsv(
+      filteredRegisterRecords,
+      `cash-loading-register-overview-${new Date().toISOString().slice(0, 10)}`,
+    )
+    toast('Exported Cash Loading Register Overview to CSV', 'success')
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // 2. DATA FROM SF OVERVIEW CHECKLIST STORE (Preserved Tab)
+  // ──────────────────────────────────────────────────────────────────────────
+  const sfRows = cashLoadingOverviewStore.use()
+  const [selectedDate, setSelectedDate] = useState('2026-11-03')
+  const [sfSearch, setSfSearch] = useState('')
   const [machineFilter, setMachineFilter] = useState<'ALL' | SfMachineType>('ALL')
   const [statusFilter, setStatusFilter] = useState('ALL')
 
-  // Editing dates inline
-  const [editingDateCell, setEditingDateCell] = useState<{ id: string; field: 'cbrDate' | 'counterDate' } | null>(null)
-
-  // Add Record Modal
   const [showAddModal, setShowAddModal] = useState(false)
   const [newRowData, setNewRowData] = useState({
     spoc: 'Harsh',
@@ -52,16 +174,15 @@ export default function CashLoadingOverview() {
     date: '2026-11-03',
   })
 
-  // Filtered rows
-  const filteredRows = useMemo(() => {
-    return rows.filter((r) => {
+  const filteredSfRows = useMemo(() => {
+    return sfRows.filter((r) => {
       if (machineFilter !== 'ALL' && r.machineType !== machineFilter) return false
       if (statusFilter !== 'ALL') {
         if (statusFilter === 'EMPTY' && r.status) return false
         if (statusFilter !== 'EMPTY' && r.status !== statusFilter) return false
       }
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase()
+      if (sfSearch.trim()) {
+        const q = sfSearch.toLowerCase()
         const matchAtm = r.atmId.toLowerCase().includes(q)
         const matchFr = r.franchiseeName.toLowerCase().includes(q)
         const matchSpoc = r.spoc.toLowerCase().includes(q)
@@ -71,21 +192,9 @@ export default function CashLoadingOverview() {
       }
       return true
     })
-  }, [rows, searchQuery, machineFilter, statusFilter])
+  }, [sfRows, sfSearch, machineFilter, statusFilter])
 
-  // Statistics
-  const totalCount = rows.length
-  const emailDoneCount = rows.filter((r) => r.status === 'Email Done').length
-  const pendingCount = rows.filter(
-    (r) =>
-      r.status === 'Discussion Pending at FR End' ||
-      r.status === 'Counter Not Received' ||
-      r.status === 'FR Wrong Feeding' ||
-      r.status === 'Email Not Done but CBR Updated'
-  ).length
-
-  // Export CSV
-  const handleExportCsv = () => {
+  const handleExportSfCsv = () => {
     const headers = [
       'S.N.',
       'SPOC',
@@ -96,7 +205,7 @@ export default function CashLoadingOverview() {
       'Counter Last Update',
       'Status',
     ]
-    const dataRows = filteredRows.map((r) => [
+    const dataRows = filteredSfRows.map((r) => [
       String(r.sn),
       r.spoc,
       r.machineType,
@@ -106,35 +215,10 @@ export default function CashLoadingOverview() {
       r.counterDate,
       r.status || 'Select',
     ])
-    downloadCsv(`Cash_Loading_Overview_SF_${selectedDate}`, headers, dataRows)
-    toast('Exported Cash Loading Overview to CSV', 'success')
+    downloadCsv(`Cash_Loading_SF_Checklist_${selectedDate}`, headers, dataRows)
+    toast('Exported SF Checklist to CSV', 'success')
   }
 
-  // Update Status
-  const handleStatusChange = (id: string, newStatus: string) => {
-    updateOverviewRow(id, { status: newStatus === 'Select' ? '' : newStatus })
-    toast('Status updated', 'info')
-  }
-
-  // Update Machine Type
-  const handleMachineTypeChange = (id: string, newType: SfMachineType) => {
-    updateOverviewRow(id, { machineType: newType })
-    toast('Machine Type updated', 'info')
-  }
-
-  // Save inline date
-  const handleSaveDate = (id: string, field: 'cbrDate' | 'counterDate', rawDate: string) => {
-    let formatted = rawDate
-    if (/^\d{4}-\d{2}-\d{2}$/.test(rawDate)) {
-      const [y, m, d] = rawDate.split('-')
-      formatted = `${d}.${m}.${y}`
-    }
-    updateOverviewRow(id, { [field]: formatted })
-    setEditingDateCell(null)
-    toast('Date updated', 'info')
-  }
-
-  // Handle Add Row
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!newRowData.atmId.trim() || !newRowData.franchiseeName.trim()) {
@@ -151,7 +235,7 @@ export default function CashLoadingOverview() {
       status: newRowData.status,
       date: selectedDate,
     })
-    toast('Added new Cash Loading Overview record', 'success')
+    toast('Added new Cash Loading record to SF Checklist', 'success')
     setShowAddModal(false)
     setNewRowData({
       spoc: 'Harsh',
@@ -165,409 +249,677 @@ export default function CashLoadingOverview() {
     })
   }
 
-  // Format YYYY-MM-DD to DD-MM-YYYY
-  const formattedHeaderDate = useMemo(() => {
-    if (!selectedDate) return '03-11-2026'
-    if (/^\d{4}-\d{2}-\d{2}$/.test(selectedDate)) {
-      const [y, m, d] = selectedDate.split('-')
-      return `${d}-${m}-${y}`
-    }
-    return selectedDate
-  }, [selectedDate])
-
   return (
-    <div className="space-y-4 pb-16 font-sans max-w-[1440px] mx-auto min-w-0">
-      {/* ── 1. Top Breadcrumbs ────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-[12px] text-[#64748B]">
+    <div className="w-full min-w-0 pb-16 font-sans space-y-5">
+      {/* ── Breadcrumb Navigation ── */}
+      <div className="flex flex-wrap items-center justify-between gap-3 text-[12px] text-slate-500">
+        <nav aria-label="Breadcrumb" className="flex items-center gap-1.5">
           <Link
             to="/dashboard"
             className="flex items-center gap-1 text-[#0066FF] hover:text-[#0052CC] transition-colors"
             title="Home"
           >
-            <Home size={14} />
+            <Home size={14} className="text-slate-400" />
             <span>Workspace</span>
           </Link>
-          <ChevronRight size={13} className="shrink-0 text-[#94A3B8]" />
-          <Link to="/operations" className="hover:text-[#1E293B] transition-colors">
+          <ChevronRight size={12} className="text-slate-400" />
+          <Link to="/operations" className="hover:text-slate-800 transition-colors">
             Operations
           </Link>
-          <ChevronRight size={13} className="shrink-0 text-[#94A3B8]" />
-          <Link to="/operations/cash-loading" className="hover:text-[#1E293B] transition-colors">
-            Cash Loading Register
+          <ChevronRight size={12} className="text-slate-400" />
+          <Link to="/operations/cash-loading" className="hover:text-slate-800 transition-colors">
+            Cash Loading
           </Link>
-          <ChevronRight size={13} className="shrink-0 text-[#94A3B8]" />
-          <span className="font-semibold text-[#0F172A]">Overview</span>
+          <ChevronRight size={12} className="text-slate-400" />
+          <span className="font-semibold text-slate-900">Overview</span>
         </nav>
 
-        {/* Back Link */}
         <Link
           to="/operations/cash-loading"
-          className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-[12px] font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition-colors"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[12px] font-semibold text-slate-700 hover:bg-slate-50 shadow-2xs transition-colors"
         >
           <ArrowLeft size={13} />
           <span>Back to Cash Loading Hub</span>
         </Link>
       </div>
 
-      {/* ── 2. Top Header matching image reference ────────────────────── */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-2xs">
-        {/* Left: SF Badge, System Generated Report tag, and title */}
-        <div className="flex items-start sm:items-center gap-3.5">
-          {/* Yellow SF Badge */}
-          <div className="flex h-11 w-14 shrink-0 items-center justify-center rounded-lg bg-[#FACC15] text-[#713F12] font-black text-[15px] border border-yellow-400 shadow-xs tracking-wider">
-            SF
+      {/* ── Page Header Banner + Top Switcher + Action Buttons ── */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs">
+        <div className="flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-2xl bg-[#0066FF] flex items-center justify-center text-white shadow-md shadow-blue-500/20 shrink-0">
+            <Banknote size={24} />
           </div>
-
           <div>
-            <div className="flex items-center gap-2">
-              <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
-                System Generated Report
-              </span>
-            </div>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#0F172A] mt-0.5">
-              Cash Loading Overview
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 leading-tight mt-0.5">
+              Cash Loading Register Overview
             </h1>
-            <p className="text-[12.5px] text-[#64748B]">
-              Daily machine type, CBR update, and counter status across Self Funding (SF) sites.
+            <p className="text-[12.5px] text-slate-500 mt-0.5">
+              Consolidated replenishment metrics, terminal vault balances, dispense totals, and register overview.
             </p>
           </div>
         </div>
 
-        {/* Right: Date Badge (03-11-2026) in Deep Navy Blue */}
-        <div className="flex items-center gap-2.5">
-          <label
-            htmlFor="sf-date-picker"
-            className="flex items-center gap-2 rounded-xl bg-[#0B2546] px-4 py-2 text-[13px] font-bold text-white shadow-sm cursor-pointer hover:bg-[#133560] transition-colors"
-            title="Click to change report date"
-          >
-            <Calendar size={15} className="text-blue-300 shrink-0" />
-            <span>{formattedHeaderDate}</span>
-          </label>
-          <input
-            id="sf-date-picker"
-            type="date"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            className="sr-only"
-          />
-
-          <button
-            type="button"
-            onClick={handleExportCsv}
-            className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-[12px] font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition-colors"
-          >
-            <Download size={14} className="text-[#0066FF]" />
-            <span>Export CSV</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowAddModal(true)}
-            className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-[#0066FF] px-3.5 text-[12px] font-semibold text-white shadow-xs hover:bg-[#0052CC] transition-colors"
-          >
-            <Plus size={14} />
-            <span>Add Row</span>
-          </button>
-        </div>
-      </div>
-
-      {/* ── 3. Filters & Search Bar ──────────────────────────────────── */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-2xs">
-        {/* Search */}
-        <div className="relative flex-1 min-w-[240px] max-w-md">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search ATM ID, SPOC, Franchisee..."
-            className="h-9 w-full rounded-xl border border-slate-200 bg-slate-50/60 pl-9 pr-8 text-[12.5px] text-slate-800 placeholder:text-slate-400 focus:border-[#0066FF] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0066FF]"
-          />
-          {searchQuery && (
+        {/* Tab Switcher & Quick Navigation */}
+        <div className="flex flex-wrap items-center gap-2.5 self-start lg:self-auto">
+          {/* Two-Tab Switcher */}
+          <div className="flex items-center gap-1 rounded-xl border border-blue-200 bg-blue-50/70 p-1 shadow-2xs">
             <button
               type="button"
-              onClick={() => setSearchQuery('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              onClick={() => setActiveTab('register')}
+              className={cn(
+                'flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[12.5px] font-bold transition-all cursor-pointer',
+                activeTab === 'register'
+                  ? 'bg-[#0066FF] text-white shadow-xs'
+                  : 'text-[#0066FF] hover:bg-white/80',
+              )}
             >
-              <X size={14} />
+              <LayoutGrid size={14} />
+              <span>Register Overview</span>
             </button>
-          )}
-        </div>
-
-        {/* Dropdown Filters & KPI chips */}
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Machine Type Filter */}
-          <div className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1 text-[12px] text-slate-700 shadow-2xs">
-            <Building2 size={13} className="text-[#0066FF]" />
-            <span className="font-medium text-slate-500">Machine:</span>
-            <select
-              value={machineFilter}
-              onChange={(e) => setMachineFilter(e.target.value as 'ALL' | SfMachineType)}
-              className="bg-transparent font-semibold text-slate-800 focus:outline-none text-[12px]"
-            >
-              <option value="ALL">All Machines</option>
-              {SF_MACHINE_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
           </div>
 
-          {/* Status Filter */}
-          <div className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1 text-[12px] text-slate-700 shadow-2xs">
-            <Filter size={13} className="text-[#0066FF]" />
-            <span className="font-medium text-slate-500">Status:</span>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="bg-transparent font-semibold text-slate-800 focus:outline-none text-[12px]"
-            >
-              <option value="ALL">All Statuses ({rows.length})</option>
-              <option value="Email Done">Email Done ({emailDoneCount})</option>
-              <option value="Email Not Done but CBR Updated">Email Not Done but CBR Updated</option>
-              <option value="FR Wrong Feeding">FR Wrong Feeding</option>
-              <option value="Counter Not Received">Counter Not Received</option>
-              <option value="Discussion Pending at FR End">Discussion Pending</option>
-              <option value="Manually can add by setup">Manual Setup</option>
-              <option value="EMPTY">Unselected</option>
-            </select>
-          </div>
-
-          {/* KPI Chips */}
-          <div className="hidden lg:flex items-center gap-2 text-[11.5px]">
-            <span className="rounded-lg bg-blue-50 border border-blue-200 px-2.5 py-1 font-semibold text-blue-700">
-              Total Sites: {totalCount}
-            </span>
-            <span className="rounded-lg bg-emerald-50 border border-emerald-200 px-2.5 py-1 font-semibold text-emerald-700">
-              Email Done: {emailDoneCount}
-            </span>
-            <span className="rounded-lg bg-amber-50 border border-amber-200 px-2.5 py-1 font-semibold text-amber-700">
-              Action Pending: {pendingCount}
-            </span>
-          </div>
+          {/* Action to open the full Register */}
         </div>
       </div>
 
-      {/* ── 4. Main Data Table matching screenshot ────────────────────── */}
-      <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xs transition-shadow hover:shadow-sm">
-        {/* Table Container */}
-        <div className="overflow-x-auto rounded-xl border border-[#0B2546]/30 shadow-xs">
-          <table className="w-full min-w-[1040px] border-collapse text-[13px]">
-            {/* Deep Navy Blue Header Row */}
-            <thead>
-              <tr className="bg-[#0B2546] text-white">
-                <th className="py-3 px-3 text-center font-bold uppercase tracking-wider text-[12px] border-r border-[#153A68] w-14">
-                  S.N.
-                </th>
-                <th className="py-3 px-3 text-center font-bold uppercase tracking-wider text-[12px] border-r border-[#153A68] w-24">
-                  SPOC
-                </th>
-                <th className="py-3 px-3 text-center font-bold uppercase tracking-wider text-[12px] border-r border-[#153A68] w-28">
-                  Machine Type
-                </th>
-                <th className="py-3 px-3 text-center font-bold uppercase tracking-wider text-[12px] border-r border-[#153A68] w-36">
-                  ATM ID
-                </th>
-                <th className="py-3 px-4 text-center font-bold uppercase tracking-wider text-[12px] border-r border-[#153A68]">
-                  Franchisee Name
-                </th>
-                <th className="py-3 px-3 text-center font-bold uppercase tracking-wider text-[12px] border-r border-[#153A68] w-40">
-                  CBR Last Update
-                </th>
-                <th className="py-3 px-3 text-center font-bold uppercase tracking-wider text-[12px] border-r border-[#153A68] w-40">
-                  Counter Last Update
-                </th>
-                <th className="py-3 px-3 text-center font-bold uppercase tracking-wider text-[12px] w-64">
-                  Status
-                </th>
-              </tr>
-            </thead>
+      {/* ─────────────────────────────────────────────────────────────────── */}
+      {/* TAB 1: REGISTER OVERVIEW & ANALYTICS                                 */}
+      {/* ─────────────────────────────────────────────────────────────────── */}
+      {activeTab === 'register' && (
+        <div className="space-y-5">
+          {/* ── 1. Top Executive Metric Cards Grid (5 Cards) ── */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+            {/* 1. Total Cash Loaded */}
+            <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50/70 via-white to-white p-4 shadow-2xs">
+              <div className="flex items-center justify-between text-blue-600 mb-1.5">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600">Total Cash Loaded</span>
+                <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600">
+                  <Banknote size={15} />
+                </div>
+              </div>
+              <div className="text-[21px] font-black tracking-tight text-slate-900 leading-tight">
+                {formatINR(metrics.totalLoading)}
+              </div>
+              <div className="mt-1 text-[11px] text-slate-500 font-medium">
+                Across {metrics.totalCycles} verified loading cycles
+              </div>
+            </div>
 
-            {/* Table Body */}
-            <tbody className="divide-y divide-slate-200">
-              {filteredRows.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="py-12 text-center text-slate-400">
-                    <AlertCircle size={28} className="mx-auto mb-2 text-slate-300" />
-                    <p className="font-medium text-slate-600">No matching records found</p>
-                    <p className="text-[12px] text-slate-400 mt-0.5">Try adjusting your search query or filters</p>
-                  </td>
-                </tr>
-              ) : (
-                filteredRows.map((row) => {
-                  const isEven = row.sn % 2 === 0
-                  return (
-                    <tr
-                      key={row.id}
-                      className={cn(
-                        'transition-colors hover:bg-blue-50/50',
-                        isEven ? 'bg-[#F9FBFE]' : 'bg-white'
-                      )}
-                    >
-                      {/* S.N. */}
-                      <td className="py-2.5 px-3 text-center font-semibold text-slate-700 border-r border-slate-200">
-                        {row.sn}
+            {/* 2. Customer Dispense */}
+            <div className="rounded-2xl border border-amber-100 bg-gradient-to-br from-amber-50/70 via-white to-white p-4 shadow-2xs">
+              <div className="flex items-center justify-between text-amber-600 mb-1.5">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600">Total Dispensed</span>
+                <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center text-amber-600">
+                  <ArrowUpRight size={15} />
+                </div>
+              </div>
+              <div className="text-[21px] font-black tracking-tight text-slate-900 leading-tight">
+                {formatINR(metrics.totalDispense)}
+              </div>
+              <div className="mt-1 text-[11px] text-slate-500 font-medium">
+                Customer ATM cash withdrawals
+              </div>
+            </div>
+
+            {/* 3. Physical Cash Before Loading */}
+            <div className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50/70 via-white to-white p-4 shadow-2xs">
+              <div className="flex items-center justify-between text-emerald-600 mb-1.5">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600">Physical Cash Verified</span>
+                <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600">
+                  <CheckCircle2 size={15} />
+                </div>
+              </div>
+              <div className="text-[21px] font-black tracking-tight text-slate-900 leading-tight">
+                {formatINR(metrics.totalPhysical)}
+              </div>
+              <div className="mt-1 text-[11px] text-slate-500 font-medium">
+                Counted in machine before replenishment
+              </div>
+            </div>
+
+            {/* 4. Terminal Closing Balance */}
+            <div className="rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50/70 via-white to-white p-4 shadow-2xs">
+              <div className="flex items-center justify-between text-indigo-600 mb-1.5">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600">Net Closing Balance</span>
+                <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600">
+                  <Layers size={15} />
+                </div>
+              </div>
+              <div className="text-[21px] font-black tracking-tight text-slate-900 leading-tight">
+                {formatINR(metrics.totalClosing)}
+              </div>
+              <div className="mt-1 text-[11px] text-slate-500 font-medium">
+                Current total terminal vault cash
+              </div>
+            </div>
+
+            {/* 5. Reconciliation & Discrepancies */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs">
+              <div className="flex items-center justify-between text-slate-600 mb-1.5">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600">Reconciliation Health</span>
+                <div className={cn(
+                  'w-7 h-7 rounded-lg flex items-center justify-center',
+                  metrics.varianceCount > 0 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
+                )}>
+                  {metrics.varianceCount > 0 ? <AlertTriangle size={15} /> : <CheckCircle2 size={15} />}
+                </div>
+              </div>
+              <div className="text-[21px] font-black tracking-tight text-slate-900 leading-tight">
+                {metrics.balancedCount} / {metrics.totalCycles}
+              </div>
+              <div className="mt-1 text-[11px] text-slate-500 font-medium">
+                {metrics.varianceCount > 0
+                  ? `${metrics.varianceCount} record(s) flagged with variance`
+                  : 'All switch balances verified 100%'}
+              </div>
+            </div>
+          </div>
+
+          {/* ── 2. Cash Flow Dynamics & Audit Summary Banner ── */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-5">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <SlidersHorizontal size={16} className="text-[#0066FF]" />
+                <h3 className="text-[14px] font-bold text-slate-900">
+                  Register Cash Flow Dynamics &amp; Audit Equation
+                </h3>
+              </div>
+              <span className="text-[11px] text-slate-500 font-medium">
+                Audit Equation: [Opening + Loading - Dispense + Overage - Shortage - Purge = Closing]
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4">
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                <div className="text-[11px] font-semibold text-slate-500 uppercase">Initial Opening</div>
+                <div className="text-[16px] font-bold text-slate-800 mt-0.5">{formatINR(metrics.totalOpening)}</div>
+                <div className="text-[10.5px] text-slate-400 mt-0.5">Aggregate opening vault cash</div>
+              </div>
+              <div className="p-3 rounded-xl bg-blue-50/70 border border-blue-100">
+                <div className="text-[11px] font-semibold text-[#0066FF] uppercase">+ Fresh Cash Loading</div>
+                <div className="text-[16px] font-bold text-[#0066FF] mt-0.5">{formatINR(metrics.totalLoading)}</div>
+                <div className="text-[10.5px] text-blue-500 mt-0.5">Average: {formatINR(metrics.avgLoad)} / cycle</div>
+              </div>
+              <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-100">
+                <div className="text-[11px] font-semibold text-amber-700 uppercase">- ATM Cash Dispense</div>
+                <div className="text-[16px] font-bold text-amber-700 mt-0.5">{formatINR(metrics.totalDispense)}</div>
+                <div className="text-[10.5px] text-amber-600 mt-0.5">Total customer cash out</div>
+              </div>
+              <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-100">
+                <div className="text-[11px] font-semibold text-emerald-700 uppercase">= Terminal Closing Vault</div>
+                <div className="text-[16px] font-bold text-emerald-700 mt-0.5">{formatINR(metrics.totalClosing)}</div>
+                <div className="text-[10.5px] text-emerald-600 mt-0.5">
+                  Purge bin: {formatINR(metrics.totalPurge)} · Net overage: {formatINR(metrics.totalOverage)}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ── 3. Filters & Search Bar for Register Overview ── */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-4 sm:p-5">
+            <div className="flex flex-col lg:flex-row lg:items-end gap-3.5 justify-between">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 flex-1">
+                {/* Search */}
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                    Search Register
+                  </label>
+                  <div className="relative">
+                    <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => {
+                        setSearchQuery(e.target.value)
+                        setCurrentPage(1)
+                      }}
+                      placeholder="Search ATM ID, Indent, MF..."
+                      className="w-full h-8.5 pl-8 pr-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]"
+                    />
+                  </div>
+                </div>
+
+                {/* ATM Filter */}
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">ATM ID</label>
+                  <select
+                    value={atmFilter}
+                    onChange={(e) => {
+                      setAtmFilter(e.target.value)
+                      setCurrentPage(1)
+                    }}
+                    className="w-full h-8.5 px-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] cursor-pointer"
+                  >
+                    <option value="ALL">All ATM Terminals</option>
+                    {atmOptions.filter((a) => a !== 'ALL').map((atm) => (
+                      <option key={atm} value={atm}>{atm}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Date Filter */}
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Date</label>
+                  <select
+                    value={dateFilter}
+                    onChange={(e) => {
+                      setDateFilter(e.target.value)
+                      setCurrentPage(1)
+                    }}
+                    className="w-full h-8.5 px-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] cursor-pointer"
+                  >
+                    <option value="ALL">All Recorded Dates</option>
+                    {dateOptions.filter((d) => d !== 'ALL').map((d) => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Discrepancy / Variance Filter */}
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Audit Status</label>
+                  <select
+                    value={varianceFilter}
+                    onChange={(e) => {
+                      setVarianceFilter(e.target.value as any)
+                      setCurrentPage(1)
+                    }}
+                    className="w-full h-8.5 px-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] cursor-pointer"
+                  >
+                    <option value="ALL">All Loading Entries</option>
+                    <option value="VARIANCE_ONLY">Flagged Discrepancies Only</option>
+                    <option value="BALANCED_ONLY">Balanced &amp; Matched Only</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-2 self-start lg:self-end pt-1">
+                <button
+                  type="button"
+                  onClick={handleExportRegisterCsv}
+                  className="inline-flex items-center gap-1.5 h-8.5 px-3.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[12px] font-medium transition-colors shadow-2xs cursor-pointer"
+                >
+                  <Download size={13} className="text-[#0066FF]" />
+                  <span>Download CSV</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResetRegisterFilters}
+                  className="inline-flex items-center gap-1.5 h-8.5 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[12px] font-medium transition-colors shadow-2xs cursor-pointer"
+                >
+                  <RotateCcw size={13} />
+                  <span>Reset</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* ── 4. Consolidated Cash Loading Register Overview Table ── */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
+            {/* Table Header */}
+            <div className="px-5 py-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-[#0066FF] flex items-center justify-center text-white shrink-0 shadow-xs">
+                  <LayoutGrid size={16} />
+                </div>
+                <div>
+                  <h3 className="text-[14.5px] font-bold text-slate-900 leading-tight">
+                    Consolidated Register Loading Transactions
+                  </h3>
+                  <p className="text-[11.5px] text-slate-500">
+                    Direct overview from Cash Loading Register database
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <span className="text-[12.5px] text-slate-600 font-medium">
+                  Total Records: <strong className="text-slate-900 font-bold">{totalRegisterRows}</strong>
+                </span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value))
+                    setCurrentPage(1)
+                  }}
+                  className="h-8 px-2.5 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-700 font-medium outline-none focus:border-[#0066FF] cursor-pointer"
+                >
+                  <option value={10}>10 per page</option>
+                  <option value={15}>15 per page</option>
+                  <option value={30}>30 per page</option>
+                  <option value={50}>50 per page</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-left min-w-[1300px]">
+                <thead>
+                  <tr className="bg-slate-50 text-slate-700 font-bold text-[11px] uppercase tracking-wider border-b border-slate-200">
+                    <th className="py-3 px-3 text-center w-[55px]">S.N.</th>
+                    <th className="py-3 px-3 text-center w-[105px]">Date &amp; Time</th>
+                    <th className="py-3 px-3 text-center w-[110px]">ATM ID</th>
+                    <th className="py-3 px-3 text-left w-[130px]">Indent No</th>
+                    <th className="py-3 px-3 text-left w-[150px]">MF / Franchise</th>
+                    <th className="py-3 px-3 text-right w-[125px]">Opening (₹)</th>
+                    <th className="py-3 px-3 text-right w-[115px]">Dispense (₹)</th>
+                    <th className="py-3 px-3 text-right w-[130px] text-[#0066FF] bg-blue-50/50">Cash Loaded (₹)</th>
+                    <th className="py-3 px-3 text-right w-[120px]">Physical (₹)</th>
+                    <th className="py-3 px-3 text-right w-[125px]">Closing (₹)</th>
+                    <th className="py-3 px-3 text-right w-[125px]">Switch (₹)</th>
+                    <th className="py-3 px-3 text-center w-[130px]">Status</th>
+                    <th className="py-3 px-3 text-center w-[85px]">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-[12px] text-slate-800">
+                  {paginatedRegisterRecords.length > 0 ? (
+                    paginatedRegisterRecords.map((r, idx) => {
+                      const sn = startIndex + idx + 1
+                      const isBalanced = r.closingBalance === r.switchBalance && r.overage === 0 && r.shortage === 0
+                      const hasOverage = r.overage > 0
+                      const hasShortage = r.shortage > 0
+
+                      return (
+                        <tr key={r.no} className="hover:bg-blue-50/30 transition-colors">
+                          <td className="py-2.5 px-3 text-center font-semibold text-slate-500">
+                            {sn}
+                          </td>
+                          <td className="py-2.5 px-3 text-center text-slate-600 font-medium whitespace-nowrap">
+                            <div>{r.date}</div>
+                            <div className="text-[10px] text-slate-400">{r.eodTime}</div>
+                          </td>
+                          <td className="py-2.5 px-3 text-center font-mono font-bold text-[#0066FF]">
+                            {r.atmId}
+                          </td>
+                          <td className="py-2.5 px-3 font-mono text-[11px] text-slate-700">
+                            {r.indentNo}
+                          </td>
+                          <td className="py-2.5 px-3 font-medium text-slate-800 truncate max-w-[150px]" title={r.mfName}>
+                            {r.mfName}
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-medium text-slate-700">
+                            {r.openingBalance.toLocaleString('en-IN')}
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-medium text-amber-700">
+                            {r.dispense.toLocaleString('en-IN')}
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-bold text-[#0066FF] bg-blue-50/30">
+                            {r.loading.toLocaleString('en-IN')}
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-medium text-slate-700">
+                            {r.physicalCash.toLocaleString('en-IN')}
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-bold text-slate-900">
+                            {r.closingBalance.toLocaleString('en-IN')}
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-medium text-slate-600">
+                            {r.switchBalance.toLocaleString('en-IN')}
+                          </td>
+                          <td className="py-2.5 px-3 text-center">
+                            {hasOverage ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10.5px] font-bold">
+                                +{r.overage.toLocaleString('en-IN')} Overage
+                              </span>
+                            ) : hasShortage ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-red-50 text-red-700 border border-red-200 text-[10.5px] font-bold">
+                                -{r.shortage.toLocaleString('en-IN')} Shortage
+                              </span>
+                            ) : isBalanced ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[10.5px] font-medium">
+                                Balanced
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 text-[10.5px] font-bold">
+                                Flagged
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-2.5 px-3 text-center">
+                            <Link
+                              to={`/operations/cash-loading/register`}
+                              className="p-1 rounded-md text-[#0066FF] hover:bg-blue-100/70 transition-colors inline-flex items-center justify-center"
+                              title="View in Register"
+                            >
+                              <Eye size={14} />
+                            </Link>
+                          </td>
+                        </tr>
+                      )
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan={13} className="py-8 text-center text-slate-400">
+                        No cash loading records found matching your filters.
                       </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
 
-                      {/* SPOC */}
-                      <td className="py-2.5 px-3 text-center text-slate-700 font-medium border-r border-slate-200">
-                        {row.spoc}
-                      </td>
+            {/* Pagination footer */}
+            <div className="px-5 py-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-t border-slate-100 text-[12px] text-slate-600 bg-white">
+              <div>
+                Showing <strong className="text-slate-900 font-semibold">{totalRegisterRows > 0 ? startIndex + 1 : 1}</strong> to{' '}
+                <strong className="text-slate-900 font-semibold">{totalRegisterRows > 0 ? endIndex : 0}</strong> of{' '}
+                <strong className="text-slate-900 font-semibold">{totalRegisterRows}</strong> records
+              </div>
 
-                      {/* Machine Type */}
-                      <td className="py-2.5 px-3 text-center border-r border-slate-200">
+              <div className="flex items-center gap-1 self-center sm:self-auto">
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage(1)}
+                  disabled={safePage === 1}
+                  className="p-1.5 rounded-md border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                  title="First page"
+                >
+                  <ChevronsLeft size={14} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={safePage === 1}
+                  className="p-1.5 rounded-md border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                  title="Previous page"
+                >
+                  <ChevronLeft size={14} />
+                </button>
+
+                {Array.from({ length: totalRegisterPages }, (_, i) => i + 1)
+                  .filter((p) => p === 1 || p === totalRegisterPages || Math.abs(p - safePage) <= 1)
+                  .map((p, idx, arr) => {
+                    const prev = arr[idx - 1]
+                    const isGap = prev && p - prev > 1
+                    return (
+                      <span key={p} className="flex items-center">
+                        {isGap && <span className="px-1 text-slate-400">…</span>}
+                        <button
+                          type="button"
+                          onClick={() => setCurrentPage(p)}
+                          className={`min-w-8 h-8 px-2 rounded-lg text-[12px] font-semibold transition-all cursor-pointer ${safePage === p
+                            ? 'bg-[#0066FF] text-white shadow-xs'
+                            : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                            }`}
+                        >
+                          {p}
+                        </button>
+                      </span>
+                    )
+                  })}
+
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((p) => Math.min(totalRegisterPages, p + 1))}
+                  disabled={safePage === totalRegisterPages || totalRegisterRows === 0}
+                  className="p-1.5 rounded-md border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                  title="Next page"
+                >
+                  <ChevronRight size={14} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage(totalRegisterPages)}
+                  disabled={safePage === totalRegisterPages || totalRegisterRows === 0}
+                  className="p-1.5 rounded-md border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                  title="Last page"
+                >
+                  <ChevronsRight size={14} />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────────── */}
+      {/* TAB 2: SELF-FUNDING (SF) CBR & COUNTER VERIFICATION CHECKLIST       */}
+      {/* ─────────────────────────────────────────────────────────────────── */}
+      {activeTab === 'sf-checklist' && (
+        <div className="space-y-4">
+          {/* Top toolbar */}
+          <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-9 w-12 shrink-0 items-center justify-center rounded-lg bg-[#FACC15] text-[#713F12] font-black text-[13px] border border-yellow-400 shadow-xs">
+                SF
+              </div>
+              <div>
+                <h3 className="text-[14.5px] font-bold text-slate-900 leading-tight">
+                  Self Funding (SF) CBR &amp; Counter Verification
+                </h3>
+                <p className="text-[11.5px] text-slate-500">
+                  Track machine types, CBR last updates, and franchisee counter clearance statuses.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="h-9 px-3 rounded-xl border border-slate-200 bg-white text-[12px] font-medium text-slate-700 outline-none focus:border-[#0066FF] cursor-pointer"
+                title="Filter by report date"
+              />
+              <button
+                type="button"
+                onClick={handleExportSfCsv}
+                className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-[12px] font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition-colors"
+              >
+                <Download size={14} className="text-[#0066FF]" />
+                <span>Export CSV</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowAddModal(true)}
+                className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-[#0066FF] px-3.5 text-[12px] font-semibold text-white shadow-xs hover:bg-[#0052CC] transition-colors"
+              >
+                <Plus size={14} />
+                <span>Add Row</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Filter Bar for SF */}
+          <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-2xs">
+            <div className="relative flex-1 min-w-[240px] max-w-md">
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={sfSearch}
+                onChange={(e) => setSfSearch(e.target.value)}
+                placeholder="Search ATM ID, SPOC, Franchisee..."
+                className="h-9 w-full rounded-xl border border-slate-200 bg-slate-50/60 pl-9 pr-8 text-[12.5px] text-slate-800 placeholder:text-slate-400 focus:border-[#0066FF] focus:bg-white focus:outline-none"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={machineFilter}
+                onChange={(e) => setMachineFilter(e.target.value as any)}
+                className="h-9 px-3 rounded-xl border border-slate-200 bg-white text-[12px] font-medium text-slate-700 outline-none focus:border-[#0066FF]"
+              >
+                <option value="ALL">All Machines</option>
+                {SF_MACHINE_TYPES.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="h-9 px-3 rounded-xl border border-slate-200 bg-white text-[12px] font-medium text-slate-700 outline-none focus:border-[#0066FF]"
+              >
+                <option value="ALL">All Statuses</option>
+                <option value="EMPTY">Pending / Select</option>
+                {SF_STATUS_OPTIONS.map((opt) => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* SF Checklist Table */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-left min-w-[1050px]">
+                <thead>
+                  <tr className="bg-slate-50 text-slate-700 font-bold text-[11px] uppercase tracking-wider border-b border-slate-200">
+                    <th className="py-3 px-3 text-center w-[55px]">S.N.</th>
+                    <th className="py-3 px-3 w-[110px]">SPOC</th>
+                    <th className="py-3 px-3 w-[120px]">Machine Type</th>
+                    <th className="py-3 px-3 text-center w-[120px]">ATM ID</th>
+                    <th className="py-3 px-3 w-[180px]">Franchisee Name</th>
+                    <th className="py-3 px-3 text-center w-[130px]">CBR Last Update</th>
+                    <th className="py-3 px-3 text-center w-[140px]">Counter Last Update</th>
+                    <th className="py-3 px-3 w-[220px]">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-[12px] text-slate-800">
+                  {filteredSfRows.map((r) => (
+                    <tr key={r.id} className="hover:bg-slate-50/70 transition-colors">
+                      <td className="py-2.5 px-3 text-center font-semibold text-slate-500">{r.sn}</td>
+                      <td className="py-2.5 px-3 font-medium text-slate-700">{r.spoc}</td>
+                      <td className="py-2.5 px-3 font-semibold text-slate-800">{r.machineType}</td>
+                      <td className="py-2.5 px-3 text-center font-mono font-bold text-[#0066FF]">{r.atmId}</td>
+                      <td className="py-2.5 px-3 font-medium text-slate-800">{r.franchiseeName}</td>
+                      <td className="py-2.5 px-3 text-center text-slate-600 font-mono text-[11.5px]">{r.cbrDate}</td>
+                      <td className="py-2.5 px-3 text-center text-slate-600 font-mono text-[11.5px]">{r.counterDate}</td>
+                      <td className="py-2.5 px-3">
                         <select
-                          value={row.machineType}
-                          onChange={(e) => handleMachineTypeChange(row.id, e.target.value as SfMachineType)}
+                          value={r.status || ''}
+                          onChange={(e) => {
+                            updateOverviewRow(r.id, { status: e.target.value })
+                            toast('Updated status', 'info')
+                          }}
                           className={cn(
-                            'rounded-md border px-2 py-0.5 text-[11.5px] font-bold focus:outline-none cursor-pointer',
-                            row.machineType === 'NCR'
-                              ? 'border-blue-200 bg-blue-50/80 text-blue-700'
-                              : row.machineType === 'Perto'
-                                ? 'border-purple-200 bg-purple-50/80 text-purple-700'
-                                : 'border-emerald-200 bg-emerald-50/80 text-emerald-700'
+                            'h-8 w-full rounded-lg border px-2.5 text-[11.5px] font-semibold outline-none cursor-pointer',
+                            r.status === 'Email Done'
+                              ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                              : r.status === 'Discussion Pending at FR End'
+                                ? 'border-red-200 bg-red-50 text-red-800'
+                                : r.status === 'Counter Not Received'
+                                  ? 'border-amber-200 bg-amber-50 text-amber-800'
+                                  : 'border-slate-200 bg-white text-slate-700',
                           )}
                         >
-                          {SF_MACHINE_TYPES.map((t) => (
-                            <option key={t} value={t}>
-                              {t}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-
-                      {/* ATM ID */}
-                      <td className="py-2.5 px-3 text-center font-semibold font-mono text-slate-800 border-r border-slate-200">
-                        {row.atmId}
-                      </td>
-
-                      {/* Franchisee Name */}
-                      <td className="py-2.5 px-4 text-center text-slate-800 font-medium border-r border-slate-200">
-                        {row.franchiseeName}
-                      </td>
-
-                      {/* CBR Last Update */}
-                      <td className="py-2 px-3 text-center border-r border-slate-200">
-                        {editingDateCell?.id === row.id && editingDateCell.field === 'cbrDate' ? (
-                          <div className="flex items-center justify-center gap-1">
-                            <input
-                              type="date"
-                              defaultValue={
-                                row.cbrDate && /^\d{2}\.\d{2}\.\d{4}$/.test(row.cbrDate)
-                                  ? `${row.cbrDate.slice(6, 10)}-${row.cbrDate.slice(3, 5)}-${row.cbrDate.slice(0, 2)}`
-                                  : '2026-11-02'
-                              }
-                              onChange={(e) => handleSaveDate(row.id, 'cbrDate', e.target.value)}
-                              className="h-8 rounded-lg border border-blue-400 px-2 text-[12px] bg-white text-slate-800 focus:outline-none"
-                              autoFocus
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setEditingDateCell(null)}
-                              className="text-slate-400 hover:text-slate-600 p-1"
-                            >
-                              <X size={13} />
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => setEditingDateCell({ id: row.id, field: 'cbrDate' })}
-                            className="inline-flex items-center justify-center gap-1.5 py-1 px-2.5 rounded-md text-[12.5px] text-slate-800 font-medium hover:bg-slate-100 transition-colors cursor-pointer"
-                            title="Click to edit CBR date"
-                          >
-                            <span>{row.cbrDate}</span>
-                          </button>
-                        )}
-                      </td>
-
-                      {/* Counter Last Update */}
-                      <td className="py-2 px-3 text-center border-r border-slate-200">
-                        {editingDateCell?.id === row.id && editingDateCell.field === 'counterDate' ? (
-                          <div className="flex items-center justify-center gap-1">
-                            <input
-                              type="date"
-                              defaultValue={
-                                row.counterDate && /^\d{2}\.\d{2}\.\d{4}$/.test(row.counterDate)
-                                  ? `${row.counterDate.slice(6, 10)}-${row.counterDate.slice(3, 5)}-${row.counterDate.slice(0, 2)}`
-                                  : '2026-11-02'
-                              }
-                              onChange={(e) => handleSaveDate(row.id, 'counterDate', e.target.value)}
-                              className="h-8 rounded-lg border border-blue-400 px-2 text-[12px] bg-white text-slate-800 focus:outline-none"
-                              autoFocus
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setEditingDateCell(null)}
-                              className="text-slate-400 hover:text-slate-600 p-1"
-                            >
-                              <X size={13} />
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => setEditingDateCell({ id: row.id, field: 'counterDate' })}
-                            className="inline-flex items-center justify-center gap-1.5 py-1 px-2.5 rounded-md text-[12.5px] text-slate-800 font-medium hover:bg-slate-100 transition-colors cursor-pointer"
-                            title="Click to edit counter date"
-                          >
-                            <span>{row.counterDate}</span>
-                          </button>
-                        )}
-                      </td>
-
-                      {/* Status Dropdown */}
-                      <td className="py-2 px-3 text-center">
-                        <select
-                          value={row.status || 'Select'}
-                          onChange={(e) => handleStatusChange(row.id, e.target.value)}
-                          className={cn(
-                            'w-full max-w-[240px] rounded-lg border py-1 px-2 text-[12px] font-semibold transition-colors focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer',
-                            row.status === 'Email Done'
-                              ? 'border-emerald-200 bg-emerald-50/70 text-emerald-800'
-                              : row.status === 'Email Not Done but CBR Updated'
-                                ? 'border-cyan-200 bg-cyan-50/70 text-cyan-800'
-                                : row.status === 'FR Wrong Feeding'
-                                  ? 'border-orange-200 bg-orange-50/70 text-orange-800'
-                                  : row.status === 'Counter Not Received'
-                                    ? 'border-amber-200 bg-amber-50/70 text-amber-800'
-                                    : row.status === 'Discussion Pending at FR End'
-                                      ? 'border-blue-200 bg-blue-50/70 text-blue-800'
-                                      : row.status === 'Manually can add by setup'
-                                        ? 'border-purple-200 bg-purple-50/70 text-purple-800'
-                                        : 'border-slate-200 bg-white text-slate-700'
-                          )}
-                        >
-                          <option value="Select">Select</option>
+                          <option value="">Select (Select Status)</option>
                           {SF_STATUS_OPTIONS.map((opt) => (
-                            <option key={opt} value={opt}>
-                              {opt}
-                            </option>
+                            <option key={opt} value={opt}>{opt}</option>
                           ))}
                         </select>
                       </td>
                     </tr>
-                  )
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Footer info & Count */}
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-[12px] text-slate-500">
-          <div>
-            Showing <span className="font-semibold text-slate-800">{filteredRows.length}</span> of{' '}
-            <span className="font-semibold text-slate-800">{rows.length}</span> Self Funding (SF) site records
-          </div>
-          <div className="flex items-center gap-3">
-            <span>Tip: Click any CBR or Counter date cell to change timestamp.</span>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* ── 5. Add Record Modal ───────────────────────────────────────── */}
+      {/* ── Add Record Modal (for SF checklist) ── */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs">
           <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150">

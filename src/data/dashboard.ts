@@ -1,3 +1,15 @@
+import {
+  BarChart3,
+  Building,
+  IdCard,
+  ListChecks,
+  Receipt,
+  Store,
+  TicketCheck,
+  Wallet,
+  type LucideIcon,
+} from 'lucide-react'
+
 // Mock dashboard data taken from the Figma (Dashboard 56:3667). Replace with API calls later.
 
 export const kpis = [
@@ -39,13 +51,21 @@ export const activities = [
   { when: '26 Aug 2025', time: '11:05 AM', activity: 'Agreement uploaded · ABC Franchise', module: 'Legal', status: 'Pending' },
 ]
 
-export const quickAccess = [
-  { label: 'Franchise Management', to: '/franchise' },
-  { label: 'KYC Management', to: '/kyc/verification' },
-  { label: 'Site Installation', to: '/projects/active' },
-  { label: 'Raise Complaint', to: '/operations/complaints' },
-  { label: 'Task Management', to: '/tasks/my' },
-  { label: 'Reports Dashboard', to: '/reports' },
+export interface QuickAccessItem {
+  label: string
+  to: string
+  icon?: LucideIcon
+}
+
+export const quickAccess: QuickAccessItem[] = [
+  { label: 'Franchise Management', to: '/franchise', icon: Store },
+  { label: 'KYC Management', to: '/kyc/verification', icon: IdCard },
+  { label: 'Site Installation', to: '/projects/active', icon: Building },
+  { label: 'Raise Complaint', to: '/operations/complaints', icon: TicketCheck },
+  { label: 'Task Management', to: '/tasks/my', icon: ListChecks },
+  { label: 'Reports Dashboard', to: '/reports', icon: BarChart3 },
+  { label: 'Payout', to: '/finance/payout', icon: Wallet },
+  { label: 'GST', to: '/finance/gst', icon: Receipt },
 ]
 
 export const dashboardNotices = [

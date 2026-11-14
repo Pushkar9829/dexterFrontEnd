@@ -219,7 +219,7 @@ export default function PvcForm() {
     }
 
     if (!pvcDate.trim()) {
-      toast('Please enter PVC Date')
+      toast('Please enter PVC Issuance Date')
       return
     }
 
@@ -386,9 +386,8 @@ export default function PvcForm() {
                       key={site.siteLoi}
                       type="button"
                       onClick={() => handleSelectSite(site)}
-                      className={`w-full text-left px-3.5 py-2.5 text-[12.5px] hover:bg-[#F0F5FA] flex items-center justify-between transition-colors ${
-                        selectedSite.siteLoi === site.siteLoi ? 'bg-[#EEF4FC] font-semibold text-[#0066FF]' : 'text-slate-800'
-                      }`}
+                      className={`w-full text-left px-3.5 py-2.5 text-[12.5px] hover:bg-[#F0F5FA] flex items-center justify-between transition-colors ${selectedSite.siteLoi === site.siteLoi ? 'bg-[#EEF4FC] font-semibold text-[#0066FF]' : 'text-slate-800'
+                        }`}
                     >
                       <div className="flex items-center gap-2.5">
                         <span className="font-semibold">{site.siteLoi}</span>
@@ -520,7 +519,7 @@ export default function PvcForm() {
             {/* PVC Date * */}
             <div>
               <label className="block text-[12px] font-semibold text-slate-800 mb-1.5">
-                PVC Date <span className="text-red-500">*</span>
+                PVC Issuance Date <span className="text-red-500">*</span>
               </label>
               <div className="relative">
                 <Calendar
@@ -591,13 +590,12 @@ export default function PvcForm() {
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
-            className={`border-2 border-dashed rounded-2xl py-10 px-6 flex flex-col items-center justify-center text-center cursor-pointer transition-all ${
-              isDragging
-                ? 'border-[#0066FF] bg-[#EEF4FC]'
-                : file || existingRecord?.fileName
+            className={`border-2 border-dashed rounded-2xl py-10 px-6 flex flex-col items-center justify-center text-center cursor-pointer transition-all ${isDragging
+              ? 'border-[#0066FF] bg-[#EEF4FC]'
+              : file || existingRecord?.fileName
                 ? 'border-[#B8D5FA] bg-[#F7FAFD]'
                 : 'border-[#BCD5F5] bg-[#F8FAFD] hover:bg-[#F2F6FB] hover:border-[#0066FF]'
-            }`}
+              }`}
           >
             {file || existingRecord?.fileName ? (
               <div className="flex flex-col items-center">
