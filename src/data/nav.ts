@@ -217,7 +217,7 @@ const PREFIX_TRAIL: Record<string, string[]> = {
   '/work-management': ['Workspace', 'Work Management'],
   '/hrms': ['Workspace', 'HRMS'],
   '/hrms/attendance': ['Workspace', 'HRMS', 'Attendance'],
-  '/hrms/expenses': ['Workspace', 'HRMS', 'Expenses'],
+  '/hrms/expenses': ['Workspace', 'HR & Administration', 'Staff & Office Expense Management'],
   '/tasks': ['Workspace', 'Tasks'],
   '/tasks/create': ['Workspace', 'Tasks', 'Create Task'],
   '/tasks/new': ['Workspace', 'Tasks', 'Create Task'],
