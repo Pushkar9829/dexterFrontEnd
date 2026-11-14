@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { Bell, Calendar, ChevronDown, LogOut, Menu, Search, Smartphone } from 'lucide-react'
+import { Bell, Calendar, ChevronDown, LogOut, Menu, Search } from 'lucide-react'
 import { getSession, signOut, DEMO_USER } from '@/lib/auth'
 
 export function Topbar({ onMenu }: { onMenu: () => void }) {
