@@ -54,6 +54,18 @@ type TabType =
   | 'reports'
   | 'master'
 
+interface MasterExpenseHead {
+  id: string
+  name: string
+  category: string
+  singleLimit: number
+  monthlyCap: number
+  receiptMandatory: boolean
+  status: 'Active' | 'Inactive'
+  applicableTo: string
+  notes?: string
+}
+
 export default function HrmsExpenses() {
   const [searchParams, setSearchParams] = useSearchParams()
   const activeTab = (searchParams.get('tab') as TabType) || 'overview'
@@ -137,6 +149,73 @@ export default function HrmsExpenses() {
   const [rowPaymentMode, setRowPaymentMode] = useState<'UPI' | 'Cash' | 'Card' | 'Net Banking'>('UPI')
   const [rowFile, setRowFile] = useState('receipt_doc.pdf')
   const [rowRemarks, setRowRemarks] = useState('-')
+
+  // Add Expense Head Modal State (Master tab)
+  const [showHeadModal, setShowHeadModal] = useState(false)
+  const [headSearch, setHeadSearch] = useState('')
+  const [headFilterCat, setHeadFilterCat] = useState('All Categories')
+  const [headName, setHeadName] = useState('')
+  const [headCategory, setHeadCategory] = useState('Office Administration')
+  const [headSingleLimit, setHeadSingleLimit] = useState('3000')
+  const [headMonthlyCap, setHeadMonthlyCap] = useState('25000')
+  const [headReceiptMandatory, setHeadReceiptMandatory] = useState(true)
+  const [headStatus, setHeadStatus] = useState<'Active' | 'Inactive'>('Active')
+  const [headApplicableTo, setHeadApplicableTo] = useState('All Employees')
+  const [headNotes, setHeadNotes] = useState('')
+
+  const [masterHeads, setMasterHeads] = useState<MasterExpenseHead[]>(() =>
+    ALL_EXPENSE_HEADS.map((head, idx) => ({
+      id: `head-${idx + 1}`,
+      name: head,
+      category:
+        idx % 3 === 0
+          ? 'Travel & Field'
+          : idx % 3 === 1
+          ? 'Office Administration'
+          : 'Staff Welfare',
+      singleLimit: (idx + 2) * 1500,
+      monthlyCap: (idx + 2) * 8000,
+      receiptMandatory: true,
+      status: 'Active',
+      applicableTo: 'All Employees',
+      notes: `Standard company reimbursement guideline for ${head}.`,
+    }))
+  )
+
+  const filteredMasterHeads = useMemo(() => {
+    return masterHeads.filter((item) => {
+      const matchSearch =
+        !headSearch.trim() || item.name.toLowerCase().includes(headSearch.toLowerCase())
+      const matchCat = headFilterCat === 'All Categories' || item.category === headFilterCat
+      return matchSearch && matchCat
+    })
+  }, [masterHeads, headSearch, headFilterCat])
+
+  const handleSaveExpenseHead = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!headName.trim()) {
+      toast('Please enter the expense head name')
+      return
+    }
+
+    const newEntry = {
+      id: `head-${Date.now()}`,
+      name: headName.trim(),
+      category: headCategory,
+      singleLimit: Number(headSingleLimit) || 0,
+      monthlyCap: Number(headMonthlyCap) || 0,
+      receiptMandatory: headReceiptMandatory,
+      status: headStatus,
+      applicableTo: headApplicableTo,
+      notes: headNotes.trim() || undefined,
+    }
+
+    setMasterHeads((prev) => [newEntry, ...prev])
+    toast(`Expense head "${headName.trim()}" added successfully`)
+    setShowHeadModal(false)
+    setHeadName('')
+    setHeadNotes('')
+  }
 
   // Totals
   const officeTotal = useMemo(
@@ -364,19 +443,19 @@ export default function HrmsExpenses() {
               {activeTab === 'office'
                 ? 'Office Expense Claim – General Expenses'
                 : activeTab === 'field'
-                ? 'Travel & Field Expense Claim'
-                : activeTab === 'reports'
-                ? 'Expense Summary Report – Company Expenses'
-                : 'Staff & Office Expense Management'}
+                  ? 'Travel & Field Expense Claim'
+                  : activeTab === 'reports'
+                    ? 'Expense Summary Report – Company Expenses'
+                    : 'Staff & Office Expense Management'}
             </h1>
             <p className="mt-0.5 text-[12.5px] text-slate-500">
               {activeTab === 'office'
                 ? 'Office utilities, courier, speed post, mobile recharge and stationary claims.'
                 : activeTab === 'field'
-                ? 'Field engineer travel, fuel, daily allowance, toll and stay reimbursement.'
-                : activeTab === 'reports'
-                ? 'Comprehensive department and expense head breakdown for monthly audits.'
-                : 'Manage daily expenses, approvals, payments and expense reports for Office, Field and Other Staff.'}
+                  ? 'Field engineer travel, fuel, daily allowance, toll and stay reimbursement.'
+                  : activeTab === 'reports'
+                    ? 'Comprehensive department and expense head breakdown for monthly audits.'
+                    : 'Manage daily expenses, approvals, payments and expense reports for Office, Field and Other Staff.'}
             </p>
           </div>
         </div>
@@ -527,132 +606,124 @@ export default function HrmsExpenses() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
             {/* Left Card: Expense Summary (Current Month) */}
             <div className="lg:col-span-5 bg-white rounded-xl border border-slate-200 shadow-sm p-4 sm:p-5 flex flex-col justify-between">
-              <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2 mb-2">
                 <FileText size={16} className="text-[#0066FF]" />
                 <h2 className="text-[14px] font-bold text-slate-900">
                   Expense Summary (Current Month)
                 </h2>
               </div>
 
-              <div className="py-4 flex flex-col sm:flex-row items-center justify-center gap-6">
+              <div className="my-auto py-2 flex flex-col sm:flex-row items-center justify-between gap-5">
                 {/* SVG Donut Chart */}
                 <div className="relative w-44 h-44 shrink-0 flex items-center justify-center">
-                  <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
+                  <svg className="w-full h-full -rotate-90" viewBox="0 0 140 140">
                     {/* Background track */}
-                    <circle cx="50" cy="50" r="38" fill="none" stroke="#F1F5F9" strokeWidth="16" />
+                    <circle cx="70" cy="70" r="58" fill="none" stroke="#F8FAFC" strokeWidth="20" />
                     {/* Blue segment: 35% */}
                     <circle
-                      cx="50"
-                      cy="50"
-                      r="38"
+                      cx="70"
+                      cy="70"
+                      r="58"
                       fill="none"
                       stroke="#0066FF"
-                      strokeWidth="16"
-                      strokeDasharray="83.5 238.7"
+                      strokeWidth="20"
+                      strokeDasharray="125.05 364.42"
                       strokeDashoffset="0"
                     />
                     {/* Green segment: 46% */}
                     <circle
-                      cx="50"
-                      cy="50"
-                      r="38"
+                      cx="70"
+                      cy="70"
+                      r="58"
                       fill="none"
                       stroke="#10B981"
-                      strokeWidth="16"
-                      strokeDasharray="109.8 238.7"
-                      strokeDashoffset="-83.5"
+                      strokeWidth="20"
+                      strokeDasharray="165.14 364.42"
+                      strokeDashoffset="-127.55"
                     />
                     {/* Amber segment: 12% */}
                     <circle
-                      cx="50"
-                      cy="50"
-                      r="38"
+                      cx="70"
+                      cy="70"
+                      r="58"
                       fill="none"
                       stroke="#F59E0B"
-                      strokeWidth="16"
-                      strokeDasharray="28.6 238.7"
-                      strokeDashoffset="-193.3"
+                      strokeWidth="20"
+                      strokeDasharray="41.23 364.42"
+                      strokeDashoffset="-295.18"
                     />
                     {/* Purple segment: 7% */}
                     <circle
-                      cx="50"
-                      cy="50"
-                      r="38"
+                      cx="70"
+                      cy="70"
+                      r="58"
                       fill="none"
                       stroke="#8B5CF6"
-                      strokeWidth="16"
-                      strokeDasharray="16.7 238.7"
-                      strokeDashoffset="-221.9"
+                      strokeWidth="20"
+                      strokeDasharray="23.01 364.42"
+                      strokeDashoffset="-338.92"
                     />
                   </svg>
-                  {/* Center Text */}
-                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                    <span className="text-[17px] font-extrabold text-slate-900 leading-none">
+                  {/* Center Text inside Donut - neatly formatted on 3 lines */}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center select-none pointer-events-none px-3">
+                    <span className="text-[17px] sm:text-[18px] font-bold text-slate-900 leading-tight">
                       ₹ 8,72,450
                     </span>
-                    <span className="text-[10px] font-semibold text-slate-400 mt-1 uppercase tracking-wider">
-                      Total Claim Amount
+                    <span className="text-[11px] font-medium text-slate-700 leading-tight mt-1">
+                      Total Claim
+                    </span>
+                    <span className="text-[11px] font-medium text-slate-700 leading-tight">
+                      Amount
                     </span>
                   </div>
                 </div>
 
-                {/* Legend list matching Image 01 */}
-                <div className="space-y-2.5 w-full sm:w-auto text-[12px]">
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-2">
-                      <span className="w-3 h-3 rounded-sm bg-[#0066FF] shrink-0" />
-                      <span className="font-semibold text-slate-700">Office Expenses</span>
+                {/* Legend list matching Image 01 with divider lines */}
+                <div className="flex-1 w-full space-y-0 text-[12px]">
+                  <div className="flex items-center justify-between py-2 border-b border-slate-100">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-3.5 h-3.5 rounded-[3px] bg-[#0066FF] shrink-0" />
+                      <span className="font-semibold text-slate-800 text-[12.5px]">Office Expenses</span>
                     </div>
-                    <div className="text-right">
-                      <span className="font-bold text-slate-800 mr-2">35%</span>
-                      <span className="font-semibold text-slate-900">₹ 3,05,350</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-2">
-                      <span className="w-3 h-3 rounded-sm bg-[#10B981] shrink-0" />
-                      <span className="font-semibold text-slate-700">Field Staff Expenses</span>
-                    </div>
-                    <div className="text-right">
-                      <span className="font-bold text-slate-800 mr-2">46%</span>
-                      <span className="font-semibold text-slate-900">₹ 4,01,420</span>
+                    <div className="flex items-center gap-4 text-right">
+                      <span className="font-bold text-slate-900 text-[12.5px] w-8">35%</span>
+                      <span className="font-semibold text-slate-900 text-[12.5px] w-20">₹ 3,05,350</span>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-2">
-                      <span className="w-3 h-3 rounded-sm bg-[#F59E0B] shrink-0" />
-                      <span className="font-semibold text-slate-700">Other Staff Expenses</span>
+                  <div className="flex items-center justify-between py-2 border-b border-slate-100">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-3.5 h-3.5 rounded-[3px] bg-[#10B981] shrink-0" />
+                      <span className="font-semibold text-slate-800 text-[12.5px]">Field Staff Expenses</span>
                     </div>
-                    <div className="text-right">
-                      <span className="font-bold text-slate-800 mr-2">12%</span>
-                      <span className="font-semibold text-slate-900">₹ 1,04,380</span>
+                    <div className="flex items-center gap-4 text-right">
+                      <span className="font-bold text-slate-900 text-[12.5px] w-8">46%</span>
+                      <span className="font-semibold text-slate-900 text-[12.5px] w-20">₹ 4,01,420</span>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-2">
-                      <span className="w-3 h-3 rounded-sm bg-[#8B5CF6] shrink-0" />
-                      <span className="font-semibold text-slate-700">Others</span>
+                  <div className="flex items-center justify-between py-2 border-b border-slate-100">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-3.5 h-3.5 rounded-[3px] bg-[#F59E0B] shrink-0" />
+                      <span className="font-semibold text-slate-800 text-[12.5px]">Other Staff Expenses</span>
                     </div>
-                    <div className="text-right">
-                      <span className="font-bold text-slate-800 mr-2">7%</span>
-                      <span className="font-semibold text-slate-900">₹ 61,300</span>
+                    <div className="flex items-center gap-4 text-right">
+                      <span className="font-bold text-slate-900 text-[12.5px] w-8">12%</span>
+                      <span className="font-semibold text-slate-900 text-[12.5px] w-20">₹ 1,04,380</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between py-2">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-3.5 h-3.5 rounded-[3px] bg-[#8B5CF6] shrink-0" />
+                      <span className="font-semibold text-slate-800 text-[12.5px]">Others</span>
+                    </div>
+                    <div className="flex items-center gap-4 text-right">
+                      <span className="font-bold text-slate-900 text-[12.5px] w-8">7%</span>
+                      <span className="font-semibold text-slate-900 text-[12.5px] w-20">₹ 61,300</span>
                     </div>
                   </div>
                 </div>
-              </div>
-
-              <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
-                <span>Period: October 2026</span>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('reports')}
-                  className="font-semibold text-[#0066FF] hover:underline cursor-pointer"
-                >
-                  View Full MIS Report →
-                </button>
               </div>
             </div>
 
@@ -1376,8 +1447,8 @@ export default function HrmsExpenses() {
                             item.claimType === 'Office'
                               ? 'bg-blue-50 text-blue-700 border border-blue-200'
                               : item.claimType === 'Field'
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                              : 'bg-purple-50 text-purple-700 border border-purple-200'
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                : 'bg-purple-50 text-purple-700 border border-purple-200'
                           )}
                         >
                           {item.claimType}
@@ -1705,20 +1776,45 @@ export default function HrmsExpenses() {
       {/* ────────────────────────────────────────────────────────── */}
       {activeTab === 'master' && (
         <div className="space-y-4">
-          <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm flex items-center justify-between">
+          <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div>
               <h2 className="text-[14px] font-bold text-slate-900">Expense Master &amp; Policy Limit Setup</h2>
               <p className="text-[12px] text-slate-500">
                 Configure expense heads, daily allowances, reimbursement caps, and mandatory receipt rules.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => toast('New expense head modal')}
-              className="inline-flex items-center gap-1.5 h-8.5 px-3.5 rounded-lg bg-[#0066FF] text-white text-[12px] font-bold shadow-2xs"
-            >
-              <Plus size={14} /> Add Expense Head
-            </button>
+            <div className="flex flex-wrap items-center gap-2.5">
+              <div className="relative">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search expense heads..."
+                  value={headSearch}
+                  onChange={(e) => setHeadSearch(e.target.value)}
+                  className="h-8.5 pl-8 pr-3 text-[12px] rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#0066FF]"
+                />
+              </div>
+              <select
+                value={headFilterCat}
+                onChange={(e) => setHeadFilterCat(e.target.value)}
+                className="h-8.5 px-3 text-[12px] rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#0066FF] bg-white font-medium text-slate-700"
+              >
+                <option value="All Categories">All Categories</option>
+                <option value="Office Administration">Office Administration</option>
+                <option value="Travel & Field">Travel & Field</option>
+                <option value="Staff Welfare">Staff Welfare</option>
+                <option value="IT & Telecommunications">IT & Telecommunications</option>
+                <option value="Logistics & Courier">Logistics & Courier</option>
+                <option value="Repair & Maintenance">Repair & Maintenance</option>
+              </select>
+              <button
+                type="button"
+                onClick={() => setShowHeadModal(true)}
+                className="inline-flex items-center gap-1.5 h-8.5 px-3.5 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[12px] font-bold shadow-2xs transition-colors cursor-pointer"
+              >
+                <Plus size={14} /> Add Expense Head
+              </button>
+            </div>
           </div>
 
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
@@ -1729,38 +1825,101 @@ export default function HrmsExpenses() {
                     <th className="py-2.5 px-3 w-12 text-center">#</th>
                     <th className="py-2.5 px-3">Expense Head</th>
                     <th className="py-2.5 px-3">Category</th>
-                    <th className="py-2.5 px-3">Max Single Limit (₹)</th>
-                    <th className="py-2.5 px-3">Monthly Cap (₹)</th>
+                    <th className="py-2.5 px-3">Applicable To</th>
+                    <th className="py-2.5 px-3 text-right">Max Single Limit (₹)</th>
+                    <th className="py-2.5 px-3 text-right">Monthly Cap (₹)</th>
                     <th className="py-2.5 px-3 text-center">Receipt Mandatory</th>
                     <th className="py-2.5 px-3 text-center">Status</th>
+                    <th className="py-2.5 px-3 text-center w-20">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-slate-700">
-                  {ALL_EXPENSE_HEADS.map((head, idx) => (
-                    <tr key={head} className="hover:bg-slate-50/70">
-                      <td className="py-2 px-3 text-center text-slate-400">{idx + 1}</td>
-                      <td className="py-2 px-3 font-semibold text-slate-800">{head}</td>
-                      <td className="py-2 px-3">
-                        <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[11px] font-medium">
-                          {idx % 3 === 0 ? 'Travel & Field' : idx % 3 === 1 ? 'Office Administration' : 'Staff Welfare'}
-                        </span>
-                      </td>
-                      <td className="py-2 px-3 font-semibold text-slate-900">₹ {(idx + 2) * 1500}</td>
-                      <td className="py-2 px-3 font-semibold text-slate-900">₹ {(idx + 2) * 8000}</td>
-                      <td className="py-2 px-3 text-center">
-                        <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded text-[10.5px] font-bold">
-                          Yes
-                        </span>
-                      </td>
-                      <td className="py-2 px-3 text-center">
-                        <span className="text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full text-[10.5px] font-bold">
-                          Active
-                        </span>
+                  {filteredMasterHeads.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="py-8 text-center text-slate-400 text-[13px]">
+                        No matching expense heads found.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    filteredMasterHeads.map((item, idx) => (
+                      <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="py-2 px-3 text-center text-slate-400">{idx + 1}</td>
+                        <td className="py-2 px-3 font-semibold text-slate-800">
+                          {item.name}
+                          {item.notes && (
+                            <span className="block text-[10.5px] text-slate-400 font-normal">
+                              {item.notes}
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2 px-3">
+                          <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[11px] font-medium">
+                            {item.category}
+                          </span>
+                        </td>
+                        <td className="py-2 px-3 text-slate-600 font-medium text-[11.5px]">
+                          {item.applicableTo}
+                        </td>
+                        <td className="py-2 px-3 text-right font-semibold text-slate-900">
+                          ₹ {item.singleLimit.toLocaleString('en-IN')}
+                        </td>
+                        <td className="py-2 px-3 text-right font-semibold text-slate-900">
+                          ₹ {item.monthlyCap.toLocaleString('en-IN')}
+                        </td>
+                        <td className="py-2 px-3 text-center">
+                          <span
+                            className={cn(
+                              'px-2 py-0.5 rounded text-[10.5px] font-bold',
+                              item.receiptMandatory
+                                ? 'text-emerald-700 bg-emerald-50'
+                                : 'text-slate-600 bg-slate-100'
+                            )}
+                          >
+                            {item.receiptMandatory ? 'Yes' : 'Optional'}
+                          </span>
+                        </td>
+                        <td className="py-2 px-3 text-center">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newStatus = item.status === 'Active' ? 'Inactive' : 'Active'
+                              setMasterHeads((prev) =>
+                                prev.map((h) => (h.id === item.id ? { ...h, status: newStatus } : h))
+                              )
+                              toast(`${item.name} marked as ${newStatus}`)
+                            }}
+                            className={cn(
+                              'px-2 py-0.5 rounded-full text-[10.5px] font-bold cursor-pointer transition-colors',
+                              item.status === 'Active'
+                                ? 'text-blue-700 bg-blue-50 hover:bg-blue-100'
+                                : 'text-slate-500 bg-slate-100 hover:bg-slate-200'
+                            )}
+                          >
+                            {item.status}
+                          </button>
+                        </td>
+                        <td className="py-2 px-3 text-center">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMasterHeads((prev) => prev.filter((h) => h.id !== item.id))
+                              toast(`Removed "${item.name}"`)
+                            }}
+                            className="p-1 text-slate-400 hover:text-red-600 rounded transition-colors cursor-pointer"
+                            title="Delete head"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
+            </div>
+            <div className="p-3 bg-slate-50/80 border-t border-slate-200 flex items-center justify-between text-[11.5px] text-slate-500">
+              <span>Showing {filteredMasterHeads.length} of {masterHeads.length} policy heads</span>
+              <span className="font-semibold text-slate-700">Company Standard Cap: ₹ 50,000 / month</span>
             </div>
           </div>
         </div>
@@ -1803,8 +1962,8 @@ export default function HrmsExpenses() {
                     seg === 'Office'
                       ? 'Office Expenses'
                       : seg === 'Field'
-                      ? 'Field Staff Expenses'
-                      : 'Other Staff Expenses'
+                        ? 'Field Staff Expenses'
+                        : 'Other Staff Expenses'
                   const isSelected = claimSegment === seg
                   return (
                     <button
@@ -1910,9 +2069,9 @@ export default function HrmsExpenses() {
                           onChange={(e) => setNewHead(e.target.value)}
                           className="w-full h-9 px-3 rounded-lg border border-slate-200 bg-white text-[12.5px] font-medium text-slate-800 outline-none focus:border-[#0066FF]"
                         >
-                          {ALL_EXPENSE_HEADS.map((head) => (
-                            <option key={head} value={head}>
-                              {head}
+                          {masterHeads.map((head) => (
+                            <option key={head.id} value={head.name}>
+                              {head.name}
                             </option>
                           ))}
                         </select>
@@ -2234,6 +2393,228 @@ export default function HrmsExpenses() {
                   className="h-8.5 px-4 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white font-bold"
                 >
                   Add Row
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ────────────────────────────────────────────────────────── */}
+      {/* MODAL 3: ADD EXPENSE HEAD (MASTER SETUP) */}
+      {/* ────────────────────────────────────────────────────────── */}
+      {showHeadModal && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto"
+          onClick={(e) => e.target === e.currentTarget && setShowHeadModal(false)}
+        >
+          <div className="w-full max-w-xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="px-5 py-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-slate-200 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-[#0066FF] text-white flex items-center justify-center font-bold shadow-sm">
+                  <Plus size={18} />
+                </div>
+                <div>
+                  <h3 className="text-[15px] font-bold text-slate-900">Add New Expense Head</h3>
+                  <p className="text-[11.5px] text-slate-500">
+                    Configure expense classification, approval rules & reimbursement caps
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowHeadModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body Form */}
+            <form onSubmit={handleSaveExpenseHead} className="p-5 space-y-4">
+              {/* Head Name */}
+              <div>
+                <label className="block text-[12px] font-bold text-slate-700 mb-1">
+                  Expense Head Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Client Dinner & Refreshments, Generator Fuel, etc."
+                  value={headName}
+                  onChange={(e) => setHeadName(e.target.value)}
+                  className="w-full h-9 px-3 rounded-lg border border-slate-200 text-[12.5px] focus:outline-none focus:ring-1 focus:ring-[#0066FF] font-medium"
+                />
+              </div>
+
+              {/* Category & Applicable To */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[12px] font-bold text-slate-700 mb-1">
+                    Category <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={headCategory}
+                    onChange={(e) => setHeadCategory(e.target.value)}
+                    className="w-full h-9 px-2.5 rounded-lg border border-slate-200 text-[12.5px] focus:outline-none focus:ring-1 focus:ring-[#0066FF] bg-white font-medium text-slate-800"
+                  >
+                    <option value="Office Administration">Office Administration</option>
+                    <option value="Travel & Field">Travel & Field</option>
+                    <option value="Staff Welfare">Staff Welfare</option>
+                    <option value="IT & Telecommunications">IT & Telecommunications</option>
+                    <option value="Logistics & Courier">Logistics & Courier</option>
+                    <option value="Repair & Maintenance">Repair & Maintenance</option>
+                    <option value="Miscellaneous">Miscellaneous</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[12px] font-bold text-slate-700 mb-1">
+                    Applicable To
+                  </label>
+                  <select
+                    value={headApplicableTo}
+                    onChange={(e) => setHeadApplicableTo(e.target.value)}
+                    className="w-full h-9 px-2.5 rounded-lg border border-slate-200 text-[12.5px] focus:outline-none focus:ring-1 focus:ring-[#0066FF] bg-white font-medium text-slate-800"
+                  >
+                    <option value="All Employees">All Employees</option>
+                    <option value="Field Staff Only">Field Staff Only</option>
+                    <option value="Office Staff Only">Office Staff Only</option>
+                    <option value="Support & Operations">Support & Operations</option>
+                    <option value="Management Only">Management Only</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Limits */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[12px] font-bold text-slate-700 mb-1">
+                    Max Single Limit (₹) <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-[12px]">₹</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="50"
+                      required
+                      placeholder="3000"
+                      value={headSingleLimit}
+                      onChange={(e) => setHeadSingleLimit(e.target.value)}
+                      className="w-full h-9 pl-7 pr-3 rounded-lg border border-slate-200 text-[12.5px] focus:outline-none focus:ring-1 focus:ring-[#0066FF] font-semibold text-slate-900"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[12px] font-bold text-slate-700 mb-1">
+                    Monthly Cap (₹) <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-[12px]">₹</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="500"
+                      required
+                      placeholder="25000"
+                      value={headMonthlyCap}
+                      onChange={(e) => setHeadMonthlyCap(e.target.value)}
+                      className="w-full h-9 pl-7 pr-3 rounded-lg border border-slate-200 text-[12.5px] focus:outline-none focus:ring-1 focus:ring-[#0066FF] font-semibold text-slate-900"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Compliance & Status */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div>
+                  <label className="block text-[12px] font-bold text-slate-700 mb-1.5">
+                    Receipt / Voucher Rule
+                  </label>
+                  <div className="flex items-center gap-4 text-[12px]">
+                    <label className="flex items-center gap-1.5 cursor-pointer font-medium text-slate-700">
+                      <input
+                        type="radio"
+                        name="headReceipt"
+                        checked={headReceiptMandatory}
+                        onChange={() => setHeadReceiptMandatory(true)}
+                        className="accent-[#0066FF]"
+                      />
+                      Mandatory
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer font-medium text-slate-700">
+                      <input
+                        type="radio"
+                        name="headReceipt"
+                        checked={!headReceiptMandatory}
+                        onChange={() => setHeadReceiptMandatory(false)}
+                        className="accent-[#0066FF]"
+                      />
+                      Optional / Self-Dec
+                    </label>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[12px] font-bold text-slate-700 mb-1.5">
+                    Initial Status
+                  </label>
+                  <div className="flex items-center gap-4 text-[12px]">
+                    <label className="flex items-center gap-1.5 cursor-pointer font-medium text-slate-700">
+                      <input
+                        type="radio"
+                        name="headStatus"
+                        checked={headStatus === 'Active'}
+                        onChange={() => setHeadStatus('Active')}
+                        className="accent-[#0066FF]"
+                      />
+                      <span className="text-emerald-700 font-bold">Active</span>
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer font-medium text-slate-700">
+                      <input
+                        type="radio"
+                        name="headStatus"
+                        checked={headStatus === 'Inactive'}
+                        onChange={() => setHeadStatus('Inactive')}
+                        className="accent-[#0066FF]"
+                      />
+                      <span className="text-slate-500 font-bold">Inactive</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="block text-[12px] font-bold text-slate-700 mb-1">
+                  Policy Guidelines &amp; Notes
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Specify verification rules, bill GSTIN requirements, or approval hierarchy notes..."
+                  value={headNotes}
+                  onChange={(e) => setHeadNotes(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 text-[12px] focus:outline-none focus:ring-1 focus:ring-[#0066FF]"
+                />
+              </div>
+
+              {/* Modal Actions */}
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setShowHeadModal(false)}
+                  className="h-9 px-4 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 text-[12.5px] font-semibold transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-1.5 h-9 px-5 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[12.5px] font-bold shadow-sm transition-all cursor-pointer"
+                >
+                  <Check size={15} /> Save Expense Head
                 </button>
               </div>
             </form>
