@@ -182,19 +182,6 @@ function Metric({
   )
 }
 
-function Trust({ icon, title, sub }: { icon: ReactNode; title: string; sub: string }) {
-  return (
-    <div className="flex items-center gap-2.5">
-      <span className="grid h-8.5 w-8.5 shrink-0 place-items-center rounded-xl bg-white/10 border border-white/10 shadow-xs">
-        {icon}
-      </span>
-      <div className="leading-tight min-w-0">
-        <div className="text-[11.5px] font-bold text-white truncate">{title}</div>
-        <div className="text-[10px] text-blue-200/70 truncate">{sub}</div>
-      </div>
-    </div>
-  )
-}
 
 export function AuthTitle({ title, sub }: { title: string; sub?: ReactNode }) {
   return (
