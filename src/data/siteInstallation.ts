@@ -57,6 +57,13 @@ export interface SiteInstallationRecord {
   // Final Status
   status: string
   statusDate: string
+  // 6. Engineers Contact Details
+  atmEngineerName?: string
+  atmEngineerNumber?: string
+  upsEngineerName?: string
+  upsEngineerNumber?: string
+  networkEngineerName?: string
+  networkEngineerNumber?: string
   createdAt: string
   updatedAt: string
 }
@@ -307,7 +314,7 @@ export function exportSiteInstallationCsv(records: SiteInstallationRecord[], fil
     'SD Status',
     'Electrical Work',
     'TIS Status',
-    'ATM Machine Type',
+    'ATM Machine',
     'ATM Machine',
     'DB Box',
     'Isolation Transformer (IT)',
@@ -335,6 +342,12 @@ export function exportSiteInstallationCsv(records: SiteInstallationRecord[], fil
     'Payout Account Status',
     'GST Status',
     'Status',
+    'ATM Engineer Name',
+    'ATM Engineer Number',
+    'UPS Engineer Name',
+    'UPS Engineer Number',
+    'Network Engineer Name',
+    'Network Engineer Number',
   ]
 
   const rows = records.map((r) => [
@@ -376,6 +389,12 @@ export function exportSiteInstallationCsv(records: SiteInstallationRecord[], fil
     r.payoutAccount,
     r.gstStatus,
     r.status,
+    r.atmEngineerName || '—',
+    r.atmEngineerNumber || '—',
+    r.upsEngineerName || '—',
+    r.upsEngineerNumber || '—',
+    r.networkEngineerName || '—',
+    r.networkEngineerNumber || '—',
   ])
 
   downloadCsv(filename, headers, rows)

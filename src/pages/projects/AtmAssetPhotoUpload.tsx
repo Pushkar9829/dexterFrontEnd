@@ -1,6 +1,5 @@
 import { useState, useRef, useMemo, type ChangeEvent } from 'react'
 import {
-  Camera,
   UploadCloud,
   Eye,
   Trash2,
@@ -15,6 +14,9 @@ import {
   Radio,
   HardDrive,
   Cpu,
+  Video,
+  FileText,
+  Camera,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { toast } from '@/components/ui/Toast'
@@ -26,26 +28,30 @@ export interface AssetDefinition {
   seq: number
   label: string
   subText: string
-  icon: typeof Monitor
+  icon: typeof Monitor | any
   recommendedAngles: string[]
+  accept?: string
+  buttonLabel?: string
 }
 
 export const ASSET_LIST: AssetDefinition[] = [
   {
     key: 'atm_machine_type',
     seq: 1,
-    label: 'ATM Machine Type',
+    label: 'ATM Machine',
     subText: 'Manufacturer model badge, model tag plate, front brand styling',
     icon: Monitor,
     recommendedAngles: ['Front Brand Fascia', 'Model / Rating Tag', 'Side Enclosure'],
   },
   {
-    key: 'atm_machine_status',
+    key: 'site_video_360',
     seq: 2,
-    label: 'ATM Machine Status',
-    subText: 'Overall ATM unit, screen/keypad display, cash dispenser throat',
-    icon: Monitor,
-    recommendedAngles: ['Full Booth View', 'Screen & Pin-pad', 'Cash Slot / Shutter'],
+    label: 'Site Video 360*',
+    subText: '360° panoramic video walkthrough of the site, ATM kiosk booth and surrounding area',
+    icon: Video,
+    recommendedAngles: ['360° Walkthrough', 'Booth Exterior to Interior', 'Surrounding Area & Approach'],
+    accept: 'video/*,image/*',
+    buttonLabel: 'Add Video',
   },
   {
     key: 'db_box',
@@ -104,12 +110,14 @@ export const ASSET_LIST: AssetDefinition[] = [
     recommendedAngles: ['Front Panel LEDs', 'Rear LAN / RF Port', 'MAC / Serial Label'],
   },
   {
-    key: 'vsat_router_company',
+    key: 'site_ppt_upload',
     seq: 10,
-    label: 'V-SAT / Router Company',
-    subText: 'Provider branding plate (Nelco/Hughes/Airtel/Tata) or outdoor antenna dish',
-    icon: Radio,
-    recommendedAngles: ['Provider Logo / Tag', 'Outdoor Antenna Alignment', 'ODU / BUC Transmitter'],
+    label: 'Site PPT Upload',
+    subText: 'Site presentation deck (.ppt, .pptx, .pdf) or site walkthrough slides',
+    icon: FileText,
+    recommendedAngles: ['Presentation Deck', 'Site Survey PPT', 'Completion Report PDF'],
+    accept: '.ppt,.pptx,.pdf,image/*',
+    buttonLabel: 'Upload PPT',
   },
   {
     key: 'camera',
@@ -154,13 +162,16 @@ export function AtmAssetPhotoUpload({ assetPhotos, onChange, statusValues = {} }
   } | null>(null)
 
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
-  const cameraInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
 
   // Filtered Assets List
   const filteredAssets = useMemo(() => {
     return ASSET_LIST.filter((asset) => {
-      const photos = assetPhotos[asset.key] || []
+      const photos =
+        assetPhotos[asset.key] ||
+        (asset.key === 'site_video_360' ? assetPhotos['atm_machine_status'] : undefined) ||
+        (asset.key === 'site_ppt_upload' ? assetPhotos['vsat_router_company'] : undefined) ||
+        []
       const matchesSearch =
         asset.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
         asset.subText.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -236,7 +247,11 @@ export function AtmAssetPhotoUpload({ assetPhotos, onChange, statusValues = {} }
       {/* ── 12 Assets Card Grid ── */}
       <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
         {filteredAssets.map((asset) => {
-          const photos = assetPhotos[asset.key] || []
+          const photos =
+            assetPhotos[asset.key] ||
+            (asset.key === 'site_video_360' ? assetPhotos['atm_machine_status'] : undefined) ||
+            (asset.key === 'site_ppt_upload' ? assetPhotos['vsat_router_company'] : undefined) ||
+            []
           const isDone = photos.length > 0
           const currentFormStatus = statusValues[asset.key]
           const activeAngle = selectedAngles[asset.key] || 'Front Angle'
@@ -342,7 +357,7 @@ export function AtmAssetPhotoUpload({ assetPhotos, onChange, statusValues = {} }
                 )}
               </div>
 
-              {/* Upload Controls for this Asset */}
+              {/* Upload Controls for this Asset (Camera button removed) */}
               <div className="mt-3.5 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
                 {/* Angle Selector */}
                 <div className="flex items-center gap-1.5">
@@ -362,37 +377,12 @@ export function AtmAssetPhotoUpload({ assetPhotos, onChange, statusValues = {} }
                   </select>
                 </div>
 
-                {/* Upload Buttons */}
+                {/* Upload Action Button */}
                 <div className="flex items-center gap-1.5">
-                  {/* Camera file input (Hidden) */}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    ref={(el) => {
-                      cameraInputRefs.current[asset.key] = el
-                    }}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                      handleFiles(asset.key, e.target.files)
-                      e.target.value = ''
-                    }}
-                    className="hidden"
-                  />
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    className="h-7 px-2 text-[11px] text-slate-700 hover:text-slate-900 border-slate-200"
-                    onClick={() => cameraInputRefs.current[asset.key]?.click()}
-                    title="Take photo using camera"
-                  >
-                    <Camera size={12} className="mr-1 text-slate-500" /> Camera
-                  </Button>
-
                   {/* Multi-file browse input (Hidden) */}
                   <input
                     type="file"
-                    accept="image/*"
+                    accept={asset.accept || 'image/*'}
                     multiple
                     ref={(el) => {
                       fileInputRefs.current[asset.key] = el
@@ -410,7 +400,7 @@ export function AtmAssetPhotoUpload({ assetPhotos, onChange, statusValues = {} }
                     className="h-7 px-2.5 text-[11px] font-semibold bg-[#0066FF] hover:bg-blue-700 text-white"
                     onClick={() => fileInputRefs.current[asset.key]?.click()}
                   >
-                    <UploadCloud size={12} className="mr-1" /> Add Photos
+                    <UploadCloud size={12} className="mr-1" /> {asset.buttonLabel || 'Add Photos'}
                   </Button>
                 </div>
               </div>

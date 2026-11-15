@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { Bell, Calendar, ChevronDown, LogOut, Menu, Search } from 'lucide-react'
+import { Bell, Calendar, ChevronDown, LogOut, Menu, Search, Smartphone } from 'lucide-react'
 import { getSession, signOut, DEMO_USER } from '@/lib/auth'
 
 export function Topbar({ onMenu }: { onMenu: () => void }) {
@@ -35,18 +35,18 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
 
       <div className="ml-auto flex items-center gap-3 sm:gap-4">
         {/* Dexter Mobile App Simulator Button */}
-        {/* <button
+        <button
           onClick={() => navigate('/mobile')}
           className="flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50/90 px-3 py-1.5 text-[12px] font-bold text-blue-700 hover:bg-blue-100 hover:border-blue-300 transition-all shadow-xs active:scale-95"
-          title="Open Dexter Mobile App Simulator"
+          title="Open Dexter Mobile App"
         >
           <Smartphone size={15} className="text-blue-600" />
-          <span className="hidden sm:inline">Mobile App Simulator</span>
+          <span className="hidden sm:inline">Mobile App</span>
           <span className="sm:hidden">App</span>
           <span className="rounded bg-blue-600 px-1 py-0.2 text-[9px] font-extrabold text-white">
             Demo
           </span>
-        </button> */}
+        </button>
 
         {/* {pathname.startsWith('/tasks/') && !pathname.startsWith('/tasks/create') && !pathname.startsWith('/tasks/new') && (
           <button

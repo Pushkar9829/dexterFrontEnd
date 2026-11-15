@@ -17,6 +17,7 @@ import {
   Save,
   Calendar,
   ChevronDown,
+  Users,
 } from 'lucide-react'
 import {
   useSiteInstallations,
@@ -81,6 +82,7 @@ export default function SiteInstallationForm() {
   const statusValues = useMemo(
     () => ({
       atm_machine_type: atmMachineType,
+      site_video_360: atmMachine,
       atm_machine_status: atmMachine,
       db_box: dbBox,
       isolation_transformer: isolationTransformer,
@@ -89,6 +91,7 @@ export default function SiteInstallationForm() {
       battery: battery,
       battery_cage: batteryCage,
       vsat_router: vsat,
+      site_ppt_upload: routerVsatCompany,
       vsat_router_company: routerVsatCompany,
       camera: camera,
       dvr: dvr,
@@ -126,6 +129,14 @@ export default function SiteInstallationForm() {
   // Section 5: Final Status
   const [currentStatus, setCurrentStatus] = useState(existingRecord?.status || '')
   const [statusDate, setStatusDate] = useState(existingRecord?.statusDate || '04.10.2021')
+
+  // Section 6: Engineers Contact Details
+  const [atmEngineerName, setAtmEngineerName] = useState(existingRecord?.atmEngineerName || '')
+  const [atmEngineerNumber, setAtmEngineerNumber] = useState(existingRecord?.atmEngineerNumber || '')
+  const [upsEngineerName, setUpsEngineerName] = useState(existingRecord?.upsEngineerName || '')
+  const [upsEngineerNumber, setUpsEngineerNumber] = useState(existingRecord?.upsEngineerNumber || '')
+  const [networkEngineerName, setNetworkEngineerName] = useState(existingRecord?.networkEngineerName || '')
+  const [networkEngineerNumber, setNetworkEngineerNumber] = useState(existingRecord?.networkEngineerNumber || '')
 
   // When selecting or typing LOI, auto-populate details
   const handleSelectSiteLoi = (selectedLoi: string) => {
@@ -226,6 +237,12 @@ export default function SiteInstallationForm() {
       gstStatus: gstStatus || 'Pending',
       status: currentStatus || (isDraft ? 'Draft' : 'Installation in progress'),
       statusDate: statusDate || '04.10.2021',
+      atmEngineerName: atmEngineerName.trim(),
+      atmEngineerNumber: atmEngineerNumber.trim(),
+      upsEngineerName: upsEngineerName.trim(),
+      upsEngineerNumber: upsEngineerNumber.trim(),
+      networkEngineerName: networkEngineerName.trim(),
+      networkEngineerNumber: networkEngineerNumber.trim(),
     }
 
     if (existingRecord) {
@@ -559,10 +576,10 @@ export default function SiteInstallationForm() {
         <div className="p-4 sm:p-5">
           {/* Equipment Status Inputs (Sequence 1 to 12) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-            {/* 1. ATM Machine Type */}
+            {/* 1. ATM Machine */}
             <div>
               <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                1. ATM Machine Type
+                1. ATM Machine
               </label>
               <div className="relative">
                 <select
@@ -570,7 +587,7 @@ export default function SiteInstallationForm() {
                   onChange={(e) => setAtmMachineType(e.target.value)}
                   className="w-full h-8.5 px-3 pr-7 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] appearance-none font-medium"
                 >
-                  <option value="">Select ATM Machine Type</option>
+                  <option value="">Select ATM Machine</option>
                   <option value="NCR">NCR</option>
                   <option value="Perto">Perto</option>
                   <option value="CRM">CRM (Cash Recycler Machine)</option>
@@ -1089,6 +1106,109 @@ export default function SiteInstallationForm() {
                 placeholder="DD.MM.YYYY"
                 className="w-full h-8.5 pl-8 pr-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF]"
               />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* SECTION 6: Engineers Contact Details (06 Stage - Engineers Contact Details) */}
+      <div className="rounded-xl border border-slate-200 overflow-hidden shadow-sm bg-white">
+        <div className="bg-[#EAF3FD] px-4 py-3 border-b border-[#D5E5F8] flex items-center gap-2">
+          <Users size={18} className="text-[#0066FF]" />
+          <h2 className="text-[14px] font-bold text-[#0066FF]">6. Engineers Contact Details</h2>
+        </div>
+
+        <div className="p-4 sm:p-5 space-y-4">
+          {/* Row 1: ATM Engineer Name & Number */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                ATM Engineer Name
+              </label>
+              <input
+                type="text"
+                value={atmEngineerName}
+                onChange={(e) => setAtmEngineerName(e.target.value)}
+                placeholder="Enter ATM engineer name"
+                className="w-full h-8.5 px-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF]"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                Number
+              </label>
+              <div className="relative">
+                <Phone size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <input
+                  type="text"
+                  value={atmEngineerNumber}
+                  onChange={(e) => setAtmEngineerNumber(e.target.value)}
+                  placeholder="e.g. +91 98765 43210"
+                  className="w-full h-8.5 pl-8 pr-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF]"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Row 2: UPS Engineer Name & Number */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 pt-3 border-t border-slate-100">
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                UPS Engineer Name
+              </label>
+              <input
+                type="text"
+                value={upsEngineerName}
+                onChange={(e) => setUpsEngineerName(e.target.value)}
+                placeholder="Enter UPS engineer name"
+                className="w-full h-8.5 px-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF]"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                Number
+              </label>
+              <div className="relative">
+                <Phone size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <input
+                  type="text"
+                  value={upsEngineerNumber}
+                  onChange={(e) => setUpsEngineerNumber(e.target.value)}
+                  placeholder="e.g. +91 98765 43210"
+                  className="w-full h-8.5 pl-8 pr-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF]"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Row 3: Network Engineer Name & Number */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 pt-3 border-t border-slate-100">
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                Network Engineer Name
+              </label>
+              <input
+                type="text"
+                value={networkEngineerName}
+                onChange={(e) => setNetworkEngineerName(e.target.value)}
+                placeholder="Enter network engineer name"
+                className="w-full h-8.5 px-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF]"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                Number
+              </label>
+              <div className="relative">
+                <Phone size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <input
+                  type="text"
+                  value={networkEngineerNumber}
+                  onChange={(e) => setNetworkEngineerNumber(e.target.value)}
+                  placeholder="e.g. +91 98765 43210"
+                  className="w-full h-8.5 pl-8 pr-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF]"
+                />
+              </div>
             </div>
           </div>
         </div>

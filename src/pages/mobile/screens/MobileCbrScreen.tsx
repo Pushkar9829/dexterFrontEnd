@@ -31,7 +31,12 @@ export function MobileCbrScreen({ onBackToMore }: MobileCbrScreenProps) {
   // Axis Indent Status Fields
   const [hpyGivenIndent, setHpyGivenIndent] = useState('500000')
   const [revisedIndent, setRevisedIndent] = useState('450000')
-  const [withdrawalFund, setWithdrawalFund] = useState('400000')
+  const [withdrawalFund, setWithdrawalFund] = useState('6500')
+  const [axisDenomCounts, setAxisDenomCounts] = useState<Record<DenomKey, number>>({
+    100: 15,
+    200: 10,
+    500: 6
+  })
 
   // WLA Account Status Fields
   const [lastDayBalance, setLastDayBalance] = useState('5500')
@@ -99,6 +104,16 @@ export function MobileCbrScreen({ onBackToMore }: MobileCbrScreenProps) {
       ...prev,
       [denom]: isNaN(numericVal) || numericVal < 0 ? 0 : numericVal
     }))
+  }
+
+  const handleAxisCountChange = (denom: DenomKey, value: string) => {
+    const numericVal = parseInt(value, 10)
+    const newCount = isNaN(numericVal) || numericVal < 0 ? 0 : numericVal
+    setAxisDenomCounts((prev) => {
+      const next = { ...prev, [denom]: newCount }
+      setWithdrawalFund(String(calcTotal(next)))
+      return next
+    })
   }
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -238,13 +253,36 @@ export function MobileCbrScreen({ onBackToMore }: MobileCbrScreenProps) {
                   className="w-24 h-6 text-right px-1.5 rounded-md border border-blue-300 bg-white font-black text-blue-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
-              <div className="flex items-center justify-between px-3 py-2 bg-blue-50/60">
-                <span className="font-bold text-slate-700">Denomination</span>
-                <div className="text-right font-mono text-[10.5px] font-bold text-slate-800 leading-tight">
-                  <div>100 × 250 = ₹25,000</div>
-                  <div>200 × 200 = ₹40,000</div>
-                  <div>500 × 670 = ₹3,35,000</div>
-                </div>
+              {/* Denomination Table (matching Image 2) */}
+              <div className="overflow-hidden bg-white">
+                <table className="w-full text-center text-xs">
+                  <thead className="bg-[#F8FAFC] text-slate-700 text-[11px] font-bold border-t border-b border-slate-100">
+                    <tr>
+                      <th className="py-2 w-1/3">Denomination</th>
+                      <th className="py-2 w-1/3">Count</th>
+                      <th className="py-2 w-1/3">Amount (₹)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-[12px]">
+                    {([100, 200, 500] as const).map((denom) => (
+                      <tr key={denom} className="hover:bg-blue-50/20">
+                        <td className="py-2 font-black text-slate-900">{denom}</td>
+                        <td className="py-1.5 flex justify-center">
+                          <input
+                            type="number"
+                            min="0"
+                            value={axisDenomCounts[denom]}
+                            onChange={(e) => handleAxisCountChange(denom, e.target.value)}
+                            className="w-16 h-7 text-center rounded-xl border border-blue-300 bg-white text-slate-900 text-xs font-black focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-2xs"
+                          />
+                        </td>
+                        <td className="py-2 font-black text-slate-900">
+                          {(axisDenomCounts[denom] * denom).toLocaleString('en-IN')}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
