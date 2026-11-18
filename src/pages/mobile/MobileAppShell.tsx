@@ -151,7 +151,7 @@ export function MobileAppShell() {
     chargeback: 'Charge Back Dispute',
     'failed-txns': 'Failed Transactions',
     transactions: 'Transaction Details',
-    contact: 'Contact Us',
+    contact: 'Helpdesk',
     broadcasts: 'Broadcasts',
     alerts: 'Notifications',
     uploads: 'Upload Center',
@@ -240,11 +240,10 @@ export function MobileAppShell() {
       <main className="w-full flex items-center justify-center">
         {/* If device frame is enabled, wrap in realistic iPhone chassis; otherwise full-width mobile container */}
         <div
-          className={`transition-all duration-300 ${
-            useDeviceFrame
+          className={`transition-all duration-300 ${useDeviceFrame
               ? 'relative w-full max-w-[400px] h-[850px] rounded-[52px] p-[10px] bg-[#1a1c22] shadow-[0_25px_80px_rgba(0,0,0,0.6),0_10px_30px_rgba(0,0,0,0.3)] border-4 border-[#2d3139] ring-1 ring-white/10 flex flex-col'
               : 'relative w-full max-w-md h-[850px] rounded-2xl bg-white shadow-2xl overflow-hidden flex flex-col'
-          }`}
+            }`}
         >
           {/* Side Hardware Buttons (Simulated on frame) */}
           {useDeviceFrame && (
@@ -286,7 +285,7 @@ export function MobileAppShell() {
 
             {/* Scrollable Screen Content Body */}
             <div
-              className="flex-1 overflow-y-auto no-scrollbar bg-[#EDF3FA] [&::-webkit-scrollbar]:hidden"
+              className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar bg-[#EDF3FA] [&::-webkit-scrollbar]:hidden"
               style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             >
               {renderScreenContent()}

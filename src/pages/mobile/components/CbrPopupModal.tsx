@@ -54,9 +54,6 @@ export function CbrPopupModal({
 
         {/* Content */}
         <div className="py-3 space-y-3 text-xs">
-          <p className="text-[11px] text-slate-600">
-            Audit physical cash in cassettes. The system will compare with switch records and calculate discrepancy.
-          </p>
 
           {/* Denomination Table */}
           <table className="w-full text-center text-xs">
@@ -70,7 +67,7 @@ export function CbrPopupModal({
             <tbody className="divide-y divide-slate-100 text-[11px]">
               {([100, 200, 500] as const).map((denom) => (
                 <tr key={denom}>
-                  <td className="py-1.5 font-bold">₹{denom}</td>
+                  <td className="py-1.5 font-bold text-black">₹{denom}</td>
                   <td className="py-1.5">
                     <input
                       type="number"

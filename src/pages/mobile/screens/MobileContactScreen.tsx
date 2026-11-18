@@ -3,183 +3,382 @@ import {
   Headphones,
   ArrowLeft,
   Phone,
-  Mail,
   MessageSquare,
   Clock,
   User,
-  CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Cpu,
+  Wifi,
+  Zap,
+  Building
 } from 'lucide-react'
-import { SUPPORT_LEVELS } from '../data/mobileMockData'
 
 interface MobileContactScreenProps {
   onBackToMore?: () => void
 }
 
+export interface EngineerItem {
+  category: 'ATM' | 'Network' | 'UPS'
+  title: string
+  subRole: string
+  name: string
+  mobile: string
+}
+
+const SITES_LIST = [
+  { id: 'S-1045', name: 'S-1045 – City Center', atmId: 'ATM7821', location: 'MG Road, Bewar, Mainpuri, UP' },
+  { id: 'S-1046', name: 'S-1046 – Station Road', atmId: 'ATM7822', location: 'Near Bewar Bus Stand, Mainpuri, UP' },
+  { id: 'S-1047', name: 'S-1047 – Highway Plaza', atmId: 'ATM7823', location: 'NH-91 Bypass, Mainpuri, UP' }
+]
+
+// Level 1: Ground Field Engineers (ATM, Network, UPS with Name & Mobile Number)
+const LEVEL_1_DATA: Record<string, EngineerItem[]> = {
+  'S-1045': [
+    {
+      category: 'ATM',
+      title: 'ATM Engineer',
+      subRole: 'Hardware, Cash Dispenser, Cassettes & Machine Terminal',
+      name: 'Sanjay Sharma',
+      mobile: '+91 98765 43210'
+    },
+    {
+      category: 'Network',
+      title: 'Network Engineer',
+      subRole: '4G LTE Router, VSAT Antenna, SIM Card & Line Connectivity',
+      name: 'Deepak Verma',
+      mobile: '+91 98112 23344'
+    },
+    {
+      category: 'UPS',
+      title: 'UPS Engineer',
+      subRole: 'UPS Inverter, Battery Bank Backup, Power Trip & Line Voltage',
+      name: 'Rajesh Kumar',
+      mobile: '+91 97234 56789'
+    }
+  ],
+  'S-1046': [
+    {
+      category: 'ATM',
+      title: 'ATM Engineer',
+      subRole: 'Hardware, Cash Dispenser, Cassettes & Machine Terminal',
+      name: 'Amit Yadav',
+      mobile: '+91 98234 56781'
+    },
+    {
+      category: 'Network',
+      title: 'Network Engineer',
+      subRole: '4G LTE Router, VSAT Antenna, SIM Card & Line Connectivity',
+      name: 'Rohan Gupta',
+      mobile: '+91 98345 67892'
+    },
+    {
+      category: 'UPS',
+      title: 'UPS Engineer',
+      subRole: 'UPS Inverter, Battery Bank Backup, Power Trip & Line Voltage',
+      name: 'Manoj Tiwari',
+      mobile: '+91 98456 78903'
+    }
+  ],
+  'S-1047': [
+    {
+      category: 'ATM',
+      title: 'ATM Engineer',
+      subRole: 'Hardware, Cash Dispenser, Cassettes & Machine Terminal',
+      name: 'Pooja Singh',
+      mobile: '+91 98567 89014'
+    },
+    {
+      category: 'Network',
+      title: 'Network Engineer',
+      subRole: '4G LTE Router, VSAT Antenna, SIM Card & Line Connectivity',
+      name: 'Vikas Mehra',
+      mobile: '+91 98678 90125'
+    },
+    {
+      category: 'UPS',
+      title: 'UPS Engineer',
+      subRole: 'UPS Inverter, Battery Bank Backup, Power Trip & Line Voltage',
+      name: 'Sunil Mishra',
+      mobile: '+91 98789 01236'
+    }
+  ]
+}
+
+// Level 2: Same structure (ATM, Network, UPS) but details blank till development
+const LEVEL_2_DATA: EngineerItem[] = [
+  {
+    category: 'ATM',
+    title: 'ATM Engineer',
+    subRole: 'Hardware Escalation & OEM Vendor Lead (Level 2)',
+    name: '',
+    mobile: ''
+  },
+  {
+    category: 'Network',
+    title: 'Network Engineer',
+    subRole: 'Network NOC & Telco ISP Escalation Lead (Level 2)',
+    name: '',
+    mobile: ''
+  },
+  {
+    category: 'UPS',
+    title: 'UPS Engineer',
+    subRole: 'Power Infrastructure & OEM Battery Lead (Level 2)',
+    name: '',
+    mobile: ''
+  }
+]
+
+// Level 3: Same structure (ATM, Network, UPS) but details blank till development
+const LEVEL_3_DATA: EngineerItem[] = [
+  {
+    category: 'ATM',
+    title: 'ATM Engineer',
+    subRole: 'ATM Engineering Head & Technical Director (Level 3)',
+    name: '',
+    mobile: ''
+  },
+  {
+    category: 'Network',
+    title: 'Network Engineer',
+    subRole: 'Network Infrastructure Head & Security Lead (Level 3)',
+    name: '',
+    mobile: ''
+  },
+  {
+    category: 'UPS',
+    title: 'UPS Engineer',
+    subRole: 'Facilities & Power Infrastructure Head (Level 3)',
+    name: '',
+    mobile: ''
+  }
+]
+
 export function MobileContactScreen({ onBackToMore }: MobileContactScreenProps) {
   const [selectedLevel, setSelectedLevel] = useState<number>(1)
-  const currentLevelData = SUPPORT_LEVELS.find((l) => l.level === selectedLevel) || SUPPORT_LEVELS[0]
+  const [selectedSite, setSelectedSite] = useState<string>('S-1045')
+
+  const selectedSiteData = SITES_LIST.find((s) => s.id === selectedSite) || SITES_LIST[0]
+
+  // Get current engineers according to selected level
+  const currentEngineers: EngineerItem[] =
+    selectedLevel === 1
+      ? LEVEL_1_DATA[selectedSite] || LEVEL_1_DATA['S-1045']
+      : selectedLevel === 2
+        ? LEVEL_2_DATA
+        : LEVEL_3_DATA
 
   return (
-    <div className="space-y-4 pb-6 pt-3 px-3">
-      {/* Banner matching 9.04.13 AM.jpeg */}
+    <div className="space-y-4 pb-6 pt-3 px-3 animate-in fade-in">
+      {/* Top Banner */}
       <div className="rounded-2xl bg-gradient-to-r from-[#0C3E98] to-[#1453CA] p-4 text-white shadow-md">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {onBackToMore && (
               <button
                 onClick={onBackToMore}
-                className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/15"
+                className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/15 hover:bg-white/25 active:scale-95 transition-all text-white"
               >
                 <ArrowLeft size={16} />
               </button>
             )}
             <div>
-              <h1 className="text-base font-black text-white">Contact Us</h1>
-              <p className="text-[11px] text-blue-100 mt-0.5">
-                Get in touch with our support team for quick assistance.
-              </p>
+              <h1 className="text-base font-black text-white">Helpdesk & Support</h1>
+              <p className="text-[10px] text-blue-100">Technical Breakdown & Escalation Matrix</p>
             </div>
           </div>
           <Headphones size={26} className="text-amber-300 shrink-0" />
         </div>
 
-        {/* Level Switcher Tabs */}
-        <div className="mt-3 grid grid-cols-3 gap-1 text-center">
+        {/* Level Switcher Tabs: Level 1, Level 2, Level 3 */}
+        <div className="mt-3 grid grid-cols-3 gap-1.5 text-center">
           {[
-            { level: 1, label: 'L1: Help Desk' },
-            { level: 2, label: 'L2: Admin & Ops' },
-            { level: 3, label: 'L3: Management' }
+            { level: 1, label: 'Level 1', sub: 'Ground Team' },
+            { level: 2, label: 'Level 2', sub: 'Admin / Ops' },
+            { level: 3, label: 'Level 3', sub: 'Management' }
           ].map((item) => (
             <button
               key={item.level}
               type="button"
               onClick={() => setSelectedLevel(item.level)}
-              className={`py-1.5 px-1 rounded-xl text-[10.5px] font-bold transition-all ${
+              className={`py-2 px-1 rounded-xl transition-all ${
                 selectedLevel === item.level
                   ? 'bg-white text-[#0B2A6B] shadow-xs'
                   : 'bg-white/15 text-white/90 hover:bg-white/20'
               }`}
             >
-              {item.label}
+              <span className="block text-xs font-black">{item.label}</span>
+              <span className="block text-[9px] opacity-80">{item.sub}</span>
             </button>
           ))}
         </div>
       </div>
 
-      {/* Main Support Details Container */}
-      <div className="rounded-2xl border border-blue-200 bg-white p-4 shadow-sm space-y-3.5">
-        <div>
-          <h2 className="text-sm font-black text-[#0B2A6B] flex items-center gap-2">
-            <span className="h-6 w-6 rounded-lg bg-blue-600 text-white flex items-center justify-center text-xs">
-              {currentLevelData.level}
-            </span>
-            {currentLevelData.levelTitle}
-          </h2>
-          <p className="text-[11px] text-slate-500 mt-1">
-            {currentLevelData.subtitle}
+      {/* Site Selector Dropdown */}
+      <div className="rounded-2xl border border-blue-200 bg-white p-3 shadow-2xs space-y-2">
+        <div className="flex items-center justify-between">
+          <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
+            <Building size={14} className="text-blue-600" />
+            <span>Select ATM Site / Kiosk</span>
+          </label>
+          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200">
+            {selectedSiteData.atmId}
+          </span>
+        </div>
+
+        <select
+          value={selectedSite}
+          onChange={(e) => setSelectedSite(e.target.value)}
+          className="w-full h-9 rounded-xl border border-slate-300 bg-slate-50/70 px-3 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          {SITES_LIST.map((site) => (
+            <option key={site.id} value={site.id}>
+              {site.name} ({site.atmId})
+            </option>
+          ))}
+        </select>
+
+        <p className="text-[10px] text-slate-400 truncate">
+          📍 {selectedSiteData.location}
+        </p>
+      </div>
+
+      {/* Level Status Notice */}
+      {selectedLevel === 1 ? (
+        <div className="rounded-2xl border border-blue-200 bg-blue-50/60 p-3 shadow-2xs space-y-1">
+          <div className="flex items-center gap-1.5 text-blue-900 font-bold text-xs">
+            <AlertCircle size={14} className="text-blue-600 shrink-0" />
+            <span>Level 1: Ground Field Engineers</span>
+          </div>
+          <p className="text-[10.5px] text-blue-700/90 leading-relaxed">
+            Direct on-site engineering team for breakdown maintenance: ATM Machine, Network Connectivity, and UPS Power Backup.
           </p>
         </div>
-
-        {/* Contact Person Box */}
-        <div className="rounded-xl bg-blue-50/70 p-3 border border-blue-100 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="h-10 w-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm">
-              <User size={18} />
-            </div>
-            <div>
-              <span className="text-[10px] text-slate-500 font-semibold block">Designated Officer</span>
-              <h3 className="text-xs font-black text-slate-900">{currentLevelData.contactPerson}</h3>
-            </div>
+      ) : (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-3 shadow-2xs space-y-1">
+          <div className="flex items-center gap-1.5 text-amber-900 font-bold text-xs">
+            <AlertCircle size={14} className="text-amber-600 shrink-0" />
+            <span>Level {selectedLevel}: Escalation Matrix (In Development)</span>
           </div>
-          <span className="rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2 py-0.5">
-            Available
-          </span>
+          <p className="text-[10.5px] text-amber-800/90 leading-relaxed">
+            Level {selectedLevel} engineering and escalation details are blank till development. Allocation is in progress.
+          </p>
         </div>
+      )}
 
-        {/* 3 Action Buttons: Call Support, WhatsApp, Email Support */}
-        <div className="grid grid-cols-3 gap-2 text-center text-xs">
-          {/* Call */}
-          <a
-            href={`tel:${currentLevelData.phone.replace(/\s+/g, '')}`}
-            className="flex flex-col items-center justify-center rounded-xl border border-blue-200 bg-blue-50/70 p-2.5 hover:bg-blue-100 active:scale-95 transition-all"
-          >
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white shadow-xs">
-              <Phone size={15} />
-            </div>
-            <span className="mt-1 text-[10px] font-bold text-slate-800">Call</span>
-            <span className="text-[9px] text-slate-500 font-mono truncate max-w-full">
-              {currentLevelData.phone}
-            </span>
-          </a>
+      {/* 3 Engineer Cards: ATM Engineer, Network Engineer, UPS Engineer */}
+      <div className="space-y-3">
+        {currentEngineers.map((eng) => {
+          const isL1 = selectedLevel === 1
+          const Icon = eng.category === 'ATM' ? Cpu : eng.category === 'Network' ? Wifi : Zap
 
-          {/* WhatsApp */}
-          <a
-            href={`https://wa.me/${currentLevelData.whatsapp.replace(/[^0-9]/g, '')}`}
-            target="_blank"
-            rel="noreferrer"
-            className="flex flex-col items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50/70 p-2.5 hover:bg-emerald-100 active:scale-95 transition-all"
-          >
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-white shadow-xs">
-              <MessageSquare size={15} />
-            </div>
-            <span className="mt-1 text-[10px] font-bold text-slate-800">WhatsApp</span>
-            <span className="text-[9px] text-slate-500 font-mono truncate max-w-full">
-              Chat Now
-            </span>
-          </a>
+          return (
+            <div
+              key={eng.category}
+              className="rounded-2xl border border-blue-200 bg-white p-3.5 shadow-xs space-y-2.5 hover:border-blue-300 transition-all"
+            >
+              {/* Header: Category + Status Badge */}
+              <div className="flex items-center justify-between border-b pb-2 border-slate-100">
+                <div className="flex items-center gap-2">
+                  <div className="h-8 w-8 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center border border-blue-100">
+                    <Icon size={17} />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-black text-[#0B2A6B]">{eng.title}</h3>
+                    <p className="text-[10px] text-slate-400">{eng.subRole}</p>
+                  </div>
+                </div>
 
-          {/* Email */}
-          <a
-            href={`mailto:${currentLevelData.email}`}
-            className="flex flex-col items-center justify-center rounded-xl border border-amber-200 bg-amber-50/70 p-2.5 hover:bg-amber-100 active:scale-95 transition-all"
-          >
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500 text-white shadow-xs">
-              <Mail size={15} />
-            </div>
-            <span className="mt-1 text-[10px] font-bold text-slate-800">Email</span>
-            <span className="text-[9px] text-slate-500 truncate max-w-full">
-              Send Mail
-            </span>
-          </a>
-        </div>
-
-        {/* Scope of Support */}
-        <div>
-          <span className="text-[11px] font-bold text-slate-700 block mb-1.5">
-            Area of Responsibility & Scope (Level {currentLevelData.level})
-          </span>
-          <div className="grid grid-cols-2 gap-1.5">
-            {currentLevelData.responsibilities.map((resp, idx) => (
-              <div
-                key={idx}
-                className="flex items-center gap-1.5 rounded-xl border border-slate-100 bg-slate-50 p-2 text-[10.5px] font-semibold text-slate-700"
-              >
-                <CheckCircle2 size={13} className="text-emerald-600 shrink-0" />
-                <span className="truncate">{resp}</span>
+                <span
+                  className={`px-2 py-0.5 rounded-full text-[9.5px] font-extrabold border shrink-0 ${
+                    isL1 && eng.name
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      : 'bg-slate-100 text-slate-500 border-slate-200'
+                  }`}
+                >
+                  {isL1 && eng.name ? 'Active / On-Duty' : 'Under Development'}
+                </span>
               </div>
-            ))}
+
+              {/* Name & Mobile Number Grid */}
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                  <span className="text-[9.5px] text-slate-400 font-semibold block mb-0.5 flex items-center gap-1">
+                    <User size={11} className="text-slate-400" /> Engineer Name
+                  </span>
+                  <span className={`font-bold block text-xs ${isL1 && eng.name ? 'text-slate-900' : 'text-slate-400 italic'}`}>
+                    {isL1 && eng.name ? eng.name : '—'}
+                  </span>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                  <span className="text-[9.5px] text-slate-400 font-semibold block mb-0.5 flex items-center gap-1">
+                    <Phone size={11} className="text-slate-400" /> Mobile Number
+                  </span>
+                  <span className={`font-mono font-bold block text-xs ${isL1 && eng.mobile ? 'text-blue-700' : 'text-slate-400 italic'}`}>
+                    {isL1 && eng.mobile ? eng.mobile : '—'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Actions for Level 1 vs Blank Notice for Level 2 & Level 3 */}
+              {isL1 && eng.mobile ? (
+                <div className="grid grid-cols-2 gap-2 pt-0.5">
+                  <a
+                    href={`tel:${eng.mobile.replace(/[^0-9+]/g, '')}`}
+                    className="h-8 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-[11px] flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 transition-all"
+                  >
+                    <Phone size={12} /> Call Engineer
+                  </a>
+                  <a
+                    href={`https://wa.me/${eng.mobile.replace(/[^0-9]/g, '')}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="h-8 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 transition-all"
+                  >
+                    <MessageSquare size={12} /> WhatsApp
+                  </a>
+                </div>
+              ) : (
+                <div className="rounded-xl bg-slate-50 p-2 border border-dashed border-slate-200 text-center text-[10px] text-slate-400 font-medium italic">
+                  Details will be blank till development • Level {selectedLevel} allocation in progress
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Central Helpdesk & Support Hours */}
+      <div className="rounded-2xl border border-blue-200 bg-white p-3.5 shadow-xs space-y-2.5 text-xs">
+        <div className="flex items-center justify-between border-b pb-2 border-slate-100">
+          <span className="font-bold text-slate-800 flex items-center gap-1.5">
+            <Headphones size={14} className="text-blue-600" /> Central Operations Helpdesk
+          </span>
+          <span className="text-[10px] font-bold text-emerald-600">24x7 Ticket Logging</span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 text-[11px]">
+          <div className="p-2 rounded-xl bg-slate-50 border border-slate-100">
+            <span className="text-[9.5px] text-slate-400 font-semibold block">Toll-Free Helpline</span>
+            <a href="tel:+918954008232" className="font-mono font-bold text-blue-700 block mt-0.5">
+              +91 89540 08232
+            </a>
+          </div>
+          <div className="p-2 rounded-xl bg-slate-50 border border-slate-100">
+            <span className="text-[9.5px] text-slate-400 font-semibold block">Email Support</span>
+            <a href="mailto:wla@dexterindia.com" className="font-semibold text-slate-700 truncate block mt-0.5">
+              wla@dexterindia.com
+            </a>
           </div>
         </div>
 
-        {/* Escalation Matrix Info Box */}
-        <div className="rounded-xl border border-blue-200 bg-blue-50/60 p-2.5 text-[11px] text-slate-700 flex items-start gap-2">
-          <AlertCircle size={15} className="text-blue-600 shrink-0 mt-0.5" />
-          <p>
-            <strong>Escalation Matrix:</strong> If your query is not resolved at Level 1 within standard SLA, it will be automatically escalated to Level 2 and Level 3 for supervisor intervention.
-          </p>
-        </div>
-
-        {/* Support Hours Card */}
-        <div className="flex items-center justify-between rounded-xl bg-slate-50 p-2.5 border border-slate-200 text-xs">
-          <div className="flex items-center gap-2 text-slate-700 font-semibold">
-            <Clock size={15} className="text-blue-600" />
+        <div className="flex items-center justify-between rounded-xl bg-slate-50 p-2 border border-slate-100 text-[10.5px]">
+          <div className="flex items-center gap-1.5 text-slate-600 font-semibold">
+            <Clock size={13} className="text-blue-600" />
             <span>Support Hours:</span>
           </div>
-          <div className="text-right">
-            <span className="font-bold text-slate-900 block">Mon – Sat : 9:00 AM – 7:00 PM</span>
-            <span className="text-[9.5px] text-slate-400 block">(Except Public Holidays)</span>
-          </div>
+          <span className="font-bold text-slate-800">Mon – Sat : 9:00 AM – 7:00 PM</span>
         </div>
       </div>
     </div>

@@ -24,7 +24,7 @@ export function MobileDrawer({
     { id: 'profile', label: 'My Profile', icon: User, screen: 'profile' },
     { id: 'settings', label: 'Profile Settings', icon: Settings, screen: 'profile' },
     { id: 'support', label: 'Supports', icon: Headphones, screen: 'contact' },
-    { id: 'tickets', label: 'Tickets & Complaints', icon: Ticket, screen: 'complaints' },
+    { id: 'tickets', label: 'Tickets', icon: Ticket, screen: 'complaints' },
     { id: 'terms', label: 'Terms & Conditions', icon: FileText, screen: 'terms' },
     { id: 'privacy', label: 'Privacy Policy', icon: Shield, screen: 'privacy' },
   ]

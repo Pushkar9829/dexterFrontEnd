@@ -9,9 +9,92 @@ import {
   TrendingUp,
   ArrowUpRight,
   ArrowDownRight,
-  ChevronDown
+  ChevronDown,
+  Building2
 } from 'lucide-react'
 import { SIX_DAYS_TXN_DATA } from '../data/mobileMockData'
+
+export interface MultiSiteTxnProfile {
+  id: string
+  siteCode: string
+  name: string
+  frName: string
+  atmId: string
+  location: string
+  status: 'Active' | 'Under Maintenance' | 'Operational'
+  totalTxns: number
+  deposit: string
+  withdrawal: string
+  sixDaysMultiplier: number
+}
+
+export const MULTI_SITES: MultiSiteTxnProfile[] = [
+  {
+    id: 'S-1045',
+    siteCode: 'S-1045',
+    name: 'City Center',
+    frName: 'Rohit Sharma',
+    atmId: 'ATM7821',
+    location: 'MG Road, Lucknow, UP',
+    status: 'Active',
+    totalTxns: 336,
+    deposit: '₹9,62,000',
+    withdrawal: '₹20,14,000',
+    sixDaysMultiplier: 1.0
+  },
+  {
+    id: 'S-1046',
+    siteCode: 'S-1046',
+    name: 'Mainpuri Market Site',
+    frName: 'Ranjeet Pal',
+    atmId: 'ATM012345',
+    location: 'Bewar, Mainpuri, UP',
+    status: 'Active',
+    totalTxns: 412,
+    deposit: '₹12,45,000',
+    withdrawal: '₹24,80,000',
+    sixDaysMultiplier: 1.2
+  },
+  {
+    id: 'S-1047',
+    siteCode: 'S-1047',
+    name: 'Gomti Nagar Hub',
+    frName: 'Amit Verma',
+    atmId: 'MPZ14409',
+    location: 'Vibhuti Khand, Lucknow, UP',
+    status: 'Active',
+    totalTxns: 289,
+    deposit: '₹8,15,000',
+    withdrawal: '₹18,50,000',
+    sixDaysMultiplier: 0.9
+  },
+  {
+    id: 'S-1048',
+    siteCode: 'S-1048',
+    name: 'Hazratganj Plaza',
+    frName: 'Sanjay Sharma',
+    atmId: 'ATM012346',
+    location: 'Hazratganj, Lucknow, UP',
+    status: 'Active',
+    totalTxns: 365,
+    deposit: '₹10,90,000',
+    withdrawal: '₹21,30,000',
+    sixDaysMultiplier: 1.1
+  },
+  {
+    id: 'S-1049',
+    siteCode: 'S-1049',
+    name: 'Civil Lines Branch',
+    frName: 'Naveen Singh',
+    atmId: 'AXIS277823',
+    location: 'Civil Lines, Kanpur, UP',
+    status: 'Active',
+    totalTxns: 245,
+    deposit: '₹6,80,000',
+    withdrawal: '₹15,40,000',
+    sixDaysMultiplier: 0.75
+  }
+]
 
 interface MobileTransactionsScreenProps {
   onBackToMore?: () => void
@@ -19,6 +102,21 @@ interface MobileTransactionsScreenProps {
 
 export function MobileTransactionsScreen({ onBackToMore }: MobileTransactionsScreenProps) {
   const [tab, setTab] = useState<'overview' | 'sitewise' | 'performance'>('overview')
+  const [selectedSiteId, setSelectedSiteId] = useState<string>('S-1045')
+
+  const currentSite = MULTI_SITES.find((s) => s.id === selectedSiteId) || MULTI_SITES[0]
+
+  const siteTxnData = SIX_DAYS_TXN_DATA.map((row) => {
+    const mult = currentSite.sixDaysMultiplier
+    return {
+      ...row,
+      txns: Math.round(row.txns * mult),
+      cardDepositCount: Math.round(row.cardDepositCount * mult),
+      cardWithdrawalCount: Math.round(row.cardWithdrawalCount * mult),
+      upiDepositCount: Math.round(row.upiDepositCount * mult),
+      upiWithdrawalCount: Math.round(row.upiWithdrawalCount * mult)
+    }
+  })
 
   return (
     <div className="space-y-4 pb-6 pt-3 px-3">
@@ -91,9 +189,20 @@ export function MobileTransactionsScreen({ onBackToMore }: MobileTransactionsScr
               <span className="font-bold text-slate-700">Nov 01 – Nov 06</span>
               <Calendar size={13} className="text-blue-600" />
             </div>
-            <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-2">
-              <span className="font-bold text-slate-700">All Sites (5)</span>
-              <ChevronDown size={13} className="text-slate-400" />
+            <div className="relative">
+              <select
+                value={selectedSiteId}
+                onChange={(e) => setSelectedSiteId(e.target.value)}
+                className="w-full h-8.5 pl-2.5 pr-7 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 appearance-none focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+              >
+                <option value="all">All Sites ({MULTI_SITES.length})</option>
+                {MULTI_SITES.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.siteCode} ({s.atmId})
+                  </option>
+                ))}
+              </select>
+              <ChevronDown size={13} className="absolute right-2 top-2.5 text-slate-400 pointer-events-none" />
             </div>
           </div>
 
@@ -228,34 +337,65 @@ export function MobileTransactionsScreen({ onBackToMore }: MobileTransactionsScr
         </div>
       )}
 
-      {/* TAB 2: SITE WISE (Matching 7.59.43 AM Right Screen) */}
+      {/* TAB 2: SITE WISE (Matching 7.59.43 AM Right Screen with Multi-Site Dropdown) */}
       {tab === 'sitewise' && (
         <div className="space-y-3.5">
-          {/* Site Selector Header */}
-          <div className="rounded-2xl border border-blue-200 bg-white p-3.5 shadow-xs">
-            <div className="flex items-center justify-between border-b pb-2">
-              <div>
-                <h3 className="text-xs font-black text-[#0B2A6B]">S-1045 – City Center</h3>
-                <p className="text-[10px] text-slate-500">FR: Rohit Sharma • ATM: ATM7821</p>
-                <p className="text-[10px] text-slate-400">MG Road, Lucknow, UP</p>
+          {/* Site Selector Header & Multi-Site Dropdown */}
+          <div className="rounded-2xl border border-blue-200 bg-white p-3.5 shadow-xs space-y-3">
+            {/* Multi-Site Dropdown */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
+                  <Building2 size={13} className="text-blue-600" />
+                  <span>Choose Multi-Site</span>
+                  <span className="text-red-500">*</span>
+                </label>
+                <span className="text-[10px] text-blue-600 font-extrabold bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
+                  {MULTI_SITES.length} Sites Linked
+                </span>
               </div>
-              <span className="rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2 py-0.5">
-                Active
+              <div className="relative">
+                <select
+                  value={selectedSiteId}
+                  onChange={(e) => setSelectedSiteId(e.target.value)}
+                  className="w-full h-10 pl-9 pr-9 rounded-xl border border-slate-300 bg-slate-50/70 text-xs font-bold text-[#0B2A6B] focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none shadow-2xs cursor-pointer"
+                >
+                  {MULTI_SITES.map((site) => (
+                    <option key={site.id} value={site.id}>
+                      {site.siteCode} – {site.name} ({site.atmId})
+                    </option>
+                  ))}
+                </select>
+                <Building2 size={15} className="absolute left-3 top-2.5 text-blue-600 pointer-events-none" />
+                <ChevronDown size={15} className="absolute right-3 top-2.5 text-slate-400 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* Selected Site Details */}
+            <div className="flex items-center justify-between border-t border-b py-2.5 border-slate-100">
+              <div>
+                <h3 className="text-xs font-black text-[#0B2A6B]">{currentSite.siteCode} – {currentSite.name}</h3>
+                <p className="text-[10px] text-slate-500 font-medium">FR: {currentSite.frName} • ATM: {currentSite.atmId}</p>
+                <p className="text-[10px] text-slate-400 font-medium">{currentSite.location}</p>
+              </div>
+              <span className="rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2.5 py-0.5">
+                {currentSite.status}
               </span>
             </div>
 
-            <div className="mt-3 grid grid-cols-3 gap-1.5 text-center">
+            {/* Stats Row */}
+            <div className="grid grid-cols-3 gap-1.5 text-center">
               <div className="rounded-xl bg-blue-50 p-2">
                 <span className="text-[9px] font-bold text-slate-500 block">Total TXNs</span>
-                <span className="text-sm font-black text-blue-700">336</span>
+                <span className="text-sm font-black text-blue-700">{currentSite.totalTxns}</span>
               </div>
               <div className="rounded-xl bg-emerald-50 p-2">
                 <span className="text-[9px] font-bold text-slate-500 block">Deposit</span>
-                <span className="text-xs font-black text-emerald-700">₹9,62,000</span>
+                <span className="text-xs font-black text-emerald-700">{currentSite.deposit}</span>
               </div>
               <div className="rounded-xl bg-rose-50 p-2">
                 <span className="text-[9px] font-bold text-slate-500 block">Withdrawal</span>
-                <span className="text-xs font-black text-rose-700">₹20,14,000</span>
+                <span className="text-xs font-black text-rose-700">{currentSite.withdrawal}</span>
               </div>
             </div>
           </div>
@@ -263,9 +403,9 @@ export function MobileTransactionsScreen({ onBackToMore }: MobileTransactionsScr
           {/* Transaction Data – Last 6 Days Table */}
           <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-xs">
             <div className="flex items-center justify-between bg-gradient-to-r from-[#0C3E98] to-[#1453CA] px-3.5 py-2 text-white">
-              <span className="text-xs font-bold">Transaction Data – Last 6 Days</span>
+              <span className="text-xs font-bold">Transaction Data – Last 6 Days ({currentSite.siteCode})</span>
               <button
-                onClick={() => alert('Downloading Excel report for S-1045')}
+                onClick={() => alert(`Downloading Excel report for ${currentSite.siteCode} (${currentSite.atmId})`)}
                 className="text-white hover:text-blue-100"
               >
                 <Download size={15} />
@@ -283,7 +423,7 @@ export function MobileTransactionsScreen({ onBackToMore }: MobileTransactionsScr
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {SIX_DAYS_TXN_DATA.map((row) => (
+                  {siteTxnData.map((row) => (
                     <tr key={row.date} className="hover:bg-slate-50">
                       <td className="py-2 px-2 text-left font-bold text-slate-800">{row.date}</td>
                       <td className="py-2 px-2 font-mono text-slate-700">

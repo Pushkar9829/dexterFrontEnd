@@ -7,10 +7,8 @@ import {
   CalendarDays,
   RotateCcw,
   Scale,
-  FileCheck2,
   AlertTriangle,
   Building,
-  Banknote,
   ArrowLeftRight,
   UploadCloud,
   Search
@@ -32,32 +30,18 @@ export function MobileMoreScreen({ onNavigate, searchQuery = '' }: MobileMoreScr
       screen: 'accounts'
     },
     {
+      id: 'complaints',
+      title: 'Raise Complaint',
+      icon: AlertTriangle,
+      color: 'text-[#E52429]',
+      screen: 'complaints'
+    },
+    {
       id: 'cbr',
       title: 'CBR',
       icon: Calculator,
       color: 'text-[#0B56D0]',
       screen: 'cbr'
-    },
-    {
-      id: 'chargeback',
-      title: 'Chargeback Dispute Transaction',
-      icon: CreditCard,
-      color: 'text-[#0B56D0]',
-      screen: 'chargeback'
-    },
-    {
-      id: 'contact',
-      title: 'Contact Us',
-      icon: Headphones,
-      color: 'text-[#0B56D0]',
-      screen: 'contact'
-    },
-    {
-      id: 'downloads',
-      title: 'Download Center',
-      icon: Download,
-      color: 'text-[#0B56D0]',
-      screen: 'downloads'
     },
     {
       id: 'eod',
@@ -67,6 +51,13 @@ export function MobileMoreScreen({ onNavigate, searchQuery = '' }: MobileMoreScr
       screen: 'eod'
     },
     {
+      id: 'chargeback',
+      title: 'Chargeback Dispute Transaction',
+      icon: CreditCard,
+      color: 'text-[#0B56D0]',
+      screen: 'chargeback'
+    },
+    {
       id: 'failed-txns',
       title: 'Failed Transaction',
       icon: RotateCcw,
@@ -74,25 +65,11 @@ export function MobileMoreScreen({ onNavigate, searchQuery = '' }: MobileMoreScr
       screen: 'failed-txns'
     },
     {
-      id: 'legal',
-      title: 'Legal',
-      icon: Scale,
+      id: 'transactions',
+      title: 'Transaction Details',
+      icon: ArrowLeftRight,
       color: 'text-[#0B56D0]',
-      screen: 'legal'
-    },
-    {
-      id: 'indent-confirmation',
-      title: 'Indent Withdrawn Confirmation',
-      icon: FileCheck2,
-      color: 'text-[#0B56D0]',
-      screen: 'indent-confirmation'
-    },
-    {
-      id: 'complaints',
-      title: 'Raise Complaint',
-      icon: AlertTriangle,
-      color: 'text-[#E52429]',
-      screen: 'complaints'
+      screen: 'transactions'
     },
     {
       id: 'sites',
@@ -102,18 +79,25 @@ export function MobileMoreScreen({ onNavigate, searchQuery = '' }: MobileMoreScr
       screen: 'sites'
     },
     {
-      id: 'cash-balance',
-      title: 'Cash Balance Confirmation',
-      icon: Banknote,
+      id: 'contact',
+      title: 'Helpdesk',
+      icon: Headphones,
       color: 'text-[#0B56D0]',
-      screen: 'cash-balance'
+      screen: 'contact'
     },
     {
-      id: 'transactions',
-      title: 'Transaction Details',
-      icon: ArrowLeftRight,
+      id: 'legal',
+      title: 'Legal',
+      icon: Scale,
       color: 'text-[#0B56D0]',
-      screen: 'transactions'
+      screen: 'legal'
+    },
+    {
+      id: 'downloads',
+      title: 'Download Center',
+      icon: Download,
+      color: 'text-[#0B56D0]',
+      screen: 'downloads'
     },
     {
       id: 'uploads',
@@ -126,8 +110,8 @@ export function MobileMoreScreen({ onNavigate, searchQuery = '' }: MobileMoreScr
 
   const filtered = searchQuery.trim()
     ? modules.filter((m) =>
-        m.title.toLowerCase().includes(searchQuery.toLowerCase().trim())
-      )
+      m.title.toLowerCase().includes(searchQuery.toLowerCase().trim())
+    )
     : modules
 
   return (

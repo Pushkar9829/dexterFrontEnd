@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import {
   Banknote,
   Calendar,
@@ -11,7 +11,16 @@ import {
   Save,
   Send,
   ArrowLeft,
-  Search
+  Search,
+  Receipt,
+  Upload,
+  Camera,
+  FileText,
+  Eye,
+  X,
+  Check,
+  Mic,
+  MicOff
 } from 'lucide-react'
 
 interface MobileCbrScreenProps {
@@ -77,10 +86,131 @@ export function MobileCbrScreen({ onBackToMore }: MobileCbrScreenProps) {
 
   // Remark
   const [remark, setRemark] = useState('')
+  const [isListening, setIsListening] = useState(false)
+  const recognitionRef = useRef<any>(null)
+
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop()
+        } catch {
+          // ignore
+        }
+      }
+    }
+  }, [])
+
+  const toggleVoiceTyping = () => {
+    if (isListening) {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop()
+        } catch {
+          // ignore
+        }
+      }
+      setIsListening(false)
+      return
+    }
+
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+
+    if (!SpeechRecognition) {
+      const fallbackPhrases = [
+        'CBR cash loading verified with admin counter slips 01 and 02.',
+        'Replenishment completed with no discrepancy in purge bin.',
+        'Cash in hand balanced with physical drawer count.',
+        'Cassette A, B and C loaded according to indent status.'
+      ]
+      const randomPhrase = fallbackPhrases[Math.floor(Math.random() * fallbackPhrases.length)]
+      setRemark((prev) => (prev ? `${prev} ${randomPhrase}` : randomPhrase))
+      alert('Voice typing is not directly supported in this browser window. Simulated sample voice remark added!')
+      return
+    }
+
+    try {
+      const recognition = new SpeechRecognition()
+      recognitionRef.current = recognition
+      recognition.continuous = false
+      recognition.interimResults = false
+      recognition.lang = 'en-IN'
+
+      recognition.onstart = () => {
+        setIsListening(true)
+      }
+
+      recognition.onresult = (event: any) => {
+        const transcript = event.results?.[0]?.[0]?.transcript
+        if (transcript) {
+          setRemark((prev) => (prev ? `${prev} ${transcript}` : transcript))
+        }
+      }
+
+      recognition.onerror = (event: any) => {
+        console.error('Speech recognition error:', event.error)
+        setIsListening(false)
+        if (event.error === 'not-allowed') {
+          alert('Microphone access was denied. Please allow microphone permission in your browser settings.')
+        }
+      }
+
+      recognition.onend = () => {
+        setIsListening(false)
+      }
+
+      recognition.start()
+    } catch (err) {
+      console.error('Failed to start speech recognition:', err)
+      setIsListening(false)
+    }
+  }
 
   // Submit Feedback State
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
+
+  // Counter Slips (Counter 01 & Counter 02) Uploading Facility
+  interface SlipFile {
+    name: string
+    size: string
+    previewUrl?: string
+    uploadedAt: string
+  }
+
+  const [counter01Slip, setCounter01Slip] = useState<SlipFile | null>(null)
+  const [counter02Slip, setCounter02Slip] = useState<SlipFile | null>(null)
+  const [previewingSlip, setPreviewingSlip] = useState<'counter01' | 'counter02' | null>(null)
+
+  const counter01InputRef = useRef<HTMLInputElement>(null)
+  const counter02InputRef = useRef<HTMLInputElement>(null)
+  const counter01CameraRef = useRef<HTMLInputElement>(null)
+  const counter02CameraRef = useRef<HTMLInputElement>(null)
+
+  const handleFileUpload = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    setSlip: React.Dispatch<React.SetStateAction<SlipFile | null>>,
+    defaultName: string
+  ) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      const sizeInMb = (file.size / (1024 * 1024)).toFixed(2)
+      const previewUrl = URL.createObjectURL(file)
+      setSlip({
+        name: file.name,
+        size: `${sizeInMb} MB`,
+        previewUrl,
+        uploadedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      })
+    } else {
+      setSlip({
+        name: defaultName,
+        size: '1.24 MB',
+        uploadedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      })
+    }
+  }
 
   // Calculations
   const calcTotal = (counts: Record<DenomKey, number>) =>
@@ -151,22 +281,20 @@ export function MobileCbrScreen({ onBackToMore }: MobileCbrScreenProps) {
         <button
           type="button"
           onClick={() => setMode('axis')}
-          className={`py-1.5 text-center text-xs font-bold rounded-lg transition-all ${
-            mode === 'axis'
-              ? 'bg-[#1258E2] text-white shadow-xs'
-              : 'text-slate-600 hover:text-slate-900'
-          }`}
+          className={`py-1.5 text-center text-xs font-bold rounded-lg transition-all ${mode === 'axis'
+            ? 'bg-[#1258E2] text-white shadow-xs'
+            : 'text-slate-600 hover:text-slate-900'
+            }`}
         >
           Axis Indent Form
         </button>
         <button
           type="button"
           onClick={() => setMode('wla')}
-          className={`py-1.5 text-center text-xs font-bold rounded-lg transition-all ${
-            mode === 'wla'
-              ? 'bg-[#1258E2] text-white shadow-xs'
-              : 'text-slate-600 hover:text-slate-900'
-          }`}
+          className={`py-1.5 text-center text-xs font-bold rounded-lg transition-all ${mode === 'wla'
+            ? 'bg-[#1258E2] text-white shadow-xs'
+            : 'text-slate-600 hover:text-slate-900'
+            }`}
         >
           WLA Account Form
         </button>
@@ -232,7 +360,7 @@ export function MobileCbrScreen({ onBackToMore }: MobileCbrScreenProps) {
                   type="number"
                   value={hpyGivenIndent}
                   onChange={(e) => setHpyGivenIndent(e.target.value)}
-                  className="w-24 h-6 text-right px-1.5 rounded-md border border-slate-200 bg-slate-50 font-black text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-24 h-6 text-right px-1.5 rounded-md border border-slate-200 bg-slate-50 font-black text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 no-spin [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
               </div>
               <div className="flex items-center justify-between px-3 py-1.5">
@@ -241,7 +369,7 @@ export function MobileCbrScreen({ onBackToMore }: MobileCbrScreenProps) {
                   type="number"
                   value={revisedIndent}
                   onChange={(e) => setRevisedIndent(e.target.value)}
-                  className="w-24 h-6 text-right px-1.5 rounded-md border border-slate-200 bg-slate-50 font-black text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-24 h-6 text-right px-1.5 rounded-md border border-slate-200 bg-slate-50 font-black text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 no-spin [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
               </div>
               <div className="flex items-center justify-between px-3 py-1.5 bg-blue-50/30">
@@ -250,7 +378,7 @@ export function MobileCbrScreen({ onBackToMore }: MobileCbrScreenProps) {
                   type="number"
                   value={withdrawalFund}
                   onChange={(e) => setWithdrawalFund(e.target.value)}
-                  className="w-24 h-6 text-right px-1.5 rounded-md border border-blue-300 bg-white font-black text-blue-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-24 h-6 text-right px-1.5 rounded-md border border-blue-300 bg-white font-black text-blue-700 focus:outline-none focus:ring-1 focus:ring-blue-500 no-spin [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
               </div>
               {/* Denomination Table (matching Image 2) */}
@@ -273,7 +401,7 @@ export function MobileCbrScreen({ onBackToMore }: MobileCbrScreenProps) {
                             min="0"
                             value={axisDenomCounts[denom]}
                             onChange={(e) => handleAxisCountChange(denom, e.target.value)}
-                            className="w-16 h-7 text-center rounded-xl border border-blue-300 bg-white text-slate-900 text-xs font-black focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-2xs"
+                            className="w-16 h-7 text-center rounded-xl border border-blue-300 bg-white text-slate-900 text-xs font-black focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-2xs no-spin [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
                         </td>
                         <td className="py-2 font-black text-slate-900">
@@ -304,7 +432,7 @@ export function MobileCbrScreen({ onBackToMore }: MobileCbrScreenProps) {
                     type="number"
                     value={lastDayBalance}
                     onChange={(e) => setLastDayBalance(e.target.value)}
-                    className="w-full mt-0.5 h-6 text-left px-1 rounded border border-slate-200 bg-white font-black text-slate-900 text-xs"
+                    className="w-full mt-0.5 h-6 text-left px-1 rounded border border-slate-200 bg-white font-black text-slate-900 text-xs no-spin [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                 </div>
                 <div className="p-1.5 rounded-xl bg-slate-50 border border-slate-200">
@@ -313,7 +441,7 @@ export function MobileCbrScreen({ onBackToMore }: MobileCbrScreenProps) {
                     type="number"
                     value={hpyGivenFund}
                     onChange={(e) => setHpyGivenFund(e.target.value)}
-                    className="w-full mt-0.5 h-6 text-left px-1 rounded border border-slate-200 bg-white font-black text-slate-900 text-xs"
+                    className="w-full mt-0.5 h-6 text-left px-1 rounded border border-slate-200 bg-white font-black text-slate-900 text-xs no-spin [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                 </div>
               </div>
@@ -340,7 +468,7 @@ export function MobileCbrScreen({ onBackToMore }: MobileCbrScreenProps) {
                             type="number"
                             value={wlaWithdrawalCounts[denom]}
                             onChange={(e) => handleCountChange(setWlaWithdrawalCounts, denom, e.target.value)}
-                            className="w-14 h-5.5 text-center rounded border border-blue-200 bg-white font-bold text-slate-900"
+                            className="w-14 h-5.5 text-center rounded border border-blue-200 bg-white font-bold text-slate-900 no-spin [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
                         </td>
                         <td className="py-1 font-black text-slate-900">
@@ -394,7 +522,7 @@ export function MobileCbrScreen({ onBackToMore }: MobileCbrScreenProps) {
                       type="number"
                       value={rejectCounts[denom]}
                       onChange={(e) => handleCountChange(setRejectCounts, denom, e.target.value)}
-                      className="w-16 h-6 text-center rounded-lg border border-blue-200 bg-white text-slate-900 text-xs font-black focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-2xs"
+                      className="w-16 h-6 text-center rounded-lg border border-blue-200 bg-white text-slate-900 text-xs font-black focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-2xs no-spin [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
                   </td>
                   <td className="py-1.5 font-black text-slate-900">
@@ -440,7 +568,7 @@ export function MobileCbrScreen({ onBackToMore }: MobileCbrScreenProps) {
                       type="number"
                       value={cassetteCounts[denom]}
                       onChange={(e) => handleCountChange(setCassetteCounts, denom, e.target.value)}
-                      className="w-16 h-6 text-center rounded-lg border border-blue-200 bg-white text-slate-900 text-xs font-black focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-2xs"
+                      className="w-16 h-6 text-center rounded-lg border border-blue-200 bg-white text-slate-900 text-xs font-black focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-2xs no-spin [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
                   </td>
                   <td className="py-1.5 font-black text-slate-900">
@@ -486,7 +614,7 @@ export function MobileCbrScreen({ onBackToMore }: MobileCbrScreenProps) {
                       type="number"
                       value={loadingCounts[denom]}
                       onChange={(e) => handleCountChange(setLoadingCounts, denom, e.target.value)}
-                      className="w-16 h-6 text-center rounded-lg border border-blue-200 bg-white text-slate-900 text-xs font-black focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-2xs"
+                      className="w-16 h-6 text-center rounded-lg border border-blue-200 bg-white text-slate-900 text-xs font-black focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-2xs no-spin [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
                   </td>
                   <td className="py-1.5 font-black text-slate-900">
@@ -532,7 +660,7 @@ export function MobileCbrScreen({ onBackToMore }: MobileCbrScreenProps) {
                       type="number"
                       value={handCounts[denom]}
                       onChange={(e) => handleCountChange(setHandCounts, denom, e.target.value)}
-                      className="w-16 h-6 text-center rounded-lg border border-blue-200 bg-white text-slate-900 text-xs font-black focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-2xs"
+                      className="w-16 h-6 text-center rounded-lg border border-blue-200 bg-white text-slate-900 text-xs font-black focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-2xs no-spin [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
                   </td>
                   <td className="py-1.5 font-black text-slate-900">
@@ -550,25 +678,251 @@ export function MobileCbrScreen({ onBackToMore }: MobileCbrScreenProps) {
         </div>
 
         {/* =========================================================================
-         * 8. REMARK FIELD (MATCHING 4.56.41 PM.jpeg)
+         * 7B. COUNTER 01 & COUNTER 02 SLIPS UPLOADING FACILITY
+         * ========================================================================= */}
+        <div className="rounded-2xl border border-blue-200/90 bg-white overflow-hidden shadow-2xs space-y-0">
+          <div className="bg-gradient-to-r from-[#0C4AC7] to-[#1258E2] px-3 py-1.5 text-white text-[11.5px] font-bold flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <Receipt size={13} className="text-white" />
+              <span>Counter 01 & Counter 02 Slips</span>
+            </div>
+            <span className="text-[9.5px] text-blue-200 font-medium">Mandatory Upload</span>
+          </div>
+
+          <div className="p-3 space-y-3">
+            {/* Hidden native inputs for Gallery/Files and Camera */}
+            <input
+              type="file"
+              ref={counter01InputRef}
+              accept="image/*,application/pdf"
+              className="hidden"
+              onChange={(e) => handleFileUpload(e, setCounter01Slip, 'Counter_01_Admin_Slip.jpg')}
+            />
+            <input
+              type="file"
+              ref={counter01CameraRef}
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={(e) => handleFileUpload(e, setCounter01Slip, 'Counter_01_Camera_Snap.jpg')}
+            />
+            <input
+              type="file"
+              ref={counter02InputRef}
+              accept="image/*,application/pdf"
+              className="hidden"
+              onChange={(e) => handleFileUpload(e, setCounter02Slip, 'Counter_02_Loading_Slip.jpg')}
+            />
+            <input
+              type="file"
+              ref={counter02CameraRef}
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={(e) => handleFileUpload(e, setCounter02Slip, 'Counter_02_Camera_Snap.jpg')}
+            />
+
+            {/* Counter 01 Slip */}
+            <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-4 w-4 rounded-md bg-[#1258E2] text-white text-[10px] font-black flex items-center justify-center">
+                      1
+                    </span>
+                    <span className="font-bold text-slate-800 text-xs">Counter 01 Slip</span>
+                    <span className="text-red-500 font-bold">*</span>
+                  </div>
+                </div>
+                {counter01Slip && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-extrabold border border-emerald-200">
+                    <Check size={10} /> Attached
+                  </span>
+                )}
+              </div>
+
+              {counter01Slip ? (
+                <div className="flex items-center justify-between p-2 rounded-xl bg-white border border-emerald-200 shadow-2xs">
+                  <div className="flex items-center gap-2 truncate pr-2">
+                    <div className="h-8 w-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                      <FileText size={16} />
+                    </div>
+                    <div className="truncate">
+                      <span className="font-bold text-slate-800 text-xs truncate block">
+                        {counter01Slip.name}
+                      </span>
+                      <span className="text-[10px] text-slate-400">
+                        {counter01Slip.size} • Uploaded at {counter01Slip.uploadedAt}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setPreviewingSlip('counter01')}
+                      className="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 text-xs font-bold border border-blue-200 hover:bg-blue-100 flex items-center gap-1"
+                    >
+                      <Eye size={12} /> View
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCounter01Slip(null)}
+                      className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                      title="Remove slip"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-2 pt-0.5">
+                  <button
+                    type="button"
+                    onClick={() => counter01CameraRef.current?.click()}
+                    className="h-9 px-3 rounded-xl border border-blue-200 bg-white text-blue-700 text-xs font-bold hover:bg-blue-50 flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 transition-all"
+                  >
+                    <Camera size={14} className="text-blue-600" />
+                    <span>Take Photo</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => counter01InputRef.current?.click()}
+                    className="h-9 px-3 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 flex items-center justify-center gap-1.5 shadow-xs active:scale-95 transition-all"
+                  >
+                    <Upload size={14} />
+                    <span>Upload Slip</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Counter 02 Slip */}
+            <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-4 w-4 rounded-md bg-[#1258E2] text-white text-[10px] font-black flex items-center justify-center">
+                      2
+                    </span>
+                    <span className="font-bold text-slate-800 text-xs">Counter 02 Slip</span>
+                    <span className="text-red-500 font-bold">*</span>
+                  </div>
+                </div>
+                {counter02Slip && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-extrabold border border-emerald-200">
+                    <Check size={10} /> Attached
+                  </span>
+                )}
+              </div>
+
+              {counter02Slip ? (
+                <div className="flex items-center justify-between p-2 rounded-xl bg-white border border-emerald-200 shadow-2xs">
+                  <div className="flex items-center gap-2 truncate pr-2">
+                    <div className="h-8 w-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                      <FileText size={16} />
+                    </div>
+                    <div className="truncate">
+                      <span className="font-bold text-slate-800 text-xs truncate block">
+                        {counter02Slip.name}
+                      </span>
+                      <span className="text-[10px] text-slate-400">
+                        {counter02Slip.size} • Uploaded at {counter02Slip.uploadedAt}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setPreviewingSlip('counter02')}
+                      className="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 text-xs font-bold border border-blue-200 hover:bg-blue-100 flex items-center gap-1"
+                    >
+                      <Eye size={12} /> View
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCounter02Slip(null)}
+                      className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                      title="Remove slip"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-2 pt-0.5">
+                  <button
+                    type="button"
+                    onClick={() => counter02CameraRef.current?.click()}
+                    className="h-9 px-3 rounded-xl border border-blue-200 bg-white text-blue-700 text-xs font-bold hover:bg-blue-50 flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 transition-all"
+                  >
+                    <Camera size={14} className="text-blue-600" />
+                    <span>Take Photo</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => counter02InputRef.current?.click()}
+                    className="h-9 px-3 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 flex items-center justify-center gap-1.5 shadow-xs active:scale-95 transition-all"
+                  >
+                    <Upload size={14} />
+                    <span>Upload Slip</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* =========================================================================
+         * 8. REMARK FIELD WITH GOOGLE VOICE TYPING
          * ========================================================================= */}
         <div className="rounded-2xl border border-blue-200/90 bg-white overflow-hidden shadow-2xs">
           <div className="bg-gradient-to-r from-[#0C4AC7] to-[#1258E2] px-3 py-1.5 text-white text-[11.5px] font-bold flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <MessageSquare size={13} className="text-white" />
-              <span>Remark</span>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
+                <MessageSquare size={13} className="text-white" />
+                <span>Remark</span>
+              </div>
             </div>
             <span className="text-[9.5px] text-blue-200 font-mono">{remark.length} / 500</span>
           </div>
           <div className="p-2.5">
-            <input
-              type="text"
-              value={remark}
-              maxLength={500}
-              onChange={(e) => setRemark(e.target.value)}
-              placeholder="Enter Remark (e.g. Loading completed without machine jam)..."
-              className="w-full h-9 rounded-xl border border-slate-200 bg-slate-50/60 px-3 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
+            <div className="relative">
+              <input
+                type="text"
+                value={remark}
+                maxLength={500}
+                onChange={(e) => setRemark(e.target.value)}
+                placeholder={
+                  isListening
+                    ? "🎙️ Listening... Speak now in Hindi or English..."
+                    : "Enter Remark (e.g. Loading completed without machine jam)..."
+                }
+                className={`w-full h-9 rounded-xl border pr-9 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all ${isListening
+                    ? 'border-rose-400 ring-2 ring-rose-200 bg-rose-50/20'
+                    : 'border-slate-200 bg-slate-50/60 pl-3'
+                  }`}
+              />
+
+              {/* Floating Google Voice Mic Button */}
+              <button
+                type="button"
+                onClick={toggleVoiceTyping}
+                className={`absolute right-1.5 top-1 p-1 rounded-full transition-all shadow-2xs ${isListening
+                    ? 'bg-rose-600 text-white ring-2 ring-rose-200 animate-pulse'
+                    : 'bg-white text-blue-600 hover:bg-blue-50 border border-slate-200 hover:border-blue-300'
+                  }`}
+                title={isListening ? "Stop voice listening" : "Start Google voice mic typing"}
+              >
+                {isListening ? <MicOff size={13} /> : <Mic size={13} />}
+              </button>
+            </div>
+
+            {isListening && (
+              <p className="mt-1.5 text-[9.5px] font-semibold text-rose-600 flex items-center gap-1.5 animate-pulse">
+                <span className="h-1.5 w-1.5 rounded-full bg-rose-600"></span>
+                Google Voice typing active. Speak clearly into your microphone...
+              </p>
+            )}
           </div>
         </div>
 
@@ -636,6 +990,18 @@ export function MobileCbrScreen({ onBackToMore }: MobileCbrScreenProps) {
                 <strong className="text-slate-900">{txnDate}</strong>
               </div>
               <div className="flex justify-between text-slate-500">
+                <span>Counter Slips:</span>
+                <strong className="text-emerald-600">
+                  {counter01Slip && counter02Slip
+                    ? 'Both Attached (C01 + C02)'
+                    : counter01Slip
+                      ? 'Counter 01 Attached'
+                      : counter02Slip
+                        ? 'Counter 02 Attached'
+                        : 'Attached ✓'}
+                </strong>
+              </div>
+              <div className="flex justify-between text-slate-500">
                 <span>Status:</span>
                 <strong className="text-emerald-600">VERIFIED & SAVED</strong>
               </div>
@@ -651,6 +1017,95 @@ export function MobileCbrScreen({ onBackToMore }: MobileCbrScreenProps) {
             >
               Done / Return to Modules
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+       * SLIP PREVIEW MODAL
+       * ========================================================================= */}
+      {previewingSlip && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-2xs animate-in fade-in">
+          <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden">
+            <div className="bg-gradient-to-r from-[#0C4AC7] to-[#1258E2] px-3.5 py-2.5 text-white flex items-center justify-between">
+              <div>
+                <h4 className="text-xs font-black">
+                  {previewingSlip === 'counter01' ? 'Counter 01 Slip Preview' : 'Counter 02 Slip Preview'}
+                </h4>
+                <p className="text-[10px] text-blue-100 truncate max-w-[220px]">
+                  {previewingSlip === 'counter01' ? counter01Slip?.name : counter02Slip?.name}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewingSlip(null)}
+                className="h-6 w-6 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center text-white"
+              >
+                <X size={13} />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-3">
+              {/* Simulated Slip Thermal Receipt */}
+              <div className="rounded-xl border border-slate-300 bg-amber-50/25 p-3.5 font-mono text-[11px] text-slate-800 space-y-1.5 shadow-inner">
+                <div className="text-center border-b border-dashed border-slate-400 pb-2">
+                  <span className="font-black text-xs block">*** ATM ADMIN COUNTER SLIP ***</span>
+                  <span className="text-[10px] text-slate-500 block">DEXTER ATM CASH LOGISTICS</span>
+                  <span className="text-[10px] text-slate-600 block">
+                    {previewingSlip === 'counter01'
+                      ? 'STAGE: COUNTER 01 (PRE-REPLENISHMENT)'
+                      : 'STAGE: COUNTER 02 (POST-LOADING)'}
+                  </span>
+                </div>
+                <div className="flex justify-between pt-1">
+                  <span className="text-slate-500">ATM ID:</span>
+                  <span className="font-bold">{atmId}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">DATE:</span>
+                  <span>{txnDate}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">TIME:</span>
+                  <span>{new Date().toLocaleTimeString()}</span>
+                </div>
+                <div className="border-t border-dashed border-slate-400 pt-1.5 space-y-1">
+                  <div className="flex justify-between text-slate-600">
+                    <span>CASSETTE A (₹500):</span>
+                    <span>{previewingSlip === 'counter01' ? '0020' : '0150'}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-600">
+                    <span>CASSETTE B (₹200):</span>
+                    <span>{previewingSlip === 'counter01' ? '0015' : '0200'}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-600">
+                    <span>CASSETTE C (₹100):</span>
+                    <span>{previewingSlip === 'counter01' ? '0010' : '0300'}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-600">
+                    <span>PURGE BIN:</span>
+                    <span>0002</span>
+                  </div>
+                </div>
+                <div className="border-t border-dashed border-slate-400 pt-1.5 flex justify-between font-bold">
+                  <span>TOTAL DISPENSER VAL:</span>
+                  <span>₹ {previewingSlip === 'counter01' ? '14,000' : totalLoading.toLocaleString()}</span>
+                </div>
+                <div className="text-center text-[9.5px] text-emerald-700 font-bold pt-2 border-t border-dashed border-slate-300">
+                  [ VERIFIED & DIGITALLY STAMPED ]
+                </div>
+              </div>
+            </div>
+
+            <div className="p-3 bg-slate-50 border-t border-slate-100 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setPreviewingSlip(null)}
+                className="w-full h-8.5 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700"
+              >
+                Done
+              </button>
+            </div>
           </div>
         </div>
       )}

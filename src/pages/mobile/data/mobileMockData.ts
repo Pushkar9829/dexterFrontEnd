@@ -236,11 +236,15 @@ export interface SiteProjectItem {
   }
   activationDetails: {
     techLive: string
+    techLiveDate?: string
     cashLive: string
+    cashLiveDate?: string
     projectionCompletionDate: string
   }
   docsStatus: {
     agreement: string
+    loiStatus?: string
+    affidavitStatus?: string
     apnaApp: string
     wlaAccount: string
     payoutAccount: string
@@ -292,11 +296,15 @@ export const INITIAL_SITES: SiteProjectItem[] = [
     },
     activationDetails: {
       techLive: 'Done',
+      techLiveDate: '04 Oct 2021',
       cashLive: 'Done',
+      cashLiveDate: '04 Oct 2021',
       projectionCompletionDate: '04 Oct 2021'
     },
     docsStatus: {
       agreement: 'Done',
+      loiStatus: 'Issued & Accepted',
+      affidavitStatus: 'Submitted & Notarized',
       apnaApp: 'Done',
       wlaAccount: 'Done',
       payoutAccount: 'Mail Sent - Done',
@@ -346,11 +354,15 @@ export const INITIAL_SITES: SiteProjectItem[] = [
     },
     activationDetails: {
       techLive: 'Done',
+      techLiveDate: '01 Nov 2026',
       cashLive: 'Pending',
+      cashLiveDate: '15 Nov 2026',
       projectionCompletionDate: '15 Nov 2026'
     },
     docsStatus: {
       agreement: 'Done',
+      loiStatus: 'Issued & Accepted',
+      affidavitStatus: 'Pending Verification',
       apnaApp: 'Done',
       wlaAccount: 'Pending',
       payoutAccount: 'Mail Sent for Necessary Letters – 01.09.2021',

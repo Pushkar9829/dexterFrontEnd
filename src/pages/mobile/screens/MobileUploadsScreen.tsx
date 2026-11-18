@@ -7,7 +7,8 @@ import {
   Wrench,
   Building,
   LayoutGrid,
-  Check
+  Check,
+  ChevronDown
 } from 'lucide-react'
 
 interface MobileUploadsScreenProps {
@@ -118,31 +119,45 @@ export function MobileUploadsScreen({ onBackToMore }: MobileUploadsScreenProps) 
 
       {tab === 'upload' ? (
         <form onSubmit={handleUploadSubmit} className="space-y-3.5">
-          {/* Category Select Tiles */}
-          <div className="rounded-2xl border border-blue-200 bg-white p-3 shadow-xs space-y-2">
-            <span className="text-[11px] font-bold text-slate-800 block">Select Upload Category</span>
-            <div className="grid grid-cols-3 gap-1.5">
-              {categories.map((cat) => {
-                const Icon = cat.icon
-                const isSel = selectedCategory === cat.id
-                return (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    onClick={() => setSelectedCategory(cat.id)}
-                    className={`flex flex-col items-center justify-center p-2 rounded-xl border text-center transition-all ${
-                      isSel
-                        ? 'border-blue-600 bg-blue-50 text-blue-800 shadow-xs ring-1 ring-blue-500'
-                        : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
-                    }`}
-                  >
-                    <Icon size={18} className={isSel ? 'text-blue-600' : 'text-slate-500'} />
-                    <span className="mt-1 text-[9.5px] font-bold leading-tight line-clamp-2">
-                      {cat.label}
-                    </span>
-                  </button>
-                )
-              })}
+          {/* Category Select Dropdown */}
+          <div className="rounded-2xl border border-blue-200 bg-white p-3.5 shadow-xs space-y-2">
+            <div className="flex items-center justify-between">
+              <label htmlFor="upload-category" className="text-xs font-bold text-slate-800">
+                Select Upload Category *
+              </label>
+              <span className="text-[10px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
+                {categories.length} Categories
+              </span>
+            </div>
+
+            <div className="relative">
+              <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-blue-600">
+                {(() => {
+                  const ActiveIcon = categories.find((c) => c.id === selectedCategory)?.icon || FileText
+                  return <ActiveIcon size={16} />
+                })()}
+              </div>
+
+              <select
+                id="upload-category"
+                value={selectedCategory}
+                onChange={(e) => {
+                  const newCat = e.target.value
+                  setSelectedCategory(newCat)
+                  setDocTitle(`${newCat} – Oct 2026`)
+                }}
+                className="w-full h-11 rounded-xl border border-slate-300 bg-slate-50/70 pl-9 pr-9 text-xs font-bold text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-1 focus:ring-blue-500 shadow-xs appearance-none transition-all cursor-pointer"
+              >
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.label}
+                  </option>
+                ))}
+              </select>
+
+              <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+                <ChevronDown size={16} />
+              </div>
             </div>
           </div>
 

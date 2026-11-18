@@ -39,9 +39,6 @@ export function MobileSitesScreen() {
             </div>
             <div>
               <h1 className="text-lg font-black text-white">Project / Site Status</h1>
-              <p className="text-[11px] text-blue-100 mt-0.5">
-                Franchise wise site(s) project and activation status.
-              </p>
             </div>
           </div>
         </div>
@@ -115,11 +112,10 @@ export function MobileSitesScreen() {
                     </span>
                   </div>
                   <span
-                    className={`flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-black ${
-                      isCompleted
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : 'bg-amber-100 text-amber-800'
-                    }`}
+                    className={`flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-black ${isCompleted
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : 'bg-amber-100 text-amber-800'
+                      }`}
                   >
                     {isCompleted ? <CheckCircle2 size={11} /> : <Clock size={11} />}
                     {site.overallStatus}
@@ -169,13 +165,12 @@ export function MobileSitesScreen() {
                       return (
                         <div key={step.key} className="relative z-10 flex flex-col items-center">
                           <div
-                            className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold transition-all ${
-                              isDone
-                                ? 'bg-emerald-600 text-white shadow-xs'
-                                : isCurrent
+                            className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold transition-all ${isDone
+                              ? 'bg-emerald-600 text-white shadow-xs'
+                              : isCurrent
                                 ? 'border-2 border-blue-600 bg-white text-blue-600 ring-2 ring-blue-100'
                                 : 'bg-slate-200 text-slate-500'
-                            }`}
+                              }`}
                           >
                             {isDone ? <Check size={12} /> : sIdx + 1}
                           </div>
@@ -236,18 +231,16 @@ export function MobileSitesScreen() {
             key={s.num}
             type="button"
             onClick={() => setActiveStep(s.num)}
-            className={`flex flex-col items-center min-w-[50px] px-1 py-1 rounded-xl transition-all ${
-              activeStep === s.num
-                ? 'bg-blue-50 text-blue-800 font-bold scale-105'
-                : 'text-slate-500 hover:text-slate-700'
-            }`}
+            className={`flex flex-col items-center min-w-[50px] px-1 py-1 rounded-xl transition-all ${activeStep === s.num
+              ? 'bg-blue-50 text-blue-800 font-bold scale-105'
+              : 'text-slate-500 hover:text-slate-700'
+              }`}
           >
             <div
-              className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-black ${
-                activeStep === s.num
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-slate-100 text-slate-600'
-              }`}
+              className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-black ${activeStep === s.num
+                ? 'bg-blue-600 text-white'
+                : 'bg-slate-100 text-slate-600'
+                }`}
             >
               {s.num}
             </div>
@@ -456,55 +449,63 @@ export function MobileSitesScreen() {
           <div className="space-y-3">
             <div>
               <label className="text-[11px] font-bold text-slate-700 block mb-1">Tech Live *</label>
-              <div className="flex gap-2">
-                <select
-                  defaultValue={selectedSite.activationDetails.techLive}
-                  className="flex-1 h-9 rounded-xl border border-slate-300 bg-white px-3 text-xs font-bold"
-                >
-                  <option value="Done">Done</option>
-                  <option value="Pending">Pending</option>
-                </select>
-                <button
-                  type="button"
-                  onClick={() => alert('Upload Tech Live Proof')}
-                  className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600 border border-blue-200"
-                >
-                  <Camera size={16} />
-                </button>
+              <select
+                defaultValue={selectedSite.activationDetails.techLive}
+                className="w-full h-9 rounded-xl border border-slate-300 bg-white px-3 text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              >
+                <option value="Done">Done</option>
+                <option value="Pending">Pending</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="text-[11px] font-bold text-slate-700 block mb-1">Tech Live Date *</label>
+              <div className="relative flex items-center">
+                <input
+                  type="text"
+                  defaultValue={selectedSite.activationDetails.techLiveDate || '04 Oct 2021'}
+                  className="w-full h-9 rounded-xl border border-slate-300 bg-slate-50 px-3 pr-9 text-xs font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  placeholder="DD MMM YYYY"
+                />
+                <Calendar size={15} className="absolute right-3 text-blue-600 pointer-events-none" />
               </div>
             </div>
 
             <div>
               <label className="text-[11px] font-bold text-slate-700 block mb-1">Cash Live *</label>
-              <div className="flex gap-2">
-                <select
-                  defaultValue={selectedSite.activationDetails.cashLive}
-                  className="flex-1 h-9 rounded-xl border border-slate-300 bg-white px-3 text-xs font-bold"
-                >
-                  <option value="Done">Done</option>
-                  <option value="Pending">Pending</option>
-                </select>
-                <button
-                  type="button"
-                  onClick={() => alert('Upload Cash Live Proof')}
-                  className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600 border border-blue-200"
-                >
-                  <Camera size={16} />
-                </button>
+              <select
+                defaultValue={selectedSite.activationDetails.cashLive}
+                className="w-full h-9 rounded-xl border border-slate-300 bg-white px-3 text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              >
+                <option value="Done">Done</option>
+                <option value="Pending">Pending</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="text-[11px] font-bold text-slate-700 block mb-1">Cash Live Date *</label>
+              <div className="relative flex items-center">
+                <input
+                  type="text"
+                  defaultValue={selectedSite.activationDetails.cashLiveDate || '04 Oct 2021'}
+                  className="w-full h-9 rounded-xl border border-slate-300 bg-slate-50 px-3 pr-9 text-xs font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  placeholder="DD MMM YYYY"
+                />
+                <Calendar size={15} className="absolute right-3 text-blue-600 pointer-events-none" />
               </div>
             </div>
 
             <div>
               <label className="text-[11px] font-bold text-slate-700 block mb-1">Projection Completion Date *</label>
-              <div className="flex items-center justify-between h-9 rounded-xl border border-slate-300 bg-slate-50 px-3 text-xs font-bold text-slate-800">
-                <span>{selectedSite.activationDetails.projectionCompletionDate}</span>
-                <Calendar size={15} className="text-blue-600" />
+              <div className="relative flex items-center">
+                <input
+                  type="text"
+                  defaultValue={selectedSite.activationDetails.projectionCompletionDate}
+                  className="w-full h-9 rounded-xl border border-slate-300 bg-slate-50 px-3 pr-9 text-xs font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  placeholder="DD MMM YYYY"
+                />
+                <Calendar size={15} className="absolute right-3 text-blue-600 pointer-events-none" />
               </div>
-            </div>
-
-            <div className="rounded-xl bg-blue-50/70 p-2.5 border border-blue-100 text-[11px] text-blue-900 flex items-start gap-2">
-              <span className="text-blue-600 font-bold">ℹ</span>
-              <p>Please upload relevant proof (e.g., Go-Live / Activation photo) for Tech Live and Cash Live verification.</p>
             </div>
           </div>
         </div>
@@ -524,6 +525,16 @@ export function MobileSitesScreen() {
               <span className="font-extrabold text-emerald-600">{selectedSite.docsStatus.agreement}</span>
             </div>
             <div className="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-100">
+              <span className="font-bold text-slate-700">LOI Status *</span>
+              <span className="font-extrabold text-emerald-600">{selectedSite.docsStatus.loiStatus || 'Issued & Accepted'}</span>
+            </div>
+            <div className="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-100">
+              <span className="font-bold text-slate-700">Affidavit Status *</span>
+              <span className={`font-extrabold ${selectedSite.docsStatus.affidavitStatus?.includes('Pending') ? 'text-amber-600' : 'text-emerald-600'}`}>
+                {selectedSite.docsStatus.affidavitStatus || 'Submitted & Notarized'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-100">
               <span className="font-bold text-slate-700">Apna App Registration *</span>
               <span className="font-extrabold text-emerald-600">{selectedSite.docsStatus.apnaApp}</span>
             </div>
@@ -536,7 +547,7 @@ export function MobileSitesScreen() {
               <span className="text-[11px] text-slate-600 font-mono">{selectedSite.docsStatus.payoutAccount}</span>
             </div>
             <div className="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-100">
-              <span className="font-bold text-slate-700">GST Status</span>
+              <span className="font-bold text-slate-700">GST Mapping Status</span>
               <span className="font-extrabold text-emerald-600">{selectedSite.docsStatus.gst}</span>
             </div>
           </div>

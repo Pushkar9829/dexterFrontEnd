@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import {
   CalendarDays,
   ArrowLeft,
@@ -10,7 +10,9 @@ import {
   RotateCcw,
   Search,
   Clock,
-  Calculator
+  Calculator,
+  Mic,
+  MicOff
 } from 'lucide-react'
 import { INITIAL_EOD_RECORDS, type EodRecord } from '../data/mobileMockData'
 import { CbrPopupModal } from '../components/CbrPopupModal'
@@ -34,6 +36,86 @@ export function MobileEodScreen({ onBackToMore }: MobileEodScreenProps) {
   const [cbrSummary, setCbrSummary] = useState('Available & Adjusted')
   const [counterSlipUploaded, setCounterSlipUploaded] = useState(false)
   const [remark, setRemark] = useState('EOD completed successfully.')
+  const [isListening, setIsListening] = useState(false)
+  const recognitionRef = useRef<any>(null)
+
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop()
+        } catch {
+          // ignore
+        }
+      }
+    }
+  }, [])
+
+  const toggleVoiceTyping = () => {
+    if (isListening) {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop()
+        } catch {
+          // ignore
+        }
+      }
+      setIsListening(false)
+      return
+    }
+
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+
+    if (!SpeechRecognition) {
+      const fallbackPhrases = [
+        'EOD reconciliation completed with no cash physical discrepancy.',
+        'Physical cash tallied with counter slip balance.',
+        'Routine EOD performed and verified on portal.',
+        'Admin counter slip matched with CBR report.'
+      ]
+      const randomPhrase = fallbackPhrases[Math.floor(Math.random() * fallbackPhrases.length)]
+      setRemark((prev) => (prev ? `${prev} ${randomPhrase}` : randomPhrase))
+      alert('Voice typing is not directly supported in this browser window. Simulated sample voice remark added!')
+      return
+    }
+
+    try {
+      const recognition = new SpeechRecognition()
+      recognitionRef.current = recognition
+      recognition.continuous = false
+      recognition.interimResults = false
+      recognition.lang = 'en-IN'
+
+      recognition.onstart = () => {
+        setIsListening(true)
+      }
+
+      recognition.onresult = (event: any) => {
+        const transcript = event.results?.[0]?.[0]?.transcript
+        if (transcript) {
+          setRemark((prev) => (prev ? `${prev} ${transcript}` : transcript))
+        }
+      }
+
+      recognition.onerror = (event: any) => {
+        console.error('Speech recognition error:', event.error)
+        setIsListening(false)
+        if (event.error === 'not-allowed') {
+          alert('Microphone access was denied. Please allow microphone permission in your browser settings.')
+        }
+      }
+
+      recognition.onend = () => {
+        setIsListening(false)
+      }
+
+      recognition.start()
+    } catch (err) {
+      console.error('Failed to start speech recognition:', err)
+      setIsListening(false)
+    }
+  }
 
   // CBR Modal state
   const [isCbrModalOpen, setIsCbrModalOpen] = useState(false)
@@ -95,9 +177,6 @@ export function MobileEodScreen({ onBackToMore }: MobileEodScreenProps) {
             )}
             <div>
               <h1 className="text-base font-black text-white">EOD (End of Day)</h1>
-              <p className="text-[11px] text-blue-100 mt-0.5">
-                Raise EOD request for the selected ATM and franchise.
-              </p>
             </div>
           </div>
           <CalendarDays size={26} className="text-amber-300 shrink-0" />
@@ -108,22 +187,20 @@ export function MobileEodScreen({ onBackToMore }: MobileEodScreenProps) {
           <button
             type="button"
             onClick={() => setActiveTab('form')}
-            className={`py-1.5 px-2 rounded-xl text-xs font-bold transition-all ${
-              activeTab === 'form'
-                ? 'bg-white text-[#0B2A6B] shadow-xs'
-                : 'bg-white/15 text-white/90'
-            }`}
+            className={`py-1.5 px-2 rounded-xl text-xs font-bold transition-all ${activeTab === 'form'
+              ? 'bg-white text-[#0B2A6B] shadow-xs'
+              : 'bg-white/15 text-white/90'
+              }`}
           >
             EOD Request Form
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('history')}
-            className={`py-1.5 px-2 rounded-xl text-xs font-bold transition-all ${
-              activeTab === 'history'
-                ? 'bg-white text-[#0B2A6B] shadow-xs'
-                : 'bg-white/15 text-white/90'
-            }`}
+            className={`py-1.5 px-2 rounded-xl text-xs font-bold transition-all ${activeTab === 'history'
+              ? 'bg-white text-[#0B2A6B] shadow-xs'
+              : 'bg-white/15 text-white/90'
+              }`}
           >
             EOD History ({eodRecords.length})
           </button>
@@ -166,7 +243,7 @@ export function MobileEodScreen({ onBackToMore }: MobileEodScreenProps) {
 
             {/* Machine */}
             <div>
-              <label className="text-[10px] font-bold text-slate-700 block mb-1">Machine</label>
+              <label className="text-[10px] font-bold text-slate-700 block mb-1">Machine Type</label>
               <input
                 type="text"
                 readOnly
@@ -234,7 +311,7 @@ export function MobileEodScreen({ onBackToMore }: MobileEodScreenProps) {
                 onClick={() => alert('Viewing uploaded counter slip')}
                 className="w-full py-1 px-2 rounded-lg border border-blue-600 bg-blue-50 text-blue-700 text-[11px] font-bold flex items-center justify-center gap-1"
               >
-                <FileCheck size={12} /> View Uploaded File
+                <FileCheck size={12} /> Uploaded File
               </button>
             </div>
           </div>
@@ -272,7 +349,7 @@ export function MobileEodScreen({ onBackToMore }: MobileEodScreenProps) {
               className="h-10 rounded-xl bg-[#0C3E98] text-white text-xs font-bold flex items-center justify-center gap-2 shadow-sm hover:bg-blue-800"
             >
               <Calculator size={16} />
-              <span>CBR Verification Popup</span>
+              <span>CBR / CVR</span>
             </button>
 
             <button
@@ -281,7 +358,7 @@ export function MobileEodScreen({ onBackToMore }: MobileEodScreenProps) {
               className="h-10 rounded-xl border border-blue-300 bg-blue-50 text-blue-800 text-xs font-bold flex items-center justify-center gap-1.5"
             >
               <Clock size={16} />
-              <span>EOD History</span>
+              <span>CVR History</span>
             </button>
           </div>
 
@@ -292,18 +369,52 @@ export function MobileEodScreen({ onBackToMore }: MobileEodScreenProps) {
             </div>
           )}
 
-          {/* Remark */}
+          {/* Remark with Google Voice Mic Typing */}
           <div>
-            <div className="flex justify-between text-[10px] font-bold text-slate-700 mb-1">
-              <span>Remark</span>
+            <div className="flex items-center justify-between text-[10px] font-bold text-slate-700 mb-1">
+              <div className="flex items-center gap-1.5">
+                <span>Remark</span>
+              </div>
               <span className="text-slate-400">{remark.length} / 500</span>
             </div>
-            <textarea
-              rows={2}
-              value={remark}
-              onChange={(e) => setRemark(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 p-2 text-xs text-slate-800 bg-slate-50/50"
-            />
+
+            <div className="relative">
+              <textarea
+                rows={2}
+                maxLength={500}
+                value={remark}
+                onChange={(e) => setRemark(e.target.value)}
+                placeholder={
+                  isListening
+                    ? "🎙️ Listening... Speak now in Hindi or English..."
+                    : "Enter EOD remark in Hindi / English..."
+                }
+                className={`w-full rounded-xl border p-2 pr-9 text-xs text-slate-800 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${isListening
+                    ? 'border-rose-400 ring-2 ring-rose-200 bg-rose-50/20'
+                    : 'border-slate-300 bg-slate-50/50'
+                  }`}
+              />
+
+              {/* Floating Google Voice Mic button inside Textarea */}
+              <button
+                type="button"
+                onClick={toggleVoiceTyping}
+                className={`absolute right-2 bottom-2.5 p-1 rounded-full transition-all shadow-xs ${isListening
+                    ? 'bg-rose-600 text-white ring-4 ring-rose-200 animate-pulse'
+                    : 'bg-white text-blue-600 hover:bg-blue-50 border border-slate-200 hover:border-blue-300'
+                  }`}
+                title={isListening ? "Stop voice listening" : "Start Google voice mic typing"}
+              >
+                {isListening ? <MicOff size={13} /> : <Mic size={13} />}
+              </button>
+            </div>
+
+            {isListening && (
+              <p className="mt-1 text-[9.5px] font-semibold text-rose-600 flex items-center gap-1.5 animate-pulse">
+                <span className="h-1.5 w-1.5 rounded-full bg-rose-600"></span>
+                Google Voice typing active. Speak clearly into your microphone...
+              </p>
+            )}
           </div>
 
           {/* Action Buttons */}
@@ -383,11 +494,10 @@ export function MobileEodScreen({ onBackToMore }: MobileEodScreenProps) {
                 key={st}
                 type="button"
                 onClick={() => setHistoryStatusFilter(st)}
-                className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
-                  historyStatusFilter === st
-                    ? 'bg-[#0B2A6B] text-white shadow-xs'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
+                className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-all ${historyStatusFilter === st
+                  ? 'bg-[#0B2A6B] text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
               >
                 {st}
               </button>
@@ -401,10 +511,10 @@ export function MobileEodScreen({ onBackToMore }: MobileEodScreenProps) {
                 item.status === 'Submitted'
                   ? 'bg-rose-100 text-rose-700 border-rose-200'
                   : item.status === 'In Progress'
-                  ? 'bg-blue-100 text-blue-700 border-blue-200'
-                  : item.status === 'Approved'
-                  ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
-                  : 'bg-amber-100 text-amber-700 border-amber-200'
+                    ? 'bg-blue-100 text-blue-700 border-blue-200'
+                    : item.status === 'Approved'
+                      ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
+                      : 'bg-amber-100 text-amber-700 border-amber-200'
 
               return (
                 <div

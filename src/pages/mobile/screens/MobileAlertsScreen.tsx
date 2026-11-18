@@ -7,7 +7,6 @@ import {
   Coins,
   Clock,
   ChevronRight,
-  CheckCheck
 } from 'lucide-react'
 import { INITIAL_ALERTS, type AlertNotificationItem } from '../data/mobileMockData'
 
@@ -19,10 +18,6 @@ interface MobileAlertsScreenProps {
 export function MobileAlertsScreen({ onBackToHome, onNavigateToScreen }: MobileAlertsScreenProps) {
   const [alerts, setAlerts] = useState<AlertNotificationItem[]>(INITIAL_ALERTS)
   const [filter, setFilter] = useState<'All' | 'Unread' | 'Read'>('All')
-
-  const markAllAsRead = () => {
-    setAlerts((prev) => prev.map((a) => ({ ...a, read: true })))
-  }
 
   const handleAlertClick = (alertItem: AlertNotificationItem) => {
     setAlerts((prev) =>
@@ -78,25 +73,15 @@ export function MobileAlertsScreen({ onBackToHome, onNavigateToScreen }: MobileA
                 key={t.id}
                 type="button"
                 onClick={() => setFilter(t.id)}
-                className={`py-1 px-3 rounded-full text-xs font-bold transition-all ${
-                  filter === t.id
-                    ? 'bg-white text-[#0B2A6B] shadow-xs'
-                    : 'bg-white/15 text-white/90 hover:bg-white/20'
-                }`}
+                className={`py-1 px-3 rounded-full text-xs font-bold transition-all ${filter === t.id
+                  ? 'bg-white text-[#0B2A6B] shadow-xs'
+                  : 'bg-white/15 text-white/90 hover:bg-white/20'
+                  }`}
               >
                 {t.label}
               </button>
             ))}
           </div>
-
-          {unreadCount > 0 && (
-            <button
-              onClick={markAllAsRead}
-              className="text-[10px] font-bold text-blue-200 hover:text-white flex items-center gap-1"
-            >
-              <CheckCheck size={13} /> Mark all read
-            </button>
-          )}
         </div>
       </div>
 
@@ -123,11 +108,10 @@ export function MobileAlertsScreen({ onBackToHome, onNavigateToScreen }: MobileA
             <div
               key={item.id}
               onClick={() => handleAlertClick(item)}
-              className={`rounded-2xl border p-3.5 shadow-xs transition-all cursor-pointer flex items-center justify-between gap-3 ${
-                !item.read
-                  ? 'border-blue-300 bg-blue-50/40 hover:bg-blue-50/70'
-                  : 'border-slate-200 bg-white hover:bg-slate-50'
-              }`}
+              className={`rounded-2xl border p-3.5 shadow-xs transition-all cursor-pointer flex items-center justify-between gap-3 ${!item.read
+                ? 'border-blue-300 bg-blue-50/40 hover:bg-blue-50/70'
+                : 'border-slate-200 bg-white hover:bg-slate-50'
+                }`}
             >
               <div className="flex items-start gap-3 min-w-0">
                 <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${iconBg}`}>
@@ -147,9 +131,8 @@ export function MobileAlertsScreen({ onBackToHome, onNavigateToScreen }: MobileA
 
               <div className="flex items-center gap-1.5 shrink-0">
                 <span
-                  className={`px-2 py-0.5 rounded-full text-[9px] font-black ${
-                    !item.read ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'
-                  }`}
+                  className={`px-2 py-0.5 rounded-full text-[9px] font-black ${!item.read ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'
+                    }`}
                 >
                   {item.read ? 'Read' : 'Unread'}
                 </span>

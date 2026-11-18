@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import {
   Bell,
-  Menu,
   Search,
   Wifi,
   X,
@@ -57,12 +56,12 @@ const SEARCHABLE_MODULES = [
 
 export function MobileHeader({
   user,
-  onOpenMenu,
   onOpenAlerts,
   onOpenProfile,
   onNavigate,
   searchValue = '',
   onSearchChange,
+  searchPlaceholder = 'Search modules, sites...',
   unreadAlertsCount = 3
 }: MobileHeaderProps) {
   const [isSearchFocused, setIsSearchFocused] = useState(false)
@@ -110,13 +109,48 @@ export function MobileHeader({
   // UNIFIED TOP NAVBAR (EXACT SAME DASHBOARD HEADER ON EVERY SINGLE PAGE)
   // =========================================================================
   return (
-    <header className="sticky top-0 z-40 w-full bg-gradient-to-r from-[#07245B] via-[#0D44A8] to-[#1258E2] text-white shadow-md relative overflow-visible select-none">
-      {/* Creative Ambient Background Lighting Accents */}
-      <div className="absolute -top-10 left-10 h-28 w-44 rounded-full bg-sky-400/25 blur-xl pointer-events-none" />
-      <div className="absolute -top-6 -right-6 h-20 w-20 rounded-full bg-rose-500/15 blur-lg pointer-events-none" />
-      <div className="absolute bottom-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none" />
+    <header className="sticky top-0 z-40 w-full bg-gradient-to-b from-[#CDE0F5] via-[#D6E6F7] to-[#E1ECF9] relative overflow-hidden select-none">      <div className="relative w-full h-10 overflow-hidden">
+      {/* Layered Organic Blue Wave Graphics */}
+      <svg
+        className="absolute inset-0 w-full h-full pointer-events-none"
+        viewBox="0 0 390 40"
+        preserveAspectRatio="none"
+        fill="none"
+      >
+        <defs>
+          <linearGradient id="headerTopWaveGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#053584" />
+            <stop offset="35%" stopColor="#0B57D4" />
+            <stop offset="70%" stopColor="#156DEF" />
+            <stop offset="100%" stopColor="#094CBF" />
+          </linearGradient>
+          <linearGradient id="headerCyanStroke" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#38BDF8" stopOpacity="0.9" />
+            <stop offset="50%" stopColor="#67E8F9" stopOpacity="0.95" />
+            <stop offset="100%" stopColor="#0284C7" stopOpacity="0.7" />
+          </linearGradient>
+        </defs>
+        {/* Layer 1: Soft light blue swoosh dipping down under the wave */}
+        <path
+          d="M0,0 L390,0 L390,38 C320,44 250,33 185,36 C120,40 55,44 0,38 Z"
+          fill="#BAE6FD"
+          fillOpacity="0.8"
+        />
+        {/* Layer 2: Main royal blue wave fill */}
+        <path
+          d="M0,0 L390,0 L390,30 C325,38 260,27 195,30 C130,33 65,40 0,32 Z"
+          fill="url(#headerTopWaveGrad)"
+        />
+        {/* Layer 3: Cyan wave glowing highlight edge */}
+        <path
+          d="M0,32 C65,40 130,33 195,30 C260,27 325,38 390,30"
+          stroke="url(#headerCyanStroke)"
+          strokeWidth="2"
+          fill="none"
+        />
+      </svg>
 
-      {/* Top Phone Status Bar (9:41, Cellular, Wi-Fi, Battery) */}
+      {/* Status Bar Indicators */}
       <div className="relative z-10 flex h-7 items-center justify-between px-6 pt-1 text-[12px] font-semibold tracking-tight text-white/95 select-none">
         <span>9:41</span>
         <div className="flex items-center gap-1.5">
@@ -138,49 +172,39 @@ export function MobileHeader({
           </div>
         </div>
       </div>
+    </div>
 
-      {/* Main Header Action Row: [Menu / Back] [Logo Jewel Pod] [Search Bar] [Bell] [Avatar] */}
-      <div className="relative z-10 flex h-14 items-center justify-between gap-2 px-3 pb-1">
-        <button
-          type="button"
-          onClick={onOpenMenu}
-          className="flex h-8.5 w-8.5 items-center justify-center rounded-xl bg-white/15 hover:bg-white/25 active:scale-95 text-white border border-white/25 backdrop-blur-md transition-all shrink-0"
-          aria-label="Menu"
-          title="Open Menu"
-        >
-          <Menu size={20} className="stroke-[2.2]" />
-        </button>
-        {/* Center-Left: Dexter Logo mounted on Frosted White Enamel Pod */}
-        <div className="relative group shrink-0">
-          <div className="flex items-center justify-center h-8.5 px-2 rounded-xl bg-white/95 shadow-sm border border-white/90 backdrop-blur-md">
-            <img
-              src="/dexter-logo.png"
-              alt="Dexter India"
-              className="h-5.5 w-auto object-contain drop-shadow-2xs"
-            />
-          </div>
+      {/* Main Header Action Row: [Logo] [Search Bar] [Alert Bell] [Avatar] on Soft Light Blue Canvas */}
+      <div className="relative z-10 flex h-13 items-center justify-between gap-2.5 px-3.5 pb-1 pt-0.5 bg-transparent">
+        {/* Left: Dexter India Shield Logo */}
+        <div className="shrink-0 flex items-center">
+          <img
+            src="/dexter-logo.png"
+            alt="Dexter India"
+            className="h-7 w-auto object-contain drop-shadow-2xs"
+          />
         </div>
 
-        {/* Center: Search Bar replacing the previous text */}
+        {/* Center: Search Bar */}
         <div ref={searchContainerRef} className="flex-1 min-w-0 relative">
-          <div className="relative flex items-center h-8.5 w-full rounded-full bg-white/15 hover:bg-white/20 focus-within:bg-white text-white focus-within:text-slate-900 border border-white/25 focus-within:border-white shadow-inner backdrop-blur-md px-2.5 transition-all duration-200">
+          <div className="relative flex items-center h-8.5 w-full rounded-full bg-white hover:bg-slate-50/80 focus-within:bg-white text-slate-800 border border-slate-200 focus-within:border-blue-500 shadow-2xs px-2.5 transition-all duration-200">
             <Search
-              size={13}
-              className="text-blue-200 focus-within:text-blue-600 mr-1.5 shrink-0 transition-colors"
+              size={13.5}
+              className="text-slate-500 focus-within:text-blue-600 mr-1.5 shrink-0 transition-colors"
             />
             <input
               type="text"
               value={onSearchChange ? searchValue : internalSearch}
               onChange={(e) => handleInputChange(e.target.value)}
               onFocus={() => setIsSearchFocused(true)}
-              placeholder="Search modules, sites, CBR..."
-              className="w-full bg-transparent text-[11px] font-medium placeholder-blue-200/80 focus:placeholder-slate-400 outline-none truncate"
+              placeholder={searchPlaceholder}
+              className="w-full bg-transparent text-[11px] font-medium text-slate-800 placeholder-slate-400 focus:placeholder-slate-400 outline-none truncate"
             />
             {(onSearchChange ? searchValue : internalSearch) && (
               <button
                 type="button"
                 onClick={() => handleInputChange('')}
-                className="text-blue-200 hover:text-white focus-within:text-slate-400 p-0.5 ml-1 transition-colors"
+                className="text-slate-400 hover:text-slate-600 p-0.5 ml-1 transition-colors"
                 aria-label="Clear search"
               >
                 <X size={12} />
@@ -226,22 +250,22 @@ export function MobileHeader({
           <button
             type="button"
             onClick={onOpenAlerts}
-            className="relative flex h-8 w-8 items-center justify-center rounded-full bg-white/15 hover:bg-white/25 active:scale-95 text-white border border-white/25 backdrop-blur-md transition-all"
+            className="relative flex h-8 w-8 items-center justify-center text-slate-800 hover:text-blue-700 active:scale-95 transition-all"
             aria-label="Notifications"
           >
-            <Bell size={16} className="stroke-[2.2]" />
+            <Bell size={18} className="stroke-[2.2]" />
             {unreadAlertsCount > 0 && (
-              <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#E52429] px-1 text-[9px] font-black text-white shadow-xs">
+              <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#E52429] px-1 text-[9px] font-black text-white shadow-xs">
                 {unreadAlertsCount}
               </span>
             )}
           </button>
 
-          {/* Profile Avatar Button with Green Online Status */}
+          {/* Profile Avatar Button */}
           <button
             type="button"
             onClick={onOpenProfile}
-            className="relative flex h-8 w-8 shrink-0 overflow-hidden rounded-full ring-2 ring-white/60 hover:ring-white active:scale-95 transition-all"
+            className="relative flex h-8 w-8 shrink-0 overflow-hidden rounded-full ring-1 ring-slate-300 hover:ring-blue-500 active:scale-95 transition-all"
             aria-label="Profile"
           >
             <img
@@ -252,13 +276,9 @@ export function MobileHeader({
               }}
               className="h-full w-full object-cover"
             />
-            <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-emerald-400 ring-1 ring-white" />
           </button>
         </div>
       </div>
-
-      {/* Decorative Dual-Tone Bottom Accent Edge */}
-      <div className="h-[2px] w-full bg-gradient-to-r from-blue-400 via-sky-300 to-rose-400 opacity-60" />
     </header>
   )
 }

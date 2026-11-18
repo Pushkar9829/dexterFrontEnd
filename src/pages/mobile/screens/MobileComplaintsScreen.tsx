@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import {
   AlertTriangle,
   QrCode,
@@ -14,6 +14,11 @@ import {
   Filter,
   CheckCircle,
   ChevronRight,
+  ChevronDown,
+  Check,
+  X,
+  Mic,
+  MicOff,
   Plus,
   Ticket
 } from 'lucide-react'
@@ -26,8 +31,109 @@ export function MobileComplaintsScreen() {
   // Form State matching 10.53.15 PM.jpeg
   const [selectedAtmId, setSelectedAtmId] = useState('ATM012345')
   const [problemType, setProblemType] = useState('100 Denomination Cassette Issue')
+  const [isProblemDropdownOpen, setIsProblemDropdownOpen] = useState(false)
+  const [problemSearch, setProblemSearch] = useState('')
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsProblemDropdownOpen(false)
+      }
+    }
+    if (isProblemDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [isProblemDropdownOpen])
+
+  const filteredProblemTypes = COMPLAINT_TYPES.filter((type) =>
+    type.toLowerCase().includes(problemSearch.toLowerCase().trim())
+  )
   const [flmStatus, setFlmStatus] = useState<'Done' | 'Not Done'>('Done')
   const [remark, setRemark] = useState('')
+  const [isListening, setIsListening] = useState(false)
+  const recognitionRef = useRef<any>(null)
+
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop()
+        } catch {
+          // ignore
+        }
+      }
+    }
+  }, [])
+
+  const toggleVoiceTyping = () => {
+    if (isListening) {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop()
+        } catch {
+          // ignore
+        }
+      }
+      setIsListening(false)
+      return
+    }
+
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+
+    if (!SpeechRecognition) {
+      const fallbackPhrases = [
+        'ATM Cash dispenser motor is jammed and giving error code 04.',
+        'ATM Screen display flickering and touch response is slow.',
+        '100 rupee cassette is not dispensing notes properly.',
+        'UPS battery backup not holding power during power cut.'
+      ]
+      const randomPhrase = fallbackPhrases[Math.floor(Math.random() * fallbackPhrases.length)]
+      setRemark((prev) => (prev ? `${prev} ${randomPhrase}` : randomPhrase))
+      alert('Voice typing is not directly supported in this browser window. Simulated sample voice remark added!')
+      return
+    }
+
+    try {
+      const recognition = new SpeechRecognition()
+      recognitionRef.current = recognition
+      recognition.continuous = false
+      recognition.interimResults = false
+      recognition.lang = 'en-IN'
+
+      recognition.onstart = () => {
+        setIsListening(true)
+      }
+
+      recognition.onresult = (event: any) => {
+        const transcript = event.results?.[0]?.[0]?.transcript
+        if (transcript) {
+          setRemark((prev) => (prev ? `${prev} ${transcript}` : transcript))
+        }
+      }
+
+      recognition.onerror = (event: any) => {
+        console.error('Speech recognition error:', event.error)
+        setIsListening(false)
+        if (event.error === 'not-allowed') {
+          alert('Microphone access was denied. Please allow microphone permission in your browser settings.')
+        }
+      }
+
+      recognition.onend = () => {
+        setIsListening(false)
+      }
+
+      recognition.start()
+    } catch (err) {
+      console.error('Failed to start speech recognition:', err)
+      setIsListening(false)
+    }
+  }
   const [photosChosen, setPhotosChosen] = useState(false)
   const [videosChosen, setVideosChosen] = useState(false)
   const [selectedComplaintDetail, setSelectedComplaintDetail] = useState<MobileComplaint | null>(null)
@@ -134,11 +240,10 @@ export function MobileComplaintsScreen() {
           <button
             type="button"
             onClick={() => setActiveTab('new')}
-            className={`flex items-center justify-center gap-2 rounded-xl py-2 px-3 text-xs font-bold transition-all ${
-              activeTab === 'new'
-                ? 'bg-white text-[#0B2A6B] shadow-sm'
-                : 'bg-white/15 text-white/90 hover:bg-white/20'
-            }`}
+            className={`flex items-center justify-center gap-2 rounded-xl py-2 px-3 text-xs font-bold transition-all ${activeTab === 'new'
+              ? 'bg-white text-[#0B2A6B] shadow-sm'
+              : 'bg-white/15 text-white/90 hover:bg-white/20'
+              }`}
           >
             <Plus size={15} />
             <span>New Complaint</span>
@@ -146,11 +251,10 @@ export function MobileComplaintsScreen() {
           <button
             type="button"
             onClick={() => setActiveTab('list')}
-            className={`flex items-center justify-center gap-2 rounded-xl py-2 px-3 text-xs font-bold transition-all ${
-              activeTab === 'list'
-                ? 'bg-white text-[#0B2A6B] shadow-sm'
-                : 'bg-white/15 text-white/90 hover:bg-white/20'
-            }`}
+            className={`flex items-center justify-center gap-2 rounded-xl py-2 px-3 text-xs font-bold transition-all ${activeTab === 'list'
+              ? 'bg-white text-[#0B2A6B] shadow-sm'
+              : 'bg-white/15 text-white/90 hover:bg-white/20'
+              }`}
           >
             <Ticket size={15} />
             <span>My Complaints ({complaints.length})</span>
@@ -218,22 +322,92 @@ export function MobileComplaintsScreen() {
             </div>
           </div>
 
-          {/* Problem Type Dropdown (all 53 master types!) */}
-          <div>
+          {/* Problem Type Searchable Dropdown (all 53 master types) */}
+          <div className="relative" ref={dropdownRef}>
             <label className="text-[11px] font-bold text-slate-700 block mb-1">
               Problem Type <span className="text-red-500">*</span>
             </label>
-            <select
-              value={problemType}
-              onChange={(e) => setProblemType(e.target.value)}
-              className="w-full h-10 rounded-xl border border-slate-300 bg-white px-3 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+
+            <button
+              type="button"
+              onClick={() => {
+                setIsProblemDropdownOpen((prev) => !prev)
+                if (!isProblemDropdownOpen) setProblemSearch('')
+              }}
+              className={`w-full h-10 rounded-xl border bg-white px-3 flex items-center justify-between text-xs font-bold text-slate-800 text-left transition-all ${isProblemDropdownOpen ? 'border-blue-500 ring-2 ring-blue-500/20 shadow-xs' : 'border-slate-300'
+                }`}
             >
-              {COMPLAINT_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              ))}
-            </select>
+              <span className="truncate pr-2">{problemType || 'Select Problem Type'}</span>
+              <ChevronDown
+                size={16}
+                className={`text-slate-400 shrink-0 transition-transform duration-200 ${isProblemDropdownOpen ? 'rotate-180 text-blue-600' : ''
+                  }`}
+              />
+            </button>
+
+            {isProblemDropdownOpen && (
+              <div className="absolute left-0 right-0 top-full mt-1.5 z-30 rounded-xl border border-blue-200 bg-white shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+                {/* Search Bar inside Dropdown */}
+                <div className="p-2 border-b border-slate-100 bg-slate-50/90">
+                  <div className="relative flex items-center">
+                    <Search size={14} className="absolute left-2.5 text-blue-600 pointer-events-none" />
+                    <input
+                      type="text"
+                      autoFocus
+                      value={problemSearch}
+                      onChange={(e) => setProblemSearch(e.target.value)}
+                      placeholder="Search problem type..."
+                      className="w-full h-8.5 rounded-lg border border-slate-300 bg-white pl-8 pr-7 text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    />
+                    {problemSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setProblemSearch('')}
+                        className="absolute right-2 text-slate-400 hover:text-slate-600 p-0.5 rounded-full"
+                      >
+                        <X size={13} />
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between px-1 pt-1.5 text-[10px] text-slate-500 font-semibold">
+                    <span>Matches: {filteredProblemTypes.length}</span>
+                    <span>{COMPLAINT_TYPES.length} total types</span>
+                  </div>
+                </div>
+
+                {/* Filtered Options List */}
+                <div className="max-h-56 overflow-y-auto divide-y divide-slate-100">
+                  {filteredProblemTypes.length > 0 ? (
+                    filteredProblemTypes.map((type) => {
+                      const isSelected = type === problemType
+                      return (
+                        <button
+                          key={type}
+                          type="button"
+                          onClick={() => {
+                            setProblemType(type)
+                            setIsProblemDropdownOpen(false)
+                            setProblemSearch('')
+                          }}
+                          className={`w-full px-3 py-2.5 text-left text-xs flex items-center justify-between gap-2 transition-colors ${isSelected
+                            ? 'bg-blue-50/80 text-blue-700 font-bold'
+                            : 'text-slate-700 hover:bg-slate-50 active:bg-blue-50/50 font-semibold'
+                            }`}
+                        >
+                          <span className="truncate">{type}</span>
+                          {isSelected && <Check size={14} className="text-blue-600 shrink-0" />}
+                        </button>
+                      )
+                    })
+                  ) : (
+                    <div className="p-4 text-center text-xs text-slate-500">
+                      <p className="font-semibold text-slate-600">No matching problem type</p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">Try searching with a different keyword</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Auto Fetched Engineer Row */}
@@ -281,23 +455,55 @@ export function MobileComplaintsScreen() {
             </div>
           </div>
 
-          {/* Remark Textarea */}
+          {/* Remark Textarea with Google Voice Mic Typing */}
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="text-[11px] font-bold text-slate-700">
-                Remark <span className="text-red-500">*</span>
-              </label>
+              <div className="flex items-center gap-2">
+                <label className="text-[11px] font-bold text-slate-700">
+                  Remark <span className="text-red-500">*</span>
+                </label>
+              </div>
               <span className="text-[10px] text-slate-400">{remark.length} / 500</span>
             </div>
-            <textarea
-              rows={3}
-              maxLength={500}
-              value={remark}
-              onChange={(e) => setRemark(e.target.value)}
-              placeholder="Enter remark in Hindi / English describing the issue..."
-              className="w-full rounded-xl border border-slate-300 p-2.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50/50"
-              required
-            />
+
+            <div className="relative">
+              <textarea
+                rows={3}
+                maxLength={500}
+                value={remark}
+                onChange={(e) => setRemark(e.target.value)}
+                placeholder={
+                  isListening
+                    ? "🎙️ Listening... Speak now in Hindi or English..."
+                    : "Enter remark in Hindi / English describing the issue..."
+                }
+                className={`w-full rounded-xl border p-2.5 pr-10 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${isListening
+                  ? 'border-rose-400 ring-2 ring-rose-200 bg-rose-50/20'
+                  : 'border-slate-300 bg-slate-50/50'
+                  }`}
+                required
+              />
+
+              {/* Floating Google Voice Mic button inside Textarea */}
+              <button
+                type="button"
+                onClick={toggleVoiceTyping}
+                className={`absolute right-2.5 bottom-3.5 p-1.5 rounded-full transition-all shadow-xs ${isListening
+                  ? 'bg-rose-600 text-white ring-4 ring-rose-200 animate-pulse'
+                  : 'bg-white text-blue-600 hover:bg-blue-50 border border-slate-200 hover:border-blue-300'
+                  }`}
+                title={isListening ? "Stop voice listening" : "Start Google voice mic typing"}
+              >
+                {isListening ? <MicOff size={14} /> : <Mic size={14} />}
+              </button>
+            </div>
+
+            {isListening && (
+              <p className="mt-1 text-[10px] font-semibold text-rose-600 flex items-center gap-1.5 animate-pulse">
+                <span className="h-2 w-2 rounded-full bg-rose-600"></span>
+                Google Voice typing active. Speak clearly into your mic...
+              </p>
+            )}
           </div>
 
           {/* Photo & Video Upload Row */}
@@ -310,9 +516,8 @@ export function MobileComplaintsScreen() {
               <button
                 type="button"
                 onClick={() => setPhotosChosen(!photosChosen)}
-                className={`flex h-8 w-8 items-center justify-center rounded-lg ${
-                  photosChosen ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'
-                }`}
+                className={`flex h-8 w-8 items-center justify-center rounded-lg ${photosChosen ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'
+                  }`}
               >
                 <Camera size={16} />
               </button>
@@ -326,9 +531,8 @@ export function MobileComplaintsScreen() {
               <button
                 type="button"
                 onClick={() => setVideosChosen(!videosChosen)}
-                className={`flex h-8 w-8 items-center justify-center rounded-lg ${
-                  videosChosen ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'
-                }`}
+                className={`flex h-8 w-8 items-center justify-center rounded-lg ${videosChosen ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'
+                  }`}
               >
                 <Video size={16} />
               </button>
@@ -414,11 +618,10 @@ export function MobileComplaintsScreen() {
                 key={st}
                 type="button"
                 onClick={() => setStatusFilter(st)}
-                className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
-                  statusFilter === st
-                    ? 'bg-[#0B2A6B] text-white shadow-xs'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
+                className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-all ${statusFilter === st
+                  ? 'bg-[#0B2A6B] text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
               >
                 {st}
               </button>
@@ -432,10 +635,10 @@ export function MobileComplaintsScreen() {
                 item.status === 'Open'
                   ? 'bg-rose-100 text-rose-700 border-rose-200'
                   : item.status === 'In Progress'
-                  ? 'bg-blue-100 text-blue-700 border-blue-200'
-                  : item.status === 'Resolved'
-                  ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
-                  : 'bg-amber-100 text-amber-700 border-amber-200'
+                    ? 'bg-blue-100 text-blue-700 border-blue-200'
+                    : item.status === 'Resolved'
+                      ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
+                      : 'bg-amber-100 text-amber-700 border-amber-200'
 
               return (
                 <div
