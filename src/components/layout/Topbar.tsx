@@ -2,12 +2,14 @@ import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { Bell, Calendar, ChevronDown, LogOut, Menu, Search, Smartphone } from 'lucide-react'
 import { getSession, signOut, DEMO_USER } from '@/lib/auth'
+import { ROLES, switchRole, useRole, type Role } from '@/lib/rbac'
 
 export function Topbar({ onMenu }: { onMenu: () => void }) {
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
-  const user = getSession() ?? DEMO_USER
+  const role = useRole()
+  const user = { ...(getSession() ?? DEMO_USER), role }
   const [menu, setMenu] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
   const isReports = pathname.startsWith('/reports')
@@ -111,7 +113,22 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
             <ChevronDown size={16} className="text-ink-2" />
           </button>
           {menu && (
-            <div className="absolute right-0 mt-2 w-44 rounded-lg border border-line bg-white py-1 shadow-lg">
+            <div className="absolute right-0 mt-2 w-64 rounded-lg border border-line bg-white py-1 shadow-lg">
+              <div className="border-b border-line px-3 py-2">
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-muted">View as role (UAT demo)</label>
+                <select
+                  value={role}
+                  onChange={(e) => {
+                    switchRole(e.target.value as Role)
+                    setMenu(false)
+                  }}
+                  className="mt-1 h-8 w-full rounded-md border border-line bg-white px-2 text-[12px] text-ink outline-none"
+                >
+                  {ROLES.map((r) => (
+                    <option key={r}>{r}</option>
+                  ))}
+                </select>
+              </div>
               <button
                 onClick={() => {
                   signOut()

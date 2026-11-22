@@ -27,6 +27,26 @@ export function signIn() {
   }
 }
 
+/** Sign in as a specific person / role (demo personas on the login page). */
+export function signInAs(s: Session) {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(s))
+  } catch {
+    /* storage blocked — ignore */
+  }
+}
+
+/** Demo: switch the role of the signed-in user (used by the role switcher in the top bar). */
+export function setSessionRole(role: string) {
+  const s = getSession()
+  if (!s) return
+  try {
+    localStorage.setItem(KEY, JSON.stringify({ ...s, role }))
+  } catch {
+    /* ignore */
+  }
+}
+
 export function signOut() {
   try {
     localStorage.removeItem(KEY)
