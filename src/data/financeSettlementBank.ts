@@ -4,6 +4,14 @@
 // 3. Account Opening
 
 import { useState, useEffect } from 'react'
+import { apiEnabled, finDelete, finLoader, finSave, type FinCfg } from './financeApi'
+import { franchiseNameOf, siteAt } from '@/lib/siteRef'
+
+// Seed rows take their Site ID / ATM ID / franchise from the common Site Master (no module-specific ID formats)
+function withSite<T extends { atmId: string; siteId?: string; franchiseeName: string }>(rec: T, i: number): T {
+  const site = siteAt(i)
+  return { ...rec, siteId: site.siteId, atmId: site.atmId, franchiseeName: franchiseNameOf(site) || rec.franchiseeName }
+}
 
 /* ==========================================================================
    1. ACCOUNT MAPPING
@@ -166,10 +174,24 @@ export const INITIAL_ACCOUNT_MAPPINGS: AccountMappingRecord[] = [
   },
 ]
 
-let mappingsStore = [...INITIAL_ACCOUNT_MAPPINGS]
+let mappingsStore = apiEnabled ? [] : INITIAL_ACCOUNT_MAPPINGS.map(withSite)
 let mappingsListeners: Array<() => void> = []
+const setMappings = (l: AccountMappingRecord[]) => {
+  mappingsStore = l
+  mappingsListeners.forEach((x) => x())
+}
+const MAP_STATUS: Record<string, AccountMappingRecord['status']> = { Draft: 'Draft', Submitted: 'Pending Approval', Approved: 'Mapped', Rejected: 'Inactive' }
+/** API mode: settlement account mappings ↔ /finance/settlement-mappings (documents are file ids on the server). */
+export const accountMappingCfg: FinCfg<AccountMappingRecord> = {
+  key: 'settlement-mappings', label: 'Account mapping', get: () => mappingsStore, set: setMappings,
+  fields: ['mappingType', 'hpyCode', 'franchiseeName', 'contact', 'emailId', 'nameAsPerBank', 'bankName', 'accountNumber', 'ifscCode', 'nameOnPan', 'panNo', 'aadhaarLinkedMobile', 'branchSolId', 'bankManagerName', 'bankManagerMobile', 'bankManagerEmail', 'branchAddress', 'city', 'state', 'pincode', 'vendorKyc', 'remarks', 'effectiveDate'],
+  dates: ['effectiveDate'], dateOut: 'iso', draftField: '__draft',
+  fromExtra: (r) => ({ status: MAP_STATUS[r.status] ?? 'Draft', documents: [] }),
+  event: (prev, next) => (next.status === 'Mapped' && prev?.status !== 'Mapped' ? 'Approve' : next.status === 'Inactive' && prev?.status !== 'Inactive' ? 'Reject' : next.status !== 'Draft' && prev?.status === 'Draft' ? 'Submit' : undefined),
+}
 
 export function useAccountMappings() {
+  finLoader(accountMappingCfg).use()
   const [data, setData] = useState<AccountMappingRecord[]>(mappingsStore)
   useEffect(() => {
     const listener = () => setData([...mappingsStore])
@@ -192,15 +214,20 @@ export function addAccountMapping(record: Omit<AccountMappingRecord, 'id'>) {
   }
   mappingsStore = [newRecord, ...mappingsStore]
   mappingsListeners.forEach((l) => l())
+  if (apiEnabled) void finSave(accountMappingCfg, undefined, { ...newRecord, __draft: newRecord.status === 'Draft' } as AccountMappingRecord)
   return newRecord
 }
 
 export function updateAccountMapping(id: string, updates: Partial<AccountMappingRecord>) {
+  const prev = mappingsStore.find((m) => m.id === id)
   mappingsStore = mappingsStore.map((item) => (item.id === id ? { ...item, ...updates } : item))
   mappingsListeners.forEach((l) => l())
+  const next = mappingsStore.find((m) => m.id === id)
+  if (apiEnabled && next) void finSave(accountMappingCfg, prev, { ...next, __draft: next.status === 'Draft' } as AccountMappingRecord)
 }
 
 export function deleteAccountMapping(id: string) {
+  if (apiEnabled) void finDelete(accountMappingCfg, id)
   mappingsStore = mappingsStore.filter((item) => item.id !== id)
   mappingsListeners.forEach((l) => l())
 }
@@ -440,10 +467,46 @@ export const INITIAL_CHANGE_REQUESTS: AcChangeRequestRecord[] = [
   },
 ]
 
-let changeRequestsStore = [...INITIAL_CHANGE_REQUESTS]
+let changeRequestsStore = apiEnabled ? [] : INITIAL_CHANGE_REQUESTS.map(withSite)
 let changeRequestsListeners: Array<() => void> = []
+const setChangeRequests = (l: AcChangeRequestRecord[]) => {
+  changeRequestsStore = l
+  changeRequestsListeners.forEach((x) => x())
+}
+const CR_STATUS: Record<string, AcChangeRequestRecord['status']> = { Draft: 'Pending', Submitted: 'Under Review', Approved: 'Approved', Rejected: 'Rejected' }
+const EMPTY_PART: AccountChangeParticulars = { nameAsPerBank: '', bankName: '', accountNumber: '', ifscCode: '', nameOnPan: '', panNo: '', aadhaarLinkedMobile: '', emailId: '', reasonForChange: '' }
+const partOut = (p?: Partial<AccountChangeParticulars>) => {
+  if (!p) return undefined
+  const o = Object.fromEntries(Object.entries(p).filter(([, v]) => typeof v === 'string' && v.trim() !== '').map(([k, v]) => [k, String(v).trim()]))
+  return Object.keys(o).length ? o : undefined
+}
+/** API mode: A/C change requests ↔ /finance/ac-change-requests (supporting document file ids are required by the server). */
+export const acChangeCfg: FinCfg<AcChangeRequestRecord> = {
+  key: 'ac-change-requests', label: 'A/C change request', get: () => changeRequestsStore, set: setChangeRequests,
+  fields: ['franchiseeName', 'mobileNo', 'emailId', 'requestDate', 'hasPayoutChange', 'note'],
+  dates: ['requestDate'], dateOut: 'iso', statusField: 'status',
+  fromExtra: (r) => ({
+    status: CR_STATUS[r.status] ?? 'Pending',
+    settlementExisting: { ...EMPTY_PART, ...((r.data.settlementExisting as object) ?? {}) },
+    settlementNew: { ...EMPTY_PART, ...((r.data.settlementNew as object) ?? {}) },
+    payoutExisting: { ...EMPTY_PART, ...((r.data.payoutExisting as object) ?? {}) },
+    payoutNew: { ...EMPTY_PART, ...((r.data.payoutNew as object) ?? {}) },
+    hasPayoutChange: Boolean(r.data.hasPayoutChange),
+    documents: ((r.data.documentFileIds as string[]) ?? []).map((id) => ({ id, docType: 'Document', fileName: id, uploadedOn: '' })),
+    actionDate: (r as { approvedAt?: string }).approvedAt?.slice(0, 10),
+  }),
+  toExtra: (f) => ({
+    hasSettlementChange: Boolean(partOut(f.settlementNew)),
+    settlementExisting: partOut(f.settlementExisting),
+    settlementNew: partOut(f.settlementNew),
+    payoutExisting: f.hasPayoutChange ? partOut(f.payoutExisting) : undefined,
+    payoutNew: f.hasPayoutChange ? partOut(f.payoutNew) : undefined,
+    documentFileIds: f.documents.map((d) => d.id).filter((id) => /^FIL-\d+$/.test(id)),
+  }),
+}
 
 export function useAcChangeRequests() {
+  finLoader(acChangeCfg).use()
   const [data, setData] = useState<AcChangeRequestRecord[]>(changeRequestsStore)
   useEffect(() => {
     const listener = () => setData([...changeRequestsStore])
@@ -466,15 +529,20 @@ export function addAcChangeRequest(record: Omit<AcChangeRequestRecord, 'id'>) {
   }
   changeRequestsStore = [newRecord, ...changeRequestsStore]
   changeRequestsListeners.forEach((l) => l())
+  if (apiEnabled) void finSave(acChangeCfg, undefined, newRecord)
   return newRecord
 }
 
 export function updateAcChangeRequest(id: string, updates: Partial<AcChangeRequestRecord>) {
+  const prev = changeRequestsStore.find((r) => r.id === id)
   changeRequestsStore = changeRequestsStore.map((item) => (item.id === id ? { ...item, ...updates } : item))
   changeRequestsListeners.forEach((l) => l())
+  const next = changeRequestsStore.find((r) => r.id === id)
+  if (apiEnabled && next) void finSave(acChangeCfg, prev, next, updates.actionRemarks)
 }
 
 export function deleteAcChangeRequest(id: string) {
+  if (apiEnabled) void finDelete(acChangeCfg, id)
   changeRequestsStore = changeRequestsStore.filter((item) => item.id !== id)
   changeRequestsListeners.forEach((l) => l())
 }
@@ -521,10 +589,21 @@ export const INITIAL_ACCOUNT_OPENINGS: AccountOpeningRecord[] = [
   },
 ]
 
-let accountOpeningsStore = [...INITIAL_ACCOUNT_OPENINGS]
+let accountOpeningsStore = apiEnabled ? [] : INITIAL_ACCOUNT_OPENINGS.map(withSite)
 let accountOpeningsListeners: Array<() => void> = []
+const setAccountOpenings = (l: AccountOpeningRecord[]) => {
+  accountOpeningsStore = l
+  accountOpeningsListeners.forEach((x) => x())
+}
+/** API mode: account openings ↔ /finance/account-openings (approval only when Account Created + KYC Verified → Active). */
+export const accountOpeningCfg: FinCfg<AccountOpeningRecord> = {
+  key: 'account-openings', label: 'Account opening', get: () => accountOpeningsStore, set: setAccountOpenings,
+  fields: ['franchiseeName', 'mobileNo', 'bankName', 'accountType', 'applicationDate', 'kycStatus', 'stage', 'accountNumber', 'ifscCode', 'cifNumber', 'authorizedSignatory', 'accountStatus'],
+  dates: ['applicationDate'], dateOut: 'iso', rename: { status: 'accountStatus' }, statusField: 'status',
+}
 
 export function useAccountOpenings() {
+  finLoader(accountOpeningCfg).use()
   const [data, setData] = useState<AccountOpeningRecord[]>(accountOpeningsStore)
   useEffect(() => {
     const listener = () => setData([...accountOpeningsStore])
@@ -543,15 +622,20 @@ export function addAccountOpening(record: Omit<AccountOpeningRecord, 'id'>) {
   }
   accountOpeningsStore = [newRecord, ...accountOpeningsStore]
   accountOpeningsListeners.forEach((l) => l())
+  if (apiEnabled) void finSave(accountOpeningCfg, undefined, newRecord)
   return newRecord
 }
 
 export function updateAccountOpening(id: string, updates: Partial<AccountOpeningRecord>) {
+  const prev = accountOpeningsStore.find((r) => r.id === id)
   accountOpeningsStore = accountOpeningsStore.map((item) => (item.id === id ? { ...item, ...updates } : item))
   accountOpeningsListeners.forEach((l) => l())
+  const next = accountOpeningsStore.find((r) => r.id === id)
+  if (apiEnabled && next) void finSave(accountOpeningCfg, prev, next)
 }
 
 export function deleteAccountOpening(id: string) {
+  if (apiEnabled) void finDelete(accountOpeningCfg, id)
   accountOpeningsStore = accountOpeningsStore.filter((item) => item.id !== id)
   accountOpeningsListeners.forEach((l) => l())
 }

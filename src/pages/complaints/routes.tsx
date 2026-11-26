@@ -1,31 +1,31 @@
+import { lazy } from 'react'
 import { Route } from 'react-router-dom'
-import ManagementDashboard from './ManagementDashboard'
-import OperationsDashboard from './OperationsDashboard'
-import AssetDashboard from './AssetDashboard'
-import AiDashboard from './AiDashboard'
-import CreateComplaint from './CreateComplaint'
-import Complaint360 from './Complaint360'
-import OperationsHub from '../operations/OperationsHub'
-import ReconciliationHub from '../operations/ReconciliationHub'
-import FailedTxnsDisputeList from '../operations/FailedTxnsDisputeList'
-import FailedTxnsDisputeCreate from '../operations/FailedTxnsDisputeCreate'
-import ChargeBackDisputeList from '../operations/ChargeBackDisputeList'
-import ChargeBackDisputeForm from '../operations/ChargeBackDisputeForm'
-import TxnDataList from '../operations/TxnDataList'
-import TxnDataDaily from '../operations/TxnDataDaily'
-import TdsLettersList from '../operations/TdsLettersList'
-import TdsLetterUpload from '../operations/TdsLetterUpload'
-import WlaStatementList from '../operations/WlaStatementList'
-import WlaStatementUpload from '../operations/WlaStatementUpload'
-import EodHub from '../operations/EodHub'
-import EodOverview from '../operations/EodOverview'
-import MonthlyEodList from '../operations/MonthlyEodList'
-import CrmEodDocketList from '../operations/CrmEodDocketList'
-import CrmEodDocketForm from '../operations/CrmEodDocketForm'
-import CashLoadingRegister from '../operations/CashLoadingRegister'
-import CashLoadingForm from '../operations/CashLoadingForm'
-import Placeholder from '../Placeholder'
-
+const ManagementDashboard = lazy(() => import('./ManagementDashboard'))
+const OperationsDashboard = lazy(() => import('./OperationsDashboard'))
+const AssetDashboard = lazy(() => import('./AssetDashboard'))
+const AiDashboard = lazy(() => import('./AiDashboard'))
+const CreateComplaint = lazy(() => import('./CreateComplaint'))
+const Complaint360 = lazy(() => import('./Complaint360'))
+const OperationsHub = lazy(() => import('../operations/OperationsHub'))
+const ReconciliationHub = lazy(() => import('../operations/ReconciliationHub'))
+const FailedTxnsDisputeList = lazy(() => import('../operations/FailedTxnsDisputeList'))
+const FailedTxnsDisputeCreate = lazy(() => import('../operations/FailedTxnsDisputeCreate'))
+const ChargeBackDisputeList = lazy(() => import('../operations/ChargeBackDisputeList'))
+const ChargeBackDisputeForm = lazy(() => import('../operations/ChargeBackDisputeForm'))
+const TxnDataList = lazy(() => import('../operations/TxnDataList'))
+const TxnDataDaily = lazy(() => import('../operations/TxnDataDaily'))
+const TdsLettersList = lazy(() => import('../operations/TdsLettersList'))
+const TdsLetterUpload = lazy(() => import('../operations/TdsLetterUpload'))
+const WlaStatementList = lazy(() => import('../operations/WlaStatementList'))
+const WlaStatementUpload = lazy(() => import('../operations/WlaStatementUpload'))
+const EodHub = lazy(() => import('../operations/EodHub'))
+const EodOverview = lazy(() => import('../operations/EodOverview'))
+const MonthlyEodList = lazy(() => import('../operations/MonthlyEodList'))
+const CrmEodDocketList = lazy(() => import('../operations/CrmEodDocketList'))
+const CrmEodDocketForm = lazy(() => import('../operations/CrmEodDocketForm'))
+const CashLoadingRegister = lazy(() => import('../operations/CashLoadingRegister'))
+const CashLoadingForm = lazy(() => import('../operations/CashLoadingForm'))
+const Placeholder = lazy(() => import('../Placeholder'))
 export const complaintRoutes = [
   <Route key="ops-hub" path="/operations" element={<OperationsHub />} />,
   <Route key="cmp-mgmt" path="/operations/complaints" element={<ManagementDashboard />} />,

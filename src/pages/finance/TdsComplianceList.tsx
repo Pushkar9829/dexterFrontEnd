@@ -31,9 +31,13 @@ import {
   type TdsComplianceRecord,
 } from '@/data/financeAccountManagement'
 import { toast } from '@/components/ui/Toast'
+import { useCanIn, guardAct, ViewOnlyNote } from '@/lib/guard'
+import { franchiseNameOf, resolveSite, siteAt, SiteRef } from '@/lib/siteRef'
+import { emitFinance } from './finWorkflow'
 
 export default function TdsComplianceList() {
   const { records, addRecord, updateRecord, deleteRecord } = useTdsCompliance()
+  const allow = useCanIn('Finance')
 
   // Filter input states
   const [filterYear, setFilterYear] = useState('F.Y. 2026-27')
@@ -64,8 +68,8 @@ export default function TdsComplianceList() {
   const [showModal, setShowModal] = useState(false)
   const [editingRecord, setEditingRecord] = useState<TdsComplianceRecord | null>(null)
   const [modalForm, setModalForm] = useState<Omit<TdsComplianceRecord, 'id'>>({
-    atmId: 'MCRM7303',
-    franchiseName: 'ABC Services',
+    atmId: siteAt(0).atmId,
+    franchiseName: franchiseNameOf(siteAt(0)),
     panNo: 'AAACB1245P',
     sectionCode: '194N',
     financialYear: 'F.Y. 2026-27',
@@ -165,12 +169,14 @@ export default function TdsComplianceList() {
   const paginatedRecords = filteredRecords.slice(startIndex, endIndex)
 
   const handleExportCsv = () => {
+    if (!guardAct('Finance', 'Export', 'export TDS compliance')) return
     exportTdsComplianceCsv(filteredRecords)
     setShowExportMenu(false)
     toast(`Exported ${filteredRecords.length} TDS compliance records to CSV`)
   }
 
   const handleDelete = (id: string, name: string) => {
+    if (!guardAct('Finance', 'Delete', 'delete TDS compliance records')) return
     if (confirm(`Are you sure you want to delete compliance record for ${name}?`)) {
       deleteRecord(id)
       toast('Compliance record removed')
@@ -178,10 +184,11 @@ export default function TdsComplianceList() {
   }
 
   const openAddModal = () => {
+    if (!guardAct('Finance', 'Create', 'create TDS compliance records')) return
     setEditingRecord(null)
     setModalForm({
-      atmId: 'MCRM7303',
-      franchiseName: 'ABC Services',
+      atmId: siteAt(0).atmId,
+      franchiseName: franchiseNameOf(siteAt(0)),
       panNo: 'AAACB1245P',
       sectionCode: '194N',
       financialYear: 'F.Y. 2026-27',
@@ -197,6 +204,7 @@ export default function TdsComplianceList() {
   }
 
   const openEditModal = (rec: TdsComplianceRecord) => {
+    if (!guardAct('Finance', 'Edit', 'edit TDS compliance records')) return
     setEditingRecord(rec)
     setModalForm({
       atmId: rec.atmId,
@@ -217,23 +225,33 @@ export default function TdsComplianceList() {
 
   const handleSaveModal = (e: React.FormEvent) => {
     e.preventDefault()
+    if (!guardAct('Finance', editingRecord ? 'Edit' : 'Create', 'save TDS compliance records')) return
     if (!modalForm.atmId || !modalForm.franchiseName || !modalForm.panNo) {
       toast('Please fill all mandatory fields', 'error')
       return
     }
+    const site = resolveSite(modalForm.atmId)
+    if (!site) {
+      toast(`ATM ID ${modalForm.atmId} is not in the Site Master`, 'error')
+      return
+    }
+    const form = { ...modalForm, atmId: site.atmId, siteId: site.siteId }
 
     if (editingRecord) {
       updateRecord({
         ...editingRecord,
-        ...modalForm,
+        ...form,
       })
+      if (form.status !== editingRecord.status && form.status === 'Compliant')
+        emitFinance('Approve', editingRecord.id, { what: 'TDS compliance', site: site.atmId, franchise: form.franchiseName, status: form.status })
       toast('TDS compliance record updated successfully', 'success')
     } else {
       const newId = `TDS-2026-${String(records.length + 1).padStart(3, '0')}`
       addRecord({
         id: newId,
-        ...modalForm,
+        ...form,
       })
+      emitFinance('Submit', newId, { what: 'TDS compliance', site: site.atmId, franchise: form.franchiseName, status: form.status })
       toast('New TDS compliance record registered', 'success')
     }
     setShowModal(false)
@@ -314,7 +332,7 @@ export default function TdsComplianceList() {
           </p>
         </div>
 
-        <div>
+        {allow('Create') && <div>
           <button
             type="button"
             onClick={openAddModal}
@@ -323,8 +341,10 @@ export default function TdsComplianceList() {
             <Plus size={16} strokeWidth={2.4} />
             <span>New Compliance Record</span>
           </button>
-        </div>
+        </div>}
       </div>
+
+      <ViewOnlyNote module="Finance" />
 
       {/* Filter Card */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5">
@@ -468,7 +488,7 @@ export default function TdsComplianceList() {
             <span>Reset</span>
           </button>
 
-          <div className="relative">
+          {allow('Export') && <div className="relative">
             <button
               type="button"
               onClick={() => setShowExportMenu(!showExportMenu)}
@@ -499,7 +519,7 @@ export default function TdsComplianceList() {
                 </button>
               </div>
             )}
-          </div>
+          </div>}
         </div>
       </div>
 
@@ -583,7 +603,7 @@ export default function TdsComplianceList() {
                         {serialNo}
                       </td>
                       <td className="py-3 px-3.5 font-bold text-[#0066FF]">
-                        {rec.atmId}
+                        <SiteRef id={rec.atmId} />
                       </td>
                       <td className="py-3 px-3.5 font-medium text-slate-800">
                         {rec.franchiseName}
@@ -614,22 +634,22 @@ export default function TdsComplianceList() {
                       </td>
                       <td className="py-3 px-3.5 text-center">
                         <div className="flex items-center justify-center gap-1.5">
-                          <button
+                          {allow('Edit') && <button
                             type="button"
                             onClick={() => openEditModal(rec)}
                             className="p-1.5 text-slate-500 hover:text-[#0066FF] hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
                             title="Edit Compliance"
                           >
                             <Edit2 size={13.5} />
-                          </button>
-                          <button
+                          </button>}
+                          {allow('Delete') && <button
                             type="button"
                             onClick={() => handleDelete(rec.id, rec.franchiseName)}
                             className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors cursor-pointer"
                             title="Delete Record"
                           >
                             <Trash2 size={13.5} />
-                          </button>
+                          </button>}
                         </div>
                       </td>
                     </tr>
@@ -751,10 +771,19 @@ export default function TdsComplianceList() {
                     type="text"
                     required
                     value={modalForm.atmId}
-                    onChange={(e) => setModalForm({ ...modalForm, atmId: e.target.value.toUpperCase() })}
-                    placeholder="e.g. MCRM7303"
+                    onChange={(e) => {
+                      const atmId = e.target.value.toUpperCase()
+                      const site = resolveSite(atmId)
+                      setModalForm({ ...modalForm, atmId, ...(site ? { siteId: site.siteId, franchiseName: franchiseNameOf(site) } : {}) })
+                    }}
+                    placeholder="e.g. DXMH70007"
                     className="w-full h-8.5 px-3 text-[12px] font-mono rounded-lg border border-slate-200 focus:border-[#0066FF] outline-none"
                   />
+                  {modalForm.atmId && (
+                    <div className="mt-0.5 text-[10.5px]">
+                      <SiteRef id={modalForm.atmId} />
+                    </div>
+                  )}
                 </div>
 
                 <div>

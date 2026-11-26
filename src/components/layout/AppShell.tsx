@@ -1,10 +1,15 @@
+import { Suspense } from 'react'
 import { useEffect, useState } from 'react'
 import { Link, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { ShieldAlert } from 'lucide-react'
-import { getSession, signOut } from '@/lib/auth'
-import { can, routeBlock, useRole } from '@/lib/rbac'
-import { usePolicy, logSecurity } from '@/data/security'
+import { getSession, patchSession, signOut } from '@/lib/auth'
+import { apiEnabled, get, onSessionEnded, post, ApiError } from '@/lib/api'
+import { applyServerRights, can, rbacChanged, routeBlock, useRole, type ServerRights } from '@/lib/rbac'
+import { policyStore, usePolicy, logSecurity } from '@/data/security'
+import { sessionFromUser, type ApiUser } from '@/pages/auth/apiFlow'
+import { loadCategories, loadMySites, loadNetwork, loadSiteDirectory, loadSites } from '@/data/network'
 import { toast } from '@/components/ui/Toast'
+import { terminateBrowserSession } from '@/pages/auth/flow'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
 
@@ -55,18 +60,58 @@ export function AppShell() {
     return () => clearInterval(t)
   }, [])
 
+  // API mode: refresh the session object + effective rights from the server on load (GET /auth/me),
+  // and leave the app when the server ends the session (signed in elsewhere / idle / revoked).
+  const [, forceRender] = useState(0)
+  useEffect(() => {
+    if (!apiEnabled || !session) return
+    const off = onSessionEnded((code) => {
+      signOut()
+      navigate('/login', { replace: true, state: { reason: code, expired: code !== 'LOGGED_IN_ELSEWHERE' } })
+    })
+    get<{ user: ApiUser; rights: ServerRights; session?: { sessionId: string; idleTimeoutMinutes?: number } | null; watermark?: string | null }>('/auth/me')
+      .then((me) => {
+        patchSession({ ...sessionFromUser(me.user), sessionId: me.session?.sessionId, idleTimeoutMinutes: me.session?.idleTimeoutMinutes, watermark: me.watermark ?? null })
+        applyServerRights(me.rights)
+        if (me.session?.idleTimeoutMinutes) policyStore.set((p) => ({ ...p, sessionIdleMinutes: me.session!.idleTimeoutMinutes! }))
+        rbacChanged()
+        forceRender((n) => n + 1)
+        // Shared masters every module refers to (Site Master for resolveSite / SiteRef, franchise network, categories).
+        // Roles without Master Data / Franchise rights get 403 here and keep the bundled reference data.
+        if (me.user.role !== 'Franchisee') {
+          loadSites().then((ok) => (ok ? undefined : loadSiteDirectory())).catch(() => loadSiteDirectory().catch(() => undefined))
+          loadNetwork().catch(() => undefined)
+        } else loadMySites().catch(() => undefined)
+        loadCategories().catch(() => undefined)
+      })
+      .catch((e) => {
+        if (e instanceof ApiError && e.status !== 401) toast(e.message || 'Could not load your profile from the server.', 'error')
+      })
+    return () => {
+      off()
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Automatic logout after the configured inactivity period (Security §10).
+  // API mode: while the user is active, a heartbeat keeps the server idle timer alive.
   useEffect(() => {
     if (!session) return
     let last = Date.now()
+    let lastBeat = Date.now()
     const bump = () => (last = Date.now())
     const evs = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart']
     evs.forEach((e) => window.addEventListener(e, bump, { passive: true }))
     const t = setInterval(() => {
       if (Date.now() - last > policy.sessionIdleMinutes * 60_000) {
         logSecurity({ actor: session.name, action: 'Session expired (inactivity)', target: 'Web portal' })
+        if (!apiEnabled) terminateBrowserSession('Session expired (inactivity)')
         signOut()
         navigate('/login', { state: { expired: true } })
+        return
+      }
+      if (apiEnabled && last > lastBeat && Date.now() - lastBeat > 60_000) {
+        lastBeat = Date.now()
+        post('/auth/heartbeat').catch(() => undefined) // 401s are handled by onSessionEnded
       }
     }, 15_000)
     return () => {
@@ -100,6 +145,8 @@ export function AppShell() {
   }, [role])
 
   if (!session) return <Navigate to="/login" replace />
+  // Finance / Legal / Project users land on the Site Master (they may not open the AI overview).
+  if (pathname === '/master-data' && blocked && !routeBlock('/master-data/sites', role)) return <Navigate to="/master-data/sites" replace />
 
   const wm = `${session.name} · ${session.email ?? ''} · ${stamp.toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`
 
@@ -108,7 +155,7 @@ export function AppShell() {
       <Sidebar open={menuOpen} onClose={() => setMenuOpen(false)} />
       <div className="lg:pl-[264px]">
         <Topbar onMenu={() => setMenuOpen(true)} />
-        <main className={`px-4 py-6 sm:px-7 sm:py-7 ${can('Copy', role) ? '' : 'select-none'}`}>{blocked ? <NoAccess reason={blocked} /> : <Outlet />}</main>
+        <main className={`px-4 py-6 sm:px-7 sm:py-7 ${can('Copy', role) ? '' : 'select-none'}`}>{blocked ? <NoAccess reason={blocked} /> : <Suspense fallback={<div className="py-20 text-center text-[13px] text-muted">Loading…</div>}><Outlet /></Suspense>}</main>
       </div>
       {policy.watermarkEnabled && <Watermark text={wm} />}
     </div>

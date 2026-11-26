@@ -28,6 +28,9 @@ import {
 } from 'lucide-react'
 import { toast } from '@/components/ui/Toast'
 import { useReportMode } from '@/hooks/useReportMode'
+import { useCanIn, guardAct } from '@/lib/guard'
+import { allSites, resolveSite, siteAt, SiteRef } from '@/lib/siteRef'
+import { emitFinance } from './finWorkflow'
 import {
   getAccountMappingById,
   addAccountMapping,
@@ -69,14 +72,16 @@ export default function SettlementAccountMappingForm() {
   const { id } = useParams<{ id?: string }>()
   const { isReport } = useReportMode()
   const isEditing = Boolean(id && id !== 'new')
+  const allow = useCanIn('Finance')
+  const canSave = allow(isEditing ? 'Edit' : 'Create')
 
   // Active Tab: WLA | Axis Indent | ICICI
   const [activeTab, setActiveTab] = useState<MappingType>('WLA')
 
   // Common Header State
-  const [atmId, setAtmId] = useState('XY2012312')
+  const [atmId, setAtmId] = useState(() => siteAt(0).atmId)
   const [hpyCode, setHpyCode] = useState('HPY-9921408')
-  const [siteId, setSiteId] = useState('ST-MH-PUN-00124')
+  const [siteId, setSiteId] = useState(() => siteAt(0).siteId)
   const [effectiveDate, setEffectiveDate] = useState(new Date().toISOString().split('T')[0])
 
   // --- WLA Form States ---
@@ -253,6 +258,16 @@ export default function SettlementAccountMappingForm() {
 
   // Save / Submit
   const handleSubmit = (isDraft: boolean) => {
+    if (!guardAct('Finance', isEditing ? 'Edit' : 'Create', isEditing ? 'edit account mappings' : 'create account mappings')) return
+    const site = atmId.trim() ? resolveSite(atmId) : undefined
+    if (atmId.trim() && !site) {
+      toast(`ATM ID ${atmId} is not in the Site Master`)
+      return
+    }
+    const siteKeys = site ? { atmId: site.atmId, siteId: site.siteId } : {}
+    const emitSubmit = (refId: string, name: string, status: string) => {
+      if (!isDraft) emitFinance('Submit', refId, { what: `${activeTab} account mapping`, site: site?.atmId, franchise: name, status })
+    }
     if (activeTab === 'WLA') {
       if (!atmId) {
         toast('Please enter ATM ID')
@@ -285,13 +300,16 @@ export default function SettlementAccountMappingForm() {
         remarks: 'WLA settlement routing details saved',
         status: isDraft ? 'Draft' : 'Mapped',
         effectiveDate,
+        ...siteKeys,
       }
 
       if (isEditing && id) {
         updateAccountMapping(id, payload)
+        emitSubmit(id, payload.franchiseeName, payload.status)
         toast('WLA Account Mapping updated successfully!')
       } else {
-        addAccountMapping(payload)
+        const created = addAccountMapping(payload)
+        emitSubmit(created.id, payload.franchiseeName, payload.status)
         toast('WLA Account Mapping created successfully!')
       }
     } else {
@@ -307,7 +325,7 @@ export default function SettlementAccountMappingForm() {
 
       const payload: Omit<AccountMappingRecord, 'id'> = {
         mappingType: activeTab,
-        atmId: atmId || 'DX-GEN-001',
+        atmId,
         hpyCode,
         siteId,
         franchiseeName: indentFrName || 'Franchisee Partner',
@@ -328,13 +346,16 @@ export default function SettlementAccountMappingForm() {
         remarks: indentRemarks,
         status: isDraft ? 'Draft' : 'Pending Approval',
         effectiveDate,
+        ...siteKeys,
       }
 
       if (isEditing && id) {
         updateAccountMapping(id, payload)
+        emitSubmit(id, payload.franchiseeName, payload.status)
         toast(`${activeTab} Account Mapping updated successfully!`)
       } else {
-        addAccountMapping(payload)
+        const created = addAccountMapping(payload)
+        emitSubmit(created.id, payload.franchiseeName, payload.status)
         toast(`${activeTab} Account Mapping submitted for approval!`)
       }
     }
@@ -444,7 +465,7 @@ export default function SettlementAccountMappingForm() {
                   type="text"
                   value={atmId}
                   onChange={(e) => setAtmId(e.target.value)}
-                  placeholder="Enter ATM ID (e.g. XY2012312)"
+                  placeholder="Enter ATM ID (e.g. DXMH70007)"
                   className="w-full pl-9 pr-8 py-2 rounded-lg border border-slate-200 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
                 {atmId && (
@@ -459,12 +480,21 @@ export default function SettlementAccountMappingForm() {
               </div>
               <button
                 type="button"
-                onClick={() => toast(`Searching ATM record for: ${atmId || 'current'}`)}
+                onClick={() => {
+                  const st = resolveSite(atmId)
+                  if (st) setSiteId(st.siteId)
+                  toast(st ? `Found ${st.atmId} · ${st.siteId} in Site Master` : `ATM ID ${atmId || '—'} is not in the Site Master`)
+                }}
                 className="px-4 py-2 rounded-lg bg-blue-50 text-blue-700 text-xs font-semibold hover:bg-blue-100 transition-colors shrink-0"
               >
                 Search
               </button>
             </div>
+            {atmId && (
+              <div className="-mt-3 mb-4 text-[11px] sm:pl-23">
+                <SiteRef id={atmId} />
+              </div>
+            )}
 
             {/* 3 Segmented Tabs */}
             <div className="pt-1 border-t border-slate-100">
@@ -842,22 +872,22 @@ export default function SettlementAccountMappingForm() {
                   <RotateCcw size={14} />
                   Reset
                 </button>
-                <button
+                {canSave && <button
                   type="button"
                   onClick={() => handleSubmit(true)}
                   className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
                 >
                   <Save size={14} />
                   Save
-                </button>
-                <button
+                </button>}
+                {canSave && <button
                   type="button"
                   onClick={() => handleSubmit(false)}
                   className="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg bg-[#0066FF] text-xs font-bold text-white shadow-sm hover:bg-[#0052CC] transition-colors"
                 >
                   Submit
                   <ArrowRight size={14} />
-                </button>
+                </button>}
               </div>
             )}
           </div>
@@ -918,11 +948,10 @@ export default function SettlementAccountMappingForm() {
                     onChange={(e) => setAtmId(e.target.value)}
                     className="w-full pl-9 pr-7 py-2 rounded-lg border border-slate-200 bg-white text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   >
-                    <option value="XY2012312">XY2012312</option>
-                    <option value="DX-UP-02391">DX-UP-02391</option>
-                    <option value="DX-KA-03810">DX-KA-03810</option>
-                    <option value="DX-DL-01944">DX-DL-01944</option>
-                    <option value="DX-GJ-02988">DX-GJ-02988</option>
+                    {!resolveSite(atmId) && <option value={atmId}>{atmId || 'Select ATM ID'}</option>}
+                    {allSites().map((st) => (
+                      <option key={st.atmId} value={st.atmId}>{st.atmId} · {st.siteId}</option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -1310,22 +1339,22 @@ export default function SettlementAccountMappingForm() {
                   <RotateCcw size={14} />
                   Reset
                 </button>
-                <button
+                {canSave && <button
                   type="button"
                   onClick={() => handleSubmit(true)}
                   className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
                 >
                   <Save size={14} />
                   Save Draft
-                </button>
-                <button
+                </button>}
+                {canSave && <button
                   type="button"
                   onClick={() => handleSubmit(false)}
                   className="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg bg-[#0066FF] text-xs font-bold text-white shadow-sm hover:bg-[#0052CC] transition-colors"
                 >
                   Submit for Approval
                   <ArrowRight size={14} />
-                </button>
+                </button>}
               </div>
             )}
           </div>

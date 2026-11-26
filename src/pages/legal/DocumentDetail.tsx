@@ -7,11 +7,14 @@ import { Modal } from '@/components/ui/Modal'
 import { SelectField, TextAreaField, TextField } from '@/components/ui/Form'
 import { toast } from '@/components/ui/Toast'
 import { cn } from '@/lib/cn'
+import { Can, ViewOnlyNote, guardAct, useCanIn } from '@/lib/guard'
+import { SiteRef } from '@/lib/siteRef'
 import {
   DOC_META, currentVersion, fmtDate, fmtDateTime, fmtShort, fmtTime, getDoc, getSite, istDay, lastAccess, nextVersion, pendingUpload, recordAccess, reviewUpload,
-  sendReminder, shareRevision, useLegal, type LegalDoc, type LegalSite,
+  sendReminder, shareRevision, useLegal, downloadLegalFile, type LegalDoc, type LegalSite,
+  useLegalLoad, legalLoader,
 } from '@/data/legal'
-import { BackLink, Fact, StatusBadge } from './ui'
+import { BackLink, Fact, LoadNote, StatusBadge } from './ui'
 
 const phrase: Record<string, string> = {
   'Action Required': 'Signed copy pending',
@@ -26,9 +29,12 @@ type Dialog = null | 'view' | 'share' | 'approve' | 'reject'
 export default function DocumentDetail() {
   const { siteId = '', docId = '' } = useParams()
   const state = useLegal()
+  const allow = useCanIn('Legal')
   const [dialog, setDialog] = useState<Dialog>(null)
   const doc = getDoc(state, docId)
   const site = doc && getSite(state, doc.siteId)
+  const load = useLegalLoad()
+  if ((!doc || !site) && !load.loaded) return <LoadNote load={load} what="the document" onRetry={() => void legalLoader.reload()} />
   if (!doc || !site) return <Navigate to={siteId ? `/legal/${siteId}` : '/legal'} replace />
   if (doc.siteId !== siteId) return <Navigate to={`/legal/${doc.siteId}/documents/${doc.id}`} replace />
 
@@ -39,21 +45,28 @@ export default function DocumentDetail() {
   const base = `/legal/${site.id}/documents/${doc.id}`
 
   const download = () => {
+    if (!guardAct('Legal', 'Download')) return
     recordAccess(doc.id, 'Downloaded', 'Workspace', undefined, cur.file)
-    toast(`${cur.file} · download recorded in the audit log (demo: file storage not connected)`, 'info')
+    // API mode: stored originals (fileId) download from the file store; seeded originals have no file attached
+    downloadLegalFile(cur.fileId, cur.file)
+      .then((ok) => !ok && toast(`${cur.file} · download recorded in the audit log (no stored file for this version)`, 'info'))
+      .catch(() => undefined)
   }
   const view = () => {
     recordAccess(doc.id, 'Viewed', 'Workspace', undefined, cur.file)
     setDialog('view')
   }
   const remind = () => {
+    if (!guardAct('Legal', 'Edit', 'send reminders')) return
     sendReminder(doc.id)
-    toast(`Reminder sent to ${site.signatory} · recorded in audit history`)
+      .then(() => toast(`Reminder sent to ${site.signatory} · recorded in audit history`))
+      .catch(() => undefined)
   }
 
   return (
     <div>
       <BackLink to={`/legal/${site.id}`}>Back to Legal summary</BackLink>
+      <ViewOnlyNote module="Legal" />
       <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">{m.title}</h1>
@@ -65,9 +78,11 @@ export default function DocumentDetail() {
               Audit history
             </Button>
           </Link>
-          <Button variant="secondary" icon={<Download size={16} />} onClick={download}>
-            Download original
-          </Button>
+          <Can module="Legal" action="Download">
+            <Button variant="secondary" icon={<Download size={16} />} onClick={download}>
+              Download original
+            </Button>
+          </Can>
           <Button icon={<Eye size={16} />} onClick={view}>
             View document
           </Button>
@@ -118,7 +133,7 @@ export default function DocumentDetail() {
                     {site.id}
                   </Link>
                 </Fact>
-                <Fact label="ATM ID">{site.atmId || 'Not mapped'}</Fact>
+                <Fact label="ATM ID">{site.atmId ? <SiteRef id={site.atmId} /> : 'Not mapped'}</Fact>
                 <Fact label="Document ID">{doc.id}</Fact>
               </div>
               <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
@@ -151,6 +166,10 @@ export default function DocumentDetail() {
             onApprove={() => setDialog('approve')}
             onReject={() => setDialog('reject')}
             onShare={() => setDialog('share')}
+            canApprove={allow('Approve')}
+            canReject={allow('Reject')}
+            canShare={allow('Edit')}
+            canDownload={allow('Download')}
           />
         </div>
 
@@ -160,7 +179,7 @@ export default function DocumentDetail() {
           <div className="rounded-xl bg-primary-soft p-5">
             <h3 className="text-[16px] font-semibold text-primary">Instructions sent to franchisee</h3>
             <p className="mt-3 text-[13px] text-primary">{doc.instructions}</p>
-            {doc.status !== 'Approved' && doc.status !== 'Under Review' ? (
+            {doc.status !== 'Approved' && doc.status !== 'Under Review' && allow('Edit') ? (
               <Button className="mt-4" variant="secondary" icon={<Send size={15} />} onClick={remind}>
                 Send reminder
               </Button>
@@ -210,9 +229,13 @@ export default function DocumentDetail() {
               <Button
                 icon={<Check size={16} />}
                 onClick={() => {
+                  if (!guardAct('Legal', 'Approve', 'approve documents')) return
                   reviewUpload(doc.id, 'Approved')
-                  setDialog(null)
-                  toast(`${m.short} ${doc.version} approved · audit event recorded`)
+                    .then(() => {
+                      setDialog(null)
+                      toast(`${m.short} ${doc.version} approved · audit event recorded`)
+                    })
+                    .catch(() => undefined)
                 }}
               >
                 Approve
@@ -241,8 +264,11 @@ function Head({ title, sub }: { title: string; sub?: string }) {
 }
 
 function FilesCard({
-  doc, site, onView, onDownload, onApprove, onReject, onShare,
-}: { doc: LegalDoc; site: LegalSite; onView: () => void; onDownload: () => void; onApprove: () => void; onReject: () => void; onShare: () => void }) {
+  doc, site, onView, onDownload, onApprove, onReject, onShare, canApprove = true, canReject = true, canShare = true, canDownload = true,
+}: {
+  doc: LegalDoc; site: LegalSite; onView: () => void; onDownload: () => void; onApprove: () => void; onReject: () => void; onShare: () => void
+  canApprove?: boolean; canReject?: boolean; canShare?: boolean; canDownload?: boolean
+}) {
   const cur = currentVersion(doc)
   const curUploads = doc.uploads.filter((u) => u.version === doc.version)
   const latest = curUploads[curUploads.length - 1]
@@ -263,9 +289,11 @@ function FilesCard({
           <Button variant="secondary" icon={<Eye size={15} />} onClick={onView}>
             View
           </Button>
-          <Button variant="secondary" icon={<Download size={15} />} onClick={onDownload}>
-            Download
-          </Button>
+          {canDownload && (
+            <Button variant="secondary" icon={<Download size={15} />} onClick={onDownload}>
+              Download
+            </Button>
+          )}
         </div>
 
         {latest ? (
@@ -289,14 +317,18 @@ function FilesCard({
                 </div>
               )}
             </div>
-            {!latest.decision && (
+            {!latest.decision && (canApprove || canReject) && (
               <span className="flex gap-2">
-                <Button size="sm" icon={<Check size={14} />} onClick={onApprove}>
-                  Approve
-                </Button>
-                <Button size="sm" variant="danger" icon={<XCircle size={14} />} onClick={onReject}>
-                  Reject
-                </Button>
+                {canApprove && (
+                  <Button size="sm" icon={<Check size={14} />} onClick={onApprove}>
+                    Approve
+                  </Button>
+                )}
+                {canReject && (
+                  <Button size="sm" variant="danger" icon={<XCircle size={14} />} onClick={onReject}>
+                    Reject
+                  </Button>
+                )}
               </span>
             )}
           </div>
@@ -326,11 +358,11 @@ function FilesCard({
             </div>
           )
         })}
-        <div className="flex justify-end border-t border-line-soft pt-3">
+        {canShare && <div className="flex justify-end border-t border-line-soft pt-3">
           <button onClick={onShare} className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-primary hover:underline">
             <RefreshCw size={13} /> Share revised original
           </button>
-        </div>
+        </div>}
       </div>
     </Card>
   )
@@ -447,9 +479,13 @@ function ShareDialog({ doc, site, onClose }: { doc: LegalDoc; site: LegalSite; o
     if (!due || due < today) e.due = 'Due date must be today or later'
     setErr(e)
     if (Object.keys(e).length) return
+    if (!guardAct('Legal', 'Edit', 'share revised originals')) return
     shareRevision(doc.id, { instructions: instructions.trim(), dueDate: due, reason })
-    toast(`${m.short} ${v} shared with ${site.signatory} · ${doc.version} superseded`)
-    onClose()
+      .then((nv) => {
+        toast(`${m.short} ${nv ?? v} shared with ${site.signatory} · ${doc.version} superseded`)
+        onClose()
+      })
+      .catch(() => undefined)
   }
 
   return (
@@ -491,9 +527,13 @@ function RejectDialog({ doc, file, onClose }: { doc: LegalDoc; file: string; onC
   const [err, setErr] = useState('')
   const submit = () => {
     if (reason.trim().length < 10) return setErr('Give the franchisee a clear reason (at least 10 characters)')
+    if (!guardAct('Legal', 'Reject', 'reject documents')) return
     reviewUpload(doc.id, 'Rejected', reason.trim())
-    toast(`${m.short} ${doc.version} rejected · status set to Resubmission Required`)
-    onClose()
+      .then(() => {
+        toast(`${m.short} ${doc.version} rejected · status set to Resubmission Required`)
+        onClose()
+      })
+      .catch(() => undefined)
   }
   return (
     <Modal

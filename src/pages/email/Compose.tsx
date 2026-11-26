@@ -62,6 +62,7 @@ import {
 } from '@/data/email'
 import { createTask, NOW as TASK_NOW } from '@/data/tasks'
 import { extractAction, fixGrammar, grammarIssues, htmlToText, improveTone, rewrite, shorten, suggestReply, textToHtml } from './ai'
+import { canIn, guardAct } from '@/lib/guard'
 
 const OWN = ACCOUNTS.map((a) => a.email)
 const SIGNATURES: Record<string, string> = {
@@ -228,6 +229,7 @@ export default function ComposeDialog() {
 
   // ---------- autosave ----------
   const persistDraft = (silent: boolean) => {
+    if (!canIn('Email', 'Create')) return
     const id = draftId ?? newMailId('d')
     const mail: Mail = {
       id,
@@ -347,6 +349,7 @@ export default function ComposeDialog() {
 
   // ---------- send ----------
   const send = () => {
+    if (!guardAct('Email', 'Create', 'send email')) return
     const e: Record<string, string> = {}
     if (!account.authorized) e.from = `You are not authorized to send from ${account.email}.`
     if (!to.length) e.to = 'Add at least one recipient.'
@@ -396,7 +399,7 @@ export default function ComposeDialog() {
       meeting: meet.on ? `Meeting · ${fullTime(new Date(toIstMs(meet.date, meet.time)).toISOString())} IST` : undefined,
       followUpTask: taskId,
     }
-    upsertMail(mail)
+    upsertMail(mail, { draftId })
     if (draftId) removeMail(draftId)
     toast(
       `${sched.on ? `Scheduled for ${fullTime(mail.scheduledAt!)} IST` : `Email sent to ${to[0]}${to.length > 1 ? ` +${to.length - 1}` : ''}`}${tracker ? ` · added to ${tracker} timeline` : ''}${taskId ? ` · follow-up ${taskId} created` : ''}.`,

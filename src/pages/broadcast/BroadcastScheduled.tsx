@@ -23,10 +23,12 @@ import {
 } from '@/data/broadcasts'
 import { PriorityBadge, StatusBadge } from './BroadcastOverview'
 import { toast } from '@/components/ui/Toast'
+import { guardAct, useCanIn } from '@/lib/guard'
 import { cn } from '@/lib/cn'
 
 export default function BroadcastScheduled({ defaultTab = 'scheduled' }: { defaultTab?: string }) {
   const navigate = useNavigate()
+  const allow = useCanIn('Broadcast')
   const [searchParams] = useSearchParams()
   const tabParam = searchParams.get('tab') || defaultTab
 
@@ -121,6 +123,7 @@ export default function BroadcastScheduled({ defaultTab = 'scheduled' }: { defau
   const totalPages = Math.max(1, Math.ceil(filteredList.length / pageSize))
 
   const handleReschedule = () => {
+    if (!guardAct('Broadcast', 'Edit', 'reschedule broadcasts')) return
     if (rescheduleItem) {
       updateBroadcast(rescheduleItem.id, {
         scheduledFor: newTime,
@@ -131,6 +134,7 @@ export default function BroadcastScheduled({ defaultTab = 'scheduled' }: { defau
   }
 
   const handleCancel = (id: string) => {
+    if (!guardAct('Broadcast', 'Edit', 'cancel broadcasts')) return
     updateBroadcast(id, {
       status: 'Draft',
     })
@@ -173,14 +177,16 @@ export default function BroadcastScheduled({ defaultTab = 'scheduled' }: { defau
             <Download size={14} className="text-slate-500" />
             <span>Export</span>
           </button>
-          <button
-            type="button"
-            onClick={() => navigate('/work-management/broadcast/create')}
-            className="flex items-center gap-1.5 rounded-lg bg-[#0066FF] hover:bg-blue-700 px-4 py-2 text-xs font-semibold text-white shadow-xs transition-all"
-          >
-            <Plus size={15} />
-            <span>Create Broadcast</span>
-          </button>
+          {allow('Create') && (
+            <button
+              type="button"
+              onClick={() => navigate('/work-management/broadcast/create')}
+              className="flex items-center gap-1.5 rounded-lg bg-[#0066FF] hover:bg-blue-700 px-4 py-2 text-xs font-semibold text-white shadow-xs transition-all"
+            >
+              <Plus size={15} />
+              <span>Create Broadcast</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -365,14 +371,16 @@ export default function BroadcastScheduled({ defaultTab = 'scheduled' }: { defau
                         </td>
                         <td className="py-1.5 px-2 text-center whitespace-nowrap w-[80px]">
                           <div className="flex items-center justify-center gap-0.5 whitespace-nowrap">
-                            <button
-                              type="button"
-                              onClick={() => navigate('/work-management/broadcast/create')}
-                              className="grid h-6 w-6 place-items-center rounded text-slate-400 hover:text-[#0066FF] hover:bg-blue-50 transition-colors"
-                              title="Edit broadcast"
-                            >
-                              <Edit2 size={12} />
-                            </button>
+                            {allow('Create') && (
+                              <button
+                                type="button"
+                                onClick={() => navigate('/work-management/broadcast/create')}
+                                className="grid h-6 w-6 place-items-center rounded text-slate-400 hover:text-[#0066FF] hover:bg-blue-50 transition-colors"
+                                title="Edit broadcast"
+                              >
+                                <Edit2 size={12} />
+                              </button>
+                            )}
                             <button
                               type="button"
                               onClick={() => {
@@ -384,14 +392,16 @@ export default function BroadcastScheduled({ defaultTab = 'scheduled' }: { defau
                             >
                               <Clock size={12} />
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => handleCancel(item.id)}
-                              className="grid h-6 w-6 place-items-center rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                              title="Cancel / Move to Drafts"
-                            >
-                              <Trash2 size={12} />
-                            </button>
+                            {allow('Edit') && (
+                              <button
+                                type="button"
+                                onClick={() => handleCancel(item.id)}
+                                className="grid h-6 w-6 place-items-center rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                                title="Cancel / Move to Drafts"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>

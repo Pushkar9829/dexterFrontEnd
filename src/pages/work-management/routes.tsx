@@ -1,13 +1,13 @@
+import { lazy } from 'react'
 import { Navigate, Route } from 'react-router-dom'
-import WorkManagementHub from './WorkManagementHub'
-import BroadcastLayout from '@/pages/broadcast/BroadcastLayout'
-import BroadcastOverview from '@/pages/broadcast/BroadcastOverview'
-import BroadcastCreate from '@/pages/broadcast/BroadcastCreate'
-import BroadcastScheduled from '@/pages/broadcast/BroadcastScheduled'
-import BroadcastApprovalQueue from '@/pages/broadcast/BroadcastApprovalQueue'
-import BroadcastReports from '@/pages/broadcast/BroadcastReports'
-import Notices from '@/pages/Notices'
-
+const WorkManagementHub = lazy(() => import('./WorkManagementHub'))
+const BroadcastLayout = lazy(() => import('@/pages/broadcast/BroadcastLayout'))
+const BroadcastOverview = lazy(() => import('@/pages/broadcast/BroadcastOverview'))
+const BroadcastCreate = lazy(() => import('@/pages/broadcast/BroadcastCreate'))
+const BroadcastScheduled = lazy(() => import('@/pages/broadcast/BroadcastScheduled'))
+const BroadcastApprovalQueue = lazy(() => import('@/pages/broadcast/BroadcastApprovalQueue'))
+const BroadcastReports = lazy(() => import('@/pages/broadcast/BroadcastReports'))
+const Notices = lazy(() => import('@/pages/Notices'))
 export const workManagementRoutes = [
   <Route key="work-management-hub" path="/work-management" element={<WorkManagementHub />} />,
 

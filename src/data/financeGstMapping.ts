@@ -1,4 +1,6 @@
 import { createStore } from '@/lib/store'
+import { apiEnabled, finDelete, finLoader, finSave, type FinCfg } from './financeApi'
+import { franchiseNameOf, siteAt } from '@/lib/siteRef'
 
 export type GstRegistrationType =
   | 'Regular Taxpayer'
@@ -267,7 +269,21 @@ const SEED_MAPPINGS: FranchiseGstMapping[] = [
   },
 ]
 
-export const gstMappingStore = createStore<FranchiseGstMapping[]>('dexter_franchise_gst_mappings', () => SEED_MAPPINGS)
+// Franchise identity from the Site Master's franchises (same state as the GSTIN where possible)
+const seedMappings = (): FranchiseGstMapping[] =>
+  SEED_MAPPINGS.map((m, i) => {
+    const site = siteAt(i, (s) => s.state === m.state)
+    return { ...m, franchiseId: site.frId, franchiseeName: franchiseNameOf(site) || m.franchiseeName }
+  })
+const gstMapRaw = createStore<FranchiseGstMapping[]>(apiEnabled ? 'dexter_franchise_gst_mappings.api' : 'dexter_franchise_gst_mappings.v2', apiEnabled ? () => [] : seedMappings)
+/** API mode: franchise GST mappings ↔ /finance/gst-mappings (GSTIN ↔ state code ↔ PAN checked by the server). */
+export const gstMappingCfg: FinCfg<FranchiseGstMapping> = {
+  key: 'gst-mappings', label: 'GST mapping', get: () => gstMapRaw.get(), set: (l) => gstMapRaw.set(l),
+  fields: ['franchiseId', 'franchiseeName', 'legalBusinessName', 'tradeName', 'gstin', 'panNumber', 'state', 'stateCode', 'registrationType', 'filingFrequency', 'reverseChargeApplicable', 'contactPerson', 'contactPhone', 'contactEmail', 'registeredAddress', 'city', 'pincode', 'effectiveDate', 'verificationStatus', 'lastAuditedDate', 'remarks'],
+  dates: ['effectiveDate', 'lastAuditedDate'], dateOut: 'iso', statusField: 'verificationStatus',
+}
+/** gstMappingStore.use() also hydrates from the backend in API mode. */
+export const gstMappingStore = { ...gstMapRaw, use: (): FranchiseGstMapping[] => (finLoader(gstMappingCfg).use(), gstMapRaw.use()) }
 
 export function getGstMapping(id: string): FranchiseGstMapping | undefined {
   return gstMappingStore.get().find((m) => m.id === id || m.franchiseId === id)
@@ -288,6 +304,7 @@ export function saveGstMapping(input: Partial<FranchiseGstMapping>): FranchiseGs
       const next = [...current]
       next[existingIndex] = updated
       gstMappingStore.set(next)
+      if (apiEnabled) void finSave(gstMappingCfg, current[existingIndex], updated)
       return updated
     }
   }
@@ -324,10 +341,12 @@ export function saveGstMapping(input: Partial<FranchiseGstMapping>): FranchiseGs
   }
 
   gstMappingStore.set([newMapping, ...current])
+  if (apiEnabled) void finSave(gstMappingCfg, undefined, newMapping)
   return newMapping
 }
 
 export function deleteGstMapping(id: string): void {
+  if (apiEnabled) void finDelete(gstMappingCfg, id)
   const current = gstMappingStore.get()
   gstMappingStore.set(current.filter((m) => m.id !== id))
 }

@@ -15,14 +15,17 @@ import {
 import { useBroadcasts, exportBroadcastsCsv } from '@/data/broadcasts'
 import { PriorityBadge, StatusBadge } from './BroadcastOverview'
 import { toast } from '@/components/ui/Toast'
+import { guardAct, useCanIn } from '@/lib/guard'
 
 export default function BroadcastReports() {
   const navigate = useNavigate()
+  const allow = useCanIn('Broadcast')
   const { broadcasts } = useBroadcasts()
   const [dateRange, setDateRange] = useState('Last 30 Days (Oct - Nov 2026)')
   const [department, setDepartment] = useState('All Departments')
 
   const handleExport = () => {
+    if (!guardAct('Broadcast', 'Export')) return
     exportBroadcastsCsv(broadcasts, 'dexter-broadcast-mis-report')
     toast('Broadcast MIS Report exported as CSV', 'success')
   }
@@ -64,14 +67,16 @@ export default function BroadcastReports() {
             </select>
           </div>
 
-          <button
-            type="button"
-            onClick={handleExport}
-            className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition-all"
-          >
-            <Download size={14} className="text-slate-500" />
-            <span>Export Report</span>
-          </button>
+          {allow('Export') && (
+            <button
+              type="button"
+              onClick={handleExport}
+              className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition-all"
+            >
+              <Download size={14} className="text-slate-500" />
+              <span>Export Report</span>
+            </button>
+          )}
         </div>
       </div>
 

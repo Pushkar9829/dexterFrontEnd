@@ -15,6 +15,7 @@ import { cn } from '@/lib/cn'
 import { MASTER_SECTIONS } from './types'
 import { MasterSectionsView } from './MasterSectionsView'
 import { validateMasterSection, type Errors } from '../validate'
+import { guardAct } from '@/lib/guard'
 
 export interface MasterFranchiseFormProps {
   app?: Application | null
@@ -62,11 +63,14 @@ export function MasterFranchiseForm({
   const currentSectionIndex = MASTER_SECTIONS.findIndex((s) => s.key === sectionKey)
   const currentMeta = MASTER_SECTIONS[currentSectionIndex] || MASTER_SECTIONS[0]
 
+  // Keep the latest callback in a ref so an inline parent callback doesn't retrigger the effect (infinite re-render).
+  const onSectionChangeRef = useRef(onSectionChange)
   useEffect(() => {
-    if (onSectionChange) {
-      onSectionChange(currentMeta.key, currentSectionIndex + 1, currentMeta.title)
-    }
-  }, [currentMeta, currentSectionIndex, onSectionChange])
+    onSectionChangeRef.current = onSectionChange
+  }, [onSectionChange])
+  useEffect(() => {
+    onSectionChangeRef.current?.(currentMeta.key, currentSectionIndex + 1, currentMeta.title)
+  }, [currentMeta.key, currentMeta.title, currentSectionIndex])
 
   // Autosave drafts 800 ms after the last change
   useEffect(() => {
@@ -109,6 +113,7 @@ export function MasterFranchiseForm({
   }
 
   const handleSaveDraft = () => {
+    if (!guardAct('Onboarding', id ? 'Edit' : 'Create', 'save applications')) return
     const saved = saveApplication(id, form, 'Draft')
     setId(saved.id)
     setSavedAt(timeNow())
@@ -117,6 +122,7 @@ export function MasterFranchiseForm({
   }
 
   const handleSubmit = () => {
+    if (!guardAct('Onboarding', id ? 'Edit' : 'Create', 'save applications')) return
     // Validate all critical sections before submitting
     for (let idx = 0; idx < MASTER_SECTIONS.length; idx++) {
       const sec = MASTER_SECTIONS[idx]

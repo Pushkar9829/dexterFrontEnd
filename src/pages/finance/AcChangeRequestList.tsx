@@ -28,6 +28,9 @@ import {
 import { downloadCsv } from '@/lib/export'
 import { toast } from '@/components/ui/Toast'
 import { useReportMode } from '@/hooks/useReportMode'
+import { useCanIn, guardAct, ViewOnlyNote } from '@/lib/guard'
+import { SiteRef } from '@/lib/siteRef'
+import { emitFinance } from './finWorkflow'
 import {
   useAcChangeRequests,
   updateAcChangeRequest,
@@ -39,6 +42,7 @@ export default function AcChangeRequestList() {
   const navigate = useNavigate()
   const { isReport } = useReportMode()
   const requests = useAcChangeRequests()
+  const allow = useCanIn('Finance')
 
   // Filter States
   const [filterRequestId, setFilterRequestId] = useState('')
@@ -160,6 +164,7 @@ export default function AcChangeRequestList() {
   // Export
   const [showExportMenu, setShowExportMenu] = useState(false)
   const handleExportCsv = () => {
+    if (!guardAct('Finance', 'Export', 'export A/C change requests')) return
     const headers = [
       'S.N.',
       'Request ID',
@@ -201,16 +206,22 @@ export default function AcChangeRequestList() {
 
   // Fast Quick Status Update
   const handleQuickStatus = (id: string, newStatus: AcChangeRequestRecord['status']) => {
+    const act = newStatus === 'Rejected' ? 'Reject' : 'Approve'
+    if (!guardAct('Finance', act, `${act.toLowerCase()} A/C change requests`)) return
+    const rec = requests.find((x) => x.id === id)
     const today = new Date().toISOString().split('T')[0]
     updateAcChangeRequest(id, {
       status: newStatus,
       actionDate: today,
       actionRemarks: `Marked as ${newStatus} on ${today}`,
     })
+    if (newStatus === 'Approved' || newStatus === 'Rejected')
+      emitFinance(act, id, { what: 'A/C change request', site: rec?.atmId, franchise: rec?.franchiseeName, status: newStatus })
     toast(`Request ${id} marked as ${newStatus}`)
   }
 
   const handleDelete = (id: string) => {
+    if (!guardAct('Finance', 'Delete', 'delete A/C change requests')) return
     if (window.confirm(`Are you sure you want to remove request "${id}"?`)) {
       deleteAcChangeRequest(id)
       toast('Change request deleted')
@@ -265,7 +276,7 @@ export default function AcChangeRequestList() {
               : 'Review and process modification requests for Settlement Accounts and Payout Accounts.'}
           </p>
         </div>
-        {!isReport && (
+        {!isReport && allow('Create') && (
           <button
             onClick={() => navigate('/finance/settlement-bank/ac-change-request/new')}
             className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#0066FF] px-4 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-[#0052CC] transition-colors shrink-0"
@@ -275,6 +286,8 @@ export default function AcChangeRequestList() {
           </button>
         )}
       </div>
+
+      {!isReport && <ViewOnlyNote module="Finance" />}
 
       {/* Filter Card */}
       <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -397,7 +410,7 @@ export default function AcChangeRequestList() {
             <RotateCcw size={14} />
             Reset
           </button>
-          <div className="relative">
+          {allow('Export') && <div className="relative">
             <button
               onClick={() => setShowExportMenu(!showExportMenu)}
               className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
@@ -424,7 +437,7 @@ export default function AcChangeRequestList() {
                 </button>
               </div>
             )}
-          </div>
+          </div>}
         </div>
       </div>
 
@@ -554,7 +567,7 @@ export default function AcChangeRequestList() {
                         </Link>
                       </td>
                       <td className="py-2.5 px-3 border-r border-slate-100 whitespace-nowrap">
-                        <div className="font-semibold text-slate-900 whitespace-nowrap">{rec.atmId}</div>
+                        <div className="font-semibold text-slate-900 whitespace-nowrap"><SiteRef id={rec.atmId} /></div>
                         <div className="text-[10.5px] font-mono text-slate-400 whitespace-nowrap">
                           {rec.hpyCode || '-'}
                         </div>
@@ -631,38 +644,38 @@ export default function AcChangeRequestList() {
                             <>
                               {rec.status === 'Pending' && (
                                 <>
-                                  <button
+                                  {allow('Approve') && <button
                                     onClick={() => handleQuickStatus(rec.id, 'Approved')}
                                     title="Approve Request"
                                     className="px-2 py-0.5 rounded text-[10.5px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors whitespace-nowrap"
                                   >
                                     Approve
-                                  </button>
-                                  <button
+                                  </button>}
+                                  {allow('Reject') && <button
                                     onClick={() => handleQuickStatus(rec.id, 'Rejected')}
                                     title="Reject Request"
                                     className="px-2 py-0.5 rounded text-[10.5px] font-semibold bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 transition-colors whitespace-nowrap"
                                   >
                                     Reject
-                                  </button>
+                                  </button>}
                                 </>
                               )}
                               <button
                                 onClick={() =>
                                   navigate(`/finance/settlement-bank/ac-change-request/${rec.id}`)
                                 }
-                                title="Edit / View Form"
+                                title={allow('Edit') ? 'Edit / View Form' : 'View Form'}
                                 className="p-1 rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors ml-0.5"
                               >
-                                <Edit2 size={13} />
+                                {allow('Edit') ? <Edit2 size={13} /> : <Eye size={13} />}
                               </button>
-                              <button
+                              {allow('Delete') && <button
                                 onClick={() => handleDelete(rec.id)}
                                 title="Delete Request"
                                 className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
                               >
                                 <Trash2 size={13} />
-                              </button>
+                              </button>}
                             </>
                           )}
                         </div>

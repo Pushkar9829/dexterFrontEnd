@@ -4,12 +4,12 @@ import { Modal } from '@/components/ui/Modal'
 import { SelectField, TextAreaField, TextField } from '@/components/ui/Form'
 import { toast } from '@/components/ui/Toast'
 import { cn } from '@/lib/cn'
+import { guardAct, useCanIn } from '@/lib/guard'
 import {
   CATEGORIES,
   COMPONENTS,
   CURRENT_USER,
   ENGINEERS,
-  OWNERS,
   PRIORITIES,
   SLA_HOURS,
   SUB_STATUSES,
@@ -27,6 +27,9 @@ import {
   type Priority,
 } from '@/data/complaints'
 import { recStore } from '@/data/complaintsAi'
+import {
+  apiEnabled, addComplaintUpdateAsync, assignComplaintAsync, closeComplaintAsync, ownerOptions, patchComplaintAsync, reopenComplaintAsync, resolveComplaintAsync,
+} from '@/data/complaintsApi'
 
 const recTaskIds = () => recStore.get().flatMap((r) => (r.taskId ? [r.taskId] : []))
 const nowIso = () => new Date(nowMs()).toISOString()
@@ -50,16 +53,20 @@ function Foot({ onClose, onSave, label = 'Save', disabled }: { onClose: () => vo
 export function AssignOwnerModal({ c, onClose }: P) {
   const [owner, setOwner] = useState(c.owner)
   const [note, setNote] = useState('')
-  const save = () => {
+  const save = async () => {
     if (owner === c.owner) return onClose()
-    updateComplaint(c.id, () => ({ owner, lastAction: `Owner changed to ${owner}` }), { title: 'Owner reassigned', meta: `${CURRENT_USER} · ${c.owner} → ${owner}${note ? ` · ${note}` : ''}` })
+    try {
+      await assignComplaintAsync(c, owner, note, `${CURRENT_USER} · ${c.owner} → ${owner}${note ? ` · ${note}` : ''}`)
+    } catch {
+      return
+    }
     toast(`${c.id} assigned to ${owner}`)
     onClose()
   }
   return (
     <Modal title="Assign owner" sub={`${c.id} · accountable owner for resolution`} onClose={onClose} footer={<Foot onClose={onClose} onSave={save} label="Assign owner" />}>
       <div className="grid gap-4">
-        <SelectField label="Owner" required options={OWNERS} value={owner} onChange={(e) => setOwner(e.target.value || c.owner)} hint={`Current owner: ${c.owner}`} />
+        <SelectField label="Owner" required options={ownerOptions()} value={owner} onChange={(e) => setOwner(e.target.value || c.owner)} hint={`Current owner: ${c.owner}`} />
         <TextAreaField label="Handover note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional context for the new owner" />
       </div>
     </Modal>
@@ -78,9 +85,16 @@ export function AddActionModal({ c, onClose }: P) {
   const [time, setTime] = useState('17:00')
   const [tried, setTried] = useState(false)
   const okTask = !withTask || (taskTitle.trim() && date && timeOk(time))
-  const save = () => {
+  const save = async () => {
     setTried(true)
     if (!remark.trim() || !okTask) return
+    if (apiEnabled) {
+      try {
+        await addComplaintUpdateAsync(c.id, { kind: type === 'Engineer update' ? 'Engineer' : type === 'Vendor follow-up' ? 'Vendor' : 'Note', text: `${type}: ${remark.trim()}` })
+      } catch {
+        return
+      }
+    }
     const taskId = withTask ? nextTaskId(recTaskIds()) : null
     const at = nowIso()
     updateComplaint(
@@ -108,7 +122,7 @@ export function AddActionModal({ c, onClose }: P) {
         {withTask && (
           <div className="grid gap-4 rounded-lg bg-surface p-3 sm:grid-cols-2">
             <TextField className="sm:col-span-2" label="Task" required value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} error={tried && !taskTitle.trim() ? 'Enter the task' : undefined} />
-            <SelectField label="Owner" required options={[...new Set([...OWNERS, atmById(c.atmId)?.engineer ?? ''])].filter(Boolean)} value={taskOwner} onChange={(e) => setTaskOwner(e.target.value || c.owner)} />
+            <SelectField label="Owner" required options={[...new Set([...ownerOptions(), apiEnabled ? '' : atmById(c.atmId)?.engineer ?? ''])].filter(Boolean)} value={taskOwner} onChange={(e) => setTaskOwner(e.target.value || c.owner)} />
             <div className="grid grid-cols-2 gap-2">
               <TextField label="Due date" required type="date" value={date} onChange={(e) => setDate(e.target.value)} error={tried && !date ? 'Required' : undefined} />
               <TextField label="Time" required type="time" value={time} onChange={(e) => setTime(e.target.value)} error={tried && !timeOk(time) ? 'Required' : undefined} />
@@ -129,10 +143,12 @@ export function EditDetailsModal({ c, onClose }: P) {
   const [title, setTitle] = useState(c.title)
   const [details, setDetails] = useState(c.details)
   const [lastAction, setLastAction] = useState(c.lastAction)
+  const [reason, setReason] = useState('')
   const [tried, setTried] = useState(false)
-  const save = () => {
+  const save = async () => {
     setTried(true)
     if (!title.trim() || details.trim().length < 15 || !issue || !component) return
+    if (apiEnabled && reason.trim().length < 3) return
     const [category, subcategory] = issue.split(' / ')
     const changes: string[] = []
     if (priority !== c.priority) changes.push(`Priority ${c.priority} → ${priority} · SLA ${SLA_HOURS[c.priority]}h → ${SLA_HOURS[priority]}h`)
@@ -141,7 +157,23 @@ export function EditDetailsModal({ c, onClose }: P) {
     if (title.trim() !== c.title || details.trim() !== c.details) changes.push('Title / details updated')
     if (lastAction.trim() !== c.lastAction) changes.push(`Last action → ${lastAction.trim()}`)
     if (!changes.length) return onClose()
-    updateComplaint(c.id, () => ({ category, subcategory, component, priority, title: title.trim(), details: details.trim(), lastAction: lastAction.trim() }), { title: 'Issue details edited', meta: `${CURRENT_USER} · ${changes.join(' · ')}` })
+    const issueChanged = issue !== `${c.category} / ${c.subcategory}`
+    if (apiEnabled && (priority !== c.priority || component !== c.component || issueChanged || title.trim() !== c.title || details.trim() !== c.details)) {
+      try {
+        await patchComplaintAsync(c.id, {
+          priority: priority !== c.priority ? priority : undefined,
+          component: component !== c.component ? component : undefined,
+          ...(issueChanged ? { category, subcategory } : {}),
+          title: title.trim() !== c.title ? title.trim() : undefined,
+          details: details.trim() !== c.details ? details.trim() : undefined,
+          reason: reason.trim(),
+        })
+      } catch {
+        return // toasted (e.g. LOCKED for a resolved complaint, INVALID_CATEGORY)
+      }
+    }
+    // API mode: the server record is already merged; only "Last Action Status" stays a screen-level note
+    updateComplaint(c.id, () => (apiEnabled ? { lastAction: lastAction.trim() } : { category, subcategory, title: title.trim(), details: details.trim(), lastAction: lastAction.trim(), component, priority }), { title: 'Issue details edited', meta: `${CURRENT_USER} · ${changes.join(' · ')}${reason.trim() ? ` — ${reason.trim()}` : ''}` })
     toast('Issue details updated')
     onClose()
   }
@@ -154,6 +186,7 @@ export function EditDetailsModal({ c, onClose }: P) {
         <TextField label="Last Action Status" value={lastAction} onChange={(e) => setLastAction(e.target.value)} />
         <TextField className="sm:col-span-2" label="Issue title" required value={title} onChange={(e) => setTitle(e.target.value)} error={tried && !title.trim() ? 'Enter a title' : undefined} />
         <TextAreaField className="sm:col-span-2" label="Issue details" required rows={4} value={details} onChange={(e) => setDetails(e.target.value)} error={tried && details.trim().length < 15 ? 'At least 15 characters' : undefined} />
+        <TextField className="sm:col-span-2" label="Reason for the change" required={apiEnabled} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Recorded with the change in the complaint history" error={tried && apiEnabled && reason.trim().length < 3 ? 'Give the reason (at least 3 characters)' : undefined} />
       </div>
     </Modal>
   )
@@ -273,6 +306,7 @@ export function ResolutionModal({ c, onClose }: P) {
   const [fr, setFr] = useState(c.frSignOff)
   const [hd, setHd] = useState(c.hdValidation)
   const closed = c.status === 'Closed'
+  const allow = useCanIn('Complaints')
 
   const blockers = [
     outcome !== 'Resolved' && 'Outcome must be Resolved',
@@ -282,7 +316,18 @@ export function ResolutionModal({ c, onClose }: P) {
   ].filter(Boolean) as string[]
 
   const fields = () => ({ proposedFix: proposedFix.trim(), redressalDate: redressalDate || undefined, outcome, outcomeDate: outcomeDate || undefined, outcomeRemark: outcomeRemark.trim(), evidence, frSignOff: fr, hdValidation: hd })
-  const save = () => {
+  const save = async () => {
+    if (!guardAct('Complaints', 'Edit', 'update the resolution')) return
+    if (apiEnabled && !closed) {
+      try {
+        if (outcome !== 'Pending' && outcome !== c.outcome) await resolveComplaintAsync(c.id, { outcome, note: outcomeRemark.trim() || proposedFix.trim() || outcome })
+        else await addComplaintUpdateAsync(c.id, { kind: 'Note', text: outcomeRemark.trim() || proposedFix.trim() || 'Resolution details updated', subStatus, proposedFix: proposedFix.trim() || undefined })
+      } catch {
+        return
+      }
+      toast('Resolution updated')
+      return onClose()
+    }
     updateComplaint(c.id, () => ({ ...fields(), subStatus: closed ? c.subStatus : subStatus }), {
       title: 'Resolution updated',
       meta: `${CURRENT_USER} · Outcome ${outcome}${fr ? ' · FR sign-off' : ''}${hd ? ' · HD validation' : ''}`,
@@ -290,8 +335,20 @@ export function ResolutionModal({ c, onClose }: P) {
     toast('Resolution updated')
     onClose()
   }
-  const close = () => {
+  const close = async () => {
     if (blockers.length) return
+    if (!guardAct('Complaints', 'Close', 'close complaints')) return
+    if (apiEnabled) {
+      try {
+        // the server closes only a Resolved complaint: record the resolution first when needed
+        if (!c.subStatus.startsWith('Resolved')) await resolveComplaintAsync(c.id, { outcome: 'Resolved', note: outcomeRemark.trim() || proposedFix.trim() || 'Resolved' })
+        await closeComplaintAsync(c.id, { hdValidation: hd, frSignOff: fr, note: outcomeRemark.trim() || undefined })
+      } catch {
+        return
+      }
+      toast(`${c.id} closed`)
+      return onClose()
+    }
     const at = nowIso()
     updateComplaint(c.id, () => ({ ...fields(), status: 'Closed', subStatus: 'Resolved', closedAt: at, outcomeDate: outcomeDate || istDay(at), lastAction: 'Complaint closed after FR confirmation' }), {
       title: 'Complaint closed',
@@ -300,7 +357,19 @@ export function ResolutionModal({ c, onClose }: P) {
     toast(`${c.id} closed`)
     onClose()
   }
-  const reopen = () => {
+  const reopen = async () => {
+    if (!guardAct('Complaints', 'Close', 'reopen complaints')) return
+    if (apiEnabled) {
+      const reason = window.prompt('Reason for reopening (min 3 characters)', 'Resolution not holding')?.trim()
+      if (!reason || reason.length < 3) return
+      try {
+        await reopenComplaintAsync(c.id, reason)
+      } catch {
+        return
+      }
+      toast(`${c.id} reopened`, 'info')
+      return onClose()
+    }
     updateComplaint(c.id, () => ({ status: 'Open', subStatus: 'In progress', closedAt: undefined, outcome: 'Pending', frSignOff: false, hdValidation: false }), { title: 'Complaint reopened', meta: `${CURRENT_USER} · Resolution not holding` })
     toast(`${c.id} reopened`, 'info')
     onClose()
@@ -318,11 +387,11 @@ export function ResolutionModal({ c, onClose }: P) {
             Cancel
           </Button>
           {closed ? (
-            <Button variant="danger" onClick={reopen}>
+            <Button variant="danger" onClick={reopen} disabled={!allow('Close')} title={allow('Close') ? undefined : 'Your role cannot close / reopen complaints'}>
               Reopen complaint
             </Button>
           ) : (
-            <Button variant="secondary" onClick={close} disabled={blockers.length > 0} title={blockers.join(' · ')}>
+            <Button variant="secondary" onClick={close} disabled={blockers.length > 0 || !allow('Close')} title={!allow('Close') ? 'Your role cannot close complaints' : blockers.join(' · ')}>
               Close complaint
             </Button>
           )}

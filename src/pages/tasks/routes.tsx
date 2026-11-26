@@ -1,10 +1,10 @@
+import { lazy } from 'react'
 import { Route } from 'react-router-dom'
-import TasksHub from './TasksHub'
-import CommandCenter from './CommandCenter'
-import Workspace from './Workspace'
-import TaskDetail from './TaskDetail'
-import CreateTaskPage from './CreateTaskPage'
-
+const TasksHub = lazy(() => import('./TasksHub'))
+const CommandCenter = lazy(() => import('./CommandCenter'))
+const Workspace = lazy(() => import('./Workspace'))
+const TaskDetail = lazy(() => import('./TaskDetail'))
+const CreateTaskPage = lazy(() => import('./CreateTaskPage'))
 export const taskRoutes = [
   <Route key="tasks-hub" path="/tasks" element={<TasksHub />} />,
   <Route key="tasks-create" path="/tasks/create" element={<CreateTaskPage />} />,

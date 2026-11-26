@@ -6,6 +6,7 @@ import { toast } from '@/components/ui/Toast'
 import { cn } from '@/lib/cn'
 import { emailStore, fmtBytes, fullTime, initialsOf, shortTime, timelineOf, trackerById, TRACKERS } from '@/data/email'
 import { tasksStore } from '@/data/tasks'
+import { guardAct } from '@/lib/guard'
 
 /* Case page (Complaints / Cases) as it appears behind "Compose Email" in Figma 157:7240:
    case header with key facts, case tabs and the Email History of the tracker. */
@@ -40,7 +41,7 @@ export default function CaseEmail({ trackerId }: { trackerId: string }) {
         </Link>
       </div>
     )
-  const compose = () => nav(`/email/inbox/compose?tracker=${tr.id}`)
+  const compose = () => guardAct('Email', 'Create', 'send email') && nav(`/email/inbox/compose?tracker=${tr.id}`)
   const caseMails = mails.filter((m) => m.tracker === tr.id && m.folder !== 'drafts').sort((a, b) => Date.parse(b.at) - Date.parse(a.at))
   const timeline = timelineOf(tr.id, mails)
   const docs = caseMails.flatMap((m) => m.attachments.map((a) => ({ ...a, at: m.at, by: m.fromName })))

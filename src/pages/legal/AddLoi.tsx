@@ -1,4 +1,4 @@
-import { useState, useRef, useId } from 'react'
+import { useState, useRef, useId, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   Home,
@@ -15,7 +15,9 @@ import {
   CheckCircle2,
 } from 'lucide-react'
 import { toast } from '@/components/ui/Toast'
-import { addOrUpdateLoiDoc } from '@/data/legal'
+import { addOrUpdateLoiDoc, useLegal, type LegalSite } from '@/data/legal'
+import { ViewOnlyNote, guardAct, useCanIn } from '@/lib/guard'
+import { resolveSite, SiteRef } from '@/lib/siteRef'
 
 interface SiteOption {
   siteLoi: string
@@ -27,71 +29,16 @@ interface SiteOption {
   email: string
 }
 
-const PRESET_SITES: SiteOption[] = [
-  {
-    siteLoi: 'SIT-2025-001',
-    siteId: 'S-1001',
-    atmId: 'ATM001',
-    franchiseeName: 'Shree Sai Financial Services',
-    mobileNumber: '+91 98765 43210',
-    model: 'Hitachi ATM Model XYZ',
-    email: 'sai.financial@gmail.com',
-  },
-  {
-    siteLoi: 'SIT-2025-002',
-    siteId: 'S-1002',
-    atmId: 'ATM002',
-    franchiseeName: 'Patel Cash Solutions',
-    mobileNumber: '+91 98250 18218',
-    model: 'Hyosung ATM 2800',
-    email: 'kiran.patel@patelcash.in',
-  },
-  {
-    siteLoi: 'LOI-MH-PUN-00124',
-    siteId: 'ST-MH-PUN-00124',
-    atmId: 'DX-MH-01482',
-    franchiseeName: 'Shree Sai Financial Services',
-    mobileNumber: '+91 98220 41124',
-    model: 'Garnet Model',
-    email: 'rahul@shreesai.in',
-  },
-  {
-    siteLoi: 'LOI-MH-PUN-00131',
-    siteId: 'ST-MH-PUN-00131',
-    atmId: 'DX-MH-01497',
-    franchiseeName: 'Shree Sai Financial Services',
-    mobileNumber: '+91 98220 41124',
-    model: 'Sapphire Model',
-    email: 'rahul@shreesai.in',
-  },
-  {
-    siteLoi: 'LOI-KA-BLR-00076',
-    siteId: 'ST-KA-BLR-00076',
-    atmId: 'DX-KA-00761',
-    franchiseeName: 'Namma ATM Network',
-    mobileNumber: '+91 98450 70076',
-    model: 'NCR SelfServ 23',
-    email: 'ravi@nammaatm.in',
-  },
-  {
-    siteLoi: 'LOI-UP-LKO-00305',
-    siteId: 'ST-UP-LKO-00305',
-    atmId: 'DX-UP-03051',
-    franchiseeName: 'Awadh Banking Point',
-    mobileNumber: '+91 94150 30305',
-    model: 'Diebold Nixdorf 5500',
-    email: 'alok@awadhbank.in',
-  },
-  {
-    siteLoi: 'LOI-WB-NDA-00183',
-    siteId: 'ST-WB-NDA-00183',
-    atmId: 'DX-WB-01831',
-    franchiseeName: 'Bengal Rural Payments',
-    mobileNumber: '+91 94330 18307',
-    model: 'Topaz Model',
-    email: 'subrata@bengalrural.in',
-  },
-]
+/** Site options come from the Legal register, whose sites are Site Master sites. */
+const toOption = (s: LegalSite): SiteOption => ({
+  siteLoi: s.siteLoi ?? s.id,
+  siteId: s.id,
+  atmId: s.atmId,
+  franchiseeName: s.franchiseName,
+  mobileNumber: s.contactNumber,
+  model: s.model,
+  email: s.email,
+})
 
 export default function AddLoi() {
   const navigate = useNavigate()
@@ -99,9 +46,15 @@ export default function AddLoi() {
   const dropdownRef = useRef<HTMLDivElement>(null)
   const remarkTextareaId = useId()
 
+  const allow = useCanIn('Legal')
+  const canCreate = allow('Create')
+  const legal = useLegal()
+  const PRESET_SITES = useMemo(() => legal.sites.map(toOption), [legal.sites])
+  const [siteError, setSiteError] = useState('')
+
   // Selected site data - initialized with the exact sample from the user's reference image
-  const [selectedSite, setSelectedSite] = useState<SiteOption>(PRESET_SITES[0])
-  const [searchQuery, setSearchQuery] = useState(PRESET_SITES[0].siteLoi)
+  const [selectedSite, setSelectedSite] = useState<SiteOption | undefined>(PRESET_SITES[0])
+  const [searchQuery, setSearchQuery] = useState(PRESET_SITES[0]?.siteLoi ?? '')
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
 
   // Document Upload state
@@ -122,6 +75,7 @@ export default function AddLoi() {
   )
 
   const handleSelectSite = (site: SiteOption) => {
+    setSiteError('')
     setSelectedSite(site)
     setSearchQuery(site.siteLoi)
     setIsDropdownOpen(false)
@@ -179,32 +133,60 @@ export default function AddLoi() {
     }
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!guardAct('Legal', 'Create', 'upload loi documents')) return
 
-    if (!searchQuery.trim() || !selectedSite.siteId) {
+    if (!searchQuery.trim() || !selectedSite?.siteId) {
       toast('Please select a Site/LOI Number')
+      return
+    }
+
+    // Site must exist in Site Master. A typed Site ID / ATM ID that differs from the picked option is resolved too.
+    const q = searchQuery.trim()
+    const typed = q.toLowerCase() !== selectedSite.siteLoi.toLowerCase() ? resolveSite(q.replace(/^LOI-/i, 'SITE-')) ?? resolveSite(q) : undefined
+    const master = typed ?? resolveSite(selectedSite.siteId)
+    if (!master || (q.toLowerCase() !== selectedSite.siteLoi.toLowerCase() && !typed)) {
+      setSiteError(`"${q}" is not in Site Master. Pick a valid Site ID / ATM ID.`)
+      toast('Site / ATM ID not found in Site Master', 'error')
+      return
+    }
+    setSiteError('')
+
+    if (!file) {
+      toast('Please upload the signed LOI document (PDF, JPG or PNG) before saving', 'error')
       return
     }
 
     setIsSubmitting(true)
 
     // Save LOI document to store
-    const fileName = file ? file.name : `LOI_Signed_${selectedSite.siteId}.pdf`
+    const fileName = file ? file.name : `LOI_Signed_${master.siteId}.pdf`
     const fileSizeKb = file ? Math.round(file.size / 1024) : 1024
 
-    addOrUpdateLoiDoc({
-      siteId: selectedSite.siteId,
-      siteLoi: selectedSite.siteLoi,
+    const saved = await addOrUpdateLoiDoc({
+      file,
+      siteId: master.siteId,
+      siteLoi: typed ? `LOI-${master.siteId.replace(/^SITE-/i, '')}` : selectedSite.siteLoi,
       franchiseeName: selectedSite.franchiseeName,
       fileName,
       fileSizeKb,
       remarks: remarks.trim() || undefined,
-    })
+    }).catch(() => null) // API errors are toasted by the data layer
+
+    if (saved === null) {
+      setIsSubmitting(false)
+      return
+    }
+    if (!saved) {
+      setIsSubmitting(false)
+      toast('Site not found in Site Master', 'error')
+      return
+    }
 
     setTimeout(() => {
       setIsSubmitting(false)
-      toast('Letter of Intent (LOI) uploaded and saved successfully')
+      toast('Letter of Intent (LOI) uploaded — sent to Legal for verification')
       navigate('/legal/loi')
     }, 400)
   }
@@ -244,6 +226,8 @@ export default function AddLoi() {
         </p>
       </div>
 
+      <ViewOnlyNote module="Legal" />
+
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* CARD 1: Site Details */}
         <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-5 sm:p-6">
@@ -277,10 +261,11 @@ export default function AddLoi() {
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value)
+                  setSiteError('')
                   setIsDropdownOpen(true)
                 }}
                 onFocus={() => setIsDropdownOpen(true)}
-                placeholder="Search Site/LOI Number (e.g. SIT-2025-001)"
+                placeholder="Search Site/LOI Number, Site ID or ATM ID (e.g. SITE-MH-0001)"
                 className="w-full h-10.5 pl-10 pr-10 text-[13px] rounded-xl border border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF] transition-all shadow-2xs"
               />
               <button
@@ -313,7 +298,7 @@ export default function AddLoi() {
                       type="button"
                       onClick={() => handleSelectSite(site)}
                       className={`w-full text-left px-3.5 py-2.5 text-[12.5px] hover:bg-[#F0F5FA] flex items-center justify-between transition-colors ${
-                        selectedSite.siteLoi === site.siteLoi ? 'bg-[#EEF4FC] font-semibold text-[#0066FF]' : 'text-slate-800'
+                        selectedSite?.siteLoi === site.siteLoi ? 'bg-[#EEF4FC] font-semibold text-[#0066FF]' : 'text-slate-800'
                       }`}
                     >
                       <div className="flex items-center gap-2.5">
@@ -336,6 +321,8 @@ export default function AddLoi() {
             )}
           </div>
 
+          {siteError && <p className="-mt-3 mb-4 text-[12px] font-medium text-red-600">{siteError}</p>}
+
           {/* 6 Auto-filled Readonly/Tinted Fields Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             {/* Site ID */}
@@ -345,9 +332,9 @@ export default function AddLoi() {
               </label>
               <div
                 className="h-10 px-3.5 rounded-xl bg-[#F0F5FA] border border-[#E2ECF8] text-[12.5px] font-medium text-slate-800 flex items-center truncate"
-                title={selectedSite.siteId}
+                title={selectedSite?.siteId}
               >
-                {selectedSite.siteId || '—'}
+                {selectedSite?.siteId ? <SiteRef id={selectedSite.siteId} /> : '—'}
               </div>
             </div>
 
@@ -358,9 +345,9 @@ export default function AddLoi() {
               </label>
               <div
                 className="h-10 px-3.5 rounded-xl bg-[#F0F5FA] border border-[#E2ECF8] text-[12.5px] font-medium text-slate-800 flex items-center truncate"
-                title={selectedSite.atmId}
+                title={selectedSite?.atmId}
               >
-                {selectedSite.atmId || '—'}
+                {selectedSite?.atmId || '—'}
               </div>
             </div>
 
@@ -371,9 +358,9 @@ export default function AddLoi() {
               </label>
               <div
                 className="h-10 px-3.5 rounded-xl bg-[#F0F5FA] border border-[#E2ECF8] text-[12.5px] font-medium text-slate-800 flex items-center truncate"
-                title={selectedSite.franchiseeName}
+                title={selectedSite?.franchiseeName}
               >
-                {selectedSite.franchiseeName || '—'}
+                {selectedSite?.franchiseeName || '—'}
               </div>
             </div>
 
@@ -384,9 +371,9 @@ export default function AddLoi() {
               </label>
               <div
                 className="h-10 px-3.5 rounded-xl bg-[#F0F5FA] border border-[#E2ECF8] text-[12.5px] font-medium text-slate-800 flex items-center truncate"
-                title={selectedSite.mobileNumber}
+                title={selectedSite?.mobileNumber}
               >
-                {selectedSite.mobileNumber || '—'}
+                {selectedSite?.mobileNumber || '—'}
               </div>
             </div>
 
@@ -397,9 +384,9 @@ export default function AddLoi() {
               </label>
               <div
                 className="h-10 px-3.5 rounded-xl bg-[#F0F5FA] border border-[#E2ECF8] text-[12.5px] font-medium text-slate-800 flex items-center truncate"
-                title={selectedSite.model}
+                title={selectedSite?.model}
               >
-                {selectedSite.model || '—'}
+                {selectedSite?.model || '—'}
               </div>
             </div>
 
@@ -410,9 +397,9 @@ export default function AddLoi() {
               </label>
               <div
                 className="h-10 px-3.5 rounded-xl bg-[#F0F5FA] border border-[#E2ECF8] text-[12.5px] font-medium text-slate-800 flex items-center truncate"
-                title={selectedSite.email}
+                title={selectedSite?.email}
               >
-                {selectedSite.email || '—'}
+                {selectedSite?.email || '—'}
               </div>
             </div>
           </div>
@@ -552,7 +539,8 @@ export default function AddLoi() {
           {/* Submit Button */}
           <button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isSubmitting || !canCreate}
+            title={canCreate ? undefined : 'Your role cannot upload Legal documents'}
             className="h-10 px-6 rounded-xl bg-[#0066FF] hover:bg-blue-700 text-white font-medium text-[13px] flex items-center gap-2 transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
           >
             <FileText size={16} /> Submit

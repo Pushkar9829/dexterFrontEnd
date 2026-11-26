@@ -8,10 +8,10 @@ import { cn } from '@/lib/cn'
 import {
   DOC_META, LEGAL_STATUSES, currentVersion, docsForSite, fmtDate, fmtDateTime, fmtShort, getDoc, getSite, recordAccess, submitSignedUpload, useLegal,
   type LegalDoc, type LegalSite, type LegalStatus,
+  useLegalLoad, legalLoader,
 } from '@/data/legal'
-import { StatusBadge } from './ui'
+import { LoadNote, StatusBadge } from './ui'
 
-const FRANCHISE_ID = 'FR-MH-00124'
 const MAX_MB = 10
 type AppTab = 'home' | 'documents' | 'support' | 'profile'
 
@@ -21,8 +21,12 @@ export default function FranchiseeApp() {
   const state = useLegal()
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
+  // demo persona = franchise of the first Legal site (a Site Master site); its signatory is the signed-in franchisee
+  const FRANCHISE_ID = state.sites[0]?.franchiseId
   const sites = state.sites.filter((s) => s.franchiseId === FRANCHISE_ID)
   const doc = docId ? getDoc(state, docId) : undefined
+  const load = useLegalLoad()
+  if (docId && !doc && !load.loaded) return <LoadNote load={load} what="your documents" onRetry={() => void legalLoader.reload()} />
   if (docId && (!doc || !sites.some((s) => s.id === doc.siteId))) return <Navigate to="/franchisee-app" replace />
 
   const siteId = doc?.siteId ?? (sites.find((s) => s.id === params.get('site'))?.id || sites[0].id)
@@ -202,7 +206,7 @@ function AgreementAction({ doc, site, persona, onHelp }: { doc: LegalDoc; site: 
   const prev = doc.versions.filter((v) => v.superseded).pop()
   const up = doc.uploads.filter((u) => u.version === doc.version).pop()
   const input = useRef<HTMLInputElement>(null)
-  const [file, setFile] = useState<{ name: string; size: number } | null>(null)
+  const [file, setFile] = useState<{ name: string; size: number; file?: File } | null>(null)
   const [err, setErr] = useState('')
   const canUpload = doc.status === 'Action Required' || doc.status === 'Resubmission Required'
   const signText = m.sign.replace(/^Sign every page and |^Sign both pages and /, '').replace(/^./, (c) => c.toUpperCase()).replace(/\.$/, '')
@@ -214,14 +218,17 @@ function AgreementAction({ doc, site, persona, onHelp }: { doc: LegalDoc; site: 
     const f = list[0]
     if (!/\.pdf$/i.test(f.name) && f.type !== 'application/pdf') return setErr('Only PDF files are accepted.')
     if (f.size > MAX_MB * 1024 * 1024) return setErr(`File is larger than ${MAX_MB} MB.`)
-    setFile({ name: f.name, size: f.size })
+    setFile({ name: f.name, size: f.size, file: f })
   }
   const submit = () => {
     if (!file) return input.current?.click()
-    if (submitSignedUpload(doc.id, file)) {
-      toast(`Signed ${m.short} submitted · status is now Under Review`)
-      setFile(null)
-    }
+    submitSignedUpload(doc.id, file)
+      .then((ok) => {
+        if (!ok) return
+        toast(`Signed ${m.short} submitted · status is now Under Review`)
+        setFile(null)
+      })
+      .catch(() => undefined)
   }
   const download = () => {
     recordAccess(doc.id, 'Downloaded', 'Mobile app', persona, `${m.short} · ${doc.version}.pdf`)

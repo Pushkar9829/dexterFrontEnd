@@ -42,6 +42,9 @@ import { HubTile, type HubTileTheme } from '@/components/ui/HubTile'
 import { toast } from '@/components/ui/Toast'
 import { downloadCsv } from '@/lib/export'
 import { dossierLink, useAddFranchise } from './FranchiseGrid'
+import { LayoutDashboard, Network, ClipboardCheck, ArrowLeftRight, History, LogOut as LogOutIcon } from 'lucide-react'
+import { networkTiles } from './network/routes'
+import { transferTiles } from './transfer/routes'
 
 // ── Hub ────────────────────────────────────────────────────────────────
 interface FranchiseHubTileConfig {
@@ -87,8 +90,8 @@ const HUB: FranchiseHubTileConfig[] = [
     actionText: 'Manage units',
   },
   {
-    title: 'MASTER DATA',
-    sub: 'Manage core reference data, ATM locations and linked entity configurations.',
+    title: 'FRANCHISE DATABASE',
+    sub: 'Franchise-level records, dossiers, SD and KYC for every SMF, MF and FR.',
     to: '/franchise/master-data',
     Icon: Database,
     theme: 'cyan',
@@ -105,6 +108,25 @@ const HUB: FranchiseHubTileConfig[] = [
     tag: 'Field App',
     badge: 'Mobile Tools',
     actionText: 'Open tools',
+  },
+  ...[...networkTiles, ...transferTiles].map((t, i): FranchiseHubTileConfig => ({
+    ...t,
+    title: t.title.toUpperCase(),
+    Icon: [LayoutDashboard, Network, ClipboardCheck, ShieldCheck, ArrowLeftRight, History, LogOutIcon][i] ?? Layers,
+    theme: (['blue', 'indigo', 'emerald', 'amber', 'purple', 'cyan', 'rose'] as HubTileTheme[])[i] ?? 'blue',
+    tag: i < 4 ? 'Network' : 'Portability',
+    badge: i < 4 ? 'Spec §1–§14' : 'Spec §6',
+    actionText: 'Open',
+  })),
+  {
+    title: 'SITE MASTER DATA',
+    sub: 'Central site database (Site ID / ATM ID), AI pending overview, engineer, account and legal mapping.',
+    to: '/master-data',
+    Icon: Database,
+    theme: 'teal',
+    tag: 'Confidential',
+    badge: 'Admin only',
+    actionText: 'Open Master Data',
   },
 ]
 
@@ -380,7 +402,7 @@ function FranchiseListPage({ mode, currentTier }: { mode: 'tier' | 'master'; cur
   }
 
   // Page title and subtitle
-  const title = mode === 'master' ? 'Master Data' : TIER_TITLE[currentTier!]
+  const title = mode === 'master' ? 'Franchise Database' : TIER_TITLE[currentTier!]
   const lower = currentTier === 'Franchise' ? '' : `${currentTier?.toLowerCase()} `
   const sub =
     mode === 'master'
@@ -391,7 +413,7 @@ function FranchiseListPage({ mode, currentTier }: { mode: 'tier' | 'master'; cur
   // Explicitly hidden from:
   // - http://localhost:5310/franchise/master-data (mode === 'master')
   // - http://localhost:5310/franchise/franchise (currentTier === 'Franchise')
-  const showAddButton = mode === 'tier'
+  const showAddButton = mode === 'tier' && currentTier !== 'Franchise'
 
   return (
     <div className="space-y-4 pb-12 max-w-[1500px]">
@@ -697,7 +719,7 @@ function FranchiseListPage({ mode, currentTier }: { mode: 'tier' | 'master'; cur
               <Layers size={16} />
             </div>
             <h2 className="text-[15px] font-bold text-slate-900 leading-tight">
-              {mode === 'master' ? 'Master Data Records' : `${title} Records`}
+              {mode === 'master' ? 'Franchise Database Records' : `${title} Records`}
             </h2>
           </div>
 

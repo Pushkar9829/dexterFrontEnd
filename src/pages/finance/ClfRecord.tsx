@@ -24,11 +24,16 @@ import {
   saveClfRecord,
   type ClfRecord,
 } from '@/data/financeClf'
+import { useCanIn, guardAct } from '@/lib/guard'
+import { allSites, resolveSite, SiteRef } from '@/lib/siteRef'
+import { emitFinance } from './finWorkflow'
 
 export default function ClfRecordPage() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
   const isNew = !id || id === 'new'
+  const allow = useCanIn('Finance')
+  const canSave = allow(isNew ? 'Create' : 'Edit')
 
   const [record, setRecord] = useState<ClfRecord>(() => {
     if (!isNew && id) {
@@ -84,8 +89,14 @@ export default function ClfRecordPage() {
   }
 
   const handleSave = (isDraft = false) => {
+    if (!guardAct('Finance', isNew ? 'Create' : 'Edit', isNew ? 'create CLF records' : 'edit CLF records')) return
     if (!record.atmId) {
       toast('Please select an ATM ID', 'info')
+      return
+    }
+    const site = resolveSite(record.atmId)
+    if (!site) {
+      toast(`ATM ID ${record.atmId} is not in the Site Master`, 'error')
       return
     }
     if (!isDraft && !record.utr?.trim()) {
@@ -95,11 +106,14 @@ export default function ClfRecordPage() {
 
     const toSave: ClfRecord = {
       ...record,
+      atmId: site.atmId,
+      siteId: site.siteId,
       isDraft,
       clfStatus: record.clfCount || record.clfStatus || '1st',
     }
 
     const saved = saveClfRecord(toSave)
+    if (!isDraft) emitFinance('Submit', saved.id, { what: 'CLF payment', site: saved.atmId, franchise: saved.franchiseeName, status: `CLF ${saved.clfStatus}` })
     toast(
       isDraft
         ? `CLF Draft for ${saved.atmId} saved successfully!`
@@ -154,23 +168,30 @@ export default function ClfRecordPage() {
               <div className="absolute left-0 top-0 bottom-0 w-10 flex items-center justify-center text-[#0066FF] pointer-events-none">
                 <Building2 size={16} />
               </div>
-              <select
+              <input
+                list="clf-site-atms"
                 value={record.atmId || ''}
-                onChange={(e) => handleAtmChange(e.target.value)}
+                onChange={(e) => handleAtmChange(e.target.value.trim())}
+                placeholder="Select ATM ID (Site Master)"
                 className="w-full h-10 pl-10 pr-8 text-[12.5px] font-medium rounded-lg border border-slate-200 bg-white text-slate-700 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]/20 appearance-none transition-all"
-              >
-                <option value="">Select ATM ID</option>
-                {Object.keys(ATM_MASTER_DATA).map((atm) => (
-                  <option key={atm} value={atm}>
-                    {atm}
+              />
+              <datalist id="clf-site-atms">
+                {allSites().map((st) => (
+                  <option key={st.atmId} value={st.atmId}>
+                    {st.siteId}
                   </option>
                 ))}
-              </select>
+              </datalist>
               <ChevronDown
                 size={14}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
               />
             </div>
+            {record.atmId && (
+              <div className="mt-1 text-[11px] text-slate-500">
+                <SiteRef id={record.atmId} />
+              </div>
+            )}
           </div>
 
           {/* HPY Code * */}
@@ -529,7 +550,7 @@ export default function ClfRecordPage() {
           <span>Back</span>
         </button>
 
-        <div className="flex items-center gap-3">
+        {canSave && <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={() => handleSave(true)}
@@ -547,7 +568,7 @@ export default function ClfRecordPage() {
             <span>Save CLF</span>
             <ChevronRight size={16} />
           </button>
-        </div>
+        </div>}
       </div>
     </div>
   )

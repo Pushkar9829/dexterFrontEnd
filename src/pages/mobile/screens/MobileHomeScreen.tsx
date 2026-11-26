@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   ArrowLeftRight,
   Banknote,
@@ -17,7 +17,21 @@ import {
   BarChart2,
   Zap
 } from 'lucide-react'
-import type { MobileUser } from '../data/mobileMockData'
+import { useTxnStore } from '@/data/txnData'
+import { cbrMaster, clBalance } from '@/data/cbr'
+import { clMaster } from '@/data/cashLoadingRegisterStore'
+import { inrP } from '@/data/payout'
+import { useMobileAlerts, useMyComplaints, useMyPayout, type MobileAlert } from '../data/mobileFeeds'
+import { fmtDate, fmtDateTime, greeting, relTime, useMyScope, type MobileUser } from '../data/mobileSession'
+
+const n = (v: number) => v.toLocaleString('en-IN')
+const lakh = (v: number) => (v >= 100000 ? `₹ ${(v / 100000).toFixed(1)} L` : `₹ ${n(Math.round(v))}`)
+const ALERT_STYLE: Record<MobileAlert['type'], { bg: string; Icon: typeof Check }> = {
+  approved: { bg: 'bg-emerald-500', Icon: Check },
+  updated: { bg: 'bg-blue-600', Icon: Wrench },
+  payout: { bg: 'bg-amber-500', Icon: Coins },
+  reminder: { bg: 'bg-purple-600', Icon: Clock },
+}
 
 interface MobileHomeScreenProps {
   user: MobileUser
@@ -51,6 +65,41 @@ export function MobileHomeScreen({ user, onNavigate }: MobileHomeScreenProps) {
   // Metric sets togglable by the < > chevrons
   const [metricSet, setMetricSet] = useState<0 | 1>(0)
 
+  // ── real KPIs, scoped to the signed-in franchise's Site Master sites ──
+  const { sites, siteIds, atmIds } = useMyScope()
+  const { records: txns } = useTxnStore()
+  const cbr = cbrMaster.store.use()
+  const cl = clMaster.store.use()
+  const complaints = useMyComplaints()
+  const payouts = useMyPayout()
+  const { alerts } = useMobileAlerts()
+  const [now] = useState(() => Date.now())
+  const k = useMemo(() => {
+    const mine = txns.filter((r) => siteIds.has(r.siteId))
+    const cutoff = new Date(now - 30 * 86400_000).toISOString().slice(0, 10)
+    const last30 = mine.filter((r) => r.txnDate >= cutoff)
+    const total = last30.reduce((a, r) => a + r.txnCount, 0)
+    const cash = last30.reduce((a, r) => a + r.withdrawalCount + r.depositCount, 0)
+    const latestMonth = mine.map((r) => r.txnDate.slice(0, 7)).sort().pop() ?? ''
+    const prevMonth = latestMonth ? new Date(new Date(`${latestMonth}-01T00:00:00Z`).getTime() - 86400_000).toISOString().slice(0, 7) : ''
+    const monthTotal = (m: string) => (m ? mine.filter((r) => r.txnDate.startsWith(m)).reduce((a, r) => a + r.txnCount, 0) : 0)
+    const cur = monthTotal(latestMonth)
+    const prev = monthTotal(prevMonth)
+    // cash in the machines: latest CBR / Cash Loading per own ATM
+    const latestByAtm = new Map<string, number>()
+    ;[...cbr, ...cl]
+      .filter((r) => atmIds.has(r.atmId) && r.status !== 'Rejected' && r.status !== 'Draft')
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .forEach((r) => latestByAtm.set(r.atmId, r.kind === 'Cash Loading' ? clBalance(r) : r.amount))
+    const atmCash = [...latestByAtm.values()].reduce((a, v) => a + v, 0)
+    const openFaults = complaints.filter((c) => c.status === 'Open').length
+    const live = sites.filter((s) => s.operational).length
+    return { total, cash, nonCash: Math.max(0, total - cash), cur, prev, latestMonth, atmCash, atmCashKnown: latestByAtm.size > 0, openFaults, live }
+  }, [txns, siteIds, atmIds, cbr, cl, complaints, sites, now])
+  const lastPayout = payouts.find((p) => p.credited)
+  const growth = k.prev ? ((k.cur - k.prev) / k.prev) * 100 : null
+  const recent = alerts.slice(0, 3)
+
   return (
     <div className="relative select-none pb-6 w-full max-w-full overflow-x-hidden">
       {/* =========================================================================
@@ -75,7 +124,7 @@ export function MobileHomeScreen({ user, onNavigate }: MobileHomeScreenProps) {
           {/* Left Column (40% Width): Greeting & User Name */}
           <div className="pr-2.5 flex flex-col justify-center min-w-0">
             <span className="text-[12px] font-medium text-slate-800 block leading-tight">
-              Good Morning,
+              {greeting()},
             </span>
             <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
               <h2 className="text-[15.5px] font-black text-[#0A2665] tracking-tight leading-none truncate">
@@ -94,13 +143,13 @@ export function MobileHomeScreen({ user, onNavigate }: MobileHomeScreenProps) {
             <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-0.5 text-[10.5px] font-bold text-[#0D44A8] border border-blue-200/90 shadow-2xs shrink-0">
               <span className="h-2 w-2 rounded-full bg-[#00D084]" />
               <User size={11.5} className="text-[#0D44A8]" />
-              {user.roleTitle.split('/')[0].trim()}
+              {user.isPreview ? user.roleTitle : user.franchise?.name ?? user.roleTitle}
             </span>
 
             {/* Last Login without wrapping */}
             <div className="flex items-center gap-1.5 text-[10px] font-semibold text-slate-800 leading-tight tracking-tight min-w-0 whitespace-nowrap">
               <Calendar size={12} className="text-[#0D44A8] shrink-0" />
-              <span>Last Login: 07 Oct 2026, 10:15 AM</span>
+              <span title={fmtDateTime(user.prevLoginAt)}>Last Login: {user.prevLoginAt ? relTime(user.prevLoginAt) : 'first login'}</span>
             </div>
           </div>
         </div>
@@ -214,7 +263,7 @@ export function MobileHomeScreen({ user, onNavigate }: MobileHomeScreenProps) {
                     <ArrowLeftRight size={15} className="stroke-[2.2]" />
                   </div>
                   <span className="text-[10px] font-semibold text-slate-700 leading-tight">Total TXNs</span>
-                  <span className="text-[18px] font-black text-[#0A2665] mt-0.5 leading-none">1,618</span>
+                  <span className="text-[18px] font-black text-[#0A2665] mt-0.5 leading-none">{n(k.total)}</span>
                 </div>
 
                 {/* Card 2: Cash TXNs */}
@@ -226,7 +275,7 @@ export function MobileHomeScreen({ user, onNavigate }: MobileHomeScreenProps) {
                     <Banknote size={15} className="stroke-[2.2]" />
                   </div>
                   <span className="text-[10px] font-semibold text-slate-700 leading-tight">Cash TXNs</span>
-                  <span className="text-[18px] font-black text-[#15803D] mt-0.5 leading-none">1,210</span>
+                  <span className="text-[18px] font-black text-[#15803D] mt-0.5 leading-none">{n(k.cash)}</span>
                 </div>
 
                 {/* Card 3: Non Cash TXNs */}
@@ -238,7 +287,7 @@ export function MobileHomeScreen({ user, onNavigate }: MobileHomeScreenProps) {
                     <CreditCard size={15} className="stroke-[2.2]" />
                   </div>
                   <span className="text-[10px] font-semibold text-slate-700 leading-tight">Non Cash</span>
-                  <span className="text-[18px] font-black text-[#EA580C] mt-0.5 leading-none">240</span>
+                  <span className="text-[18px] font-black text-[#EA580C] mt-0.5 leading-none">{n(k.nonCash)}</span>
                 </div>
               </>
             ) : (
@@ -252,19 +301,19 @@ export function MobileHomeScreen({ user, onNavigate }: MobileHomeScreenProps) {
                     <Banknote size={15} className="stroke-[2.2]" />
                   </div>
                   <span className="text-[10px] font-semibold text-slate-700 leading-tight">ATM Cash</span>
-                  <span className="text-[15px] font-black text-[#0A2665] mt-0.5 leading-none">₹ 4.0 L</span>
+                  <span className="text-[15px] font-black text-[#0A2665] mt-0.5 leading-none">{k.atmCashKnown ? lakh(k.atmCash) : '—'}</span>
                 </div>
 
                 {/* Card 2: Uptime Health */}
                 <div
-                  onClick={() => onNavigate('complaints')}
+                  onClick={() => onNavigate('sites')}
                   className="rounded-2xl bg-[#EBF9F1] border border-emerald-100 p-2.5 flex flex-col items-center justify-center text-center shadow-2xs cursor-pointer active:scale-95 hover:shadow-xs transition-all"
                 >
                   <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100/70 text-[#15803D] mb-1">
                     <Check size={15} className="stroke-[2.5]" />
                   </div>
-                  <span className="text-[10px] font-semibold text-slate-700 leading-tight">Uptime</span>
-                  <span className="text-[18px] font-black text-[#15803D] mt-0.5 leading-none">99.8%</span>
+                  <span className="text-[10px] font-semibold text-slate-700 leading-tight">Live ATMs</span>
+                  <span className="text-[18px] font-black text-[#15803D] mt-0.5 leading-none">{k.live}/{sites.length}</span>
                 </div>
 
                 {/* Card 3: Open Tickets */}
@@ -276,7 +325,7 @@ export function MobileHomeScreen({ user, onNavigate }: MobileHomeScreenProps) {
                     <AlertTriangle size={15} className="stroke-[2.2]" />
                   </div>
                   <span className="text-[10px] font-semibold text-slate-700 leading-tight">Open Faults</span>
-                  <span className="text-[18px] font-black text-[#EA580C] mt-0.5 leading-none">0</span>
+                  <span className="text-[18px] font-black text-[#EA580C] mt-0.5 leading-none">{k.openFaults}</span>
                 </div>
               </>
             )}
@@ -307,58 +356,29 @@ export function MobileHomeScreen({ user, onNavigate }: MobileHomeScreenProps) {
 
             {/* Timeline Body */}
             <div className="p-2 space-y-2 flex-1 text-left">
-              {/* Step 1: Site Approved */}
-              <div
-                onClick={() => onNavigate('sites')}
-                className="flex items-start gap-1.5 cursor-pointer hover:opacity-85 transition-opacity"
-              >
-                <div className="flex flex-col items-center shrink-0">
-                  <div className="flex h-4.5 w-4.5 items-center justify-center rounded-full bg-emerald-500 text-white shadow-2xs">
-                    <Check size={10} strokeWidth={3} />
+              {recent.length === 0 && <p className="text-[9px] text-slate-400">No updates yet.</p>}
+              {recent.map((a, i) => {
+                const st = ALERT_STYLE[a.type]
+                return (
+                  <div
+                    key={a.id}
+                    onClick={() => a.targetRoute && onNavigate(a.targetRoute)}
+                    className="flex items-start gap-1.5 cursor-pointer hover:opacity-85 transition-opacity"
+                  >
+                    <div className="flex flex-col items-center shrink-0">
+                      <div className={`flex h-4.5 w-4.5 items-center justify-center rounded-full ${st.bg} text-white shadow-2xs`}>
+                        <st.Icon size={10} strokeWidth={3} />
+                      </div>
+                      {i < recent.length - 1 && <div className="h-3 w-[1.5px] bg-slate-200 my-0.5" />}
+                    </div>
+                    <div className="min-w-0 leading-tight">
+                      <p className="text-[10px] font-black text-[#0A2665] truncate">{a.title}</p>
+                      <p className="text-[8.5px] font-medium text-slate-500 truncate">{a.subtitle}</p>
+                      <p className="text-[8px] text-slate-400 mt-0.5">{relTime(a.at)}</p>
+                    </div>
                   </div>
-                  <div className="h-3 w-[1.5px] bg-slate-200 my-0.5" />
-                </div>
-                <div className="min-w-0 leading-tight">
-                  <p className="text-[10px] font-black text-[#0A2665] truncate">Site Approved</p>
-                  <p className="text-[8.5px] font-medium text-slate-500 truncate">ATM-001 – Ahmedabad</p>
-                  <p className="text-[8px] text-slate-400 mt-0.5">20 Oct 2026, 10:15 AM</p>
-                </div>
-              </div>
-
-              {/* Step 2: ATM Installation Updated */}
-              <div
-                onClick={() => onNavigate('sites')}
-                className="flex items-start gap-1.5 cursor-pointer hover:opacity-85 transition-opacity"
-              >
-                <div className="flex flex-col items-center shrink-0">
-                  <div className="flex h-4.5 w-4.5 items-center justify-center rounded-full bg-blue-600 text-white shadow-2xs">
-                    <Wrench size={10} strokeWidth={2.5} />
-                  </div>
-                  <div className="h-3 w-[1.5px] bg-slate-200 my-0.5" />
-                </div>
-                <div className="min-w-0 leading-tight">
-                  <p className="text-[10px] font-black text-[#0A2665] truncate">ATM Installation Updated</p>
-                  <p className="text-[8.5px] font-medium text-slate-500 truncate">ATM-002 – Gandhinagar</p>
-                  <p className="text-[8px] text-slate-400 mt-0.5">19 Oct 2026, 05:40 PM</p>
-                </div>
-              </div>
-
-              {/* Step 3: Payout Processed */}
-              <div
-                onClick={() => onNavigate('payout')}
-                className="flex items-start gap-1.5 cursor-pointer hover:opacity-85 transition-opacity"
-              >
-                <div className="flex flex-col items-center shrink-0">
-                  <div className="flex h-4.5 w-4.5 items-center justify-center rounded-full bg-amber-500 text-white shadow-2xs">
-                    <Coins size={10} strokeWidth={2.5} />
-                  </div>
-                </div>
-                <div className="min-w-0 leading-tight">
-                  <p className="text-[10px] font-black text-[#0A2665] truncate">Payout Processed</p>
-                  <p className="text-[8.5px] font-medium text-slate-500 truncate">Aug 2026 – ₹1,25,600</p>
-                  <p className="text-[8px] text-slate-400 mt-0.5">18 Oct 2026, 11:20 AM</p>
-                </div>
-              </div>
+                )
+              })}
             </div>
           </div>
 
@@ -382,13 +402,15 @@ export function MobileHomeScreen({ user, onNavigate }: MobileHomeScreenProps) {
                 </div>
                 <div className="min-w-0 flex-1 leading-tight">
                   <span className="text-[8.5px] font-medium text-slate-500 block truncate">
-                    This Month TXNs
+                    {k.latestMonth ? `TXNs ${new Date(`${k.latestMonth}-01T00:00:00`).toLocaleDateString('en-IN', { month: 'short', year: '2-digit' })}` : 'This Month TXNs'}
                   </span>
                   <div className="flex items-center gap-1 mt-0.5">
-                    <span className="text-[12px] font-black text-[#0A2665]">1,25,480</span>
-                    <span className="text-[7.5px] font-bold text-emerald-700 bg-emerald-50 px-1 py-0.2 rounded-full border border-emerald-200">
-                      ▲ +12%
-                    </span>
+                    <span className="text-[12px] font-black text-[#0A2665]">{n(k.cur)}</span>
+                    {growth !== null && (
+                      <span className={`text-[7.5px] font-bold px-1 py-0.2 rounded-full border ${growth >= 0 ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : 'text-rose-700 bg-rose-50 border-rose-200'}`}>
+                        {growth >= 0 ? '▲ +' : '▼ '}{growth.toFixed(0)}%
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -408,7 +430,7 @@ export function MobileHomeScreen({ user, onNavigate }: MobileHomeScreenProps) {
                     Last Payout
                   </span>
                   <span className="text-[12px] font-black text-[#0A2665] block mt-0.5">
-                    ₹1,25,600
+                    {lastPayout ? inrP(lastPayout.net, 0) : '—'}
                   </span>
                 </div>
               </div>
@@ -428,7 +450,7 @@ export function MobileHomeScreen({ user, onNavigate }: MobileHomeScreenProps) {
                     Payout Date
                   </span>
                   <span className="text-[12px] font-black text-[#0A2665] block mt-0.5">
-                    07 Oct 2026
+                    {lastPayout?.paidDate ? fmtDate(lastPayout.paidDate) : '—'}
                   </span>
                 </div>
               </div>

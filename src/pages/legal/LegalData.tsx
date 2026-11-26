@@ -5,8 +5,9 @@ import { ExcelGrid, type GridColumn } from '@/components/grid/ExcelGrid'
 import { PageHeader } from '@/components/ui/Card'
 import { toast } from '@/components/ui/Toast'
 import { downloadCsv } from '@/lib/export'
-import { LEGAL_STATUSES, agreementOf, docsForSite, legalStore, readiness, sendReminder, useLegal, type LegalSite, type LegalState } from '@/data/legal'
-import { legalTone } from './ui'
+import { ViewOnlyNote, guardAct, useCanIn } from '@/lib/guard'
+import { LEGAL_STATUSES, agreementOf, docsForSite, legalLoader, legalStore, readiness, sendReminder, useLegal, useLegalLoad, type LegalSite, type LegalState } from '@/data/legal'
+import { LoadNote, legalTone } from './ui'
 
 const sel = 'h-[34px] w-full appearance-none rounded-md border border-line bg-white pr-8 pl-3 text-[12px] font-medium text-ink outline-none [field-sizing:content] focus:border-primary sm:w-auto'
 
@@ -31,6 +32,8 @@ function toRows(s: LegalState): Row[] {
 /** Legal Data — consolidated site legal register (Figma 91:7783). */
 export default function LegalData() {
   const state = useLegal()
+  const load = useLegalLoad()
+  const allow = useCanIn('Legal')
   const navigate = useNavigate()
   const all = useMemo(() => toRows(state), [state])
   const [clearance, setClearance] = useState('')
@@ -60,7 +63,7 @@ export default function LegalData() {
       render: (r) => (
         <Link to={`/legal/${r.id}`} className="block leading-snug font-medium text-primary underline underline-offset-2">
           {r.id}
-          <span className="block">Existing site record</span>
+          <span className="block">ATM {r.atmId || '—'} · Existing site record</span>
         </Link>
       ),
     },
@@ -159,6 +162,9 @@ export default function LegalData() {
         )}
       </div>
 
+      <ViewOnlyNote module="Legal" />
+      <LoadNote load={load} onRetry={() => void legalLoader.reload()} />
+
       {/* rows open the Master Site Record ("Open a row to view its Master Site Record") */}
       <div
         className="[&_tbody_tr]:cursor-pointer"
@@ -183,9 +189,11 @@ export default function LegalData() {
             <span className="flex flex-wrap gap-3">
               <button
                 className="font-semibold text-primary hover:underline"
+                disabled={!allow('Export')}
                 onClick={() => {
+                  if (!guardAct('Legal', 'Export')) return
                   const pick = all.filter((r) => ids.includes(r.id))
-                  downloadCsv('legal-data-selected', ['Site/LOI Number', 'Location', 'Name of Franchisee', 'Contact Number', 'Model', 'MF', 'Agreement Status'], pick.map((r) => [r.id, r.location, r.franchiseName, r.contactNumber, r.model, r.mf, `${r.agreement} · ${r.agreementVersion}`]))
+                  downloadCsv('legal-data-selected', ['Site/LOI Number', 'ATM ID', 'Location', 'Name of Franchisee', 'Contact Number', 'Model', 'MF', 'Agreement Status'], pick.map((r) => [r.id, r.atmId, r.location, r.franchiseName, r.contactNumber, r.model, r.mf, `${r.agreement} · ${r.agreementVersion}`]))
                   clear()
                 }}
               >
@@ -193,9 +201,11 @@ export default function LegalData() {
               </button>
               <button
                 className="font-semibold text-primary hover:underline"
+                disabled={!allow('Edit')}
                 onClick={() => {
+                  if (!guardAct('Legal', 'Edit', 'send reminders')) return
                   const pending = ids.flatMap((id) => docsForSite(legalStore.get(), id).filter((d) => d.status === 'Action Required' || d.status === 'Resubmission Required'))
-                  pending.forEach((d) => sendReminder(d.id))
+                  pending.forEach((d) => void sendReminder(d.id).catch(() => undefined))
                   toast(pending.length ? `${pending.length} reminder${pending.length > 1 ? 's' : ''} sent to franchisees · recorded in audit history` : 'Nothing pending with the selected franchisees', pending.length ? 'success' : 'info')
                   clear()
                 }}

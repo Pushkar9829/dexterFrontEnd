@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useMemo, useState, useRef } from 'react'
 import {
   Landmark,
   Coins,
@@ -27,7 +27,52 @@ import {
   Check
 } from 'lucide-react'
 import { CardCornerAccent } from '../components/CardCornerAccent'
-import { INITIAL_CLF_RECORDS, type ClfConsolidatedRecord } from '../data/mobileMockData'
+import { getMasterAccountForAtm, saveClfRecord, useClfRecords } from '@/data/financeClf'
+import { periodLabel, uploadWla, uploadWlaAsync, useWlaStatements } from '@/data/wlaStatements'
+import { apiEnabled } from '@/lib/api'
+import { accessTds, openTdsAsync, useTdsLetters } from '@/data/tdsLetters'
+import { gstStore, saveGst, type GstRecord } from '@/data/financeGst'
+import { createEmptySecurityDeposit, saveSecurityDeposit, useSecurityDeposits } from '@/data/financeSdStore'
+import { addAcChangeRequest, useAcChangeRequests } from '@/data/financeSettlementBank'
+import { cbrMaster } from '@/data/cbr'
+import { clMaster } from '@/data/cashLoadingRegisterStore'
+import { dossierFor } from '@/data/franchises'
+import { fmtDate, fmtDateTime, useMobileUser, useMyScope } from '../data/mobileSession'
+import { fyOf, isoDate, myFinanceApiOn, myFinanceLoader, myFinanceSummary, rupeesToPaise, submitMyFinance, uploadMyFinanceFile } from '@/data/myFinanceApi'
+import { ApiError } from '@/lib/api'
+
+/** Backend refusal → one readable line (validation issues listed). */
+const finErr = (e: unknown) => {
+  if (e instanceof ApiError) {
+    const issues = Array.isArray(e.details) ? (e.details as { path?: string; message?: string }[]).map((i) => `${i.path ? `${i.path}: ` : ''}${i.message ?? ''}`).join('; ') : ''
+    return issues ? `${e.message} — ${issues}` : e.message
+  }
+  return e instanceof Error ? e.message : 'The server refused the submission.'
+}
+
+/** View model of a Finance › CLF record for the franchise tiles. */
+type ClfConsolidatedRecord = {
+  sn: number
+  clfReference: string
+  siteId: string
+  depositAmount: number
+  depositDate: string
+  txnId: string
+  expectedRefundDate: string
+  refundAmount: number
+  outstandingAmount: number
+  status: string
+}
+const num = (v: string | number | undefined) => Number(String(v ?? '').replace(/[^\d.]/g, '')) || 0
+const maskNo = (n?: string) => (n && n.length > 6 ? `${n.slice(0, 4)}${'*'.repeat(Math.max(2, n.length - 6))}${n.slice(-2)}` : n || '—')
+const ddmmyyyy = (iso: string) => (/^\d{4}-\d{2}-\d{2}/.test(iso) ? `${iso.slice(8, 10)}-${iso.slice(5, 7)}-${iso.slice(0, 4)}` : iso)
+const MOBILE_TAG = '[App]'
+/** GST submission files are kept in the record remark: "[App] signed=..|gstr2b=..|docs=a,b|note=..". */
+function parseGstRemark(r: string) {
+  const m = r.startsWith(MOBILE_TAG) ? r.slice(MOBILE_TAG.length).trim() : ''
+  const get = (k: string) => (m.split('|').find((p) => p.startsWith(`${k}=`)) ?? '').slice(k.length + 1)
+  return { signed: get('signed'), gstr2b: get('gstr2b'), docs: get('docs') ? get('docs').split(',') : [], note: get('note') }
+}
 
 interface MobileAccountsScreenProps {
   onBackToMore: () => void
@@ -52,74 +97,6 @@ export interface GstMonthItem {
   submissionDate?: string
 }
 
-export const INITIAL_GST_MONTHS: GstMonthItem[] = [
-  {
-    id: 'gst-2026-10',
-    month: 'October 2026',
-    fYear: '2026-27',
-    invoiceNo: 'DEX/GST/2026-27/1042',
-    invoiceDate: '05 Nov 2026',
-    basicAmount: 50000,
-    cgst: 4500,
-    sgst: 4500,
-    totalAmount: 59000,
-    dueDate: '20 Nov 2026',
-    status: 'Action Required',
-    supportingDocs: []
-  },
-  {
-    id: 'gst-2026-09',
-    month: 'September 2026',
-    fYear: '2026-27',
-    invoiceNo: 'DEX/GST/2026-27/0921',
-    invoiceDate: '05 Oct 2026',
-    basicAmount: 45000,
-    cgst: 4050,
-    sgst: 4050,
-    totalAmount: 53100,
-    dueDate: '20 Oct 2026',
-    status: 'Submitted',
-    signedInvoiceFile: 'Signed_Invoice_Sep2026.pdf',
-    gstr2bScreenshot: 'GSTR2B_Sep2026_Screenshot.png',
-    supportingDocs: ['Challan_Sep2026.pdf'],
-    submissionDate: '12 Oct 2026'
-  },
-  {
-    id: 'gst-2026-08',
-    month: 'August 2026',
-    fYear: '2026-27',
-    invoiceNo: 'DEX/GST/2026-27/0815',
-    invoiceDate: '05 Sep 2026',
-    basicAmount: 48000,
-    cgst: 4320,
-    sgst: 4320,
-    totalAmount: 56640,
-    dueDate: '20 Sep 2026',
-    status: 'Verified & Approved',
-    signedInvoiceFile: 'Signed_Invoice_Aug2026.pdf',
-    gstr2bScreenshot: 'GSTR2B_Aug2026_Reflected.jpg',
-    supportingDocs: ['GSTR3B_Receipt_Aug2026.pdf', 'CA_Certificate.pdf'],
-    submissionDate: '15 Sep 2026'
-  },
-  {
-    id: 'gst-2026-07',
-    month: 'July 2026',
-    fYear: '2026-27',
-    invoiceNo: 'DEX/GST/2026-27/0704',
-    invoiceDate: '05 Aug 2026',
-    basicAmount: 44000,
-    cgst: 3960,
-    sgst: 3960,
-    totalAmount: 51920,
-    dueDate: '20 Aug 2026',
-    status: 'Verified & Approved',
-    signedInvoiceFile: 'Signed_Invoice_Jul2026.pdf',
-    gstr2bScreenshot: 'GSTR2B_Jul2026.png',
-    supportingDocs: ['Challan_Jul2026.pdf'],
-    submissionDate: '11 Aug 2026'
-  }
-]
-
 type AccountSubmodule =
   | 'list'
   | 'settlement'
@@ -133,59 +110,132 @@ type AccountSubmodule =
 
 export function MobileAccountsScreen({ onBackToMore }: MobileAccountsScreenProps) {
   const [activeSub, setActiveSub] = useState<AccountSubmodule>('list')
+  // API mode + Franchisee: the finance registers come from / go to /my/finance/* (own franchise only)
+  const apiFin = myFinanceApiOn()
+  const finLoad = myFinanceLoader.use()
+  const finSummary = apiFin && finLoad.loaded ? myFinanceSummary() : null
+  const [finBusy, setFinBusy] = useState(false)
 
-  // CLF state matching Cash Loading Funds (CLF) specification
-  const [clfRecords, setClfRecords] = useState<ClfConsolidatedRecord[]>(INITIAL_CLF_RECORDS)
+  // ── data scoped to the signed-in franchise ──
+  const user = useMobileUser()
+  const { frId, franchise, sites, siteIds, atmIds } = useMyScope()
+  const dossier = useMemo(() => (franchise ? dossierFor(franchise) : undefined), [franchise])
+  const holderName = `${user?.name ?? franchise?.name ?? '—'}${franchise ? ` · ${franchise.name}` : ''}`
+
+  // CLF (Finance › Cash Loading Fund register)
+  const clfAll = useClfRecords()
+  const clfRecords = useMemo<ClfConsolidatedRecord[]>(
+    () =>
+      clfAll
+        .filter((r) => siteIds.has(r.siteId) || atmIds.has(r.atmId))
+        .map((r, i) => ({
+          sn: i + 1,
+          clfReference: r.id,
+          siteId: r.atmId,
+          depositAmount: num(r.clfAmount),
+          depositDate: r.transactionDate || r.paymentDate,
+          txnId: r.utr || '—',
+          expectedRefundDate: '',
+          refundAmount: 0,
+          outstandingAmount: num(r.clfAmount),
+          status: r.isDraft ? 'Pending Verification' : `${r.clfStatus} CLF · Recorded`,
+        })),
+    [clfAll, siteIds, atmIds],
+  )
   const [showClfDepositForm, setShowClfDepositForm] = useState(false)
   const [selectedClfRecord, setSelectedClfRecord] = useState<ClfConsolidatedRecord | null>(null)
   const [copiedHpyAcct, setCopiedHpyAcct] = useState(false)
 
   // Top Selectors
-  const [newClfSite, setNewClfSite] = useState('ATM001')
-  const [newClfHpyCode, setNewClfHpyCode] = useState('HPY001')
+  const [newClfSite, setNewClfSite] = useState(() => sites[0]?.atmId ?? '')
+  const clfMaster = getMasterAccountForAtm(newClfSite || sites[0]?.atmId || '')
+  const newClfHpyCode = clfMaster.hpyCode
   const [newClfTxnDate, setNewClfTxnDate] = useState(() => new Date().toISOString().split('T')[0])
 
   // CLF 8 Transaction Details
   const [newClfPaymentType, setNewClfPaymentType] = useState('NEFT')
-  const [newClfUtr, setNewClfUtr] = useState('UTR883920')
+  const [newClfUtr, setNewClfUtr] = useState('')
   const [newClfCount, setNewClfCount] = useState('1st')
-  const [newClfSenderName, setNewClfSenderName] = useState('Dexter India Pvt Ltd')
-  const [newClfSenderContact, setNewClfSenderContact] = useState('9876543210')
-  const [newClfSenderAccount, setNewClfSenderAccount] = useState('123456789012')
-  const [newClfSenderIfsc, setNewClfSenderIfsc] = useState('HDFC0001234')
-  const [newClfHpyAccount] = useState('HPY000123456')
+  const [newClfSenderName, setNewClfSenderName] = useState(() => franchise?.name ?? '')
+  const [newClfSenderContact, setNewClfSenderContact] = useState(() => (user?.phone ?? '').replace(/^\+91\s*/, ''))
+  const [newClfSenderAccount, setNewClfSenderAccount] = useState('')
+  const [newClfSenderIfsc, setNewClfSenderIfsc] = useState('')
+  const newClfHpyAccount = clfMaster.hpyAccount
 
   // Amount & File Receipt
-  const [newClfAmount, setNewClfAmount] = useState('50000')
+  const [newClfAmount, setNewClfAmount] = useState('')
   const [newClfReceiptFile, setNewClfReceiptFile] = useState<File | null>(null)
   const [clfFormSuccess, setClfFormSuccess] = useState<string | null>(null)
   const clfFileInputRef = useRef<HTMLInputElement>(null)
 
-  // WLA Statement state (matching 4.57.59 PM.jpeg)
-  const [wlaAtmId] = useState('MPZ14645')
-  const [wlaMonthYear] = useState('September - 2026')
+  // WLA Statement (Operations › WLA Statement master)
+  const wlaAll = useWlaStatements()
+  const wlaSites = sites.filter((x) => x.account)
+  const [wlaSiteId, setWlaSiteId] = useState(() => wlaSites[0]?.siteId ?? '')
+  const wlaSite = wlaSites.find((x) => x.siteId === wlaSiteId) ?? wlaSites[0]
+  const [wlaPeriod, setWlaPeriod] = useState(() => {
+    const d = new Date()
+    d.setMonth(d.getMonth() - 1)
+    return d.toISOString().slice(0, 7)
+  })
+  const wlaMonthYear = periodLabel(wlaPeriod)
   const [isPasswordProtected, setIsPasswordProtected] = useState<'yes' | 'no'>('no')
   const [wlaPassword, setWlaPassword] = useState('')
   const [showWlaPassword, setShowWlaPassword] = useState(false)
-  const [wlaSelectedFile, setWlaSelectedFile] = useState<string | null>(null)
-  const [wlaStatements, setWlaStatements] = useState([
-    { month: 'MAY 2026', status: 'GENERATED', remarks: '-' },
-    { month: 'JANUARY 2025', status: 'GENERATED', remarks: '-' }
-  ])
+  const [wlaFile, setWlaFile] = useState<File | null>(null)
+  const wlaSelectedFile = wlaFile?.name ?? null
+  const setWlaSelectedFile = (v: null) => setWlaFile(v)
+  const wlaStatements = wlaAll
+    .filter((w) => w.frId === frId && w.status !== 'Replaced')
+    .map((w) => ({ id: w.id, month: `${periodLabel(w.period).toUpperCase()} · ${w.atmId}`, status: w.status.toUpperCase(), remarks: w.reason || (w.passwordProtected ? 'Password Protected' : '-'), file: w.file.name }))
 
-  // Security Deposit state (matching 5.00.45 PM.jpeg)
-  const [sdAtmId, setSdAtmId] = useState('ATM-1001 (Bewar)')
-  const [sdAmount, setSdAmount] = useState('100000')
-  const [sdDate, setSdDate] = useState('10/10/2026')
-  const [sdUtr, setSdUtr] = useState('AXISDEX99120')
+  // Security Deposit (Finance › Security Deposit register)
+  const sdAll = useSecurityDeposits()
+  const [sdAtmId, setSdAtmId] = useState(() => sites[0]?.atmId ?? '')
+  const [sdAmount, setSdAmount] = useState('')
+  const [sdDate, setSdDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [sdUtr, setSdUtr] = useState('')
   const [sdBank, setSdBank] = useState('Axis Bank')
-  const [sdHistory] = useState([
-    { site: 'ATM-1001', amount: '₹1,00,000', utr: 'AXISDEX99120', status: 'Approved', date: '10 Oct 2026' },
-    { site: 'ATM-1002', amount: '₹1,00,000', utr: 'HDFCDEX44819', status: 'Verified', date: '01 Nov 2026' }
-  ])
+  const [sdFile, setSdFile] = useState<File | null>(null)
+  // API mode: the depositor's bank account (the backend register needs it; /my/sites carries no account data)
+  const [sdAccount, setSdAccount] = useState('')
+  const [sdIfsc, setSdIfsc] = useState('')
+  const sdFileRef = useRef<HTMLInputElement>(null)
+  const sdMine = sdAll.filter((d) => siteIds.has(d.siteId) || atmIds.has(d.atmId))
+  const sdHistory = sdMine.map((d) => ({ site: d.atmId, amount: `₹${num(d.amount).toLocaleString('en-IN')}`, utr: d.txnNumber || '—', status: d.status, date: fmtDate(d.paymentDate) }))
+  const sdSelectedStatus = sdMine.find((d) => d.atmId === sdAtmId)?.status
 
-  // GST state
-  const [gstRecords, setGstRecords] = useState<GstMonthItem[]>(INITIAL_GST_MONTHS)
+  // GST (Finance › GST invoices of the franchise's sites)
+  const gstAll = gstStore.use()
+  const gstMine = useMemo(() => gstAll.filter((g) => siteIds.has(g.siteId) || atmIds.has(g.atmId)), [gstAll, siteIds, atmIds])
+  const gstRecords = useMemo<GstMonthItem[]>(
+    () =>
+      gstMine.map((g: GstRecord) => {
+        const files = parseGstRemark(g.remark)
+        const [dd, mm, yy] = g.invoiceDate.split('-')
+        const due = dd && mm && yy ? new Date(Number(yy), Number(mm) - 1, Number(dd) + 15).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
+        return {
+          id: g.id,
+          month: `${g.month} · ${g.atmId}`,
+          fYear: g.fYear,
+          invoiceNo: g.invoiceNumber || '—',
+          invoiceDate: g.invoiceDate || '—',
+          basicAmount: num(g.basicAmount),
+          cgst: num(g.cgst),
+          sgst: num(g.sgst),
+          totalAmount: num(g.invoiceAmount),
+          dueDate: due,
+          status: g.invoiceStatus === 'Pending at Franchise' ? 'Action Required' : g.invoiceStatus === 'Pending at Team' ? 'Submitted' : 'Verified & Approved',
+          signedInvoiceFile: files.signed || undefined,
+          gstr2bScreenshot: files.gstr2b || undefined,
+          supportingDocs: files.docs,
+          remarks: files.note,
+          submissionDate: g.invoiceStatus !== 'Pending at Franchise' && g.updatedAt ? fmtDate(g.updatedAt) : undefined,
+        }
+      }),
+    [gstMine],
+  )
+  const gstHeader = gstMine[0]
   const [selectedGstId, setSelectedGstId] = useState<string | null>(null)
   const [gstSignedFile, setGstSignedFile] = useState<string | null>(null)
   const [gstGstr2bFile, setGstGstr2bFile] = useState<string | null>(null)
@@ -218,43 +268,57 @@ export function MobileAccountsScreen({ onBackToMore }: MobileAccountsScreenProps
       alert('Please confirm the proprietor signature and GSTR-2B declaration checkbox.')
       return
     }
-
-    const currentRecord = gstRecords.find((r) => r.id === selectedGstId)
-    setGstRecords((prev) =>
-      prev.map((item) =>
-        item.id === selectedGstId
-          ? {
-            ...item,
-            status: 'Submitted',
-            signedInvoiceFile: gstSignedFile,
-            gstr2bScreenshot: gstGstr2bFile,
-            supportingDocs: gstSupportingFiles,
-            remarks: gstRemarks,
-            submissionDate: new Date().toLocaleDateString('en-GB')
-          }
-          : item
-      )
-    )
-    alert(`Signed GST Invoice, GSTR-2B screenshot & ${gstSupportingFiles.length} supporting file(s) for ${currentRecord?.month} submitted successfully! CRM Finance will verify for ITC reconciliation.`)
+    const rec = gstAll.find((g) => g.id === selectedGstId)
+    if (!rec) return
+    if (apiFin) {
+      // The server register has no franchise update of an existing invoice — new invoices go through "Raise a GST invoice".
+      alert(`${rec.month}: this invoice is already with Dexter Finance (status: ${rec.invoiceStatus}). To submit a new invoice use "Raise a GST invoice" on the GST screen.`)
+      return
+    }
+    const clean = (v: string) => v.replace(/[|,=]/g, ' ')
+    saveGst({
+      ...rec,
+      invoiceStatus: 'Pending at Team',
+      remark: `${MOBILE_TAG} signed=${clean(gstSignedFile)}|gstr2b=${clean(gstGstr2bFile)}|docs=${gstSupportingFiles.map(clean).join(',')}|note=${clean(gstRemarks)}`,
+    })
+    alert(`Signed GST Invoice, GSTR-2B screenshot & ${gstSupportingFiles.length} supporting file(s) for ${rec.month} submitted. CRM Finance will verify for ITC reconciliation.`)
   }
 
-  // Account change request and document modal state
+  // Account change request (Finance › A/C Change Requests) and document modal state
+  const changeRequests = useAcChangeRequests()
   const [showAccountRequestModal, setShowAccountRequestModal] = useState<'settlement' | 'payout' | null>(null)
   const [viewDocModal, setViewDocModal] = useState<{ type: 'settlement' | 'payout'; filename: string; title: string } | null>(null)
-  const [pendingRequests, setPendingRequests] = useState<{
+  const myRequests = changeRequests.filter((r) => atmIds.has(r.atmId) && (r.status === 'Pending' || r.status === 'Under Review'))
+  const pendingRequests: {
     settlement?: { bankName: string; accountNo: string; ifsc: string; date: string }
     payout?: { bankName: string; accountNo: string; ifsc: string; date: string }
-  }>({})
+  } = {
+    settlement: (() => {
+      const r = myRequests.find((x) => x.settlementNew.bankName && x.settlementNew.bankName !== 'NA')
+      return r ? { bankName: r.settlementNew.bankName, accountNo: maskNo(r.settlementNew.accountNumber), ifsc: r.settlementNew.ifscCode, date: fmtDate(r.requestDate) } : undefined
+    })(),
+    payout: (() => {
+      const r = myRequests.find((x) => x.hasPayoutChange)
+      return r ? { bankName: r.payoutNew.bankName, accountNo: maskNo(r.payoutNew.accountNumber), ifsc: r.payoutNew.ifscCode, date: fmtDate(r.requestDate) } : undefined
+    })(),
+  }
 
   // Form fields for new account request
   const [reqBankName, setReqBankName] = useState('')
-  const [reqHolderName, setReqHolderName] = useState('Ranjeet Pal')
+  const [reqHolderName, setReqHolderName] = useState(() => user?.name ?? '')
   const [reqAccountNo, setReqAccountNo] = useState('')
   const [reqConfirmAccountNo, setReqConfirmAccountNo] = useState('')
   const [reqIfsc, setReqIfsc] = useState('')
   const [reqBranch, setReqBranch] = useState('')
   const [reqFileName, setReqFileName] = useState('')
+  const [reqFile, setReqFile] = useState<File | null>(null)
+  // API mode: new GST invoice raised by the franchise (POST /my/finance/gst-invoices)
+  const [newGst, setNewGst] = useState({ atmId: '', month: new Date().toISOString().slice(0, 7), invoiceNumber: '', invoiceDate: new Date().toISOString().slice(0, 10), basic: '', rate: '18', interState: false })
+  const [newGstFile, setNewGstFile] = useState<File | null>(null)
   const [formError, setFormError] = useState('')
+
+  const settlementSite = sites.find((x) => x.account?.approval === 'Approved') ?? sites.find((x) => x.account)
+  const payoutSite = sites.find((x) => x.payout?.status === 'Mapped') ?? sites[0]
 
   const handleSubmitAccountRequest = (e: React.FormEvent) => {
     e.preventDefault()
@@ -263,17 +327,69 @@ export function MobileAccountsScreen({ onBackToMore }: MobileAccountsScreenProps
       setFormError('Account numbers do not match!')
       return
     }
+    const site = settlementSite ?? sites[0]
+    if (!site) {
+      setFormError('No site is mapped to your franchise.')
+      return
+    }
     setFormError('')
     const targetType = showAccountRequestModal
-    setPendingRequests((prev) => ({
-      ...prev,
-      [targetType]: {
-        bankName: reqBankName,
-        accountNo: reqAccountNo.length > 4 ? `••••••••${reqAccountNo.slice(-4)}` : reqAccountNo,
-        ifsc: reqIfsc.toUpperCase(),
-        date: new Date().toLocaleDateString('en-GB')
+    if (apiFin) {
+      // POST /my/finance/ac-change-requests — the existing particulars come from the Site Master on the server
+      if (!reqFile) {
+        setFormError('Attach the cancelled cheque / passbook copy.')
+        return
       }
-    }))
+      const mobile = (user?.phone ?? '').replace(/\D/g, '').slice(-10)
+      const part = { nameAsPerBank: reqHolderName.trim(), bankName: reqBankName.trim(), accountNumber: reqAccountNo.trim(), ifscCode: reqIfsc.trim().toUpperCase(), reasonForChange: `Requested from the franchise app${reqBranch ? ` (${reqBranch})` : ''}` }
+      setFinBusy(true)
+      void (async () => {
+        try {
+          const fileId = await uploadMyFinanceFile(reqFile, 'ac-change-request')
+          const r = await submitMyFinance('ac-change-requests', {
+            atmId: site.atmId, mobileNo: mobile, ...(user?.email && user.email !== '—' ? { emailId: user.email } : {}), requestDate: new Date().toISOString().slice(0, 10),
+            hasSettlementChange: targetType === 'settlement', ...(targetType === 'settlement' ? { settlementNew: part } : {}),
+            hasPayoutChange: targetType === 'payout', ...(targetType === 'payout' ? { payoutNew: part } : {}),
+            documentFileIds: [fileId], note: 'Submitted from the franchise mobile app',
+          })
+          setShowAccountRequestModal(null)
+          setReqBankName('')
+          setReqAccountNo('')
+          setReqConfirmAccountNo('')
+          setReqIfsc('')
+          setReqBranch('')
+          setReqFileName('')
+          setReqFile(null)
+          alert(`${targetType === 'settlement' ? 'Settlement' : 'Payout'} account change request ${r.recordId} submitted — Dexter Finance will verify it.`)
+        } catch (err) {
+          setFormError(finErr(err))
+        } finally {
+          setFinBusy(false)
+        }
+      })()
+      return
+    }
+    const blank = { nameAsPerBank: 'NA', bankName: 'NA', accountNumber: 'NA', ifscCode: 'NA', nameOnPan: 'NA', panNo: 'NA', aadhaarLinkedMobile: 'NA', emailId: 'NA', reasonForChange: 'No change' }
+    const party = { nameOnPan: reqHolderName, panNo: '', aadhaarLinkedMobile: (user?.phone ?? '').replace(/\D/g, '').slice(-10), emailId: user?.email ?? '', reasonForChange: `Requested from the franchise app (${reqBranch})` }
+    const existingSettlement = { ...blank, nameAsPerBank: site.account?.holder ?? 'NA', bankName: site.account?.bank ?? 'NA', accountNumber: site.account?.accountNo ?? 'NA', ifscCode: site.account?.ifsc ?? 'NA' }
+    const existingPayout = { ...blank, nameAsPerBank: site.account?.holder ?? 'NA', bankName: site.payout?.bank || 'NA', accountNumber: site.payout?.accountNo || 'NA', ifscCode: site.payout?.ifsc || 'NA' }
+    const fresh = { ...party, nameAsPerBank: reqHolderName, bankName: reqBankName, accountNumber: reqAccountNo, ifscCode: reqIfsc.toUpperCase() }
+    addAcChangeRequest({
+      atmId: site.atmId,
+      siteId: site.siteId,
+      franchiseeName: user?.name ?? franchise?.name ?? frId,
+      mobileNo: (user?.phone ?? '').replace(/\D/g, '').slice(-10),
+      emailId: user?.email,
+      requestDate: new Date().toISOString().slice(0, 10),
+      settlementExisting: existingSettlement,
+      settlementNew: targetType === 'settlement' ? fresh : blank,
+      hasPayoutChange: targetType === 'payout',
+      payoutExisting: existingPayout,
+      payoutNew: targetType === 'payout' ? fresh : blank,
+      documents: reqFileName ? [{ id: `DOC-${Date.now().toString(36)}`, docType: 'Cancelled cheque / passbook', fileName: reqFileName, uploadedOn: new Date().toISOString().slice(0, 10) }] : [],
+      note: 'Submitted from the franchise mobile app',
+      status: 'Pending',
+    })
     setShowAccountRequestModal(null)
     setReqBankName('')
     setReqAccountNo('')
@@ -283,6 +399,14 @@ export function MobileAccountsScreen({ onBackToMore }: MobileAccountsScreenProps
     setReqFileName('')
     alert(`New ${targetType === 'settlement' ? 'Settlement' : 'Payout'} Account request submitted! CRM Admin will review and verify your documents.`)
   }
+
+  // TDS letters / dynamic limit
+  const tdsAll = useTdsLetters()
+  const tdsMine = tdsAll.filter((d) => d.frId === frId && d.status === 'Active')
+  const cbrAll = cbrMaster.store.use()
+  const clAll = clMaster.store.use()
+  const clfTotal = clfRecords.reduce((a, r) => a + r.depositAmount, 0)
+  const pendingCash = [...cbrAll, ...clAll].filter((r) => (r.frId === frId || atmIds.has(r.atmId)) && !r.locked && r.status !== 'Rejected' && r.status !== 'Draft').reduce((a, r) => a + r.amount, 0)
 
   const submodules = [
     { id: 'settlement' as AccountSubmodule, title: 'Settlement Account', icon: Landmark, desc: 'Franchise settlement account & verification' },
@@ -301,27 +425,78 @@ export function MobileAccountsScreen({ onBackToMore }: MobileAccountsScreenProps
       alert('Please enter a valid UTR Number.')
       return
     }
-
-    const record: ClfConsolidatedRecord = {
-      sn: clfRecords.length + 1,
-      clfReference: `CLF-${newClfHpyCode}-${String(clfRecords.length + 1).padStart(3, '0')}`,
-      siteId: newClfSite,
-      depositAmount: Number(newClfAmount) || 50000,
-      depositDate: newClfTxnDate || new Date().toLocaleDateString('en-GB'),
-      txnId: newClfUtr.trim(),
-      expectedRefundDate: '25-11-2026',
-      refundAmount: 0,
-      outstandingAmount: Number(newClfAmount) || 50000,
-      status: 'Pending Verification'
+    if (!clfMaster.siteId || !num(newClfAmount)) {
+      alert('Select your ATM and enter the deposit amount.')
+      return
     }
-
-    setClfRecords([record, ...clfRecords])
+    if (apiFin) {
+      // POST /my/finance/clf (receipt uploaded first as the franchise user's own file)
+      const atm = newClfSite || sites[0]?.atmId || ''
+      const settlementBank = settlementSite?.account?.bank ?? clfMaster.bankName
+      setFinBusy(true)
+      void (async () => {
+        try {
+          const receiptFileId = newClfReceiptFile ? await uploadMyFinanceFile(newClfReceiptFile, 'clf-receipt') : undefined
+          const r = await submitMyFinance('clf', {
+            atmId: atm, clfStatus: newClfCount, clfAmount: rupeesToPaise(newClfAmount), paymentType: newClfPaymentType, paymentDate: newClfTxnDate, transactionDate: newClfTxnDate,
+            transferTime: new Date().toTimeString().slice(0, 5), settlementBank: settlementBank && settlementBank.length >= 2 ? settlementBank : 'Not mapped', utr: newClfUtr.trim().toUpperCase(),
+            ...(newClfSenderName.trim() ? { senderName: newClfSenderName.trim() } : {}),
+            ...(newClfSenderAccount.trim() ? { senderAccountNumber: newClfSenderAccount.trim() } : {}),
+            ...(newClfSenderIfsc.trim() ? { senderIfsc: newClfSenderIfsc.trim().toUpperCase() } : {}),
+            ...(receiptFileId ? { receiptFileId } : {}),
+          })
+          setShowClfDepositForm(false)
+          setClfFormSuccess(`CLF Deposit ${r.recordId} (${newClfCount} Loading • UTR: ${newClfUtr.trim().toUpperCase()}) submitted — Dexter Finance will verify it.`)
+          setNewClfUtr('')
+          setNewClfReceiptFile(null)
+          setTimeout(() => setClfFormSuccess(null), 6000)
+        } catch (err) {
+          alert(finErr(err))
+        } finally {
+          setFinBusy(false)
+        }
+      })()
+      return
+    }
+    const saved = saveClfRecord({
+      id: '',
+      siteId: clfMaster.siteId,
+      atmId: clfMaster.atmId,
+      franchiseeName: clfMaster.franchiseName || franchise?.name || '',
+      franchiseeNo: clfMaster.franchiseNo || frId,
+      cashLiveDate: '',
+      clfStatus: newClfCount,
+      hpyAccount: clfMaster.hpyAccount,
+      clfAmount: num(newClfAmount).toLocaleString('en-IN'),
+      paymentDate: ddmmyyyy(newClfTxnDate),
+      transferTime: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+      frBank: clfMaster.bankName,
+      holder: clfMaster.holder,
+      utr: newClfUtr.trim(),
+      settlementBank: settlementSite?.account?.bank ?? clfMaster.bankName,
+      hpyCode: clfMaster.hpyCode,
+      transactionDate: ddmmyyyy(newClfTxnDate),
+      nameAsPerPan: clfMaster.nameAsPerPan,
+      panNumber: clfMaster.panNumber,
+      accountNumber: clfMaster.accountNumber,
+      beneficiaryName: clfMaster.beneficiaryName,
+      bankName: clfMaster.bankName,
+      ifscCode: clfMaster.ifscCode,
+      paymentType: newClfPaymentType,
+      clfCount: newClfCount,
+      senderName: newClfSenderName,
+      senderContact: newClfSenderContact,
+      senderAccountNumber: newClfSenderAccount,
+      senderIfsc: newClfSenderIfsc,
+      isDraft: true,
+    })
     setShowClfDepositForm(false)
-    setClfFormSuccess(
-      `CLF Deposit ${record.clfReference} (${newClfCount} Loading • UTR: ${record.txnId}) submitted for CRM verification!`
-    )
+    setClfFormSuccess(`CLF Deposit ${saved.id} (${newClfCount} Loading • UTR: ${saved.utr}${newClfReceiptFile ? ` • slip ${newClfReceiptFile.name}` : ''}) submitted for CRM verification!`)
+    setNewClfUtr('')
+    setNewClfReceiptFile(null)
     setTimeout(() => setClfFormSuccess(null), 6000)
   }
+
 
   // Render Submodule List (Main screen matching WhatsApp Image 2026-11-09 at 10.29.42 PM.jpeg)
   if (activeSub === 'list') {
@@ -348,6 +523,23 @@ export function MobileAccountsScreen({ onBackToMore }: MobileAccountsScreenProps
             8 Sub-modules
           </span>
         </div>
+
+        {finSummary && (
+          <div className="rounded-2xl border border-blue-100 bg-white p-3 text-[11px] text-slate-600 shadow-xs">
+            <div className="mb-1 font-bold text-slate-800">Your finance submissions</div>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+              {([['gst-invoices', 'GST invoices'], ['clf', 'CLF payments'], ['security-deposits', 'Security deposits'], ['ac-change-requests', 'A/C change requests']] as const).map(([k, label]) => {
+                const c = finSummary.modules[k] ?? { Submitted: 0, Approved: 0, Rejected: 0, Draft: 0 }
+                return (
+                  <div key={k}>
+                    {label}: <b className="text-blue-700">{c.Submitted}</b> in review · <b className="text-emerald-700">{c.Approved}</b> approved{c.Rejected ? <> · <b className="text-red-600">{c.Rejected}</b> rejected</> : null}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+        {finLoad.error && apiFin && <p className="rounded-xl bg-red-50 p-2 text-[11px] text-red-700">Could not load your finance records: {finLoad.error}</p>}
 
         {/* 8 Full-width Submodule Cards matching screenshot */}
         <div className="space-y-2.5">
@@ -420,7 +612,7 @@ export function MobileAccountsScreen({ onBackToMore }: MobileAccountsScreenProps
                   <div className="flex items-center gap-1.5">
                     <Building2 size={16} className="text-blue-700" />
                     <span className="text-xs font-black text-blue-950 uppercase tracking-wide">
-                      {viewDocModal.type === 'settlement' ? 'HDFC BANK LTD' : 'STATE BANK OF INDIA'}
+                      {(viewDocModal.type === 'settlement' ? settlementSite?.account?.bank : payoutSite?.payout?.bank) || '—'}
                     </span>
                   </div>
                   <span className="rounded-md bg-emerald-100 text-emerald-800 text-[9px] font-extrabold px-1.5 py-0.5 border border-emerald-300">
@@ -431,24 +623,24 @@ export function MobileAccountsScreen({ onBackToMore }: MobileAccountsScreenProps
                 <div className="space-y-1.5 py-3 text-[11px]">
                   <div className="flex justify-between">
                     <span className="text-slate-500 text-[10px]">A/C Holder:</span>
-                    <span className="font-bold text-slate-800">RANJEET PAL (PROPRIETOR)</span>
+                    <span className="font-bold text-slate-800 uppercase">{settlementSite?.account?.holder ?? holderName}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500 text-[10px]">Account No:</span>
                     <span className="font-mono font-bold text-slate-900">
-                      {viewDocModal.type === 'settlement' ? '50200048******19' : '3129845******01'}
+                      {maskNo(viewDocModal.type === 'settlement' ? settlementSite?.account?.accountNo : payoutSite?.payout?.accountNo)}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500 text-[10px]">IFSC Code:</span>
                     <span className="font-mono font-bold text-slate-900">
-                      {viewDocModal.type === 'settlement' ? 'HDFC0001892' : 'SBIN0004921'}
+                      {(viewDocModal.type === 'settlement' ? settlementSite?.account?.ifsc : payoutSite?.payout?.ifsc) || '—'}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500 text-[10px]">Branch:</span>
                     <span className="font-semibold text-slate-700 text-right">
-                      {viewDocModal.type === 'settlement' ? 'Main Market, Mainpuri, UP' : 'Station Road, Civil Lines, Mainpuri, UP'}
+                      {(viewDocModal.type === 'settlement' ? settlementSite?.account?.branch : '') || dossier?.branchName || '—'}
                     </span>
                   </div>
                 </div>
@@ -456,7 +648,7 @@ export function MobileAccountsScreen({ onBackToMore }: MobileAccountsScreenProps
                 {/* Bank Seal & MICR */}
                 <div className="mt-2 pt-2 border-t border-dashed border-slate-300 flex items-center justify-between">
                   <span className="text-[9px] font-mono text-slate-400">
-                    ⑈ {viewDocModal.type === 'settlement' ? '000502' : '000312'} ⑈ 205024002 ⑆ 0019 ⑈ 10
+                    {viewDocModal.type === 'settlement' ? `${settlementSite?.account?.type ?? ''} · mapped ${settlementSite?.account?.mappedOn ?? '—'}` : `Payout · ${payoutSite?.payout?.status ?? '—'}`}
                   </span>
                   <span className="text-[9px] font-extrabold text-blue-700 border border-blue-300 rounded px-1.5 py-0.5 bg-blue-50/90">
                     DEXTER CRM APPROVED
@@ -589,7 +781,7 @@ export function MobileAccountsScreen({ onBackToMore }: MobileAccountsScreenProps
                       type="text"
                       value={reqBranch}
                       onChange={(e) => setReqBranch(e.target.value)}
-                      placeholder="e.g. Civil Lines, Mainpuri"
+                      placeholder="e.g. Branch, City"
                       className="w-full h-8 rounded-xl border border-slate-200 bg-slate-50 px-2.5 text-xs font-medium text-slate-800"
                       required
                     />
@@ -612,6 +804,7 @@ export function MobileAccountsScreen({ onBackToMore }: MobileAccountsScreenProps
                       onChange={(e) => {
                         if (e.target.files?.[0]) {
                           setReqFileName(e.target.files[0].name)
+                          setReqFile(e.target.files[0])
                         }
                       }}
                     />
@@ -651,26 +844,30 @@ export function MobileAccountsScreen({ onBackToMore }: MobileAccountsScreenProps
       ? {
         title: 'Settlement Account',
         cardTitle: 'Primary Settlement Bank',
-        holder: 'Ranjeet Pal (Proprietor)',
-        bank: 'HDFC Bank Ltd',
-        accountNo: '50200048******19',
-        ifsc: 'HDFC0001892',
-        branch: 'Main Market, Mainpuri Branch, UP',
-        docName: 'Cheque_502.pdf',
-        docLabel: 'Cancelled Cheque (Cheque_502.pdf)',
-        previewTitle: 'HDFC Bank - Cancelled Cheque'
+        holder: settlementSite?.account?.holder ?? holderName,
+        bank: settlementSite?.account?.bank ?? 'Not mapped',
+        accountNo: maskNo(settlementSite?.account?.accountNo),
+        ifsc: settlementSite?.account?.ifsc ?? '—',
+        branch: settlementSite?.account ? `${settlementSite.account.branch} · ${settlementSite.account.type} · ${settlementSite.atmId}` : '—',
+        docName: dossier?.documents?.[3]?.file?.name ?? 'Cancelled_cheque.pdf',
+        docLabel: `Cancelled Cheque (${dossier?.documents?.[3]?.file?.name ?? 'on file with CRM'})`,
+        previewTitle: `${settlementSite?.account?.bank ?? 'Bank'} - Cancelled Cheque`,
+        status: settlementSite?.account ? `${settlementSite.account.approval} · settlement ${settlementSite.account.settlement}` : 'Pending',
+        ok: settlementSite?.account?.approval === 'Approved',
       }
       : {
         title: 'Payout Account',
         cardTitle: 'Primary Payout Bank',
-        holder: 'Ranjeet Pal (Proprietor)',
-        bank: 'State Bank of India',
-        accountNo: '3129845******01',
-        ifsc: 'SBIN0004921',
-        branch: 'Station Road, Civil Lines Branch, Mainpuri, UP',
-        docName: 'Passbook_SBI_312.pdf',
-        docLabel: 'Cancelled Cheque / Passbook (Passbook_SBI_312.pdf)',
-        previewTitle: 'SBI - Bank Passbook / Cheque'
+        holder: holderName,
+        bank: payoutSite?.payout?.bank || 'Not mapped',
+        accountNo: maskNo(payoutSite?.payout?.accountNo),
+        ifsc: payoutSite?.payout?.ifsc || '—',
+        branch: payoutSite ? `Mapped to ${payoutSite.atmId}` : '—',
+        docName: dossier?.documents?.[3]?.file?.name ?? 'Passbook.pdf',
+        docLabel: `Cancelled Cheque / Passbook (${dossier?.documents?.[3]?.file?.name ?? 'on file with CRM'})`,
+        previewTitle: `${payoutSite?.payout?.bank || 'Bank'} - Passbook / Cheque`,
+        status: payoutSite?.payout?.status ?? 'Pending',
+        ok: payoutSite?.payout?.status === 'Mapped',
       }
 
     const pending = pendingRequests[type]
@@ -689,7 +886,7 @@ export function MobileAccountsScreen({ onBackToMore }: MobileAccountsScreenProps
             <h2 className="font-bold text-base">{accountInfo.title}</h2>
           </div>
           <span className="rounded-full bg-emerald-500/20 text-emerald-200 border border-emerald-400/30 px-2 py-0.5 text-[10px] font-bold">
-            Active Approved
+            {accountInfo.status}
           </span>
         </div>
 
@@ -713,7 +910,7 @@ export function MobileAccountsScreen({ onBackToMore }: MobileAccountsScreenProps
           <div className="flex items-center justify-between border-b pb-2">
             <span className="text-xs font-bold text-slate-700">{accountInfo.cardTitle}</span>
             <span className="rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2 py-0.5 flex items-center gap-1">
-              <CheckCircle size={11} className="text-emerald-700" /> Verified & Mapped
+              <CheckCircle size={11} className="text-emerald-700" /> {accountInfo.ok ? 'Verified & Mapped' : 'Approval pending'}
             </span>
           </div>
 
@@ -878,20 +1075,14 @@ export function MobileAccountsScreen({ onBackToMore }: MobileAccountsScreenProps
                   </label>
                   <select
                     value={newClfSite}
-                    onChange={(e) => {
-                      const val = e.target.value
-                      setNewClfSite(val)
-                      if (val === 'ATM001' || val === 'ATM-1001') setNewClfHpyCode('HPY001')
-                      else if (val === 'ATM002' || val === 'ATM-1002') setNewClfHpyCode('HPY002')
-                      else setNewClfHpyCode('HPY003')
-                    }}
+                    onChange={(e) => setNewClfSite(e.target.value)}
                     className="w-full h-9 rounded-xl border border-slate-300 bg-white px-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="ATM001">ATM001 (Bewar Mainpuri)</option>
-                    <option value="ATM002">ATM002 (City Center)</option>
-                    <option value="ATM-1001">ATM-1001 (Bewar Market)</option>
-                    <option value="ATM-1002">ATM-1002 (Station Road)</option>
-                    <option value="ATM-1003">ATM-1003 (Green Plaza)</option>
+                    {sites.map((x) => (
+                      <option key={x.atmId} value={x.atmId}>
+                        {x.atmId} ({x.location})
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -900,15 +1091,11 @@ export function MobileAccountsScreen({ onBackToMore }: MobileAccountsScreenProps
                   <label className="text-[10.5px] font-bold text-slate-700 block mb-1">
                     HPY Code <span className="text-red-500">*</span>
                   </label>
-                  <select
+                  <input
+                    readOnly
                     value={newClfHpyCode}
-                    onChange={(e) => setNewClfHpyCode(e.target.value)}
-                    className="w-full h-9 rounded-xl border border-slate-300 bg-white px-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="HPY001">HPY001</option>
-                    <option value="HPY002">HPY002</option>
-                    <option value="HPY003">HPY003</option>
-                  </select>
+                    className="w-full h-9 rounded-xl border border-slate-300 bg-slate-50 px-2.5 text-xs font-bold text-slate-800"
+                  />
                 </div>
               </div>
 
@@ -947,29 +1134,29 @@ export function MobileAccountsScreen({ onBackToMore }: MobileAccountsScreenProps
                 </div>
                 <div className="bg-white p-2 rounded-lg border border-blue-100">
                   <span className="text-[9.5px] text-slate-400 font-semibold block">Bank Name</span>
-                  <span className="font-bold text-slate-800">HDFC Bank</span>
+                  <span className="font-bold text-slate-800">{clfMaster.bankName}</span>
                 </div>
                 <div className="bg-white p-2 rounded-lg border border-blue-100">
                   <span className="text-[9.5px] text-slate-400 font-semibold block">Name As Per Pan (FR)</span>
-                  <span className="font-bold text-slate-800 truncate block">Dexter India Pvt Ltd</span>
+                  <span className="font-bold text-slate-800 truncate block">{clfMaster.nameAsPerPan}</span>
                 </div>
                 <div className="bg-white p-2 rounded-lg border border-blue-100">
                   <span className="text-[9.5px] text-slate-400 font-semibold block">Pan Number (FR)</span>
-                  <span className="font-mono font-bold text-slate-800">ABCDE1234F</span>
+                  <span className="font-mono font-bold text-slate-800">{clfMaster.panNumber}</span>
                 </div>
                 <div className="bg-white p-2 rounded-lg border border-blue-100">
                   <span className="text-[9.5px] text-slate-400 font-semibold block">Account Number (FR)</span>
-                  <span className="font-mono font-bold text-blue-700">123456789012</span>
+                  <span className="font-mono font-bold text-blue-700">{clfMaster.accountNumber}</span>
                 </div>
                 <div className="bg-white p-2 rounded-lg border border-blue-100">
                   <span className="text-[9.5px] text-slate-400 font-semibold block">IFSC Code</span>
-                  <span className="font-mono font-bold text-slate-800">HDFC0001234</span>
+                  <span className="font-mono font-bold text-slate-800">{clfMaster.ifscCode}</span>
                 </div>
               </div>
 
               <div className="bg-white p-2 rounded-lg border border-blue-100 text-xs">
                 <span className="text-[9.5px] text-slate-400 font-semibold block">Beneficiary name (FR)</span>
-                <span className="font-bold text-slate-800 truncate block">Dexter India Pvt Ltd</span>
+                <span className="font-bold text-slate-800 truncate block">{clfMaster.beneficiaryName}</span>
               </div>
             </div>
 
@@ -1226,6 +1413,7 @@ export function MobileAccountsScreen({ onBackToMore }: MobileAccountsScreenProps
           </div>
 
           <div className="space-y-2.5">
+            {clfRecords.length === 0 && <p className="rounded-xl bg-white p-4 text-center text-xs text-slate-500">No CLF deposits recorded for your ATMs.</p>}
             {clfRecords.map((r) => {
               const getStatusStyle = (status: string) => {
                 switch (status) {
@@ -1405,7 +1593,18 @@ export function MobileAccountsScreen({ onBackToMore }: MobileAccountsScreenProps
               <Building2 size={16} className="text-blue-600" />
               <span>ATM ID</span>
             </div>
-            <span className="font-mono font-bold text-xs text-slate-900">{wlaAtmId}</span>
+            <select
+              value={wlaSite?.siteId ?? ''}
+              onChange={(e) => setWlaSiteId(e.target.value)}
+              className="max-w-[60%] rounded-lg border border-slate-200 bg-white px-2 py-1 font-mono font-bold text-xs text-slate-900"
+            >
+              {wlaSites.length === 0 && <option value="">No WLA account mapped</option>}
+              {wlaSites.map((x) => (
+                <option key={x.siteId} value={x.siteId}>
+                  {x.atmId}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Month-Year Field */}
@@ -1415,8 +1614,14 @@ export function MobileAccountsScreen({ onBackToMore }: MobileAccountsScreenProps
               <span>MONTH-YEAR</span>
             </div>
             <div className="flex items-center gap-1.5 font-bold text-xs text-slate-900">
-              <span>{wlaMonthYear}</span>
-              <Calendar size={14} className="text-blue-600" />
+              <input
+                type="month"
+                value={wlaPeriod}
+                max={new Date().toISOString().slice(0, 7)}
+                onChange={(e) => setWlaPeriod(e.target.value)}
+                className="rounded-lg border border-slate-200 bg-white px-1.5 py-0.5 text-xs font-bold"
+                aria-label={wlaMonthYear}
+              />
             </div>
           </div>
 
@@ -1446,9 +1651,7 @@ export function MobileAccountsScreen({ onBackToMore }: MobileAccountsScreenProps
                   accept=".pdf"
                   className="hidden"
                   onChange={(e) => {
-                    if (e.target.files?.[0]) {
-                      setWlaSelectedFile(e.target.files[0].name)
-                    }
+                    setWlaFile(e.target.files?.[0] ?? null)
                   }}
                 />
               </label>
@@ -1525,15 +1728,25 @@ export function MobileAccountsScreen({ onBackToMore }: MobileAccountsScreenProps
                 alert('Please enter the document password to upload a password-protected statement.')
                 return
               }
-              const newRecord = {
-                month: wlaMonthYear.toUpperCase(),
-                status: 'GENERATED',
-                remarks: isPasswordProtected === 'yes' ? 'Password Protected' : '-'
+              const wlaInput = { siteId: wlaSite?.siteId ?? '', period: wlaPeriod, file: wlaFile ? { name: wlaFile.name, size: wlaFile.size } : null, passwordProtected: isPasswordProtected === 'yes', password: wlaPassword, readable: true, remarks: '' }
+              if (apiEnabled) {
+                // API mode: the statement file is uploaded (POST /files) and registered via POST /wla-statements (franchise-scoped)
+                void uploadWlaAsync(wlaInput, 'Mobile App', wlaFile).then((r) => {
+                  if (r.error) return alert(r.error)
+                  setWlaSelectedFile(null)
+                  setWlaPassword('')
+                  alert(`WLA Statement for ${wlaMonthYear} uploaded — pending CRM verification.`)
+                })
+                return
               }
-              setWlaStatements([newRecord, ...wlaStatements])
+              const res = uploadWla(wlaInput, 'Mobile App')
+              if (res.error) {
+                alert(res.error)
+                return
+              }
               setWlaSelectedFile(null)
               setWlaPassword('')
-              alert(`WLA Statement for ${wlaMonthYear} uploaded successfully!`)
+              alert(`WLA Statement for ${wlaMonthYear} uploaded — pending CRM verification.`)
             }}
             className="w-full h-11 rounded-2xl bg-gradient-to-r from-[#0C3E98] to-[#1453CA] text-white font-bold text-xs shadow-md flex items-center justify-center gap-2 hover:opacity-95 active:scale-[0.99] transition-all"
           >
@@ -1558,8 +1771,13 @@ export function MobileAccountsScreen({ onBackToMore }: MobileAccountsScreenProps
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-[11px]">
-                {wlaStatements.map((s, idx) => (
-                  <tr key={idx} className="hover:bg-slate-50">
+                {wlaStatements.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="py-3 text-slate-400">No statements uploaded yet.</td>
+                  </tr>
+                )}
+                {wlaStatements.map((s) => (
+                  <tr key={s.id} className="hover:bg-slate-50">
                     <td className="py-2.5 font-bold text-slate-800">{s.month}</td>
                     <td className="py-2.5">
                       <span className="rounded-md bg-emerald-100 px-2 py-0.5 text-[10px] font-extrabold text-emerald-700">
@@ -1569,7 +1787,7 @@ export function MobileAccountsScreen({ onBackToMore }: MobileAccountsScreenProps
                     <td className="py-2.5 text-slate-400">{s.remarks}</td>
                     <td className="py-2.5">
                       <button
-                        onClick={() => alert(`Downloading ${s.month} Statement PDF`)}
+                        onClick={() => alert(`${s.file} (${s.id}) — demo: no file server`)}
                         className="text-red-600 hover:text-red-700 mx-auto"
                       >
                         <Download size={15} />
@@ -1605,7 +1823,60 @@ export function MobileAccountsScreen({ onBackToMore }: MobileAccountsScreenProps
         <form
           onSubmit={(e) => {
             e.preventDefault()
-            alert('Security Deposit entry updated successfully!')
+            const site = sites.find((x) => x.atmId === sdAtmId)
+            if (!site || !num(sdAmount) || !sdUtr.trim()) {
+              alert('Select the ATM and enter the amount and UTR number.')
+              return
+            }
+            if (apiFin) {
+              // POST /my/finance/security-deposits (slip uploaded first as the franchise user's own file)
+              if (!/^\d{9,18}$/.test(sdAccount.trim()) || !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(sdIfsc.trim().toUpperCase())) {
+                alert('Enter the account number (9–18 digits) and IFSC the deposit was paid from.')
+                return
+              }
+              setFinBusy(true)
+              void (async () => {
+                try {
+                  const attachmentFileId = sdFile ? await uploadMyFinanceFile(sdFile, 'security-deposit-slip') : undefined
+                  const r = await submitMyFinance('security-deposits', {
+                    atmId: site.atmId, paymentType: 'NEFT', paymentDate: sdDate, transactionDate: sdDate, txnNumber: sdUtr.trim(), amount: rupeesToPaise(sdAmount),
+                    depositCategory: 'Security Deposit', frBankName: sdBank, accountHolder: (user?.name ?? franchise?.name ?? 'Franchise').slice(0, 120),
+                    frAccount: sdAccount.trim(), frIfsc: sdIfsc.trim().toUpperCase(), ...(attachmentFileId ? { attachmentFileId } : {}),
+                  })
+                  setSdUtr('')
+                  setSdAmount('')
+                  setSdFile(null)
+                  alert(`Security deposit ${r.recordId} submitted for Finance verification.`)
+                } catch (err) {
+                  alert(finErr(err))
+                } finally {
+                  setFinBusy(false)
+                }
+              })()
+              return
+            }
+            const base = createEmptySecurityDeposit()
+            const saved = saveSecurityDeposit({
+              ...base,
+              siteId: site.siteId,
+              atmId: site.atmId,
+              franchiseeName: franchise?.name ?? frId,
+              franchiseeNo: frId,
+              hpyAccount: getMasterAccountForAtm(site.atmId).hpyAccount,
+              paymentDate: sdDate,
+              transactionDate: sdDate,
+              txnNumber: sdUtr.trim(),
+              amount: String(num(sdAmount)),
+              frBankName: sdBank,
+              accountHolder: user?.name ?? '',
+              attachmentName: sdFile?.name ?? '',
+              attachmentSize: sdFile?.size ?? 0,
+              status: 'Pending Verification',
+            })
+            setSdUtr('')
+            setSdAmount('')
+            setSdFile(null)
+            alert(`Security deposit ${saved.receiptNo} submitted for Finance verification.`)
           }}
           className="rounded-2xl border border-blue-200 bg-white p-4 shadow-sm space-y-3"
         >
@@ -1616,8 +1887,11 @@ export function MobileAccountsScreen({ onBackToMore }: MobileAccountsScreenProps
               onChange={(e) => setSdAtmId(e.target.value)}
               className="w-full h-10 rounded-xl border border-slate-300 bg-white px-3 text-xs font-bold text-slate-800"
             >
-              <option value="ATM-1001 (Bewar)">ATM-1001 (Bewar Mainpuri)</option>
-              <option value="ATM-1002 (Mainpuri)">ATM-1002 (Mainpuri City)</option>
+              {sites.map((x) => (
+                <option key={x.atmId} value={x.atmId}>
+                  {x.atmId} ({x.location})
+                </option>
+              ))}
             </select>
           </div>
 
@@ -1633,9 +1907,9 @@ export function MobileAccountsScreen({ onBackToMore }: MobileAccountsScreenProps
 
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="text-[11px] font-semibold text-slate-600 block mb-1">DATE (dd/mm/yyyy)</label>
+              <label className="text-[11px] font-semibold text-slate-600 block mb-1">DATE</label>
               <input
-                type="text"
+                type="date"
                 value={sdDate}
                 onChange={(e) => setSdDate(e.target.value)}
                 className="w-full h-10 rounded-xl border border-slate-300 bg-white px-3 text-xs font-bold text-slate-800"
@@ -1665,24 +1939,37 @@ export function MobileAccountsScreen({ onBackToMore }: MobileAccountsScreenProps
               <option value="State Bank of India">State Bank of India</option>
             </select>
           </div>
+          {apiFin && (
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-[11px] font-semibold text-slate-600 block mb-1">PAID FROM A/C NO</label>
+                <input inputMode="numeric" value={sdAccount} onChange={(e) => setSdAccount(e.target.value.replace(/\D/g, '').slice(0, 18))} className="w-full h-10 rounded-xl border border-slate-300 bg-white px-3 text-xs font-bold text-slate-800" />
+              </div>
+              <div>
+                <label className="text-[11px] font-semibold text-slate-600 block mb-1">IFSC</label>
+                <input value={sdIfsc} onChange={(e) => setSdIfsc(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 11))} className="w-full h-10 rounded-xl border border-slate-300 bg-white px-3 text-xs font-bold text-slate-800" />
+              </div>
+            </div>
+          )}
 
           <div className="rounded-xl border border-dashed border-red-300 bg-red-50/20 p-4 text-center">
             <span className="text-[11px] font-bold text-slate-700 block mb-2">
               UPLOAD CONFIRMATION SLIP (IMAGE OR PDF)
             </span>
+            <input ref={sdFileRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => setSdFile(e.target.files?.[0] ?? null)} />
             <button
               type="button"
-              onClick={() => alert('Slip upload picker')}
+              onClick={() => sdFileRef.current?.click()}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 text-white font-bold text-xs"
             >
-              <Upload size={13} /> Upload Image or Pdf
+              <Upload size={13} /> {sdFile ? sdFile.name : 'Upload Image or Pdf'}
             </button>
           </div>
 
           <div>
             <label className="text-[11px] font-semibold text-slate-600 block mb-1">VERIFICATION STATUS</label>
             <div className="h-10 rounded-xl border border-slate-200 bg-slate-50 px-3 flex items-center text-xs font-bold text-emerald-600">
-              Approved by Authorized CRM Finance Team
+              {sdSelectedStatus ?? 'No deposit on record for this ATM'}
             </div>
           </div>
 
@@ -1697,6 +1984,7 @@ export function MobileAccountsScreen({ onBackToMore }: MobileAccountsScreenProps
         {/* History Table */}
         <div className="rounded-xl border border-slate-200 bg-white p-3 space-y-2">
           <span className="text-xs font-bold text-slate-800 block border-b pb-1">Security Deposit History</span>
+          {sdHistory.length === 0 && <p className="text-[11px] text-slate-400">No security deposits recorded.</p>}
           {sdHistory.map((item, idx) => (
             <div key={idx} className="flex items-center justify-between py-1 text-xs">
               <div>
@@ -1756,11 +2044,11 @@ export function MobileAccountsScreen({ onBackToMore }: MobileAccountsScreenProps
                 <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 space-y-1">
                   <div className="flex justify-between">
                     <span className="text-slate-400 text-[10px]">Billed To:</span>
-                    <span className="font-bold text-slate-800">Ranjeet Pal (Proprietor)</span>
+                    <span className="font-bold text-slate-800">{gstHeader?.franchiseeName || holderName}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-400 text-[10px]">Franchise GSTIN:</span>
-                    <span className="font-mono font-bold text-slate-900">09AAECR1029P1Z8</span>
+                    <span className="font-mono font-bold text-slate-900">{gstHeader?.gstNumber || '—'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-400 text-[10px]">Invoice Date:</span>
@@ -1934,7 +2222,7 @@ export function MobileAccountsScreen({ onBackToMore }: MobileAccountsScreenProps
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div className="bg-slate-50 p-2 rounded-xl border border-slate-100">
                 <span className="text-[10px] text-slate-400 block font-medium">Billed Franchisee</span>
-                <span className="font-bold text-slate-800">Ranjeet Pal (Proprietor)</span>
+                <span className="font-bold text-slate-800">{gstHeader?.franchiseeName || holderName}</span>
               </div>
               <div className="bg-slate-50 p-2 rounded-xl border border-slate-100">
                 <span className="text-[10px] text-slate-400 block font-medium">Invoice Date</span>
@@ -1978,7 +2266,7 @@ export function MobileAccountsScreen({ onBackToMore }: MobileAccountsScreenProps
             <div className="flex items-center gap-2 pt-1">
               <button
                 type="button"
-                onClick={() => alert(`Downloading Dexter India GST Tax Invoice for ${currentGstRecord.month}...`)}
+                onClick={() => setPreviewGstInvoice(currentGstRecord)}
                 className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-blue-600 text-white font-bold text-xs shadow-xs hover:bg-blue-700 active:scale-95 transition-all"
               >
                 <Download size={14} /> Download Invoice (PDF)
@@ -2223,7 +2511,7 @@ export function MobileAccountsScreen({ onBackToMore }: MobileAccountsScreenProps
             </div>
           </div>
           <span className="rounded-xl bg-white/20 px-2 py-1 text-xs font-bold text-white border border-white/20">
-            FY 2026-27
+            FY {gstRecords[0]?.fYear ?? '2026-27'}
           </span>
         </div>
 
@@ -2249,12 +2537,65 @@ export function MobileAccountsScreen({ onBackToMore }: MobileAccountsScreenProps
           </div>
         </div>
 
+        {apiFin && (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              const atm = newGst.atmId || sites[0]?.atmId || ''
+              if (!atm || !newGst.invoiceNumber.trim() || !rupeesToPaise(newGst.basic)) return alert('Select the ATM and enter the invoice number and basic amount.')
+              if (!newGstFile) return alert('Attach the signed GST invoice (PDF / image).')
+              setFinBusy(true)
+              void (async () => {
+                try {
+                  const invoiceFileId = await uploadMyFinanceFile(newGstFile, 'gst-invoice')
+                  const date = isoDate(newGst.invoiceDate)
+                  const r = await submitMyFinance('gst-invoices', {
+                    atmId: atm, fYear: fyOf(`${newGst.month}-01`), month: newGst.month, invoiceNumber: newGst.invoiceNumber.trim(), invoiceDate: date,
+                    basicAmount: rupeesToPaise(newGst.basic), gstRatePct: Number(newGst.rate), interState: newGst.interState, roundOff: 0, remark: `${MOBILE_TAG} raised from the franchise app`, invoiceFileId,
+                  })
+                  setNewGst((g) => ({ ...g, invoiceNumber: '', basic: '' }))
+                  setNewGstFile(null)
+                  alert(`GST invoice ${r.recordId} submitted — Dexter Finance will verify it.`)
+                } catch (err) {
+                  alert(finErr(err))
+                } finally {
+                  setFinBusy(false)
+                }
+              })()
+            }}
+            className="rounded-2xl border border-blue-200 bg-white p-3 shadow-xs space-y-2"
+          >
+            <div className="text-xs font-bold text-slate-700">Raise a GST invoice</div>
+            <div className="grid grid-cols-2 gap-2 text-[11px]">
+              <select aria-label="ATM" value={newGst.atmId || sites[0]?.atmId || ''} onChange={(e) => setNewGst({ ...newGst, atmId: e.target.value })} className="h-9 rounded-lg border border-slate-300 bg-white px-2 font-bold">
+                {sites.map((x) => <option key={x.atmId} value={x.atmId}>{x.atmId}</option>)}
+              </select>
+              <input aria-label="Month" type="month" value={newGst.month} onChange={(e) => setNewGst({ ...newGst, month: e.target.value })} className="h-9 rounded-lg border border-slate-300 px-2 font-bold" />
+              <input aria-label="Invoice number" placeholder="Invoice no." maxLength={16} value={newGst.invoiceNumber} onChange={(e) => setNewGst({ ...newGst, invoiceNumber: e.target.value })} className="h-9 rounded-lg border border-slate-300 px-2 font-bold" />
+              <input aria-label="Invoice date" type="date" value={newGst.invoiceDate} onChange={(e) => setNewGst({ ...newGst, invoiceDate: e.target.value })} className="h-9 rounded-lg border border-slate-300 px-2 font-bold" />
+              <input aria-label="Basic amount" placeholder="Basic amount ₹" inputMode="decimal" value={newGst.basic} onChange={(e) => setNewGst({ ...newGst, basic: e.target.value.replace(/[^\d.]/g, '') })} className="h-9 rounded-lg border border-slate-300 px-2 font-bold" />
+              <select aria-label="GST rate" value={newGst.rate} onChange={(e) => setNewGst({ ...newGst, rate: e.target.value })} className="h-9 rounded-lg border border-slate-300 bg-white px-2 font-bold">
+                {['0', '5', '12', '18', '28'].map((r) => <option key={r} value={r}>GST {r}%</option>)}
+              </select>
+            </div>
+            <label className="flex items-center gap-2 text-[11px] text-slate-600">
+              <input type="checkbox" checked={newGst.interState} onChange={(e) => setNewGst({ ...newGst, interState: e.target.checked })} /> Inter-state (IGST)
+            </label>
+            <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-2 text-[11px] text-slate-600">
+              <Upload size={13} className="text-blue-600" /> {newGstFile ? newGstFile.name : 'Attach signed invoice (PDF / image)'}
+              <input type="file" accept=".pdf,.png,.jpg,.jpeg" className="hidden" onChange={(e) => setNewGstFile(e.target.files?.[0] ?? null)} />
+            </label>
+            <button type="submit" disabled={finBusy} className="w-full h-9 rounded-xl bg-blue-600 text-white text-xs font-bold disabled:opacity-60">Submit invoice</button>
+          </form>
+        )}
+
         {/* Month Tiles List */}
         <div className="space-y-2.5">
           <div className="flex items-center justify-between px-1">
             <span className="text-xs font-bold text-slate-700">Monthly Invoices ({gstRecords.length})</span>
           </div>
 
+          {gstRecords.length === 0 && <p className="rounded-xl bg-white p-4 text-center text-xs text-slate-500">No GST invoices raised for your sites yet.</p>}
           {gstRecords.map((m) => {
             const isPending = m.status === 'Action Required'
             const isSubmitted = m.status === 'Submitted'
@@ -2353,16 +2694,20 @@ export function MobileAccountsScreen({ onBackToMore }: MobileAccountsScreenProps
         {activeSub === 'tds' && (
           <div>
             <p className="text-xs text-slate-600 mb-3">
-              Quarterly TDS Certificates uploaded by Backend Finance Team for FY 2025-26:
+              TDS certificates uploaded by the Finance team for your franchise:
             </p>
             <div className="space-y-2">
-              {['Q1 (Apr - Jun 2026)', 'Q2 (Jul - Sep 2026)', 'Q4 (Jan - Mar 2026)'].map((q, i) => (
-                <div key={i} className="flex items-center justify-between p-2.5 rounded-xl border border-slate-100 bg-slate-50 text-xs">
+              {tdsMine.length === 0 && <p className="text-xs text-slate-400">No TDS documents uploaded yet.</p>}
+              {tdsMine.map((d) => (
+                <div key={d.id} className="flex items-center justify-between p-2.5 rounded-xl border border-slate-100 bg-slate-50 text-xs">
                   <div className="flex items-center gap-2">
                     <FileText size={16} className="text-blue-600" />
-                    <span className="font-bold text-slate-800">Form 16A – {q}</span>
+                    <div>
+                      <span className="font-bold text-slate-800 block">{d.docType} – {d.period} {d.fy}</span>
+                      <span className="text-[10px] text-slate-400">{d.file.name} · {fmtDateTime(d.uploadedAt)}</span>
+                    </div>
                   </div>
-                  <button onClick={() => alert(`Downloading TDS Certificate ${q}`)} className="text-blue-600 font-bold hover:underline">
+                  <button onClick={() => { if (apiEnabled) { void openTdsAsync(d.id, 'Download'); return } accessTds(d.id, frId, user?.name ?? 'Franchise', 'Download', 'Mobile App'); alert(`${d.file.name} — download logged.`) }} className="text-blue-600 font-bold hover:underline">
                     Download
                   </button>
                 </div>
@@ -2375,16 +2720,16 @@ export function MobileAccountsScreen({ onBackToMore }: MobileAccountsScreenProps
           <div className="space-y-3">
             <div className="bg-blue-50 p-3 rounded-xl border border-blue-200 text-xs text-slate-700">
               <span className="font-bold text-[#0B2A6B] block mb-1">Dynamic Limit System Logic</span>
-              Dynamic Limit is computed dynamically based on eligible CLF refunds returned by the company. It allows franchise partners to forecast cash operations with 100% transparency.
+              Provisional: limit = CLF deposited for your ATMs; headroom = limit − CBR / Cash Loading amounts not yet approved (₹{pendingCash.toLocaleString('en-IN')}). Final formula pending Finance sign-off.
             </div>
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div className="p-2.5 bg-slate-50 rounded-xl">
                 <span className="text-[10px] text-slate-500 block">Active Dynamic Limit</span>
-                <span className="text-base font-extrabold text-blue-700">₹4,00,000</span>
+                <span className="text-base font-extrabold text-blue-700">₹{clfTotal.toLocaleString('en-IN')}</span>
               </div>
               <div className="p-2.5 bg-slate-50 rounded-xl">
                 <span className="text-[10px] text-slate-500 block">Available Headroom</span>
-                <span className="text-base font-extrabold text-emerald-600">₹1,80,000</span>
+                <span className="text-base font-extrabold text-emerald-600">₹{Math.max(0, clfTotal - pendingCash).toLocaleString('en-IN')}</span>
               </div>
             </div>
           </div>

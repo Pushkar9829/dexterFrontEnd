@@ -4,7 +4,9 @@ import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { SelectField, TextAreaField, TextField } from '@/components/ui/Form'
 import { toast } from '@/components/ui/Toast'
-import { createTask, DEPTS, NOW, PEOPLE, PRIORITIES, tasksStore, type Dept, type Priority } from '@/data/tasks'
+import { createTask, createTaskApi, DEPTS, NOW, PEOPLE, PRIORITIES, tasksStore, useTasksLoad, type Dept, type Priority, type NewTaskInput } from '@/data/tasks'
+import { apiEnabled } from '@/data/bizApi'
+import { guardAct } from '@/lib/guard'
 
 const ENTITIES: [string, string][] = [
   ['FR-MH-00124', 'ABC Franchise · Pune'],
@@ -23,13 +25,14 @@ const toLocal = (ms: number) => new Date(ms + 5.5 * 3600_000).toISOString().slic
 export function CreateTaskModal({ onClose, navigateOnCreate = true }: { onClose: () => void; navigateOnCreate?: boolean }) {
   const nav = useNavigate()
   const tasks = tasksStore.use().tasks
+  useTasksLoad()
   const [f, setF] = useState({
     title: '',
     description: '',
     expectedOutcome: '',
     priority: 'Medium' as Priority | '',
     department: 'Verification' as Dept | '',
-    assignee: 'Rahul Kumar',
+    assignee: apiEnabled ? 'Unassigned' : 'Rahul Kumar',
     due: toLocal(NOW + 24 * 3600_000),
     parent: '',
     entity: '',
@@ -47,12 +50,13 @@ export function CreateTaskModal({ onClose, navigateOnCreate = true }: { onClose:
     if (!f.department) e.department = 'Select a department.'
     const dueMs = Date.parse(f.due + ':00+05:30')
     if (!f.due || Number.isNaN(dueMs)) e.due = 'Select a due date and time.'
-    else if (dueMs <= NOW) e.due = 'Due time must be after 06 Oct 2026, 09:14 IST.'
+    else if (dueMs <= (apiEnabled ? Date.now() : NOW)) e.due = apiEnabled ? 'Due time must be in the future.' : 'Due time must be after 06 Oct 2026, 09:14 IST.'
     setErr(e)
     if (Object.keys(e).length) return
+    if (!guardAct('Tasks', 'Create', 'create tasks')) return
     const entityId = f.entity.trim().toUpperCase()
     const known = ENTITIES.find(([id]) => id === entityId)
-    const t = createTask({
+    const input: NewTaskInput = {
       title: f.title.trim(),
       description: f.description.trim(),
       expectedOutcome: f.expectedOutcome.trim(),
@@ -63,7 +67,19 @@ export function CreateTaskModal({ onClose, navigateOnCreate = true }: { onClose:
       parentId: f.parent ? f.parent.split(' · ')[0] : undefined,
       entityId: entityId || undefined,
       entityLabel: known?.[1] ?? (entityId || undefined),
-    })
+    }
+    if (apiEnabled) {
+      // POST /tasks (assignee resolved to employeeId; default approver = workflow approver)
+      void createTaskApi(input)
+        .then((t) => {
+          toast(`${t.id} created · SLA ${t.tatHours}h · ${t.assignee || 'Unassigned'}`)
+          onClose()
+          if (navigateOnCreate) nav(`/tasks/my/${t.id}`)
+        })
+        .catch(() => undefined)
+      return
+    }
+    const t = createTask(input)
     toast(`${t.id} created · SLA ${t.tatHours}h · ${t.assignee || 'Unassigned'}`)
     onClose()
     if (navigateOnCreate) nav(`/tasks/my/${t.id}`)

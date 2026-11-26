@@ -10,7 +10,7 @@ import { Card, CardHeader } from '@/components/ui/Card'
 import { KpiCard } from '@/components/ui/KpiCard'
 import { Badge, toneFor } from '@/components/ui/Badge'
 import { cn } from '@/lib/cn'
-import { activities, dashboardNotices, finance, inr, kpis, moduleTiles, projects, quickAccess, tickets } from '@/data/dashboard'
+import { asOfLabel, inr, moduleTiles, projects, quickAccess, todayLong, useDashboard } from '@/data/dashboard'
 import { DEMO_USER, getSession } from '@/lib/auth'
 
 import type { ReactNode } from 'react'
@@ -71,10 +71,11 @@ export default function Dashboard() {
     }
   }
 
+  const { kpis, tickets, finance, activities, notices: dashboardNotices, asOf, loading } = useDashboard()
   const user = getSession() ?? DEMO_USER
   const firstName = user.name.split(' ')[0]
   const totalTickets = tickets.reduce((s, t) => s + t.value, 0)
-  const today = 'Tuesday, 06 October 2026' // business date of the demo data (matches "Last updated 06 Oct 2026")
+  const today = todayLong() // business date = today (clock-based, see data/dashboard.ts)
 
   return (
     <div className="space-y-4">
@@ -196,7 +197,7 @@ export default function Dashboard() {
                 </ul>
               </div>
               <div className="mx-4 mt-5 mb-4 flex h-[27px] items-center gap-2 rounded-md bg-red-50 px-3 text-[10px] text-brand-red">
-                <AlertCircle size={12} /> {tickets[0].value} complaints need follow-up
+                <AlertCircle size={12} /> {tickets[0]?.value ?? 0} complaints need follow-up
               </div>
             </Card>
 
@@ -211,9 +212,11 @@ export default function Dashboard() {
                       <div className="text-[10px] text-muted">{f.label}</div>
                       <div className="text-[13.5px] font-semibold">{inr(f.amount)}</div>
                     </div>
-                    <span className="flex items-center gap-0.5 text-[10px] text-emerald-600">
-                      <ArrowUp size={10} /> {f.trend}
-                    </span>
+                    {f.trend && (
+                      <span className="flex items-center gap-0.5 text-[10px] text-emerald-600">
+                        <ArrowUp size={10} /> {f.trend}
+                      </span>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -222,7 +225,7 @@ export default function Dashboard() {
 
           {/* Recent activities */}
           <Card className="overflow-hidden">
-            <CardHeader title="Recent Activities" sub="Latest updates" icon={<Landmark size={16} />} viewAll="/governance/audit" className="pr-6 pb-3.5" />
+            <CardHeader title="Recent Activities" sub="Latest updates" icon={<Landmark size={16} />} viewAll="/governance/security-audit" className="pr-6 pb-3.5" />
             <div className="overflow-x-auto">
               <table className="w-full min-w-[640px] text-[11px]">
                 <thead className="bg-surface text-left text-[10px] text-ink">
@@ -234,6 +237,11 @@ export default function Dashboard() {
                   </tr>
                 </thead>
                 <tbody>
+                  {activities.length === 0 && (
+                    <tr className="border-t border-line-soft">
+                      <td colSpan={4} className="px-2 py-4 text-center text-[11px] text-muted">{loading ? 'Loading…' : 'No recent activity'}</td>
+                    </tr>
+                  )}
                   {activities.map((a, i) => (
                     <tr key={i} className="h-[33.5px] border-t border-line-soft">
                       <td className="px-2 py-0.5 text-[10px] leading-[11px] text-muted">
@@ -317,7 +325,7 @@ export default function Dashboard() {
 
       <div className="flex flex-wrap justify-between gap-2 pt-1 text-[11px] text-muted">
         <span>India operations · All figures across active franchises</span>
-        <span>Last updated 06 Oct 2026, 09:14 IST</span>
+        <span>{loading ? 'Loading live figures…' : `Last updated ${asOf ? new Date(asOf).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Kolkata' }) + ' IST' : asOfLabel()}`}</span>
       </div>
 
       {/* Sticky Bottom-Right Ad Tile */}

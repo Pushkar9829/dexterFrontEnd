@@ -1,4 +1,8 @@
 import { createStore } from '@/lib/store'
+import { franchiseNameOf, resolveSite } from '@/lib/siteRef'
+import type { Site } from '@/data/network'
+import { pickSite } from '@/data/cbrSites'
+import { apiEnabled, createLoader, fetchAll } from '@/data/opsApi'
 
 /* ------------------------------------------------------------------------------------------------
  * Complaints module mock data (Operations › Complaints).
@@ -6,13 +10,15 @@ import { createStore } from '@/lib/store'
  * → "Breach by 22h 44m"). The clock starts there on every page load and then ticks with real time.
  * ---------------------------------------------------------------------------------------------- */
 
-export const NOW_BASE = Date.parse('2026-10-07T09:14:00+05:30')
+export const NOW_BASE = apiEnabled ? Date.now() : Date.parse('2026-10-07T09:14:00+05:30')
 const LOADED_AT = Date.now()
-/** Current demo time in ms (fixed base + real elapsed time since load). */
-export const nowMs = () => NOW_BASE + (Date.now() - LOADED_AT)
+/** Current demo time in ms (fixed base + real elapsed time since load). API mode: the real clock. */
+export const nowMs = () => (apiEnabled ? Date.now() : NOW_BASE + (Date.now() - LOADED_AT))
 
-export const PERIOD_FROM = '2026-10-01'
-export const PERIOD_TO = '2026-10-06'
+const istIso = (ms: number) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(ms)
+/** Reporting period. API mode: the last 30 days up to today (live data); mock: the frozen design period. */
+export const PERIOD_FROM = apiEnabled ? istIso(Date.now() - 29 * 86_400_000) : '2026-10-01'
+export const PERIOD_TO = apiEnabled ? istIso(Date.now()) : '2026-10-06'
 export const CURRENT_USER = 'Paras Dubey'
 export const NETWORK_ATM_COUNT = 1284 // commissioned assets in the asset register (detail kept for ATMs in ATM_MASTER)
 
@@ -157,6 +163,7 @@ export type Atm = {
   engineer: string
   engineerPhone: string
   battery: string
+  legacyAtmId?: string // old Complaints-only ID (ATM-MH-1024) — kept as an alias
 }
 
 type StateSetup = {
@@ -208,37 +215,66 @@ const ATM_ROWS: [string, string, string, string, string, string, string, number]
   ['ATM-WB-0190', 'Howrah Maidan', 'Howrah', '3, GT Road, Howrah 711101', 'Hyosung MX 2800T', 'HYO-28-55190', '17 Sep 2022', 0],
 ]
 
-export const ATM_MASTER: Atm[] = ATM_ROWS.map(([atmId, area, city, address, model, serial, installed, eng], i) => {
-  const code = atmId.split('-')[1]
-  const s = STATES[code]
-  const [engineer, engineerPhone] = s.engineers[eng] ?? s.engineers[0]
-  const num = atmId.split('-')[2]
+const STATE_BY_NAME: Record<string, StateSetup> = Object.fromEntries(Object.values(STATES).map((x) => [x.state, x]))
+const FALLBACK_SETUP = STATES.MH
+
+/** Complaint-side asset record for a Site Master site (contacts / project / engineer from the state mapping). */
+function atmFromSite(site: Site, extra: { model?: string; serial?: string; installed?: string; eng?: number; legacyAtmId?: string; i?: number } = {}): Atm {
+  const s = STATE_BY_NAME[site.state] ?? FALLBACK_SETUP
+  const [engineer, engineerPhone] = s.engineers[extra.eng ?? 0] ?? s.engineers[0]
+  const i = extra.i ?? 0
+  const installed = extra.installed ?? '01 Apr 2023'
   return {
-    atmId,
-    siteId: `SITE-${num}`,
-    siteName: `${area}, ${city}`,
-    address,
-    city,
-    state: s.state,
-    zone: `${city === 'Thane' ? 'Mumbai' : city} Zone`,
-    franchiseId: s.franchiseId,
-    franchise: s.franchise,
+    atmId: site.atmId,
+    siteId: site.siteId,
+    siteName: site.location,
+    address: site.address,
+    city: site.district,
+    state: site.state,
+    zone: `${site.district} Zone`,
+    franchiseId: site.frId,
+    franchise: franchiseNameOf(site),
     complainant: s.complainant,
     mobile: s.mobile,
     email: s.email,
-    projectId: s.projectId,
+    projectId: site.projectId || s.projectId,
     project: s.project,
-    model,
-    serial,
+    model: extra.model ?? (site.machineType === 'NCR' ? 'NCR SelfServ 22e' : site.machineType === 'Perto' ? 'Perto 5000' : 'Hyosung MX 2800T'),
+    serial: extra.serial ?? `SN-${site.atmId.slice(-6)}`,
     installed,
     ssm: s.ssm,
     rm: s.rm,
     engineer,
     engineerPhone,
-    battery: atmId === 'ATM-MH-1024' ? 'EX-42-09023 · Replaced 09 Sep 2026' : `EX-42-0${7100 + i * 37} · Installed ${installed}`,
+    battery: extra.legacyAtmId === 'ATM-MH-1024' ? 'EX-42-09023 · Replaced 09 Sep 2026' : `EX-42-0${7100 + i * 37} · Installed ${installed}`,
+    legacyAtmId: extra.legacyAtmId,
   }
+}
+
+// Every demo ATM now points at a real Site Master site in the same state (Site ID SITE-MH-0001 / ATM ID DXMH70007).
+const usedSites = new Set<string>()
+export const ATM_MASTER: Atm[] = ATM_ROWS.map(([legacyAtmId, , , , model, serial, installed, eng], i) => {
+  const stateName = STATES[legacyAtmId.split('-')[1]].state
+  const free = (x: Site) => !usedSites.has(x.siteId)
+  const site = pickSite(0, (x) => free(x) && x.state === stateName && x.operational, (x) => free(x) && x.state === stateName, free)
+  usedSites.add(site.siteId)
+  return atmFromSite(site, { model, serial, installed, eng, legacyAtmId, i })
 })
-export const atmById = (id: string) => ATM_MASTER.find((a) => a.atmId === id)
+const LEGACY_ATM = new Map(ATM_MASTER.map((a) => [a.legacyAtmId!, a.atmId]))
+/** Old Complaints ATM ID (ATM-MH-1024) → Site Master ATM ID. */
+export const legacyComplaintAtm = (id: string) => LEGACY_ATM.get(id)
+/** Re-point every old ATM-XX-NNNN reference inside seed data at the Site Master ATM ID. */
+const remapLegacyIds = <T,>(v: T): T => JSON.parse(JSON.stringify(v).replace(/ATM-[A-Z]{2}-\d{4}/g, (m) => LEGACY_ATM.get(m) ?? m)) as T
+
+/** ATM by Site Master ATM ID / Site ID (or a legacy Complaints ID). Any Site Master site resolves, not only the demo set. */
+export const atmById = (id: string): Atm | undefined => {
+  if (!id) return undefined
+  const k = id.trim().toLowerCase()
+  const hit = ATM_MASTER.find((a) => a.atmId.toLowerCase() === k || a.siteId.toLowerCase() === k || a.legacyAtmId?.toLowerCase() === k)
+  if (hit) return hit
+  const site = resolveSite(id)
+  return site ? atmFromSite(site) : undefined
+}
 export const STATE_LIST = [...new Set(ATM_MASTER.map((a) => a.state))]
 export const PROJECT_LIST = [...new Set(ATM_MASTER.map((a) => `${a.project} · ${a.projectId}`))]
 export const ENGINEERS = [...new Set(ATM_MASTER.map((a) => `${a.engineer} · ${a.engineerPhone}`))]
@@ -645,7 +681,7 @@ const pick = <T,>(r: () => number, xs: [T, number][]) => {
 const HOT_ATMS = ['ATM-MH-1045', 'ATM-GJ-0218', 'ATM-MH-1032', 'ATM-RJ-0267', 'ATM-TN-0142']
 // ATMs whose complaint history is hand-written (CMP-1048 / CMP-1039 / CMP-1052 stories)
 const STORY_ATMS = ['ATM-MH-1024', 'ATM-UP-0305', 'ATM-KA-0076']
-const RANDOM_ATMS = ATM_MASTER.filter((a) => !STORY_ATMS.includes(a.atmId))
+const RANDOM_ATMS = ATM_MASTER.filter((a) => !STORY_ATMS.includes(a.legacyAtmId!))
 
 function seedComplaints(): Complaint[] {
   const r = rng(1048)
@@ -655,7 +691,7 @@ function seedComplaints(): Complaint[] {
     const hour = 8 + Math.floor(r() * 11)
     const min = Math.floor(r() * 60)
     let cat = pick(r, CAT_WEIGHTS)
-    const atm = r() < 0.3 ? HOT_ATMS[Math.floor(r() * HOT_ATMS.length)] : RANDOM_ATMS[Math.floor(r() * RANDOM_ATMS.length)].atmId
+    const atm = r() < 0.3 ? HOT_ATMS[Math.floor(r() * HOT_ATMS.length)] : RANDOM_ATMS[Math.floor(r() * RANDOM_ATMS.length)].legacyAtmId!
     // keep the hand-crafted ATM stories (open complaints / fixed history) free of random look-alikes
     for (let i = 0; reserved.has(`${atm}|${cat}`) && i < CAT_WEIGHTS.length; i++) cat = CAT_WEIGHTS[(CAT_WEIGHTS.findIndex(([c]) => c === cat) + 1) % CAT_WEIGHTS.length][0]
     const subs = CATEGORIES[cat]
@@ -835,16 +871,17 @@ function seedComplaints(): Complaint[] {
     c.visits.forEach((v) => (v.id ||= `FV-0${fv++}`))
     c.audit.sort((a, b) => Date.parse(a.at) - Date.parse(b.at))
   })
-  return out.sort((a, b) => Date.parse(b.receivedAt) - Date.parse(a.receivedAt))
+  return remapLegacyIds(out).sort((a, b) => Date.parse(b.receivedAt) - Date.parse(a.receivedAt))
 }
 
 /* ------------------------------------------- stores --------------------------------------------- */
 
-export const complaintStore = createStore<Complaint[]>('dexter.complaints.v1', seedComplaints)
-export const maintenanceStore = createStore<MaintenanceTask[]>('dexter.complaints.maintenance.v1', () => [])
+// API mode keeps separate keys so the mock demo data is never overwritten.
+export const complaintStore = createStore<Complaint[]>(apiEnabled ? 'dexter.api.complaints.v1' : 'dexter.complaints.v2', apiEnabled ? () => [] : seedComplaints)
+export const maintenanceStore = createStore<MaintenanceTask[]>(apiEnabled ? 'dexter.api.complaints.maintenance.v1' : 'dexter.complaints.maintenance.v2', () => [])
 
 export type ComplaintDraft = Record<string, unknown> & { savedAt?: number }
-export const draftStore = createStore<ComplaintDraft | null>('dexter.complaints.draft.v1', () => null)
+export const draftStore = createStore<ComplaintDraft | null>('dexter.complaints.draft.v2', () => null)
 
 const LAST_KEY = 'dexter.complaints.last.v1'
 export const getLastOpened = () => {
@@ -884,4 +921,102 @@ export function updateComplaint(id: string, fn: (c: Complaint) => Partial<Compla
       return next
     }),
   )
+}
+
+
+/* ------------------------------------- backend (/complaints) ------------------------------------ */
+// API mode: complaints come from the backend. Fields the backend has no concept of (workflow tasks, emails,
+// visits, vendor / spare dependencies, AI prediction) stay local enrichments kept across reloads.
+
+type ApiUpdate = { at: string; by: string; byRole: string; kind: string; text: string; subStatus?: string; fileIds: string[] }
+export type ApiComplaint = {
+  complaintId: string; receivedAt: string; reportingAuthority: string; channel: string; raisedVia?: string; raisedByName?: string
+  atmId: string; siteId: string; frId: string; franchiseName: string; state: string; component: string; category: string; subcategory: string
+  priority: Priority; slaHours: number; slaStartAt: string; slaDueAt: string; responseDueAt: string; respondedAt?: string
+  title: string; details: string; attachments: string[]; department: Department; docket: string; owner?: string; ownerName?: string; assignedAt?: string
+  status: 'Open' | 'Resolved' | 'Closed'; subStatus: string; impact: Impact; updates: ApiUpdate[]; proposedFix: string
+  resolution?: { outcome: Exclude<Outcome, 'Pending'>; note: string; at: string; by: string; replacement?: string; downtimeH?: number }
+  frSignOff: boolean; hdValidation: boolean; closedAt?: string; closedBy?: string; slaMet?: boolean; slaBreached: boolean
+  escalationLevel: number; escalations: { level: number; at: string; note: string; to: string }[]; reopens: { at: string; by: string; reason: string }[]
+  history?: { at: string; by: string; text: string }[]; slaState?: string; repeatCount?: number
+}
+
+/** Backend → frontend complaint. `prev` carries the local-only enrichments (tasks, emails, visits, …). */
+export function complaintFromApi(r: ApiComplaint, prev?: Complaint): Complaint {
+  const day = (iso?: string) => (iso ? istDay(iso) : undefined)
+  const last = r.updates[r.updates.length - 1]
+  const audit: CAudit[] = [
+    ...(r.history ?? []).map((h) => ({ at: h.at, title: h.text, meta: h.by })),
+    ...(r.history ? [] : r.updates.map((u) => ({ at: u.at, title: `${u.kind} update`, meta: `${u.by} · ${u.text}` }))),
+    ...(r.history ? [] : r.escalations.map((e) => ({ at: e.at, title: `Escalated to L${e.level}`, meta: e.note }))),
+  ].sort((a, b) => Date.parse(a.at) - Date.parse(b.at))
+  return {
+    id: r.complaintId,
+    receivedAt: r.receivedAt,
+    reportingAuthority: r.reportingAuthority,
+    channel: r.channel,
+    atmId: r.atmId,
+    component: r.component,
+    category: r.category,
+    subcategory: r.subcategory,
+    priority: r.priority,
+    title: r.title,
+    details: r.details,
+    attachments: r.attachments ?? [],
+    forwardedOn: day(r.assignedAt ?? r.receivedAt) ?? '',
+    department: r.department,
+    docket: r.docket || 'NA',
+    owner: r.ownerName ?? 'Unassigned',
+    status: r.status === 'Closed' ? 'Closed' : 'Open',
+    subStatus: r.status === 'Resolved' ? 'Resolved · awaiting closure' : r.subStatus,
+    respondedAt: r.respondedAt,
+    reminderDate: prev?.reminderDate,
+    lastReminder: prev?.lastReminder,
+    lastAction: last ? last.text : r.resolution ? `Resolved · ${r.resolution.note}` : prev?.lastAction ?? 'Complaint logged',
+    remark: prev?.remark ?? '',
+    proposedFix: r.proposedFix ?? '',
+    outcome: r.resolution?.outcome ?? 'Pending',
+    outcomeDate: day(r.resolution?.at),
+    outcomeRemark: r.resolution?.note ?? '',
+    redressalDate: day(r.resolution?.at),
+    frSignOff: r.frSignOff,
+    hdValidation: r.hdValidation,
+    evidence: r.updates.some((u) => u.fileIds?.length) || (r.attachments ?? []).length > 0,
+    closedAt: r.closedAt,
+    escalationLevel: Math.min(3, Math.max(1, r.escalationLevel || 1)) as 1 | 2 | 3,
+    escalations: r.escalations.map((e) => ({ level: e.level, at: e.at, note: e.note })),
+    impact: r.impact,
+    downtimeH: r.resolution?.downtimeH,
+    replacement: r.resolution?.replacement,
+    tasks: prev?.tasks ?? [],
+    emails: prev?.emails ?? [],
+    visits: prev?.visits ?? [],
+    vendors: prev?.vendors ?? [],
+    spares: prev?.spares ?? [],
+    audit: audit.length ? audit : prev?.audit ?? [],
+    ai: prev?.ai ?? (FIXES[r.category] ? aiDefault(r, r.slaBreached ? 70 : 40) : undefined),
+  }
+}
+
+/** Replace one complaint in the store from a backend response (keeps local enrichments). */
+export function putApiComplaint(r: ApiComplaint): Complaint {
+  const prev = complaintStore.get().find((c) => c.id === r.complaintId)
+  const next = complaintFromApi(r, prev)
+  complaintStore.set((xs) => (prev ? xs.map((c) => (c.id === next.id ? next : c)) : [next, ...xs]))
+  return next
+}
+
+export const complaintLoader = createLoader('complaints', async () => {
+  const items = await fetchAll<ApiComplaint>('/complaints', { sort: '-receivedAt' })
+  const prev = new Map(complaintStore.get().map((c) => [c.id, c]))
+  complaintStore.set(items.map((r) => complaintFromApi(r, prev.get(r.complaintId))))
+})
+
+// Any component reading the complaint store hydrates it on first use (deferred: never set state during render).
+if (apiEnabled) {
+  const baseUse = complaintStore.use.bind(complaintStore)
+  complaintStore.use = () => {
+    if (!complaintLoader.getState().loaded) queueMicrotask(() => void complaintLoader.load())
+    return baseUse()
+  }
 }

@@ -1,3 +1,4 @@
+import { promptReason } from '@/lib/reason'
 import { useState, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
@@ -21,16 +22,22 @@ import {
 } from 'lucide-react'
 import {
   useOtherDocRecords,
-  deleteOtherDocRecord,
+  removeOtherDocRecord,
+  otherDocsLoader,
   type OtherDocCategory,
   type OtherDocStatus,
 } from '@/data/legalOtherDocs'
 import { downloadCsv } from '@/lib/export'
+import { Can, ViewOnlyNote, guardAct, useCanIn } from '@/lib/guard'
+import { SiteRef } from '@/lib/siteRef'
 import { toast } from '@/components/ui/Toast'
+import { apiEnabled } from '@/lib/api'
+import { LoadNote } from './ui'
 
 export default function OtherDocList() {
+  const allow = useCanIn('Legal')
   const navigate = useNavigate()
-  const { records } = useOtherDocRecords()
+  const { records, load } = useOtherDocRecords()
 
   // Filter States
   const [filterSiteId, setFilterSiteId] = useState('')
@@ -115,6 +122,7 @@ export default function OtherDocList() {
   }
 
   const handleExport = () => {
+    if (!guardAct('Legal', 'Export')) return
     downloadCsv(
       'other-legal-documents',
       [
@@ -152,10 +160,13 @@ export default function OtherDocList() {
   }
 
   const handleDelete = (id: string, siteId: string) => {
-    if (confirm(`Are you sure you want to delete document for ${siteId}?`)) {
-      deleteOtherDocRecord(id)
-      toast('Document record deleted')
-    }
+    if (!guardAct('Legal', 'Delete')) return
+    // API mode: soft delete with a mandatory reason (DELETE /legal/other-docs/:id {reason}; verified documents are locked)
+    const reason = apiEnabled ? promptReason(`Delete the document record for ${siteId}?`) : confirm(`Are you sure you want to delete document for ${siteId}?`) ? 'local' : null
+    if (!reason) return
+    removeOtherDocRecord(id, reason)
+      .then(() => toast('Document record deleted'))
+      .catch(() => undefined)
   }
 
   // Filtered List
@@ -262,6 +273,7 @@ export default function OtherDocList() {
           </p>
         </div>
 
+        <Can module="Legal" action="Create">
         <Link to="/legal/other-documents/new">
           <button
             type="button"
@@ -270,7 +282,11 @@ export default function OtherDocList() {
             <Plus size={16} /> New Document
           </button>
         </Link>
+        </Can>
       </div>
+
+      <ViewOnlyNote module="Legal" />
+      <LoadNote load={load} what="legal documents" onRetry={() => void otherDocsLoader.reload()} />
 
       {/* CARD 1: Filter Card */}
       <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-5 sm:p-6">
@@ -474,6 +490,8 @@ export default function OtherDocList() {
               <button
                 type="button"
                 onClick={handleExport}
+                disabled={!allow('Export')}
+                title={allow('Export') ? undefined : 'Export not permitted for your role'}
                 className="h-8.5 px-3.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 font-medium text-[12.5px] flex items-center gap-1 shadow-2xs transition-colors cursor-pointer"
               >
                 <Download size={14} /> Download <ChevronDown size={13} className="text-slate-400" />
@@ -591,7 +609,7 @@ export default function OtherDocList() {
                       </Link>
                     </td>
                     <td className="py-2.5 px-3 border-r border-slate-100 text-slate-700 font-medium whitespace-nowrap">
-                      {r.atmId}
+                      <SiteRef id={r.siteId} />
                     </td>
                     <td className="py-2.5 px-3 border-r border-slate-100 font-medium text-slate-800 text-left whitespace-nowrap">
                       {r.franchiseeName}
@@ -630,6 +648,7 @@ export default function OtherDocList() {
                     </td>
                     <td className="py-2.5 px-3 whitespace-nowrap sticky right-0 bg-white shadow-[-2px_0_4px_rgba(0,0,0,0.03)]">
                       <div className="flex items-center justify-center gap-1.5">
+                        <Can module="Legal" action="Edit">
                         <button
                           type="button"
                           onClick={() => navigate(`/legal/other-documents/${r.id}/edit`)}
@@ -638,6 +657,8 @@ export default function OtherDocList() {
                         >
                           <Edit3 size={12} />
                         </button>
+                        </Can>
+                        <Can module="Legal" action="Delete">
                         <button
                           type="button"
                           onClick={() => handleDelete(r.id, r.siteId)}
@@ -646,6 +667,7 @@ export default function OtherDocList() {
                         >
                           <Trash2 size={12} />
                         </button>
+                        </Can>
                       </div>
                     </td>
                   </tr>
@@ -664,6 +686,7 @@ export default function OtherDocList() {
                         Try adjusting your filters or click on "New Document" to add an entry.
                       </p>
                       <div className="mt-4">
+                        <Can module="Legal" action="Create">
                         <Link to="/legal/other-documents/new">
                           <button
                             type="button"
@@ -672,6 +695,7 @@ export default function OtherDocList() {
                             <Plus size={14} /> New Document
                           </button>
                         </Link>
+                        </Can>
                       </div>
                     </div>
                   </td>

@@ -5,7 +5,9 @@ import { Button } from '@/components/ui/Button'
 import { SelectField, TextField } from '@/components/ui/Form'
 import { Modal } from '@/components/ui/Modal'
 import { toast } from '@/components/ui/Toast'
-import { CATEGORIES, DATE_RANGES, REPORTS, getReport, nextRun, savedViewStore, scheduleStore, type SavedView, type Schedule } from '@/data/reportsHub'
+import { CATEGORIES, DATE_RANGES, REPORTS, addSavedView, addSchedule, getReport, nextRun, removeSavedView, removeSchedule, savedViewStore, savedViewsLoader, scheduleStore, schedulesLoader, toggleSchedule, type SavedView, type Schedule } from '@/data/reportsHub'
+import { getSession } from '@/lib/auth'
+import { guardAct } from '@/lib/guard'
 
 const fmtDate = (v: string) => new Date(v).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })
 const reportName = (id: string) => getReport(id)?.name ?? id
@@ -40,11 +42,13 @@ function ReportSelect({ value, onChange, error }: { value: string; onChange: (v:
 
 // ── Scheduled exports ─────────────────────────────────────────────────────
 export function ScheduledExportsModal({ onClose, defaultReport }: { onClose: () => void; defaultReport: string }) {
+  schedulesLoader.use()
   const list = scheduleStore.use()
   const [form, setForm] = useState({ reportId: defaultReport, frequency: 'Weekly' as Schedule['frequency'], time: '09:00', format: '.xlsx' as Schedule['format'], recipients: '' })
   const [errors, setErrors] = useState<Record<string, string>>({})
 
-  const add = () => {
+  const add = async () => {
+    if (!guardAct('Reports', 'Export', 'schedule report exports')) return
     const e: Record<string, string> = {}
     if (!form.reportId) e.reportId = 'Choose a report'
     if (!form.time) e.time = 'Choose a time'
@@ -53,8 +57,8 @@ export function ScheduledExportsModal({ onClose, defaultReport }: { onClose: () 
     else if (emails.some((m) => !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(m))) e.recipients = 'One or more email addresses are invalid'
     setErrors(e)
     if (Object.keys(e).length) return
-    const s: Schedule = { id: `SCH-${Date.now().toString(36)}`, ...form, recipients: emails.join(', '), createdBy: 'Paras Dubey', createdAt: new Date().toISOString().slice(0, 10), active: true }
-    scheduleStore.set((l) => [s, ...l])
+    const s: Schedule = { id: `SCH-${Date.now().toString(36)}`, ...form, recipients: emails.join(', '), createdBy: getSession()?.name ?? 'Paras Dubey', createdAt: new Date().toISOString().slice(0, 10), active: true }
+    if (!(await addSchedule(s))) return
     setForm((f) => ({ ...f, recipients: '' }))
     toast(`${reportName(s.reportId)} scheduled ${s.frequency.toLowerCase()} at ${s.time}`)
   }
@@ -82,7 +86,8 @@ export function ScheduledExportsModal({ onClose, defaultReport }: { onClose: () 
               variant="secondary"
               icon={s.active ? <Pause size={13} /> : <Play size={13} />}
               onClick={() => {
-                scheduleStore.set((l) => l.map((x) => (x.id === s.id ? { ...x, active: !x.active } : x)))
+                if (!guardAct('Reports', 'Export', 'change schedules')) return
+                toggleSchedule(s.id)
                 toast(`${reportName(s.reportId)} schedule ${s.active ? 'paused' : 'resumed'}`, 'info')
               }}
             >
@@ -93,8 +98,9 @@ export function ScheduledExportsModal({ onClose, defaultReport }: { onClose: () 
               variant="danger"
               icon={<Trash2 size={13} />}
               onClick={() => {
-                scheduleStore.set((l) => l.filter((x) => x.id !== s.id))
-                toast('Schedule removed', 'info')
+                if (!guardAct('Reports', 'Export', 'remove schedules')) return
+                const r = removeSchedule(s.id)
+                if (r === 'removed') toast('Schedule removed', 'info')
               }}
             >
               Remove
@@ -135,18 +141,19 @@ export function ScheduledExportsModal({ onClose, defaultReport }: { onClose: () 
 export type HubView = { reportId: string; category: string; range: string; query: string }
 
 export function SavedReportsModal({ onClose, current, onOpen }: { onClose: () => void; current: HubView; onOpen: (v: SavedView) => void }) {
+  savedViewsLoader.use()
   const list = savedViewStore.use()
   const [name, setName] = useState('')
   const [error, setError] = useState('')
   const rangeLabel = (id: string) => DATE_RANGES.find((r) => r.id === id)?.label ?? id
   const catLabel = (id: string) => CATEGORIES.find((c) => c.id === id)?.name ?? 'All categories'
 
-  const save = () => {
+  const save = async () => {
     const n = name.trim()
     if (!n) return setError('Name this view')
     if (list.some((v) => v.name.toLowerCase() === n.toLowerCase())) return setError('A saved report with this name already exists')
-    const v: SavedView = { id: `SV-${Date.now().toString(36)}`, name: n, ...current, savedAt: new Date().toISOString(), by: 'Paras Dubey' }
-    savedViewStore.set((l) => [v, ...l])
+    const v: SavedView = { id: `SV-${Date.now().toString(36)}`, name: n, ...current, savedAt: new Date().toISOString(), by: getSession()?.name ?? 'Paras Dubey' }
+    if (!(await addSavedView(v))) return
     setName('')
     setError('')
     toast(`Saved “${n}”`)
@@ -187,7 +194,7 @@ export function SavedReportsModal({ onClose, current, onOpen }: { onClose: () =>
               variant="danger"
               icon={<Trash2 size={13} />}
               onClick={() => {
-                savedViewStore.set((l) => l.filter((x) => x.id !== v.id))
+                removeSavedView(v.id)
                 toast('Saved report removed', 'info')
               }}
             >

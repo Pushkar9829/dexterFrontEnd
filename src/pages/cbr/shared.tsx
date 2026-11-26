@@ -27,3 +27,18 @@ export function Amt({ v, strong, tone }: { v: number | null; strong?: boolean; t
   if (v == null) return <span className="text-muted">—</span>
   return <span className={[strong ? 'font-semibold' : '', tone ?? (v === 0 ? 'text-muted' : '')].join(' ')}>{v.toLocaleString('en-IN')}</span>
 }
+
+/** Same look as SiteContext, for any label / value list (used by the master-backed CBR report pages). */
+export function ContextBar({ items, right }: { items: { label: string; value: ReactNode }[]; right?: ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-start gap-x-8 gap-y-3 rounded-xl border border-line bg-white px-5 py-4">
+      {items.map((i) => (
+        <div key={i.label} className="min-w-0 sm:min-w-[150px]">
+          <div className="text-[11px] text-muted">{i.label}</div>
+          <div className="mt-1 text-[13px] font-medium break-words text-ink">{i.value}</div>
+        </div>
+      ))}
+      {right && <div className="ml-auto self-center">{right}</div>}
+    </div>
+  )
+}

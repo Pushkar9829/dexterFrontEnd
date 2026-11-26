@@ -7,21 +7,33 @@ import {
   FileText,
   Check
 } from 'lucide-react'
-import { INITIAL_BROADCASTS, type BroadcastItem } from '../data/mobileMockData'
+import { broadcastCategory, useFranchiseBroadcasts } from '../data/mobileFeeds'
+import { fmtDateTime } from '../data/mobileSession'
 
 interface MobileBroadcastsScreenProps {
   onBackToMore?: () => void
 }
 
 export function MobileBroadcastsScreen({ onBackToMore }: MobileBroadcastsScreenProps) {
-  const [broadcasts, setBroadcasts] = useState<BroadcastItem[]>(INITIAL_BROADCASTS)
+  // Published broadcasts addressed to franchisees (Communication › Broadcasts); acknowledgement kept per user.
+  const { list, acks, acknowledge: handleAcknowledge } = useFranchiseBroadcasts()
   const [filterCategory, setFilterCategory] = useState<string>('All')
-
-  const handleAcknowledge = (id: string) => {
-    setBroadcasts((prev) =>
-      prev.map((b) => (b.id === id ? { ...b, acknowledged: true } : b))
-    )
-  }
+  const [openId, setOpenId] = useState<string | null>(null)
+  const broadcasts = list.map((b) => ({
+    id: b.id,
+    title: b.title,
+    subtitle: b.subject,
+    message: b.message,
+    attachment: b.attachment,
+    category: broadcastCategory(b),
+    categoryLabel: b.type,
+    date: b.date,
+    department: b.createdBy,
+    pinned: b.priority === 'Critical' || b.priority === 'Urgent',
+    ackRequired: b.ackRequired,
+    acknowledged: !!acks[b.id],
+    ackAt: acks[b.id],
+  }))
 
   const acknowledgedCount = broadcasts.filter((b) => b.acknowledged).length
   const pendingCount = broadcasts.filter((b) => !b.acknowledged).length
@@ -75,6 +87,7 @@ export function MobileBroadcastsScreen({ onBackToMore }: MobileBroadcastsScreenP
 
       {/* Broadcasts List */}
       <div className="space-y-2.5">
+        {filtered.length === 0 && <p className="rounded-xl bg-white p-4 text-center text-xs text-slate-500">No published broadcasts for franchisees in this category.</p>}
         {filtered.map((item) => (
           <div
             key={item.id}
@@ -88,6 +101,15 @@ export function MobileBroadcastsScreen({ onBackToMore }: MobileBroadcastsScreenP
                 <div>
                   <h3 className="text-xs font-black text-[#0B2A6B] leading-tight">{item.title}</h3>
                   <p className="text-[11px] text-slate-500 mt-0.5">{item.subtitle}</p>
+                  <button type="button" onClick={() => setOpenId(openId === item.id ? null : item.id)} className="mt-0.5 text-[10px] font-bold text-blue-600">
+                    {openId === item.id ? 'Hide message' : 'Read message'}
+                  </button>
+                  {openId === item.id && (
+                    <div className="mt-1 rounded-lg bg-slate-50 p-2 text-[11px] text-slate-700 whitespace-pre-line">
+                      {item.message}
+                      {item.attachment && <div className="mt-1 text-[10px] font-bold text-blue-700">📎 {item.attachment.name} ({item.attachment.size})</div>}
+                    </div>
+                  )}
                 </div>
               </div>
               {item.pinned && (
@@ -106,9 +128,11 @@ export function MobileBroadcastsScreen({ onBackToMore }: MobileBroadcastsScreenP
                 <span className="text-slate-400">• {item.department}</span>
               </div>
 
-              {item.acknowledged ? (
+              {!item.ackRequired && !item.acknowledged ? (
+                <span className="text-[10px] font-semibold text-slate-400">For information</span>
+              ) : item.acknowledged ? (
                 <span className="flex items-center gap-1 font-bold text-emerald-600">
-                  <CheckCircle size={13} /> Acknowledged
+                  <CheckCircle size={13} /> <span title={fmtDateTime(item.ackAt)}>Acknowledged</span>
                 </span>
               ) : (
                 <button

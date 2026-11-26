@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
+import { ApiError, apiEnabled, post } from '@/lib/api'
 import {
   AlertTriangle,
   QrCode,
@@ -22,15 +23,70 @@ import {
   Plus,
   Ticket
 } from 'lucide-react'
-import { COMPLAINT_TYPES, INITIAL_COMPLAINTS, type MobileComplaint } from '../data/mobileMockData'
+import {
+  CATEGORIES,
+  DEFAULT_COMPONENT,
+  DEPARTMENT_FOR,
+  aiDefault,
+  atmById,
+  complaintStore,
+  escalationChain,
+  nextComplaintId,
+  nowMs,
+  type Complaint,
+} from '@/data/complaints'
+import { emitWorkflow } from '@/data/workflow'
+import { useMyComplaints } from '../data/mobileFeeds'
+import { fmtDateTime, useMobileUser, useMyScope } from '../data/mobileSession'
+
+/** Issue master (Complaint Master categories) — "Category / Sub-category". */
+const COMPLAINT_TYPES = Object.entries(CATEGORIES).flatMap(([c, subs]) => subs.map((x) => `${c} / ${x}`))
+
+type MobileComplaint = {
+  id: string
+  docketNo: string
+  atmId: string
+  siteId: string
+  problemType: string
+  status: 'Open' | 'In Progress' | 'Resolved' | 'On Hold'
+  raisedOn: string
+  resolvedOn?: string
+  engineerName: string
+  flm: string
+  remark: string
+  photosCount: number
+  videosCount: number
+  lastAction: string
+}
+const viewOf = (c: Complaint): MobileComplaint => ({
+  id: c.id,
+  docketNo: c.docket || 'NA',
+  atmId: c.atmId,
+  siteId: atmById(c.atmId)?.siteId ?? '',
+  problemType: `${c.category} / ${c.subcategory}`,
+  status: c.status === 'Closed' ? 'Resolved' : /pending|awaiting/i.test(c.subStatus) ? 'On Hold' : /progress/i.test(c.subStatus) ? 'In Progress' : 'Open',
+  raisedOn: fmtDateTime(c.receivedAt),
+  resolvedOn: c.closedAt ? fmtDateTime(c.closedAt) : undefined,
+  engineerName: c.owner,
+  flm: /FLM: Not Done/.test(c.details) ? 'Not Done' : /FLM: Done/.test(c.details) ? 'Done' : '—',
+  remark: c.details,
+  photosCount: c.attachments.filter((a) => /\.(jpe?g|png|heic)$/i.test(a)).length,
+  videosCount: c.attachments.filter((a) => /\.(mp4|mov|3gp)$/i.test(a)).length,
+  lastAction: c.lastAction,
+})
 
 export function MobileComplaintsScreen() {
   const [activeTab, setActiveTab] = useState<'new' | 'list'>('new')
-  const [complaints, setComplaints] = useState<MobileComplaint[]>(INITIAL_COMPLAINTS)
+  // Own complaints (Complaint Master, scoped to the franchise's ATMs) — same store as the web Complaints module
+  const user = useMobileUser()
+  const { sites } = useMyScope()
+  const mine = useMyComplaints()
+  const complaints = useMemo(() => mine.map(viewOf).sort((a, b) => b.id.localeCompare(a.id, undefined, { numeric: true })), [mine])
+  const myAtms = useMemo(() => sites.map((s) => ({ atmId: s.atmId, label: `${s.atmId} - ${s.location}` })), [sites])
 
   // Form State matching 10.53.15 PM.jpeg
-  const [selectedAtmId, setSelectedAtmId] = useState('ATM012345')
-  const [problemType, setProblemType] = useState('100 Denomination Cassette Issue')
+  const [selectedAtmId, setSelectedAtmId] = useState(() => sites[0]?.atmId ?? '')
+  const [problemType, setProblemType] = useState(COMPLAINT_TYPES[0])
   const [isProblemDropdownOpen, setIsProblemDropdownOpen] = useState(false)
   const [problemSearch, setProblemSearch] = useState('')
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -142,68 +198,112 @@ export function MobileComplaintsScreen() {
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<'All' | 'Open' | 'In Progress' | 'Resolved'>('All')
 
-  // Auto-fetch data based on ATM ID
-  const atmMasterDetails: Record<string, { frName: string; frMobile: string; frEmail: string; location: string; engineerName: string; engineerMobile: string }> = {
-    ATM012345: {
-      frName: 'Ranjeet Pal',
-      frMobile: '8126817131',
-      frEmail: 'ranjeetpal@gmail.com',
-      location: 'Bewar, Mainpuri, UP',
-      engineerName: 'Sanjay Sharma',
-      engineerMobile: '9876543210'
-    },
-    ATM012346: {
-      frName: 'Ranjeet Pal',
-      frMobile: '8126817131',
-      frEmail: 'ranjeetpal@gmail.com',
-      location: 'Mainpuri City Center, UP',
-      engineerName: 'Rajeev Kumar',
-      engineerMobile: '9811223344'
-    },
-    MPZ14409: {
-      frName: 'Ranjeet Pal',
-      frMobile: '8126817131',
-      frEmail: 'ranjeetpal@gmail.com',
-      location: 'Civil Lines, Lucknow, UP',
-      engineerName: 'Amit Verma',
-      engineerMobile: '9723456789'
-    }
+  // Auto-fetch data based on ATM ID (Site Master + complaint asset register)
+  const atm = atmById(selectedAtmId)
+  const site = sites.find((x) => x.atmId === selectedAtmId)
+  const currentAtm = {
+    frName: user?.name ?? '—',
+    frMobile: user?.phone ?? '—',
+    frEmail: user?.email ?? '—',
+    location: site ? `${site.location}, ${site.state}` : atm ? `${atm.siteName}, ${atm.state}` : '—',
+    engineerName: site?.engineer?.name ?? atm?.engineer ?? 'To be assigned',
+    engineerMobile: site?.engineer?.mobile ?? atm?.engineerPhone ?? '—',
   }
-
-  const currentAtm = atmMasterDetails[selectedAtmId] || atmMasterDetails['ATM012345']
+  const [submitMsg, setSubmitMsg] = useState<string | null>(null)
 
   const handleRegisterComplaint = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!remark.trim()) {
-      alert('Please enter a remark describing the issue.')
+    if (!atm || !site) {
+      alert('Select one of your ATMs.')
       return
     }
-
-    const newComplaintNumber = `CMP000${4568 + complaints.length}`
-    const newDocketNumber = `DK000${2342 + complaints.length}`
-
-    const newEntry: MobileComplaint = {
-      id: newComplaintNumber,
-      docketNo: newDocketNumber,
-      atmId: selectedAtmId,
-      siteId: '2014124545',
-      problemType: problemType,
-      status: 'Open',
-      raisedOn: 'Just now',
-      engineerName: currentAtm.engineerName,
-      engineerPhone: currentAtm.engineerMobile,
-      flm: flmStatus,
-      remark: remark,
-      photosCount: photosChosen ? 1 : 0,
-      videosCount: videosChosen ? 1 : 0
+    if (remark.trim().length < 10) {
+      alert('Please enter a remark describing the issue (at least 10 characters).')
+      return
     }
+    const [category, subcategory] = problemType.split(' / ')
+    if (apiEnabled) {
+      // API mode: the franchise raises the complaint for its own site (POST /complaints, Franchise "Raise" right);
+      // routing, SLA, docket and escalation are done by the server.
+      void post<{ complaintId: string; department?: string }>('/complaints', { atmOrSite: site.atmId, category, subcategory: subcategory || category, priority: 'Medium', title: problemType.slice(0, 200), details: remark.trim() })
+        .then((c) => {
+          setRemark('')
+          setPhotosChosen(false)
+          setVideosChosen(false)
+          setActiveTab('list')
+          setSubmitMsg(`Complaint ${c.complaintId} registered${c.department ? ` and sent to the ${c.department}` : ''}.`)
+        })
+        .catch((err) => alert(err instanceof ApiError ? err.message : 'Could not register the complaint.'))
+      return
+    }
+    const dept = DEPARTMENT_FOR[category] ?? 'HD Team'
+    const chain = escalationChain(dept, atm)
+    const owner = site.engineer?.name ?? atm.engineer
+    const at = new Date(nowMs()).toISOString()
+    const id = nextComplaintId()
+    const attachments = [
+      ...(photosChosen ? [`${id}_site_photo.jpg`] : []),
+      ...(videosChosen ? [`${id}_site_video.mp4`] : []),
+    ]
+    const by = `${user?.name ?? 'Franchise'} (Franchise app)`
+    const c: Complaint = {
+      id,
+      receivedAt: at,
+      reportingAuthority: 'Franchise representative (FR)',
+      channel: 'FR / Field Officer Mobile App',
+      atmId: atm.atmId,
+      component: DEFAULT_COMPONENT[subcategory] ?? '',
+      category,
+      subcategory,
+      priority: 'Medium',
+      title: subcategory,
+      details: `${remark.trim()} (FLM: ${flmStatus})`,
+      attachments,
+      forwardedOn: at.slice(0, 10),
+      department: dept,
+      docket: 'NA',
+      owner,
+      status: 'Open',
+      subStatus: 'Assigned',
+      lastAction: 'Raised from the franchise app',
+      remark: '',
+      proposedFix: '',
+      outcome: 'Pending',
+      outcomeRemark: '',
+      frSignOff: false,
+      hdValidation: false,
+      evidence: attachments.length > 0,
+      escalationLevel: 1,
+      escalations: [],
+      impact: 'None',
+      tasks: [],
+      emails: [],
+      visits: [],
+      vendors: [],
+      spares: [],
+      audit: [
+        { at, title: 'Complaint registered', meta: `${by} · FR / Field Officer Mobile App · FLM ${flmStatus}` },
+        { at, title: 'Routing applied', meta: `System · ${dept} escalation matrix · L1 ${chain[0]?.person ?? '—'}` },
+        { at, title: 'Site Master mapped', meta: `System · ${site.siteId} · ATM ${site.atmId}` },
+        ...(attachments.length ? [{ at, title: 'Evidence attached', meta: attachments.join(' · ') }] : []),
+      ],
+      ai: { ...aiDefault({ category, subcategory, priority: 'Medium' }, 35), updated: at },
+    }
+    complaintStore.set((xs) => [c, ...xs])
+    emitWorkflow({
+      module: 'Complaint',
+      event: 'Submit',
+      refId: id,
+      vars: { Site_ID: site.siteId, ATM_ID: site.atmId, Franchise_Name: atm.franchise, Current_Status: 'Assigned', Pending_Action: `Resolve complaint – ${subcategory}` },
+      nextAction: { title: `Resolve complaint ${id} · ${problemType}`, dueHours: 72, priority: 'Medium' },
+      franchiseEmail: user?.email,
+    })
 
-    setComplaints([newEntry, ...complaints])
     setRemark('')
     setPhotosChosen(false)
     setVideosChosen(false)
     setActiveTab('list')
-    alert(`Complaint ${newComplaintNumber} registered! Docket ${newDocketNumber} assigned.`)
+    setSubmitMsg(`Complaint ${id} registered and sent to the ${dept}. The docket number is added by the backend team.`)
   }
 
   const filteredComplaints = complaints.filter((c) => {
@@ -279,9 +379,12 @@ export function MobileComplaintsScreen() {
                 onChange={(e) => setSelectedAtmId(e.target.value)}
                 className="flex-1 h-10 rounded-xl border border-slate-300 bg-white px-3 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="ATM012345">ATM012345 - Bewar, Mainpuri</option>
-                <option value="ATM012346">ATM012346 - Mainpuri City</option>
-                <option value="MPZ14409">MPZ14409 - Civil Lines</option>
+                {myAtms.length === 0 && <option value="">No ATM mapped to your franchise</option>}
+                {myAtms.map((a) => (
+                  <option key={a.atmId} value={a.atmId}>
+                    {a.label}
+                  </option>
+                ))}
               </select>
               <button
                 type="button"
@@ -591,6 +694,14 @@ export function MobileComplaintsScreen() {
             </div>
           </div>
 
+          {submitMsg && (
+            <div className="rounded-xl border border-emerald-300 bg-emerald-50 p-2.5 text-[11px] font-semibold text-emerald-800 flex items-start justify-between gap-2">
+              <span>{submitMsg}</span>
+              <button type="button" onClick={() => setSubmitMsg(null)}><X size={13} /></button>
+            </div>
+          )}
+          {complaints.length === 0 && <p className="rounded-xl bg-white p-4 text-center text-xs text-slate-500">No complaints raised for your ATMs yet.</p>}
+
           {/* Search & Filter Bar */}
           <div className="flex gap-2">
             <div className="relative flex-1">
@@ -718,6 +829,14 @@ export function MobileComplaintsScreen() {
               <div className="flex justify-between">
                 <span className="text-slate-500">FLM Status</span>
                 <span className="font-bold text-slate-800">{selectedComplaintDetail.flm}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Raised On</span>
+                <span className="font-bold text-slate-800">{selectedComplaintDetail.raisedOn}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Last Action</span>
+                <span className="font-bold text-slate-800 text-right">{selectedComplaintDetail.lastAction}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Assigned Engineer</span>

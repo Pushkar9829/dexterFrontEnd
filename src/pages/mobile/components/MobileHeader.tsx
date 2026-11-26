@@ -18,7 +18,7 @@ import {
   DownloadCloud,
   Headphones
 } from 'lucide-react'
-import type { MobileUser } from '../data/mobileMockData'
+import type { MobileUser } from '../data/mobileSession'
 
 interface MobileHeaderProps {
   user: MobileUser
@@ -46,7 +46,7 @@ const SEARCHABLE_MODULES = [
   { id: 'transactions', title: 'Transaction History', sub: 'Cash & Non-Cash Switch TXNs', icon: ArrowLeftRight, color: 'text-cyan-600 bg-cyan-50' },
   { id: 'eod', title: 'Daily EOD Recon', sub: 'End of Day Balance Summary', icon: CheckCircle2, color: 'text-indigo-600 bg-indigo-50' },
   { id: 'chargeback', title: 'Chargeback & Dispute', sub: 'Customer dispute resolution', icon: ShieldAlert, color: 'text-amber-600 bg-amber-50' },
-  { id: 'failed-txn', title: 'Failed Transactions', sub: 'Decline reason & switch logs', icon: XCircle, color: 'text-red-600 bg-red-50' },
+  { id: 'failed-txns', title: 'Failed Transactions', sub: 'Decline reason & switch logs', icon: XCircle, color: 'text-red-600 bg-red-50' },
   { id: 'accounts', title: 'Accounts & Banking', sub: 'Franchise settlement account', icon: Wallet, color: 'text-blue-600 bg-blue-50' },
   { id: 'legal', title: 'Legal & Agreement', sub: 'Franchise MSA & Stamp paper', icon: FileText, color: 'text-slate-600 bg-slate-50' },
   { id: 'uploads', title: 'Upload Documents', sub: 'CBR, Electricity, Bills', icon: UploadCloud, color: 'text-emerald-600 bg-emerald-50' },
@@ -62,7 +62,7 @@ export function MobileHeader({
   searchValue = '',
   onSearchChange,
   searchPlaceholder = 'Search modules, sites...',
-  unreadAlertsCount = 3
+  unreadAlertsCount = 0
 }: MobileHeaderProps) {
   const [isSearchFocused, setIsSearchFocused] = useState(false)
   const [internalSearch, setInternalSearch] = useState(searchValue)
@@ -268,13 +268,14 @@ export function MobileHeader({
             className="relative flex h-8 w-8 shrink-0 overflow-hidden rounded-full ring-1 ring-slate-300 hover:ring-blue-500 active:scale-95 transition-all"
             aria-label="Profile"
           >
+            <span className="absolute inset-0 flex items-center justify-center bg-blue-100 text-[10px] font-black text-[#0B2A6B]">{user.initials}</span>
             <img
               src="/mobile-user-avatar.png"
               alt={user.name}
               onError={(e) => {
-                e.currentTarget.src = user.avatar
+                e.currentTarget.style.display = 'none'
               }}
-              className="h-full w-full object-cover"
+              className="relative h-full w-full object-cover"
             />
           </button>
         </div>

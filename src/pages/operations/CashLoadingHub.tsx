@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom'
-import { Banknote, FileSpreadsheet, ArrowLeft, Home, ChevronRight } from 'lucide-react'
+import { Banknote, FileSpreadsheet, ArrowLeft, Home, ChevronRight, HandCoins, FilePlus2 } from 'lucide-react'
 import { HubTile, type HubTileTheme } from '@/components/ui/HubTile'
+import { clMaster } from '@/data/cashLoadingRegisterStore'
+import { CashKpis, FundingChip, FundingReport, SeparationPanel } from '@/pages/cbr/CashRecordUi'
 
 interface CashLoadingTileConfig {
   title: string
@@ -34,11 +36,31 @@ const CASH_LOADING_TILES: CashLoadingTileConfig[] = [
     badge: 'Loading Register',
     actionText: 'Open Cash Register',
   },
+  {
+    title: 'NEW CASH LOADING',
+    sub: 'Create a cash loading entry for a Self Funding ATM — site, bank and WLA details are fetched from the masters.',
+    to: '/operations/cash-loading/new',
+    Icon: FilePlus2,
+    theme: 'emerald',
+    tag: 'Self Funding',
+    badge: 'Create',
+    actionText: 'Create Entry',
+  },
+  {
+    title: 'ALF REGISTER',
+    sub: 'Additional Loading Fund requests, disbursement, cash loading mapping, recovery / adjustment and outstanding report.',
+    to: '/operations/alf',
+    Icon: HandCoins,
+    theme: 'purple',
+    tag: 'Additional Loading Fund',
+    badge: 'ALF Master',
+    actionText: 'Open ALF Register',
+  },
 ]
 
 export default function CashLoadingHub() {
   return (
-    <div className="max-w-[1020px] space-y-6">
+    <div className="max-w-[1180px] space-y-6">
       {/* Top Breadcrumbs & Back Navigation */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-[12px] text-[#64748B]">
@@ -78,18 +100,26 @@ export default function CashLoadingHub() {
               Cash Loading Module
             </h1>
             <p className="mt-1 text-[13px] text-[#64748B]">
-              Choose between the Self Funding (SF) system overview report and the consolidated cash loading register.
+              Self Funding (SF) cash loading — overview, register workflow, ALF and the Cash Loading Master. Never mixed with CBR (Full Funding).
             </p>
+          </div>
+          <div className="ml-auto hidden sm:block">
+            <FundingChip kind="Cash Loading" />
           </div>
         </div>
       </div>
 
       {/* Two Hub Tiles: OVERVIEW & CASH LOADING REGISTER */}
-      <div className="grid gap-5 sm:grid-cols-3">
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {CASH_LOADING_TILES.map((tile) => (
           <HubTile key={tile.title} {...tile} />
         ))}
       </div>
+
+      <h2 className="text-[15px] font-bold text-slate-900">Cash Loading Master — workflow status</h2>
+      <CashKpis master={clMaster} />
+      <FundingReport initial="Cash Loading" />
+      <SeparationPanel />
     </div>
   )
 }

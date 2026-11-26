@@ -1,4 +1,5 @@
 import { createStore } from '@/lib/store'
+import { apiEnabled, finDelete, finLoader, finSave, type FinCfg } from './financeApi'
 import { SEED_EMPLOYEES } from './employees'
 
 export const SALARY_STATUSES = ['Paid', 'Pending', 'On Hold'] as const
@@ -141,7 +142,17 @@ function seedSalaries(): SalaryRecord[] {
   return out
 }
 
-export const salaryStore = createStore<SalaryRecord[]>('dexter.finance.salary.v1', seedSalaries)
+const salaryRaw = createStore<SalaryRecord[]>(apiEnabled ? 'dexter.finance.salary.api' : 'dexter.finance.salary.v1', apiEnabled ? () => [] : seedSalaries)
+const SAL_MONEY = ['basicSalary', 'hra', 'specialAllowance', 'conveyance', 'grossSalary', 'pfDeduction', 'esiDeduction', 'profTax', 'tdsDeduction', 'otherDeductions', 'totalDeductions', 'netSalary']
+/** API mode: staff salaries ↔ /finance/salaries (gross / deductions / net computed by the server). */
+export const salaryCfg: FinCfg<SalaryRecord> = {
+  key: 'salaries', label: 'Salary record', get: () => salaryRaw.get(), set: (l) => salaryRaw.set(l),
+  fields: ['empId', 'empName', 'designation', 'department', 'fYear', 'month', 'workingDays', 'paidDays', 'basicSalary', 'hra', 'specialAllowance', 'conveyance', 'pfDeduction', 'esiDeduction', 'profTax', 'tdsDeduction', 'otherDeductions', 'bankName', 'accountNumber', 'ifscCode', 'paymentStatus', 'paymentDate', 'utrNumber', 'remarks'],
+  money: SAL_MONEY, moneyFmt: 'plain', dates: ['paymentDate'], dateOut: 'iso', statusField: 'paymentStatus', blank: () => emptySalary(),
+  fromExtra: (r) => ({ sn: Number(String(r.recordId).replace(/\D/g, '')) || 0, updatedBy: r.approvedByName ?? r.createdByName ?? '' }),
+}
+/** salaryStore.use() also hydrates from the backend in API mode. */
+export const salaryStore = { ...salaryRaw, use: (): SalaryRecord[] => (finLoader(salaryCfg).use(), salaryRaw.use()) }
 export const getSalary = (id: string) => salaryStore.get().find((s) => s.id === id)
 
 export function emptySalary(fy = '26-27'): SalaryRecord {
@@ -201,13 +212,17 @@ export function saveSalary(rec: SalaryRecord): SalaryRecord {
     const sn = all.reduce((m, s) => Math.max(m, s.sn), 0) + 1
     const created = { ...toSave, sn, id: `SAL-${String(sn).padStart(4, '0')}` }
     salaryStore.set([...all, created])
+    if (apiEnabled) void finSave(salaryCfg, undefined, created)
     return created
   }
 
+  const prev = salaryStore.get().find((s) => s.id === rec.id)
   salaryStore.set((all) => all.map((s) => (s.id === rec.id ? toSave : s)))
+  if (apiEnabled) void finSave(salaryCfg, prev, toSave)
   return toSave
 }
 
 export function deleteSalary(id: string) {
+  if (apiEnabled) void finDelete(salaryCfg, id)
   salaryStore.set((all) => all.filter((s) => s.id !== id))
 }

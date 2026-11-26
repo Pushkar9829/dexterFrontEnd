@@ -17,20 +17,30 @@ import {
 } from 'lucide-react'
 import {
   getChequeRecord,
-  addChequeRecord,
-  updateChequeRecord,
-  KNOWN_SITES,
+  saveChequeRecord,
+  saveChequeUpdate,
+  chequesLoader,
+  useLegalSiteOptions,
   type ChequeEntry,
   type ChequeDocument,
   type ChequeCollectionType,
   type ChequeAllottedTo,
 } from '@/data/legalCheques'
 import { toast } from '@/components/ui/Toast'
+import { ViewOnlyNote, guardAct, useCanIn } from '@/lib/guard'
+import { franchiseNameOf, resolveSite, SiteRef } from '@/lib/siteRef'
+import { emitWorkflow } from '@/data/workflow'
+import { apiEnabled } from '@/lib/api'
+import { uploadLegalFiles } from '@/data/legalApi'
 
 export default function FmChecksForm() {
+  const KNOWN_SITES = useLegalSiteOptions()
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
   const isEditing = Boolean(id)
+  const allow = useCanIn('Legal')
+  const canSave = allow(isEditing ? 'Edit' : 'Create')
+  const [siteError, setSiteError] = useState('')
 
   // Section 1: Site Details
   const [siteId, setSiteId] = useState('')
@@ -70,6 +80,8 @@ export default function FmChecksForm() {
   // Load existing record if in edit mode
   useEffect(() => {
     if (id) {
+      // API mode: wait for GET /legal/cheques before looking the record up
+      void chequesLoader.load().then(() => {
       const existing = getChequeRecord(id)
       if (existing) {
         setSiteId(existing.siteId)
@@ -93,12 +105,14 @@ export default function FmChecksForm() {
         toast('Cheque record not found')
         navigate('/legal/fm-checks')
       }
+      })
     }
   }, [id, navigate])
 
   // Auto-fetch details on Site ID change
   const handleSiteChange = (selectedSiteId: string) => {
     setSiteId(selectedSiteId)
+    setSiteError(selectedSiteId && !resolveSite(selectedSiteId) ? 'Not found in Site Master' : '')
     const site = KNOWN_SITES.find((s) => s.siteId === selectedSiteId)
     if (site) {
       setAtmId(site.atmId)
@@ -153,15 +167,15 @@ export default function FmChecksForm() {
   }
 
   // Document upload simulation
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files || files.length === 0) return
+    const picked = Array.from(files)
+    e.target.value = ''
 
-    const newDocs: ChequeDocument[] = Array.from(files).map((f) => ({
-      name: f.name,
-      sizeKb: Math.round(f.size / 1024),
-      type: f.type || 'application/pdf',
-    }))
+    // API mode: each file goes to POST /files first (fileId kept on the record)
+    const newDocs: ChequeDocument[] | null = await uploadLegalFiles(picked, { entity: 'LegalCheque', ref: id ?? siteId }).catch(() => null)
+    if (!newDocs) return
 
     setDocuments((prev) => [...prev, ...newDocs])
     toast(`Uploaded ${newDocs.length} document(s)`)
@@ -171,11 +185,18 @@ export default function FmChecksForm() {
     setDocuments((prev) => prev.filter((_, i) => i !== index))
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!guardAct('Legal', isEditing ? 'Edit' : 'Create', isEditing ? 'edit cheque records' : 'add cheque records')) return
 
     if (!siteId) {
       toast('Please select a Site ID')
+      return
+    }
+    const master = resolveSite(siteId)
+    if (!master) {
+      setSiteError(`"${siteId}" is not in Site Master. Pick a valid Site ID.`)
+      toast('Site ID not found in Site Master', 'error')
       return
     }
     if (!type) {
@@ -192,9 +213,9 @@ export default function FmChecksForm() {
     const dexterCheque = chequeEntries.find((c) => c.allottedTo === 'Dexter')?.chequeNumber || chequeEntries[1]?.chequeNumber || '048292'
 
     const recordData = {
-      siteId,
-      atmId: atmId || 'ATM001',
-      franchiseeName: frName || 'Shree Sai Financial Services',
+      siteId: master.siteId,
+      atmId: master.atmId,
+      franchiseeName: franchiseNameOf(master) || frName,
       mobileNumber: mobileNumber || '+91 98765 43210',
       model: model || 'Hitachi ATM Model XYZ',
       type: type as ChequeCollectionType,
@@ -209,7 +230,7 @@ export default function FmChecksForm() {
       dispatchedBy,
       receivedBy,
       documentType: (documentType as 'Cheque Scan PDF' | 'Email Acknowledgment') || 'Cheque Scan PDF',
-      documents: documents.length > 0 ? documents : [
+      documents: documents.length > 0 || apiEnabled ? documents : [
         { name: `${siteId}_Cheque_Collection_5Scans.pdf`, sizeKb: 1420, type: 'application/pdf' },
       ],
       handoverStaff: handoverStaff || 'Paras Dubey',
@@ -217,12 +238,24 @@ export default function FmChecksForm() {
       chequeEntries,
     }
 
+    const wf = (refId: string) =>
+      emitWorkflow({
+        module: 'Legal', event: 'Submit', refId,
+        vars: { Site_ID: master.siteId, ATM_ID: master.atmId, Franchise_Name: recordData.franchiseeName, Current_Status: recordData.acknowledgement },
+        nextAction: { title: 'Verify cheque collection', dueHours: 48 },
+      })
+
+    // API errors (validation, Site Master) are toasted by the data layer; keep the form open
     if (isEditing && id) {
-      updateChequeRecord(id, recordData)
+      const ok = await saveChequeUpdate(id, recordData).catch(() => null)
+      if (!ok) return
+      if (!apiEnabled) wf(id) // API mode: the server emits the workflow event
       toast('Cheque collection record updated successfully')
       navigate(`/legal/fm-checks/${id}`)
     } else {
-      const created = addChequeRecord(recordData)
+      const created = await saveChequeRecord(recordData).catch(() => null)
+      if (!created) return
+      if (!apiEnabled) wf(created.id)
       toast('Cheque collection record created successfully')
       navigate(`/legal/fm-checks/${created.id}`)
     }
@@ -270,6 +303,8 @@ export default function FmChecksForm() {
         </div>
       </div>
 
+      <ViewOnlyNote module="Legal" />
+
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* SECTION 1: Site Details */}
         <div className="bg-white rounded-xl border border-slate-200/90 shadow-xs p-5">
@@ -292,7 +327,8 @@ export default function FmChecksForm() {
                 required
                 className="w-full h-9 pl-8 pr-8 text-[12.5px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] appearance-none"
               >
-                <option value="">Search Site ID (e.g. S-1001)</option>
+                <option value="">Search Site ID (e.g. SITE-MH-0001)</option>
+                {siteId && !KNOWN_SITES.some((s) => s.siteId === siteId) && <option value={siteId}>{siteId}</option>}
                 {KNOWN_SITES.map((s) => (
                   <option key={s.siteId} value={s.siteId}>
                     {s.siteId} - {s.franchiseeName} ({s.atmId})
@@ -301,6 +337,8 @@ export default function FmChecksForm() {
               </select>
               <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             </div>
+            {siteError && <p className="mt-1 text-[11.5px] font-medium text-red-600">{siteError}</p>}
+            {siteId && !siteError && <p className="mt-1 text-[11.5px] text-slate-500">Site Master: <SiteRef id={siteId} /></p>}
           </div>
         </div>
 
@@ -770,7 +808,9 @@ export default function FmChecksForm() {
 
           <button
             type="submit"
-            className="h-9 px-6 rounded-lg bg-[#0066FF] hover:bg-blue-700 text-white font-medium text-[13px] flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+            disabled={!canSave}
+            title={canSave ? undefined : 'Your role cannot save Legal records'}
+            className="h-9 px-6 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg bg-[#0066FF] hover:bg-blue-700 text-white font-medium text-[13px] flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
           >
             <Check size={15} /> Submit
           </button>

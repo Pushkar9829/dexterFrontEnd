@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { apiEnabled, uploadFile } from '@/lib/api'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   Home,
@@ -21,6 +22,9 @@ import {
 } from 'lucide-react'
 import { toast } from '@/components/ui/Toast'
 import { useReportMode } from '@/hooks/useReportMode'
+import { useCanIn, guardAct } from '@/lib/guard'
+import { franchiseNameOf, resolveSite, siteAt, SiteRef } from '@/lib/siteRef'
+import { emitFinance } from './finWorkflow'
 import {
   getAcChangeRequestById,
   addAcChangeRequest,
@@ -35,11 +39,13 @@ export default function AcChangeRequestForm() {
   const { id } = useParams<{ id?: string }>()
   const { isReport } = useReportMode()
   const isEditing = Boolean(id && id !== 'new')
+  const allow = useCanIn('Finance')
+  const canSave = allow(isEditing ? 'Edit' : 'Create')
 
   // Top info states
-  const [atmId, setAtmId] = useState('DX-UP-02391')
+  const [atmId, setAtmId] = useState(() => siteAt(0).atmId)
   const [hpyCode, setHpyCode] = useState('HPY-9921408')
-  const [franchiseeName, setFranchiseeName] = useState('Ranjeet Pal')
+  const [franchiseeName, setFranchiseeName] = useState(() => franchiseNameOf(siteAt(0)))
   const [mobileNo, setMobileNo] = useState('8126817131')
   const [requestDate, setRequestDate] = useState(new Date().toISOString().split('T')[0])
 
@@ -96,7 +102,7 @@ export default function AcChangeRequestForm() {
 
   // --- Section 3: Documents ---
   const [docTypeToUpload, setDocTypeToUpload] = useState('Cancelled Cheque')
-  const [documents, setDocuments] = useState<UploadedDoc[]>([
+  const [documents, setDocuments] = useState<UploadedDoc[]>(apiEnabled ? [] : [
     { id: 'd-1', docType: 'Cancelled Cheque', fileName: 'hdfc_cheque_ranjeet.pdf', uploadedOn: '24-10-2026' },
     { id: 'd-2', docType: 'PAN Card Copy', fileName: 'pan_ranjeet_pal.pdf', uploadedOn: '24-10-2026' },
     { id: 'd-3', docType: 'Bank Statement', fileName: 'boi_statement.pdf', uploadedOn: '24-10-2026' },
@@ -137,8 +143,28 @@ export default function AcChangeRequestForm() {
     }
   }, [id, isEditing])
 
-  // Document upload simulation
+  // API mode: real upload (POST /files) — the document id is the server fileId sent as documentFileIds
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [uploadingDocs, setUploadingDocs] = useState(0)
+  const handlePickedFile = (file: File | undefined) => {
+    if (!file) return
+    const type = docTypeToUpload
+    setUploadingDocs((n) => n + 1)
+    uploadFile(file, { purpose: 'ac-change-request', entity: 'FinanceRecord' })
+      .then((r) => {
+        setDocuments((prev) => [...prev, { id: r.fileId, docType: type, fileName: file.name, uploadedOn: new Date().toISOString().split('T')[0] }])
+        toast(`Uploaded: ${file.name}`)
+      })
+      .catch((err) => toast(`Upload failed: ${err instanceof Error ? err.message : String(err)}`, 'error'))
+      .finally(() => setUploadingDocs((n) => n - 1))
+  }
+
+  // Document upload simulation (mock mode)
   const handleSimulateUpload = () => {
+    if (apiEnabled) {
+      fileInputRef.current?.click()
+      return
+    }
     const ext = docTypeToUpload.toLowerCase().includes('statement') ? 'pdf' : 'pdf'
     const cleanName = docTypeToUpload.toLowerCase().replace(/\s+/g, '_') + `_${Date.now().toString().slice(-4)}.${ext}`
     const newDoc: UploadedDoc = {
@@ -188,8 +214,22 @@ export default function AcChangeRequestForm() {
 
   // Save / Submit
   const handleSaveOrSubmit = (status: 'Draft' | 'Pending') => {
+    if (apiEnabled && uploadingDocs > 0) {
+      toast('Documents are still uploading — wait a moment.', 'error')
+      return
+    }
+    if (apiEnabled && status === 'Pending' && !documents.some((d) => /^FIL-\d+$/.test(d.id))) {
+      toast('Upload the supporting documents (cancelled cheque / request letter) before submitting.', 'error')
+      return
+    }
+    if (!guardAct('Finance', isEditing ? 'Edit' : 'Create', isEditing ? 'edit A/C change requests' : 'create A/C change requests')) return
     if (!atmId || !franchiseeName) {
       toast('Please enter ATM ID and Franchisee Name')
+      return
+    }
+    const site = resolveSite(atmId)
+    if (!site) {
+      toast(`ATM ID ${atmId} is not in the Site Master`)
       return
     }
     if (status === 'Pending' && (!settlementNew.bankName || !settlementNew.accountNumber || !settlementNew.ifscCode)) {
@@ -198,7 +238,8 @@ export default function AcChangeRequestForm() {
     }
 
     const payload: Omit<AcChangeRequestRecord, 'id'> = {
-      atmId,
+      atmId: site.atmId,
+      siteId: site.siteId,
       hpyCode,
       franchiseeName,
       mobileNo,
@@ -216,9 +257,11 @@ export default function AcChangeRequestForm() {
 
     if (isEditing && id) {
       updateAcChangeRequest(id, payload)
+      if (status === 'Pending') emitFinance('Submit', id, { what: 'A/C change request', site: site.atmId, franchise: franchiseeName, status: 'Pending' })
       toast(`Change Request ${id} updated successfully!`)
     } else {
       const created = addAcChangeRequest(payload)
+      if (status === 'Pending') emitFinance('Submit', created.id, { what: 'A/C change request', site: site.atmId, franchise: franchiseeName, status: 'Pending' })
       toast(`Change Request ${created.id} submitted successfully!`)
     }
 
@@ -322,11 +365,20 @@ export default function AcChangeRequestForm() {
               <input
                 type="text"
                 value={atmId}
-                onChange={(e) => setAtmId(e.target.value)}
+                onChange={(e) => {
+                  setAtmId(e.target.value)
+                  const st = resolveSite(e.target.value)
+                  if (st) setFranchiseeName(franchiseNameOf(st))
+                }}
                 placeholder="Enter ATM ID"
                 className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-200 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono"
               />
             </div>
+            {atmId && (
+              <div className="mt-1 text-[10.5px]">
+                <SiteRef id={atmId} />
+              </div>
+            )}
           </div>
 
           <div>
@@ -1004,11 +1056,22 @@ export default function AcChangeRequestForm() {
                 <button
                   type="button"
                   onClick={handleSimulateUpload}
-                  className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-blue-50 text-blue-700 text-xs font-semibold hover:bg-blue-100 transition-colors"
+                  disabled={uploadingDocs > 0}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-blue-50 text-blue-700 text-xs font-semibold hover:bg-blue-100 transition-colors disabled:opacity-60"
                 >
                   <Paperclip size={14} />
-                  Upload Document
+                  {uploadingDocs > 0 ? 'Uploading…' : 'Upload Document'}
                 </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  className="hidden"
+                  onChange={(e) => {
+                    handlePickedFile(e.target.files?.[0])
+                    e.target.value = ''
+                  }}
+                />
               </div>
             </div>
           )}
@@ -1108,7 +1171,7 @@ export default function AcChangeRequestForm() {
           Back
         </button>
 
-        {!isReport && (
+        {!isReport && canSave && (
           <div className="flex items-center gap-2.5">
             <button
               type="button"

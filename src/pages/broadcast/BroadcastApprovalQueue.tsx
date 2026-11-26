@@ -11,10 +11,12 @@ import {
 } from '@/data/broadcasts'
 import { PriorityBadge } from './BroadcastOverview'
 import { toast } from '@/components/ui/Toast'
+import { guardAct, useCanIn, ViewOnlyNote } from '@/lib/guard'
 import { cn } from '@/lib/cn'
 
 export default function BroadcastApprovalQueue() {
   const { broadcasts } = useBroadcasts()
+  const allow = useCanIn('Broadcast')
   const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'rejected' | 'changes'>('pending')
 
   // Selected item for live preview on right matching Image 5
@@ -53,30 +55,35 @@ export default function BroadcastApprovalQueue() {
     broadcasts[0]
 
   const handleApprove = (id: string) => {
+    if (!guardAct('Broadcast', 'Approve', 'decide on broadcasts')) return
     approveBroadcast(id, remarks)
     toast(`Approved & published broadcast ${id}`, 'success')
     setRemarks('')
   }
 
   const handleReject = (id: string) => {
+    if (!guardAct('Broadcast', 'Approve', 'decide on broadcasts')) return
     rejectBroadcast(id, remarks)
     toast(`Rejected broadcast ${id}`, 'info')
     setRemarks('')
   }
 
   const handleRequestChanges = (id: string) => {
+    if (!guardAct('Broadcast', 'Approve', 'decide on broadcasts')) return
     requestChangesBroadcast(id, remarks || 'Please revise the recipient list and confirmation cutoff time.')
     toast(`Sent change request for ${id} to author`, 'info')
     setRemarks('')
   }
 
   const handleBulkApprove = () => {
+    if (!guardAct('Broadcast', 'Approve', 'decide on broadcasts')) return
     pendingList.forEach((b) => approveBroadcast(b.id, 'Bulk approved by HOD'))
     toast(`Bulk approved ${pendingList.length} broadcasts`, 'success')
   }
 
   return (
     <div className="space-y-6 pb-16">
+      <ViewOnlyNote module="Broadcast" />
       {/* Header matching Image 5 */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -88,14 +95,16 @@ export default function BroadcastApprovalQueue() {
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={handleBulkApprove}
-          className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition-all"
-        >
-          <CheckCircle2 size={14} className="text-[#0066FF]" />
-          <span>Bulk Approve</span>
-        </button>
+        {allow('Approve') && (
+          <button
+            type="button"
+            onClick={handleBulkApprove}
+            className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition-all"
+          >
+            <CheckCircle2 size={14} className="text-[#0066FF]" />
+            <span>Bulk Approve</span>
+          </button>
+        )}
       </div>
 
       {/* Tabs Bar matching Image 5 */}
@@ -216,20 +225,24 @@ export default function BroadcastApprovalQueue() {
                       </td>
                       <td className="py-1.5 px-2.5 text-center whitespace-nowrap w-[130px] min-w-[130px]" onClick={(e) => e.stopPropagation()}>
                         <div className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap">
-                          <button
-                            type="button"
-                            onClick={() => handleApprove(item.id)}
-                            className="rounded-md bg-[#0066FF] hover:bg-blue-700 px-2.5 py-0.5 text-[10.5px] font-semibold text-white transition-all shadow-2xs whitespace-nowrap"
-                          >
-                            Approve
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleReject(item.id)}
-                            className="rounded-md border border-slate-300 bg-white hover:bg-slate-50 px-2 py-0.5 text-[10.5px] font-semibold text-slate-700 transition-all shadow-2xs whitespace-nowrap"
-                          >
-                            Reject
-                          </button>
+                          {allow('Approve') && (
+                            <button
+                              type="button"
+                              onClick={() => handleApprove(item.id)}
+                              className="rounded-md bg-[#0066FF] hover:bg-blue-700 px-2.5 py-0.5 text-[10.5px] font-semibold text-white transition-all shadow-2xs whitespace-nowrap"
+                            >
+                              Approve
+                            </button>
+                          )}
+                          {allow('Approve') && (
+                            <button
+                              type="button"
+                              onClick={() => handleReject(item.id)}
+                              className="rounded-md border border-slate-300 bg-white hover:bg-slate-50 px-2 py-0.5 text-[10.5px] font-semibold text-slate-700 transition-all shadow-2xs whitespace-nowrap"
+                            >
+                              Reject
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -288,27 +301,33 @@ export default function BroadcastApprovalQueue() {
 
               {/* Action Buttons matching Image 5 */}
               <div className="flex flex-wrap items-center gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => handleApprove(selectedItem.id)}
-                  className="flex-1 rounded-xl bg-[#0066FF] hover:bg-blue-700 py-2 px-3 text-xs font-semibold text-white text-center shadow-xs transition-all"
-                >
-                  Approve & Publish
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleRequestChanges(selectedItem.id)}
-                  className="rounded-xl border border-slate-300 bg-white hover:bg-slate-50 py-2 px-3 text-xs font-semibold text-slate-700 shadow-2xs transition-all"
-                >
-                  Request Changes
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleReject(selectedItem.id)}
-                  className="rounded-xl border border-slate-300 bg-white hover:bg-slate-50 py-2 px-3 text-xs font-semibold text-slate-700 shadow-2xs transition-all"
-                >
-                  Reject
-                </button>
+                {allow('Approve') && (
+                  <button
+                    type="button"
+                    onClick={() => handleApprove(selectedItem.id)}
+                    className="flex-1 rounded-xl bg-[#0066FF] hover:bg-blue-700 py-2 px-3 text-xs font-semibold text-white text-center shadow-xs transition-all"
+                  >
+                    Approve & Publish
+                  </button>
+                )}
+                {allow('Approve') && (
+                  <button
+                    type="button"
+                    onClick={() => handleRequestChanges(selectedItem.id)}
+                    className="rounded-xl border border-slate-300 bg-white hover:bg-slate-50 py-2 px-3 text-xs font-semibold text-slate-700 shadow-2xs transition-all"
+                  >
+                    Request Changes
+                  </button>
+                )}
+                {allow('Approve') && (
+                  <button
+                    type="button"
+                    onClick={() => handleReject(selectedItem.id)}
+                    className="rounded-xl border border-slate-300 bg-white hover:bg-slate-50 py-2 px-3 text-xs font-semibold text-slate-700 shadow-2xs transition-all"
+                  >
+                    Reject
+                  </button>
+                )}
               </div>
             </div>
           )}

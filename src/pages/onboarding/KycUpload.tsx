@@ -23,6 +23,11 @@ import {
 import { useFranchises, type Franchise } from '@/data/franchises'
 import { addKycCase, useKycCases, type KycCase, type KycDoc } from '@/data/kyc'
 import { toast } from '@/components/ui/Toast'
+import { guardAct } from '@/lib/guard'
+import { emitWorkflow } from '@/data/workflow'
+import { apiEnabled } from '@/lib/api'
+import { submitKycCase } from '@/data/onboardingApi'
+import { errMsg } from '@/data/bizApi'
 
 interface UploadedDocState {
   file: File | null
@@ -115,6 +120,7 @@ export default function KycUpload() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    if (!guardAct('Onboarding', 'Create', 'submit KYC')) return
 
     if (!selectedFr) {
       toast('Please select a franchise entity', 'error')
@@ -137,6 +143,29 @@ export default function KycUpload() {
     }
 
     setIsSubmitting(true)
+
+    if (apiEnabled) {
+      // API mode: real case on the server (PAN format + Aadhaar last-4 validated there), documents via POST /files
+      submitKycCase({
+        franchiseId: selectedFr.id,
+        applicant: selectedFr.name,
+        fields: { pan: panNumber.trim().toUpperCase(), entityType, nameOnPan: applicantName.trim(), fatherName: fatherName || undefined, dob, aadhaarLast4: aadhaarLast4.trim(), address },
+        note: note.trim() ? `${note}
+[GST: ${gstin || 'N/A'}, Bank: ${bankName}]` : `Uploaded via KYC Ingestion Portal. Bank: ${bankName}`,
+        docs: [
+          { type: 'PAN Card', file: docs['pan']?.file ?? null, name: docs['pan']?.fileName ?? '' },
+          { type: 'Aadhaar', file: docs['aadhaar']?.file ?? null, name: docs['aadhaar']?.fileName ?? '' },
+          { type: 'Rent Agreement', file: docs['rent']?.file ?? null, name: docs['rent']?.fileName ?? '' },
+        ],
+      })
+        .then((k) => {
+          toast(`KYC Package for ${selectedFr.id} submitted successfully!`)
+          setSuccessModal({ open: true, caseId: k.id })
+        })
+        .catch((err) => toast(`KYC submission failed: ${errMsg(err)}`, 'error'))
+        .finally(() => setIsSubmitting(false))
+      return
+    }
 
     // Build new KYC case
     const now = new Date().toISOString()
@@ -213,6 +242,11 @@ export default function KycUpload() {
 
     setTimeout(() => {
       addKycCase(newCase)
+      emitWorkflow({
+        module: 'Onboarding', event: 'Submit', refId: newCaseId,
+        vars: { Record_ID: newCaseId, Franchise_Name: selectedFr.name, Current_Status: 'KYC submitted', Pending_Action: 'Verify KYC documents' },
+        nextAction: { title: `Verify KYC package ${newCaseId} (${selectedFr.name})` },
+      })
       setIsSubmitting(false)
       toast(`KYC Package for ${selectedFr.id} submitted successfully!`)
       setSuccessModal({ open: true, caseId: newCaseId })

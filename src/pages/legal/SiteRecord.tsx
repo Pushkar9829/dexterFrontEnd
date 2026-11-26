@@ -5,12 +5,15 @@ import { Card, CardHeader } from '@/components/ui/Card'
 import { toast } from '@/components/ui/Toast'
 import { cn } from '@/lib/cn'
 import { downloadCsv } from '@/lib/export'
+import { Can, ViewOnlyNote, guardAct } from '@/lib/guard'
+import { SiteRef } from '@/lib/siteRef'
 import {
   DOC_META, cardNote, docsForSite, eventsForSite, fmtDate, fmtDateTime, getSite, pendingLine, readiness, sendReminder, siteCompliance, useLegal,
   type LegalDoc, type LegalSite, type LegalState,
+  useLegalLoad, legalLoader,
 } from '@/data/legal'
 import { useProjects } from '@/data/projects'
-import { BackLink, Fact, Monogram, StatusBadge, Tabs } from './ui'
+import { BackLink, Fact, LoadNote, Monogram, StatusBadge, Tabs } from './ui'
 
 const TABS = ['Legal summary', 'Site information', 'Franchise details', 'Documents'] as const
 type Tab = (typeof TABS)[number]
@@ -21,6 +24,8 @@ export default function SiteRecord() {
   const state = useLegal()
   const [params, setParams] = useSearchParams()
   const site = getSite(state, siteId)
+  const load = useLegalLoad()
+  if (!site && !load.loaded) return <LoadNote load={load} what="the legal site record" onRetry={() => void legalLoader.reload()} />
   if (!site) return <Navigate to="/legal" replace />
 
   const tab = (TABS.find((t) => t === params.get('tab')) ?? 'Legal summary') as Tab
@@ -30,6 +35,7 @@ export default function SiteRecord() {
   const compliance = siteCompliance(state, site.id)
 
   const exportSummary = () => {
+    if (!guardAct('Legal', 'Export')) return
     downloadCsv(
       `${site.id}-legal-summary`,
       ['Site ID', 'Location', 'Franchise', 'Document', 'Document ID', 'Version', 'Status', 'Note', 'Due'],
@@ -41,15 +47,18 @@ export default function SiteRecord() {
   return (
     <div>
       <BackLink to="/legal">Back to Legal Data</BackLink>
+      <ViewOnlyNote module="Legal" />
       <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">Overview</h1>
           <p className="mt-1 text-[14px] text-muted">Legal summary · One view of site compliance and linked documents</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="secondary" icon={<Download size={16} />} onClick={exportSummary}>
-            Export summary
-          </Button>
+          <Can module="Legal" action="Export">
+            <Button variant="secondary" icon={<Download size={16} />} onClick={exportSummary}>
+              Export summary
+            </Button>
+          </Can>
           <Button icon={<ExternalLink size={16} />} onClick={() => setTab('Site information')}>
             View site details
           </Button>
@@ -65,7 +74,7 @@ export default function SiteRecord() {
               <StatusBadge status={compliance} />
             </div>
             <p className="mt-1 text-[13px] text-ink-2">
-              {site.id} <span className="text-muted">/</span> {site.franchiseName} <span className="text-muted">/</span> {site.city}, {site.state}
+              <SiteRef id={site.id} /> <span className="text-muted">/</span> {site.franchiseName} <span className="text-muted">/</span> {site.city}, {site.state}
             </p>
           </div>
           <div className="text-[12px] text-muted sm:text-right">
@@ -96,7 +105,8 @@ function Summary({ state, site, docs }: { state: LegalState; site: LegalSite; do
   const latestDoc = latest && docs.find((d) => d.id === latest.ref)
   const loi = docs.find((d) => d.kind === 'LOI')
   const remind = () => {
-    pending.forEach((d) => sendReminder(d.id))
+    if (!guardAct('Legal', 'Edit', 'send reminders')) return
+    pending.forEach((d) => void sendReminder(d.id).catch(() => undefined))
     toast(`Reminder sent to ${site.signatory} for ${pending.length} document${pending.length > 1 ? 's' : ''}`)
   }
 
@@ -119,7 +129,7 @@ function Summary({ state, site, docs }: { state: LegalState; site: LegalSite; do
         </Card>
         <Card className="p-5">
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
-            <Fact label="Mapped ATM ID">{site.atmId || 'Not mapped'}</Fact>
+            <Fact label="Mapped ATM ID">{site.atmId ? <SiteRef id={site.atmId} /> : 'Not mapped'}</Fact>
             <Fact label="Franchise ID">
               <Link to={`/franchise/master-data/${site.franchiseId}`} className="hover:text-primary hover:underline">
                 {site.franchiseId}
@@ -162,9 +172,11 @@ function Summary({ state, site, docs }: { state: LegalState; site: LegalSite; do
                   </li>
                 ))}
               </ol>
-              <button onClick={remind} className="mt-3 inline-flex items-center gap-1 text-[13px] font-semibold text-primary hover:underline">
-                Send reminder to {site.signatory} <ArrowRight size={14} />
-              </button>
+              <Can module="Legal" action="Edit">
+                <button onClick={remind} className="mt-3 inline-flex items-center gap-1 text-[13px] font-semibold text-primary hover:underline">
+                  Send reminder to {site.signatory} <ArrowRight size={14} />
+                </button>
+              </Can>
             </>
           ) : (
             <p className="mt-3 text-[13px] text-muted">Nothing is pending with {site.signatory}.</p>
@@ -234,7 +246,7 @@ function SiteInfo({ site, compliance }: { site: LegalSite; compliance: string })
           <MapPin size={17} className="text-primary" /> Site information
         </h3>
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          <Fact label="Site/LOI Number">{site.id}</Fact>
+          <Fact label="Site/LOI Number">{site.siteLoi ?? site.id}</Fact>
           <Fact label="Site location">{site.location}</Fact>
           <Fact label="Compliance">
             <StatusBadge status={compliance} />
@@ -246,7 +258,7 @@ function SiteInfo({ site, compliance }: { site: LegalSite; compliance: string })
           <Fact label="City">{site.city}</Fact>
           <Fact label="State">{site.state}</Fact>
           <Fact label="Model">{site.model}</Fact>
-          <Fact label="Mapped ATM ID">{site.atmId || 'Not mapped'}</Fact>
+          <Fact label="Mapped ATM ID">{site.atmId ? <SiteRef id={site.atmId} /> : 'Not mapped'}</Fact>
           <Fact label="ATM mapped on">{site.atmMappedOn ? fmtDate(site.atmMappedOn) : '—'}</Fact>
           <Fact label="Site record created">{fmtDate(site.createdOn)}</Fact>
           <Fact label="Record owner">{site.owner}</Fact>

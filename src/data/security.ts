@@ -1,15 +1,17 @@
 // Security Framework (19.11.2026) — shared mock model for login, MFA, sessions, devices,
 // lockout, alerts, policy administration and backups. The real enforcement belongs on the
 // server (spec §6, §14, §22); this store only simulates it for the UI / UAT walkthrough.
+import { useEffect, useState } from 'react'
 import { createStore } from '@/lib/store'
 import type { Role } from '@/lib/rbac'
+import { apiEnabled, get, patch, post } from '@/lib/api'
 
 export const nowIso = () => new Date().toISOString()
 let seq = 0
 export const sid = (p: string) => `${p}-${Date.now().toString(36).toUpperCase()}${(seq++).toString(36).toUpperCase()}`
 
 // ── Central policy (§20 + the open decisions in §24) ─────────────────────
-export type SecondSystemBehaviour = 'Block' | 'Approved Session Transfer'
+export type SecondSystemBehaviour = 'Block' | 'Approved Session Transfer' | 'Replace Previous'
 export type SecurityPolicy = {
   minPasswordLength: number
   requireUpper: boolean
@@ -221,7 +223,7 @@ function seed(): SecurityState {
     L(8, accounts[3], '2026-11-22T09:15:00.000Z', 'MFA Failed', '103.21.58.31', 'Noida, Uttar Pradesh', 'Windows · Chrome 131', 'Wrong OTP'),
   ]
   const sessions: ActiveSession[] = [
-    { id: 'SES-7001', accountId: 'USR-001', name: 'Paras Dubey', role: 'Super Admin', device: 'Windows PC (Office-07)', browser: 'Chrome 131 · 3 tabs', ip: '103.21.58.14', location: 'Noida, UP', startedAt: '2026-11-23T04:10:00.000Z', lastActiveAt: '2026-11-23T05:02:00.000Z', status: 'Active' },
+    { id: 'SES-7001', accountId: 'USR-001', name: 'Paras Dubey', role: 'Super Admin', device: 'Windows PC (Office-07)', browser: 'Chrome 131 · 3 tabs', ip: '103.21.58.14', location: 'Noida, UP', startedAt: '2026-11-23T04:10:00.000Z', lastActiveAt: '2026-11-23T05:02:00.000Z', status: 'Terminated' },
     { id: 'SES-7002', accountId: 'USR-003', name: 'Vikram Mehta', role: 'Operations Team', device: 'iPhone 14', browser: 'Dexter App 2.4', ip: '49.36.112.7', location: 'Gurugram, HR', startedAt: '2026-11-23T03:20:00.000Z', lastActiveAt: '2026-11-23T04:48:00.000Z', status: 'Active' },
     { id: 'SES-7007', accountId: 'USR-002', name: 'Meera Iyer', role: 'Admin', device: 'MacBook Air', browser: 'Safari 18 · 1 tab', ip: '103.21.58.20', location: 'Noida, UP', startedAt: '2026-11-22T11:00:00.000Z', lastActiveAt: '2026-11-22T13:40:00.000Z', status: 'Idle' },
   ]
@@ -238,7 +240,7 @@ function seed(): SecurityState {
   ]
   return { accounts, devices, logins, sessions, alerts, audit: [], backups }
 }
-export const securityStore = createStore<SecurityState>('dexter.security.v1', seed)
+export const securityStore = createStore<SecurityState>('dexter.security.v2', seed)
 export const useSecurity = () => securityStore.use()
 
 export function logSecurity(e: Omit<SecurityAuditEvent, 'id' | 'at'>) {
@@ -260,4 +262,152 @@ export function recordLogin(e: Omit<LoginEvent, 'id' | 'at' | 'sessionId'>) {
   const ev: LoginEvent = { id: sid('LG'), at: nowIso(), sessionId: sid('SES'), ...e }
   securityStore.set((s) => ({ ...s, logins: [ev, ...s.logins].slice(0, 2000) }))
   return ev
+}
+
+// ── API mode (backend /security, /users, /audit) ─────────────────────────
+// The store keeps its shape; `loadSecurity()` fills it from the server and the `securityApi` mutations
+// call the backend and then reload the affected slice. Backups have no endpoint yet (stay local).
+type Page<T> = { items: T[]; total: number }
+type ApiUserRow = { userId: string; name: string; role: string; mobile: string; email: string; status: SecurityAccount['status']; failedAttempts?: number; lockedAt?: string; lockReason?: string; mfaMethod?: MfaMethod; mfaEnrolled?: boolean; mustChangePassword?: boolean; passwordChangedAt?: string; lastLoginAt?: string; franchiseId?: string; employeeId?: string }
+type ApiDevice = { deviceId: string; userId: string; platform: string; model: string; imei?: string; deviceIdentifier: string; attestation?: Device['attestation']; rooted?: boolean; status: Device['status']; registeredAt: string; approvedBy?: string; lastSeenAt: string }
+type ApiSession = { sessionId: string; userId: string; name: string; role: string; device: string; userAgent?: string; ip?: string; location?: string; startedAt: string; lastSeenAt: string; status: 'Active' | 'Revoked'; revokedReason?: string }
+type ApiLogin = { _id?: string; userId: string; name: string; at: string; logoutAt?: string; ip?: string; location?: string; device?: string; sessionId?: string; status: LoginEvent['status']; reason?: string }
+type ApiAlert = { alertId: string; at: string; kind: SecurityAlert['kind']; userId: string; name: string; detail: string; severity: SecurityAlert['severity']; status: SecurityAlert['status']; notified?: string[] }
+type ApiAudit = { _id: string; at: string; actor?: { name?: string }; action: string; entity?: string; ref?: string; detail?: string; ip?: string; outcome?: string }
+
+export const toAccount = (u: ApiUserRow): SecurityAccount => ({
+  id: u.userId, name: u.name, role: u.role, mobile: u.mobile, email: u.email, status: u.status, failedAttempts: u.failedAttempts ?? 0, lockedAt: u.lockedAt, lockReason: u.lockReason,
+  mfaMethod: u.mfaMethod ?? 'Email OTP', mfaEnrolled: u.mfaEnrolled ?? true, mustChangePassword: !!u.mustChangePassword, passwordChangedAt: u.passwordChangedAt ?? '', lastLoginAt: u.lastLoginAt,
+})
+const toDevice = (d: ApiDevice): Device => ({
+  id: d.deviceId, accountId: d.userId, platform: (['Android', 'iOS', 'Windows', 'macOS'].includes(d.platform) ? d.platform : 'Windows') as Device['platform'], model: d.model, imei: d.imei, deviceIdentifier: d.deviceIdentifier,
+  attestation: d.attestation ?? 'Not supported', rooted: !!d.rooted, status: d.status, registeredAt: d.registeredAt, approvedBy: d.approvedBy, lastSeenAt: d.lastSeenAt,
+})
+function toSession(x: ApiSession, idleMin: number): ActiveSession {
+  const idle = Date.now() - new Date(x.lastSeenAt).getTime() > idleMin * 60_000
+  return {
+    id: x.sessionId, accountId: x.userId, name: x.name, role: x.role, device: x.device, browser: x.userAgent ?? '', ip: x.ip ?? '', location: x.location ?? '',
+    startedAt: x.startedAt, lastActiveAt: x.lastSeenAt, status: x.status === 'Revoked' ? 'Terminated' : idle ? 'Idle' : 'Active',
+  }
+}
+const toLogin = (l: ApiLogin, i: number): LoginEvent => ({ id: l._id ?? `LG-${i}`, accountId: l.userId, name: l.name, at: l.at, logoutAt: l.logoutAt, ip: l.ip ?? '', location: l.location ?? '', device: l.device ?? '', sessionId: l.sessionId ?? '', status: l.status, reason: l.reason })
+const toAlert = (a: ApiAlert): SecurityAlert => ({ id: a.alertId, at: a.at, kind: a.kind, accountId: a.userId, name: a.name, detail: a.detail, severity: a.severity, status: a.status, notified: a.notified ?? [] })
+const toAudit = (a: ApiAudit): SecurityAuditEvent => ({ id: a._id, at: a.at, actor: a.actor?.name ?? 'System', action: a.action, target: [a.entity, a.ref].filter(Boolean).join(' '), detail: a.detail, ip: a.ip })
+
+const all = { limit: 200 }
+/** Security policy (GET /security/settings — Super Admin / Admin). */
+export async function loadPolicy() {
+  const p = await get<Partial<SecurityPolicy>>('/security/settings')
+  policyStore.set((cur) => ({ ...cur, ...p }))
+  return policyStore.get()
+}
+export async function loadAccounts() {
+  const r = await get<Page<ApiUserRow>>('/users', all)
+  securityStore.set((s) => ({ ...s, accounts: r.items.map(toAccount) }))
+}
+export async function loadDevices() {
+  const r = await get<Page<ApiDevice>>('/security/devices', all)
+  securityStore.set((s) => ({ ...s, devices: r.items.map(toDevice) }))
+}
+export async function loadSessions() {
+  const r = await get<Page<ApiSession>>('/security/sessions', { ...all, sort: '-lastSeenAt' })
+  const idle = policyStore.get().sessionIdleMinutes
+  securityStore.set((s) => ({ ...s, sessions: r.items.map((x) => toSession(x, idle)) }))
+}
+export async function loadLogins() {
+  const r = await get<Page<ApiLogin>>('/security/login-events', { ...all, sort: '-at' })
+  securityStore.set((s) => ({ ...s, logins: r.items.map(toLogin) }))
+}
+export async function loadAlerts() {
+  const r = await get<Page<ApiAlert>>('/security/alerts', { ...all, sort: '-at' })
+  securityStore.set((s) => ({ ...s, alerts: r.items.map(toAlert) }))
+}
+export async function loadSecurityAudit() {
+  const r = await get<Page<ApiAudit>>('/audit', { ...all, category: 'security', sort: '-at' })
+  securityStore.set((s) => ({ ...s, audit: r.items.map(toAudit) }))
+}
+
+/** Hydrate everything the Security pages show. Failing slices are reported, the others still load. */
+export async function loadSecurity() {
+  if (!apiEnabled) return []
+  await loadPolicy().catch(() => undefined)
+  const res = await Promise.allSettled([loadAccounts(), loadDevices(), loadSessions(), loadLogins(), loadAlerts(), loadSecurityAudit()])
+  return res.filter((r): r is PromiseRejectedResult => r.status === 'rejected').map((r) => (r.reason as Error)?.message ?? 'Load failed')
+}
+
+/** Page hook: loads the security data once per mount in API mode. */
+export function useSecurityLoad() {
+  const [state, setState] = useState<{ loading: boolean; error: string | null }>({ loading: apiEnabled, error: null })
+  const reload = () => {
+    if (!apiEnabled) return
+    setState((s) => ({ ...s, loading: true }))
+    loadSecurity()
+      .then((errs) => setState({ loading: false, error: errs.length ? errs[0] : null }))
+      .catch((e: Error) => setState({ loading: false, error: e.message }))
+  }
+  useEffect(reload, [])
+  return { ...state, reload }
+}
+
+/** Backend mutations (API mode). Each refreshes the slice it changed. */
+export const securityApi = {
+  savePolicy: async (p: Partial<SecurityPolicy>) => {
+    const body: Partial<SecurityPolicy> = { ...p }
+    delete body.updatedAt
+    delete body.updatedBy
+    const r = await patch<Partial<SecurityPolicy>>('/security/settings', body)
+    policyStore.set((cur) => ({ ...cur, ...r }))
+  },
+  unlock: async (userId: string, reason?: string) => {
+    await post(`/security/users/${encodeURIComponent(userId)}/unlock`, { reason })
+    await loadAccounts()
+  },
+  disableUser: async (userId: string, reason?: string) => {
+    await post(`/users/${encodeURIComponent(userId)}/disable`, { reason })
+    await Promise.all([loadAccounts(), loadSessions()])
+  },
+  enableUser: async (userId: string, reason?: string) => {
+    await post(`/users/${encodeURIComponent(userId)}/enable`, { reason })
+    await loadAccounts()
+  },
+  /** POST /users/:id/block {reason} → Blocked (≠ Locked / Disabled), sessions ended; /enable refuses a blocked user. */
+  blockUser: async (userId: string, reason: string) => {
+    await post(`/users/${encodeURIComponent(userId)}/block`, { reason })
+    await Promise.all([loadAccounts(), loadSessions()])
+  },
+  /** POST /users/:id/unblock {reason} → Active, failed attempts reset. */
+  unblockUser: async (userId: string, reason: string) => {
+    await post(`/users/${encodeURIComponent(userId)}/unblock`, { reason })
+    await loadAccounts()
+  },
+  /** POST /users/:id/mfa/reset {reason, mfaMethod?} — clears the enrolment, ends sessions; next sign-in asks for the OTP and re-enrols. */
+  resetMfa: async (userId: string, reason: string, mfaMethod?: MfaMethod) => {
+    await post(`/users/${encodeURIComponent(userId)}/mfa/reset`, { reason, ...(mfaMethod ? { mfaMethod } : {}) })
+    await Promise.all([loadAccounts(), loadSessions()])
+  },
+  resetPassword: async (userId: string) => {
+    const r = await post<{ temporaryPassword?: string }>(`/users/${encodeURIComponent(userId)}/reset-password`)
+    await loadAccounts()
+    return r?.temporaryPassword
+  },
+  approveDevice: async (id: string) => {
+    await post(`/security/devices/${encodeURIComponent(id)}/approve`)
+    await loadDevices()
+  },
+  rejectDevice: async (id: string) => {
+    await post(`/security/devices/${encodeURIComponent(id)}/reject`)
+    await loadDevices()
+  },
+  deactivateDevice: async (id: string) => {
+    await post(`/security/devices/${encodeURIComponent(id)}/deactivate`)
+    await Promise.all([loadDevices(), loadSessions()])
+  },
+  terminateSession: async (id: string) => {
+    await post(`/security/sessions/${encodeURIComponent(id)}/terminate`)
+    await loadSessions()
+  },
+  setAlertStatus: async (id: string, status: 'Acknowledged' | 'Resolved') => {
+    await patch(`/security/alerts/${encodeURIComponent(id)}`, { status })
+    await loadAlerts()
+  },
 }

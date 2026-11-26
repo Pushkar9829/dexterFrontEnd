@@ -1,8 +1,8 @@
+import { lazy } from 'react'
 import { Route } from 'react-router-dom'
-import EmailHub from './EmailHub'
-import Mailbox from './Mailbox'
-import { CaseEmailRoute } from './CaseEmail'
-
+const EmailHub = lazy(() => import('./EmailHub'))
+const Mailbox = lazy(() => import('./Mailbox'))
+const CaseEmailRoute = lazy(() => import('./CaseEmail').then((m) => ({ default: m.CaseEmailRoute })))
 export const emailRoutes = [
   <Route key="email-hub" path="/email" element={<EmailHub />} />,
   <Route key="email-inbox" path="/email/inbox" element={<Mailbox key="inbox" folder="inbox" />} />,

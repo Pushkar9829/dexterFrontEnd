@@ -5,9 +5,10 @@ import { Button } from '@/components/ui/Button'
 import { SectionTitle, SelectField, TextAreaField, TextField, fmtSize } from '@/components/ui/Form'
 import { toast } from '@/components/ui/Toast'
 import { cn } from '@/lib/cn'
+import { guardAct, useCanIn } from '@/lib/guard'
+import { allSites, franchiseNameOf, resolveSite } from '@/lib/siteRef'
 import {
   ATM_MASTER,
-  CATEGORIES,
   COMPONENTS,
   CURRENT_USER,
   DEFAULT_COMPONENT,
@@ -35,9 +36,14 @@ import {
   type Priority,
 } from '@/data/complaints'
 import { recStore } from '@/data/complaintsAi'
+import { siteByAtm, useSites } from '@/data/network'
+import { getFranchise } from '@/data/franchises'
+import { emitWorkflow, fundingOf, logAudit, useHierarchy } from '@/data/workflow'
+import { evidenceKind, issueKey, opsCan, saveLink, useComplaintMaster, usePermState, type AssignTeam } from '@/pages/operations/intel/opsData'
 import { ComplaintsShell, BASE } from './shared'
+import { apiEnabled, addComplaintUpdateAsync, assignComplaintAsync, closeComplaintAsync, createComplaintAsync, resolveComplaintAsync } from '@/data/complaintsApi'
 
-type Att = { name: string; size: number }
+type Att = { name: string; size: number; file?: File } // file kept in memory for the API upload
 type FormState = {
   reportingAuthority: string
   atmId: string
@@ -58,10 +64,13 @@ type FormState = {
   redressalDate: string
   outcomeDate: string
   outcomeRemark: string
+  siteId: string // Site Master reference (§12 site mapping)
+  team: AssignTeam
+  assigneeId: string // hierarchy employee (CRM / Field)
 }
 
-const ISSUE_OPTIONS = Object.entries(CATEGORIES).flatMap(([c, subs]) => subs.map((s) => `${c} / ${s}`))
 const MAX_MB = 5
+const MAX_VIDEO_MB = 25
 
 const today = () => istDay(nowMs())
 const tomorrow = () => istDay(nowMs() + 86_400_000)
@@ -85,6 +94,9 @@ const blank = (): FormState => ({
   redressalDate: '',
   outcomeDate: '',
   outcomeRemark: '',
+  siteId: '',
+  team: 'CRM',
+  assigneeId: '',
 })
 const clock = (ms: number) => new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true }).format(ms)
 
@@ -133,7 +145,13 @@ function AtmPicker({ value, onChange, error }: { value: string; onChange: (v: st
   }, [])
   const list = useMemo(() => {
     const s = q.trim().toLowerCase()
-    return ATM_MASTER.filter((a) => !s || a.atmId.toLowerCase().includes(s) || a.siteName.toLowerCase().includes(s) || a.siteId.toLowerCase().includes(s)).slice(0, 8)
+    // every Site Master site can be picked (ATM_MASTER demo assets first, then the rest of the Site Master)
+    const demo = new Set(ATM_MASTER.map((a) => a.siteId))
+    const sites = [...allSites().filter((x) => demo.has(x.siteId)), ...allSites().filter((x) => !demo.has(x.siteId))]
+    return sites
+      .filter((x) => !s || x.atmId.toLowerCase().includes(s) || x.siteId.toLowerCase().includes(s) || x.location.toLowerCase().includes(s) || x.district.toLowerCase().includes(s))
+      .slice(0, 8)
+      .map((x) => ({ atmId: x.atmId, siteId: x.siteId, siteName: x.location, city: x.district, franchise: franchiseNameOf(x) }))
   }, [q])
   return (
     <div ref={ref} className="relative">
@@ -155,10 +173,15 @@ function AtmPicker({ value, onChange, error }: { value: string; onChange: (v: st
             if (value) onChange('')
           }}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && list[0]) {
-              e.preventDefault()
-              onChange(list[0].atmId)
-              setOpen(false)
+            if (e.key === 'Enter') {
+              // exact Site ID / ATM ID typed → resolve via the Site Master, else take the first match
+              const exact = resolveSite(q)
+              const pick = exact?.atmId ?? list[0]?.atmId
+              if (pick) {
+                e.preventDefault()
+                onChange(pick)
+                setOpen(false)
+              }
             }
           }}
           placeholder="Type an ATM ID or site name"
@@ -190,7 +213,7 @@ function AtmPicker({ value, onChange, error }: { value: string; onChange: (v: st
           ))}
         </ul>
       )}
-      <p className={cn('mt-1 text-[11px]', error ? 'text-brand-red' : 'text-muted')}>{error ?? 'Type an ATM ID or site name · Matching master records below'}</p>
+      <p className={cn('mt-1 text-[11px]', error ? 'text-brand-red' : 'text-muted')}>{error ?? 'Type an ATM ID, Site ID or site name · Site Master records below'}</p>
     </div>
   )
 }
@@ -203,11 +226,13 @@ function Attachments({ value, onChange }: { value: Att[]; onChange: (v: Att[]) =
     const ok: Att[] = []
     const bad: string[] = []
     Array.from(files).forEach((f) => {
-      if (!/\.(jpe?g|png|pdf)$/i.test(f.name)) bad.push(`${f.name} (type)`)
-      else if (f.size > MAX_MB * 1024 * 1024) bad.push(`${f.name} (over ${MAX_MB} MB)`)
-      else ok.push({ name: f.name, size: f.size })
+      const kind = evidenceKind(f.name)
+      const limit = kind === 'Video' ? MAX_VIDEO_MB : MAX_MB
+      if (!kind) bad.push(`${f.name} (type)`)
+      else if (f.size > limit * 1024 * 1024) bad.push(`${f.name} (over ${limit} MB)`)
+      else ok.push({ name: f.name, size: f.size, file: f })
     })
-    setErr(bad.length ? `Not attached: ${bad.join(', ')}. Use JPG, PNG or PDF up to ${MAX_MB} MB.` : '')
+    setErr(bad.length ? `Not attached: ${bad.join(', ')}. Use a photo (JPG, PNG, WEBP) or PDF up to ${MAX_MB} MB, or a video (MP4, MOV, WEBM) up to ${MAX_VIDEO_MB} MB.` : '')
     if (ok.length) onChange([...value, ...ok.filter((o) => !value.some((v) => v.name === o.name))])
   }
   return (
@@ -229,12 +254,12 @@ function Attachments({ value, onChange }: { value: Att[]; onChange: (v: Att[]) =
           <UploadCloud size={16} />
         </span>
         <div className="min-w-0">
-          <div className="text-[12px] font-medium text-primary">Click to upload or drag a file · Add issue evidence</div>
+          <div className="text-[12px] font-medium text-primary">Click to upload or drag a file · Add issue evidence (photo / video / PDF)</div>
           <div className="text-[11px] text-muted">
-            JPG, PNG or PDF · Up to 5 MB each · {value.length ? `${value.length} file${value.length > 1 ? 's' : ''} attached` : 'No files attached'}
+            Photo or PDF up to {MAX_MB} MB · Video up to {MAX_VIDEO_MB} MB · {value.length ? `${value.length} file${value.length > 1 ? 's' : ''} attached` : 'No files attached'}
           </div>
         </div>
-        <input ref={ref} type="file" multiple accept=".jpg,.jpeg,.png,.pdf" className="hidden" onChange={(e) => {
+        <input ref={ref} type="file" multiple accept=".jpg,.jpeg,.png,.webp,.heic,.pdf,.mp4,.mov,.webm,.3gp" className="hidden" onChange={(e) => {
             take(e.target.files)
             e.target.value = ''
           }} />
@@ -246,6 +271,7 @@ function Attachments({ value, onChange }: { value: Att[]; onChange: (v: Att[]) =
             <li key={f.name} className="flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50/50 px-2.5 py-1.5 text-[12px]">
               <FileText size={14} className="text-emerald-600" />
               <span className="max-w-48 truncate">{f.name}</span>
+              <span className="text-[10px] font-semibold text-emerald-700 uppercase">{evidenceKind(f.name)}</span>
               <span className="text-muted">{fmtSize(f.size)}</span>
               <button type="button" aria-label={`Remove ${f.name}`} onClick={() => onChange(value.filter((x) => x.name !== f.name))} className="text-muted hover:text-brand-red">
                 <X size={13} />
@@ -258,12 +284,94 @@ function Attachments({ value, onChange }: { value: Att[]; onChange: (v: Att[]) =
   )
 }
 
+/** Site Master mapping (§12 / §13.2): Site ID / ATM ID from the central Site Master, never a local copy. */
+function SitePicker({ value, onChange, suggested, error }: { value: string; onChange: (v: string) => void; suggested?: string; error?: string }) {
+  const { sites } = useSites()
+  const [q, setQ] = useState('')
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const onDoc = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && setOpen(false)
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [])
+  const sel = sites.find((s) => s.siteId === value)
+  const list = useMemo(() => {
+    const s = q.trim().toLowerCase()
+    return sites.filter((x) => !s || x.atmId.toLowerCase().includes(s) || x.siteId.toLowerCase().includes(s) || x.location.toLowerCase().includes(s) || x.district.toLowerCase().includes(s)).slice(0, 8)
+  }, [q, sites])
+  return (
+    <div ref={ref} className="relative sm:col-span-2 lg:col-span-3">
+      <label htmlFor="siteMaster" className="mb-1.5 block text-[12px] font-semibold text-ink">
+        Site Master mapping *
+      </label>
+      {sel ? (
+        <div className={cn('flex min-h-9 flex-wrap items-center gap-x-3 gap-y-1 rounded-md border bg-surface px-3 py-1.5 text-[12.5px]', error ? 'border-brand-red' : 'border-line-soft')}>
+          <span className="font-semibold text-ink">{sel.siteId}</span>
+          <span>ATM {sel.atmId}</span>
+          <span>
+            {sel.location}, {sel.district}
+          </span>
+          <span>FR {getFranchise(sel.frId)?.name ?? sel.frId}</span>
+          <span className="rounded bg-primary-soft px-1.5 text-[11px] font-medium text-primary">{fundingOf(sel.siteType)}</span>
+          <span className={sel.operational ? 'text-emerald-700' : 'text-amber-700'}>{sel.operational ? 'Operational' : 'Not operational'}</span>
+          <button type="button" onClick={() => onChange('')} className="ml-auto text-[11.5px] font-medium text-primary hover:underline">
+            Change
+          </button>
+        </div>
+      ) : (
+        <div className={cn('flex h-9 items-center gap-2 rounded-md border bg-white px-3 focus-within:border-primary', error ? 'border-brand-red' : 'border-line')}>
+          <input
+            id="siteMaster"
+            role="combobox"
+            aria-expanded={open}
+            aria-controls="site-list"
+            autoComplete="off"
+            value={q}
+            onFocus={() => setOpen(true)}
+            onChange={(e) => {
+              setQ(e.target.value)
+              setOpen(true)
+            }}
+            placeholder="Search Site Master by ATM ID, Site ID or location"
+            className="w-full bg-transparent text-[13px] outline-none placeholder:text-muted/70"
+          />
+        </div>
+      )}
+      {open && !sel && (
+        <ul id="site-list" role="listbox" className="absolute top-[62px] right-0 left-0 z-30 max-h-64 overflow-y-auto rounded-lg border border-line bg-white p-1 shadow-lg">
+          {list.length === 0 && <li className="px-3 py-2 text-[12px] text-muted">No matching site in Site Master</li>}
+          {list.map((x) => (
+            <li key={x.siteId} role="option" aria-selected={false}>
+              <button
+                type="button"
+                onClick={() => {
+                  onChange(x.siteId)
+                  setOpen(false)
+                  setQ('')
+                }}
+                className="flex w-full rounded px-3 py-1.5 text-left text-[12px] text-ink hover:bg-surface"
+              >
+                {x.siteId} · ATM {x.atmId} · {x.location}, {x.district} · {fundingOf(x.siteType)}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className={cn('mt-1 text-[11px]', error ? 'text-brand-red' : 'text-muted')}>
+        {error ?? (suggested && suggested === value ? 'Auto-mapped from Site Master by ATM ID' : 'Site ID / ATM ID, franchise and funding model come from Site Master (§13.2)')}
+      </p>
+    </div>
+  )
+}
+
 export default function CreateComplaint() {
   const nav = useNavigate()
   const initialDraft = draftStore.get()
   const [f, setF] = useState<FormState>(() => ({ ...blank(), ...((initialDraft ?? {}) as Partial<FormState>) }))
   const [savedAt, setSavedAt] = useState<number | null>(initialDraft?.savedAt ?? null)
   const [tried, setTried] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
   const lastSaved = useRef(JSON.stringify(f))
 
   // autosave draft (debounced) — only when the form actually changed
@@ -280,15 +388,35 @@ export default function CreateComplaint() {
   }, [f])
 
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setF((x) => ({ ...x, [k]: v }))
+  const master = useComplaintMaster()
+  const hierarchy = useHierarchy()
+  const { sites } = useSites()
+  const perms = usePermState()
+  const allow = useCanIn('Complaints')
+  const canClose = opsCan('Complaint', 'Close', perms) && allow('Close')
+  const issueOptions = useMemo(() => {
+    const act = master.filter((c) => c.active).map(issueKey)
+    return f.issue && !act.includes(f.issue) ? [f.issue, ...act] : act
+  }, [master, f.issue])
   const atm = atmById(f.atmId)
   const [category, subcategory] = f.issue ? f.issue.split(' / ') : ['', '']
+  const cat = category ? master.find((c) => c.category === category && c.subcategory === subcategory) : undefined
+  const site = sites.find((s) => s.siteId === f.siteId)
+  const assignees = hierarchy.employees.filter((e) => e.status === 'Active' && ['Operations', 'Administration', 'Management'].includes(e.department))
+  const assignee = assignees.find((e) => e.id === f.assigneeId)
+  const slaH = f.priority ? (cat?.sla[f.priority] ?? SLA_HOURS[f.priority]) : 0
   const chain = f.department ? escalationChain(f.department, atm) : []
   const receivedIso = f.receivedDate ? (f.receivedDate === today() ? new Date(nowMs()).toISOString() : ist(f.receivedDate, '10:00')) : ''
-  const dueMs = f.priority && receivedIso ? Date.parse(receivedIso) + SLA_HOURS[f.priority] * 3_600_000 : null
+  const dueMs = f.priority && receivedIso ? Date.parse(receivedIso) + slaH * 3_600_000 : null
+  const pickAtm = (v: string) =>
+    setF((s) => {
+      const auto = v ? siteByAtm(v)?.siteId : undefined
+      return { ...s, atmId: v, siteId: auto ?? (v ? s.siteId : '') }
+    })
 
   const errors: Partial<Record<keyof FormState, string>> = {}
   if (!f.reportingAuthority) errors.reportingAuthority = 'Select the reporting authority'
-  if (!atm) errors.atmId = 'Select an ATM ID from master data'
+  if (!atm || !resolveSite(f.atmId)) errors.atmId = 'Select an ATM ID from the Site Master'
   if (!f.receivedDate) errors.receivedDate = 'Enter the receiving date'
   else if (f.receivedDate > today()) errors.receivedDate = 'Receiving date cannot be in the future'
   if (!f.issue) errors.issue = 'Select the issue category'
@@ -299,8 +427,11 @@ export default function CreateComplaint() {
   if (!f.forwardedOn) errors.forwardedOn = 'Enter the forwarding date'
   else if (f.receivedDate && f.forwardedOn < f.receivedDate) errors.forwardedOn = 'Cannot be before the receiving date'
   if (!f.department) errors.department = 'Select the concerned department'
+  if (!site) errors.siteId = 'Map the complaint to a Site Master record'
+  if (!assignee) errors.assigneeId = 'Assign a CRM / Field employee'
   if (f.reminderDate && f.receivedDate && f.reminderDate < f.receivedDate) errors.reminderDate = 'Reminder cannot be before the receiving date'
   if (f.status === 'Close') {
+    if (!canClose) errors.status = 'Only an authorized user (Complaint › Close permission) can close a complaint'
     if (!f.redressalDate) errors.redressalDate = 'Required to close the complaint'
     if (!f.outcomeDate) errors.outcomeDate = 'Required to close the complaint'
     if (!f.outcomeRemark.trim()) errors.outcomeRemark = 'Required to close the complaint'
@@ -315,7 +446,9 @@ export default function CreateComplaint() {
     toast('Draft saved · not included in complaint totals', 'info')
   }
 
-  const submit = () => {
+  const submit = async () => {
+    if (!guardAct('Complaints', 'Create', 'create complaints')) return
+    if (f.status === 'Close' && !guardAct('Complaints', 'Close', 'close complaints')) return
     setTried(true)
     const n = Object.keys(errors).length
     if (n) {
@@ -330,6 +463,46 @@ export default function CreateComplaint() {
     const closed = f.status === 'Close'
     const taskId = f.linkTask && f.reminderDate ? nextTaskId(recStore.get().flatMap((r) => (r.taskId ? [r.taskId] : []))) : null
     const lastAction = f.remark.trim() || 'Complaint registered'
+    if (apiEnabled) {
+      // Backend: register (Site Master validated, SLA + routing server-side) → assign → optional closure.
+      if (submitting) return
+      setSubmitting(true)
+      let created: Complaint
+      try {
+        created = await createComplaintAsync({
+          atmId: site!.atmId, category, subcategory, priority: pr, title: f.title.trim(), details: f.details.trim(),
+          reportingAuthority: f.reportingAuthority || undefined, component: f.component || undefined, department: dept,
+          receivedAt: receivedIso, files: f.attachments.flatMap((a) => (a.file instanceof File ? [a.file] : [])),
+        })
+      } catch {
+        setSubmitting(false)
+        return
+      }
+      try {
+        await assignComplaintAsync(created, assignee!.name, f.remark.trim() || undefined)
+        if (f.remark.trim()) await addComplaintUpdateAsync(created.id, { kind: 'Note', text: f.remark.trim() })
+        if (closed) {
+          await resolveComplaintAsync(created.id, { outcome: 'Resolved', note: f.outcomeRemark.trim() || 'Resolved at registration' })
+          await closeComplaintAsync(created.id, { hdValidation: true, frSignOff: true, note: f.outcomeRemark.trim() || undefined })
+        }
+      } catch {
+        /* already toasted — the complaint itself is registered, continue to it */
+      }
+      saveLink(
+        created.id,
+        {
+          siteId: site!.siteId, frId: site!.frId, fundingModel: fundingOf(site!.siteType), categoryCode: cat?.code, slaHours: slaH, team: f.team, assigneeId: assignee!.id,
+          evidence: f.attachments.map((a) => ({ name: a.name, size: a.size, kind: evidenceKind(a.name) ?? 'PDF' })),
+        },
+        `Registered on the server · assigned to ${assignee!.name}`,
+      )
+      setSubmitting(false)
+      draftStore.set(null)
+      setLastOpened(created.id)
+      toast(`${created.id} registered · assigned to ${assignee!.name}`)
+      nav(`${BASE}/${created.id}`)
+      return
+    }
     const c: Complaint = {
       id,
       receivedAt: receivedIso,
@@ -346,7 +519,7 @@ export default function CreateComplaint() {
       forwardedOn: f.forwardedOn,
       department: dept,
       docket: f.docket.trim() || 'NA',
-      owner: CURRENT_USER,
+      owner: assignee!.name,
       status: closed ? 'Closed' : 'Open',
       subStatus: closed ? 'Resolved' : 'Assigned',
       respondedAt: nowIso,
@@ -374,15 +547,46 @@ export default function CreateComplaint() {
       audit: [
         { at: nowIso, title: 'Complaint registered', meta: `${CURRENT_USER} · ${channelFor(f.reportingAuthority)} · ${atm!.complainant} · Owner auto-assigned` },
         { at: nowIso, title: 'Routing applied', meta: `System · ${dept} escalation matrix · L1 ${chain[0]?.person}` },
+        { at: nowIso, title: 'Site Master mapped', meta: `${CURRENT_USER} · ${site!.siteId} · ATM ${site!.atmId} · ${fundingOf(site!.siteType)}` },
+        { at: nowIso, title: `Assigned to ${assignee!.name}`, meta: `${CURRENT_USER} · ${f.team} team · ${assignee!.designation} · Category SLA ${slaH}h${cat ? ` (${cat.code})` : ''}` },
+        ...(f.attachments.length ? [{ at: nowIso, title: 'Evidence attached', meta: f.attachments.map((a) => `${evidenceKind(a.name)}: ${a.name}`).join(' · ') }] : []),
         ...(taskId ? [{ at: nowIso, title: 'Follow-up task linked', meta: `${CURRENT_USER} · ${taskId} · Due ${fmtDate(ist(f.reminderDate, '10:00'))}` }] : []),
         ...(closed ? [{ at: nowIso, title: 'Complaint closed at registration', meta: `${CURRENT_USER} · ${f.outcomeRemark.trim()}` }] : []),
       ],
       ai: closed ? undefined : { ...aiDefault({ category, subcategory, priority: pr }, pr === 'Critical' ? 70 : pr === 'High' ? 55 : 35), updated: nowIso },
     }
     complaintStore.set((xs) => [c, ...xs])
+    // §12 → §14: Complaint Master record drives Task Management + Email (template COMPLAINT_ASSIGN, hierarchy recipients).
+    const fr = getFranchise(site!.frId)
+    const wfTask = closed
+      ? undefined
+      : emitWorkflow({
+          module: 'Complaint',
+          event: 'Assign',
+          refId: id,
+          vars: { Site_ID: site!.siteId, ATM_ID: site!.atmId, Franchise_Name: fr?.name ?? site!.frId, Current_Status: 'Assigned', Pending_Action: `Resolve complaint – ${c.title}` },
+          nextAction: { title: `Resolve complaint ${id} · ${category} / ${subcategory}`, ownerId: assignee!.id, dueHours: slaH, priority: pr },
+        })
+    saveLink(
+      id,
+      {
+        siteId: site!.siteId,
+        frId: site!.frId,
+        fundingModel: fundingOf(site!.siteType),
+        categoryCode: cat?.code,
+        slaHours: slaH,
+        team: f.team,
+        assigneeId: assignee!.id,
+        evidence: f.attachments.map((a) => ({ name: a.name, size: a.size, kind: evidenceKind(a.name) ?? 'PDF' })),
+        taskId: wfTask?.id,
+        ...(closed ? { closedBy: CURRENT_USER, closedAt: nowIso, closureNote: f.outcomeRemark.trim() } : {}),
+      },
+      closed ? 'Registered and closed at registration by authorized user' : `Registered · assigned to ${assignee!.name} · task ${wfTask?.id ?? '—'} due in ${slaH}h`,
+    )
+    logAudit('Complaint', id, closed ? 'Complaint registered & closed' : 'Complaint registered & assigned', `${site!.siteId} · ${assignee!.name}`)
     draftStore.set(null)
     setLastOpened(id)
-    toast(`${id} created and routed to ${dept}`)
+    toast(closed ? `${id} created and closed` : `${id} created · task ${wfTask?.id ?? ''} assigned to ${assignee!.name}`)
     nav(`${BASE}/${id}`)
   }
 
@@ -402,7 +606,7 @@ export default function CreateComplaint() {
       >
         <Section num="01" title="Reporting & ATM selection" sub="Select one canonical ATM ID. Site, franchise, mobile and FR email are populated from ATM master data.">
           <SelectField label="Reporting Authority" required options={REPORTING_AUTHORITIES} value={f.reportingAuthority} onChange={(x) => set('reportingAuthority', x.target.value)} error={e('reportingAuthority')} />
-          <AtmPicker value={f.atmId} onChange={(v) => set('atmId', v)} error={e('atmId')} />
+          <AtmPicker value={f.atmId} onChange={pickAtm} error={e('atmId')} />
           <TextField label="Complaint Receiving Date" required type="date" max={today()} value={f.receivedDate} onChange={(x) => set('receivedDate', x.target.value)} error={e('receivedDate')} hint="Manual calendar · Date received from FR / Field Officer Mobile App" />
           <ReadOnly label="Site ID" value={atm && `${atm.siteId} · ${atm.siteName}`} />
           <ReadOnly label="Franchise Name / Name of Complainant" value={atm && `${atm.franchise} / ${atm.complainant}`} />
@@ -410,6 +614,7 @@ export default function CreateComplaint() {
           <ReadOnly label="Mobile Number" value={atm?.mobile} />
           <ReadOnly label="FR Email" value={atm?.email} />
           <ReadOnly label="State" required value={atm?.state} />
+          <SitePicker value={f.siteId} onChange={(v) => set('siteId', v)} suggested={atm ? siteByAtm(atm.atmId)?.siteId : undefined} error={e('siteId')} />
         </Section>
 
         <Section num="02" title="Issue & asset context" sub="Provide enough detail for the help desk and engineer to act without another callback.">
@@ -419,12 +624,22 @@ export default function CreateComplaint() {
           <SelectField
             label="Issue category"
             required
-            options={ISSUE_OPTIONS}
+            options={issueOptions}
             value={f.issue}
+            hint="From Complaint Master (Operations › Complaint Master)"
             onChange={(x) => {
               const v = x.target.value
-              const [cat, sub] = v.split(' / ')
-              setF((s) => ({ ...s, issue: v, component: v ? DEFAULT_COMPONENT[sub] : s.component, department: s.department || (v ? DEPARTMENT_FOR[cat] : '') }))
+              const [cg, sub] = v.split(' / ')
+              const m = master.find((r) => r.category === cg && r.subcategory === sub)
+              setF((s) => ({
+                ...s,
+                issue: v,
+                component: v ? (DEFAULT_COMPONENT[sub] ?? s.component) : s.component,
+                department: s.department || (m?.department ?? (v ? (DEPARTMENT_FOR[cg] ?? '') : '')),
+                priority: s.priority || (m?.defaultPriority ?? ''),
+                team: m?.team ?? s.team,
+                assigneeId: m ? m.defaultAssignee : s.assigneeId,
+              }))
             }}
             error={e('issue')}
           />
@@ -443,8 +658,29 @@ export default function CreateComplaint() {
           <ReadOnly label="RM" value={atm?.rm} />
           <ReadOnly label="Engineer Name & Number" value={atm && `${atm.engineer} · ${atm.engineerPhone}`} />
           <TextField label="Docket Number" value={f.docket} onChange={(x) => set('docket', x.target.value)} hint="Manual after company receipt · NA allowed" />
-          <SelectField label="Complaint Status" required options={['Open', 'Close']} value={f.status} onChange={(x) => set('status', (x.target.value || 'Open') as 'Open' | 'Close')} hint="Available values: Open / Close" />
-          <ReadOnly label="Resolution SLA" value={f.priority ? `${f.priority} priority · ${SLA_HOURS[f.priority]} hours` : <span className="text-muted">Select a priority</span>} hint={dueMs ? `From SLA setup · Due ${fmtDate(dueMs)}` : 'From SLA setup'} />
+          <SelectField label="Complaint Status" required options={['Open', 'Close']} value={f.status} onChange={(x) => set('status', (x.target.value || 'Open') as 'Open' | 'Close')} error={e('status')} hint={canClose ? 'Available values: Open / Close' : 'Close requires an authorized user'} />
+          <ReadOnly label="Resolution SLA" value={f.priority ? `${f.priority} priority · ${slaH} hours` : <span className="text-muted">Select a priority</span>} hint={dueMs ? `${cat ? `From Complaint Master ${cat.code}` : 'From SLA setup'} · Due ${fmtDate(dueMs)}` : 'From Complaint Master category SLA'} />
+          <SelectField label="Assignment team" required options={['CRM', 'Field']} value={f.team} onChange={(x) => set('team', (x.target.value || 'CRM') as AssignTeam)} hint="CRM desk or Field team (§12)" />
+          <div>
+            <label htmlFor="assigneeId" className="mb-1.5 block text-[12px] font-semibold text-ink">
+              Assigned employee *
+            </label>
+            <select
+              id="assigneeId"
+              value={f.assigneeId}
+              onChange={(x) => set('assigneeId', x.target.value)}
+              className={cn('h-9 w-full rounded-md border bg-white px-[11px] text-[12.5px] text-ink outline-none focus:border-primary', e('assigneeId') ? 'border-brand-red' : 'border-line')}
+            >
+              <option value="">Select employee</option>
+              {assignees.map((x) => (
+                <option key={x.id} value={x.id}>
+                  {x.name} · {x.designation}
+                </option>
+              ))}
+            </select>
+            <p className={cn('mt-1 text-[11px]', e('assigneeId') ? 'text-brand-red' : 'text-muted')}>{e('assigneeId') ?? (assignee ? `Task + email to ${assignee.email} · escalation follows ${assignee.name}'s hierarchy` : 'Default comes from the category')}</p>
+          </div>
+          <ReadOnly label="Workflow on create" kind={null} value={f.status === 'Close' ? 'No task (closed at registration)' : 'Task (due = SLA) + COMPLAINT_ASSIGN email'} hint="Task Management + Email engine (§14)" />
         </Section>
 
         <Section num="04" title="Follow-up & action tracking" sub="Reminders link to task management so every follow-up has an owner and due date.">
@@ -485,7 +721,9 @@ export default function CreateComplaint() {
           <Button type="button" variant="secondary" onClick={saveDraft}>
             Save draft
           </Button>
-          <Button type="submit">Create complaint</Button>
+          <Button type="submit" disabled={!allow('Create')} title={allow('Create') ? undefined : 'Your role cannot create complaints'}>
+            Create complaint
+          </Button>
         </div>
       </form>
     </ComplaintsShell>

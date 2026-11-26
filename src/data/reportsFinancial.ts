@@ -1,6 +1,9 @@
 // Financial Report sheets (Figma: Reports > Financial Report — BS, Axis & ICD, CLF, SD, FFM EOD, Overage deposit, DLR2, DLR3).
 // Every sheet is an imported Excel sheet stored as typed string rows; persisted per report in localStorage.
+import { promptReason } from '@/lib/reason'
 import { createStore } from '@/lib/store'
+import { del, get, patch, post } from '@/lib/api'
+import { apiEnabled, background, createLoader, fetchAll } from '@/data/bizApi'
 
 export type Row = { id: string } & Record<string, string>
 
@@ -99,7 +102,7 @@ function seedBs(): Row[] {
   }
   return out
 }
-export const bsStore = createStore<Row[]>('dexter.reports.bs.v2', seedBs)
+export const bsStore = sheetStore('dexter.reports.bs.v2', seedBs, 'bs')
 
 // ── Axis & ICD ────────────────────────────────────────────────────────────
 function seedAxis(): Row[] {
@@ -113,7 +116,7 @@ function seedAxis(): Row[] {
     altEmail: i % 3 === 1 ? '' : `${s.holder.split(' ')[0].toLowerCase()}.${s.holder.split(' ')[1].toLowerCase()}@outlook.com`,
   }))
 }
-export const axisStore = createStore<Row[]>('dexter.reports.axis-icd.v1', seedAxis)
+export const axisStore = sheetStore('dexter.reports.axis-icd.v1', seedAxis, 'axis-icd')
 
 // ── CLF ───────────────────────────────────────────────────────────────────
 function seedClf(): Row[] {
@@ -145,7 +148,7 @@ function seedClf(): Row[] {
   })
   return rows
 }
-export const clfStore = createStore<Row[]>('dexter.reports.clf.v1', seedClf)
+export const clfStore = sheetStore('dexter.reports.clf.v1', seedClf, 'clf')
 
 // ── SD (all franchises) ───────────────────────────────────────────────────
 function seedSd(): Row[] {
@@ -178,7 +181,7 @@ function seedSd(): Row[] {
   })
   return rows
 }
-export const sdReportStore = createStore<Row[]>('dexter.reports.sd.v1', seedSd)
+export const sdReportStore = sheetStore('dexter.reports.sd.v1', seedSd, 'sd')
 
 // ── FFM EOD (full funding sites, per month) ───────────────────────────────
 export const FFM_MONTHS = ['2026-05', '2026-06', '2026-07', '2026-08', '2026-09']
@@ -234,7 +237,7 @@ function seedFfm(): Row[] {
   })
   return rows
 }
-export const ffmStore = createStore<Row[]>('dexter.reports.ffm-eod.v1', seedFfm)
+export const ffmStore = sheetStore('dexter.reports.ffm-eod.v1', seedFfm, 'ffm-eod')
 
 // ── Overage deposit ───────────────────────────────────────────────────────
 export type Attachment = { name: string; size: number; dataUrl?: string; uploadedAt: string; by: string }
@@ -261,7 +264,7 @@ function seedOverage(): Row[] {
   }
   return rows
 }
-export const overageStore = createStore<Row[]>('dexter.reports.overage-deposit.v1', seedOverage)
+export const overageStore = sheetStore('dexter.reports.overage-deposit.v1', seedOverage, 'overage-deposit')
 
 export const parseAttachment = (v: string): Attachment | null => {
   if (!v) return null
@@ -290,3 +293,79 @@ export function denoTotal(text: string): number | null {
   }
   return found ? total : null
 }
+
+// ── backend adapter (API mode): /reports/sheets/:sheet ─────────────────────
+type ApiSheetRow = { rowId: string; data: Record<string, string | number | null>; version: number }
+/**
+ * A financial-sheet store. Mock mode: the plain persisted store. API mode: hydrated from GET /reports/sheets/:sheet
+ * on first use; `set` diffs the rows — new rows POST, changed rows PATCH (versioned, 409 VERSION_CONFLICT → reload);
+ * removed rows are soft-deleted with one mandatory reason (DELETE /reports/sheets/:sheet/:rowId {reason}); cancelling
+ * the reason prompt restores them.
+ */
+function sheetStore(key: string, seed: () => Row[], sheet: string) {
+  const base = createStore<Row[]>(apiEnabled ? `${key}.api` : key, apiEnabled ? () => [] : seed)
+  if (!apiEnabled) return base
+  const versions = new Map<string, number>()
+  const toRow = (r: ApiSheetRow): Row => {
+    versions.set(r.rowId, r.version)
+    const o: Row = { id: r.rowId }
+    for (const [k, v] of Object.entries(r.data ?? {})) o[k] = v === null || v === undefined ? '' : String(v)
+    return o
+  }
+  const loader = createLoader(`${sheet} sheet`, async () => {
+    versions.clear()
+    base.set((await fetchAll<ApiSheetRow>(`/reports/sheets/${sheet}`)).map(toRow))
+  })
+  const resync = () => void loader.reload()
+  const dataOf = (r: Row) => {
+    const d: Record<string, string> = {}
+    for (const [k, v] of Object.entries(r)) if (k !== 'id' && /^[A-Za-z][\w.-]{0,40}$/.test(k)) d[k] = v ?? ''
+    return d
+  }
+  const set = (next: Row[] | ((prev: Row[]) => Row[])) => {
+    const prev = base.get()
+    const rows = typeof next === 'function' ? next(prev) : next
+    base.set(rows)
+    const before = new Map(prev.map((r) => [r.id, r]))
+    const after = new Set(rows.map((r) => r.id))
+    const removed = prev.filter((r) => !after.has(r.id))
+    if (removed.length) {
+      const saved = removed.filter((r) => versions.has(r.id)) // rows never saved on the server just disappear
+      const reason = saved.length ? promptReason(`Delete ${saved.length} row(s) from this financial sheet?`) : 'unsaved'
+      if (!reason) {
+        base.set(prev) // cancelled → restore
+        return
+      }
+      for (const r of saved)
+        background(async () => {
+          await del(`/reports/sheets/${sheet}/${r.id}`, { reason })
+          versions.delete(r.id)
+        }, 'Could not delete row', resync)
+    }
+    for (const r of rows) {
+      const old = before.get(r.id)
+      if (!versions.has(r.id)) {
+        background(async () => {
+          const created = await post<ApiSheetRow>(`/reports/sheets/${sheet}`, { data: dataOf(r) })
+          base.set((l) => l.map((x) => (x.id === r.id ? toRow(created) : x)))
+        }, 'Could not add row', resync)
+      } else if (old && JSON.stringify(dataOf(old)) !== JSON.stringify(dataOf(r))) {
+        background(async () => {
+          const upd = await patch<ApiSheetRow>(`/reports/sheets/${sheet}/${r.id}`, { data: dataOf(r), version: versions.get(r.id) })
+          versions.set(upd.rowId, upd.version)
+        }, 'Could not save row', resync)
+      }
+    }
+  }
+  return {
+    ...base,
+    set,
+    reset: resync,
+    use(): Row[] {
+      loader.use()
+      return base.use()
+    },
+  }
+}
+/** API mode: one sheet row with its change history. */
+export const fetchSheetRow = (sheet: string, rowId: string) => get<ApiSheetRow & { history?: unknown[] }>(`/reports/sheets/${sheet}/${rowId}`)

@@ -4,10 +4,11 @@ import { ArrowRight, CalendarDays, UserRound } from 'lucide-react'
 import { ExcelGrid, type GridColumn } from '@/components/grid/ExcelGrid'
 import { toneFor } from '@/components/ui/Badge'
 import { toast } from '@/components/ui/Toast'
+import { guardAct } from '@/lib/guard'
 import { downloadCsv } from '@/lib/export'
+import { ownerOptions } from '@/data/complaintsApi'
 import {
   CURRENT_USER,
-  OWNERS,
   PRIORITIES,
   atmById,
   complaintStore,
@@ -78,14 +79,17 @@ export default function OperationsDashboard() {
   const topVisit = top && top.c.visits.find((v) => v.status !== 'Completed' && istDay(v.at) === istDay(now))
 
   const taskDone = (c: Complaint, t: CTask) => {
+    if (!guardAct('Complaints', 'Edit', 'edit complaints')) return
     updateComplaint(c.id, (x) => ({ tasks: x.tasks.map((y) => (y.id === t.id ? { ...y, done: true } : y)), lastAction: `${t.title} · completed` }), { title: 'Task completed', meta: `${CURRENT_USER} · ${t.id} · ${t.title}` })
     toast(`${t.id} marked complete`)
   }
   const confirmVisit = (c: Complaint, v: CVisit) => {
+    if (!guardAct('Complaints', 'Edit', 'edit complaints')) return
     updateComplaint(c.id, (x) => ({ visits: x.visits.map((y) => (y.id === v.id ? { ...y, status: 'Confirmed', note: `${y.note.split(' · ')[0]} · Confirmed` } : y)) }), { title: 'Field visit confirmed', meta: `${CURRENT_USER} · ${v.id} · ${fmtDT(v.at)} · ${v.engineer}` })
     toast(`${v.id} confirmed with ${v.engineer}`)
   }
   const chase = (c: Complaint, v: CVendor) => {
+    if (!guardAct('Complaints', 'Edit', 'edit complaints')) return
     const at = new Date(now).toISOString()
     updateComplaint(
       c.id,
@@ -95,10 +99,12 @@ export default function OperationsDashboard() {
     toast(`${v.vendor} chased · logged on ${c.id}`)
   }
   const vendorReceived = (c: Complaint, v: CVendor) => {
+    if (!guardAct('Complaints', 'Edit', 'edit complaints')) return
     updateComplaint(c.id, (x) => ({ vendors: x.vendors.map((y) => (y.id === v.id ? { ...y, status: 'Received', log: [...y.log, `${fmtDT(now)} · Received`] } : y)), lastAction: `${v.vendor} · ${v.item} received` }), { title: 'Vendor dependency cleared', meta: `${CURRENT_USER} · ${v.vendor} · ${v.item}` })
     toast(`${v.item} received from ${v.vendor}`)
   }
   const spareStep = (c: Complaint, s: CSpare) => {
+    if (!guardAct('Complaints', 'Edit', 'edit complaints')) return
     const next: CSpare['status'] = s.status === 'Awaiting approval' ? 'Approved' : s.status === 'Approved' ? 'In transit' : 'Delivered'
     updateComplaint(
       c.id,
@@ -156,7 +162,7 @@ export default function OperationsDashboard() {
         >
           {(close) => (
             <div>
-              {OWNERS.map((o) => (
+              {ownerOptions().map((o) => (
                 <button
                   key={o}
                   type="button"

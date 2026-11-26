@@ -28,6 +28,8 @@ import {
   type ExpenseCategory,
   type ExpenseStatus,
 } from '@/data/financeExpenses'
+import { useCanIn, guardAct } from '@/lib/guard'
+import { emitFinance, statusEvent } from './finWorkflow'
 import { SEED_EMPLOYEES, type Employee } from '@/data/employees'
 
 const BANKS_LIST = [
@@ -47,6 +49,8 @@ export default function StaffExpenseRecordPage() {
   const navigate = useNavigate()
   const { id = '' } = useParams<{ id: string }>()
   const isNew = !id || id === 'new'
+  const allow = useCanIn('Finance')
+  const canSave = allow(isNew ? 'Create' : 'Edit')
 
   const [record, setRecord] = useState<ExpenseRecord>(() => {
     if (!isNew && id) {
@@ -102,6 +106,7 @@ export default function StaffExpenseRecordPage() {
   const finalReimbursement = Math.max(0, approvedAmt - dedAmt)
 
   const handleSave = (isDraft = false) => {
+    if (!guardAct('Finance', isNew ? 'Create' : 'Edit', isNew ? 'create expense claims' : 'edit expense claims')) return
     if (!isDraft) {
       if (!record.empId && !record.empName) {
         toast('Please enter or select an Employee ID or Name', 'info')
@@ -120,7 +125,15 @@ export default function StaffExpenseRecordPage() {
       paymentStatus: record.paymentStatus || (isDraft ? 'Pending' : 'Approved'),
     }
 
+    // A status change to Paid / Approved / Rejected is an approval decision: needs that right too
+    const prevStatus = isNew ? undefined : getExpense(id ?? '')?.paymentStatus
+    const ev = isDraft ? undefined : isNew ? 'Submit' : statusEvent(prevStatus, payload.paymentStatus)
+    if (ev === 'Approve' && !guardAct('Finance', 'Approve', 'approve expense claims')) return
+    if (ev === 'Reject' && !guardAct('Finance', 'Reject', 'reject expense claims')) return
     const saved = saveExpense(payload)
+    if (ev) emitFinance(ev, saved.id, { what: 'expense claim', status: saved.paymentStatus })
+    if (ev === 'Submit' && (saved.paymentStatus === 'Paid' || saved.paymentStatus === 'Approved'))
+      emitFinance('Approve', saved.id, { what: 'expense claim', status: saved.paymentStatus })
     toast(
       isDraft
         ? 'Expense draft saved successfully'
@@ -672,7 +685,7 @@ export default function StaffExpenseRecordPage() {
           <span>Back</span>
         </button>
 
-        <div className="flex items-center gap-3">
+        {canSave && <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={() => handleSave(true)}
@@ -690,7 +703,7 @@ export default function StaffExpenseRecordPage() {
             <span>Save Expense Claim</span>
             <ChevronRight size={16} />
           </button>
-        </div>
+        </div>}
       </div>
     </div>
   )

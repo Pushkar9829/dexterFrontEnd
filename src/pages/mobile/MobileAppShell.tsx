@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Sparkles } from 'lucide-react'
 
-import { DEMO_MOBILE_USERS, type MobileUser } from './data/mobileMockData'
+import { mobileSignOut, syncFranchiseContext, useMobileUser } from './data/mobileSession'
+import { useFranchiseBroadcasts, useMobileAlerts } from './data/mobileFeeds'
 import { MobileHeader } from './components/MobileHeader'
 import { MobileBottomNav, type MobileTab } from './components/MobileBottomNav'
 import { MobileDrawer } from './components/MobileDrawer'
@@ -29,6 +30,8 @@ import { MobileOperationsScreen } from './screens/MobileOperationsScreen'
 import { MobileProfileScreen } from './screens/MobileProfileScreen'
 import { MobileTermsScreen } from './screens/MobileTermsScreen'
 import { MobilePrivacyScreen } from './screens/MobilePrivacyScreen'
+import { MobileIndentConfirmationScreen } from './screens/MobileIndentConfirmationScreen'
+import { MobileCashBalanceScreen } from './screens/MobileCashBalanceScreen'
 
 type ScreenId =
   | 'login'
@@ -56,15 +59,24 @@ type ScreenId =
   | 'terms'
   | 'privacy'
 
+const TAB_OF: Partial<Record<ScreenId, MobileTab>> = { home: 'home', sites: 'sites', operations: 'operations', payout: 'payout', more: 'more' }
+
 export function MobileAppShell() {
-  // Session & Persona State
-  const [currentUser, setCurrentUser] = useState<MobileUser>(DEMO_MOBILE_USERS.franchise)
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true)
+  // Session: the same auth session as the web portal (src/lib/auth.ts), mapped to the franchise record.
+  const currentUser = useMobileUser()
+  const isAuthenticated = !!currentUser
+  useEffect(() => syncFranchiseContext(currentUser), [currentUser])
+  // TODO(push): the native app must register its FCM / APNs token after sign-in — POST /my/devices/push-token
+  // {token, platform: 'Android' | 'iOS', deviceId?, appVersion?} (and DELETE /my/devices/push-token {token} on sign-out).
+  // This web preview has no FCM token, so nothing is registered here; the backend falls back to the `user:<userId>` topic.
+  const { unread: unreadAlerts } = useMobileAlerts()
+  const { list: franchiseBroadcasts, acks: broadcastAcks, acknowledge } = useFranchiseBroadcasts()
+  const urgentBroadcast = franchiseBroadcasts.find((b) => b.ackRequired && (b.priority === 'Critical' || b.priority === 'Urgent') && !broadcastAcks[b.id])
 
   // Navigation State
   const [currentScreen, setCurrentScreen] = useState<ScreenId>('home')
   const [currentTab, setCurrentTab] = useState<MobileTab>('home')
-  const [screenHistory, setScreenHistory] = useState<ScreenId[]>(['home'])
+  const [screenHistory, setScreenHistory] = useState<ScreenId[]>([])
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
 
   // Device Frame Mode
@@ -73,26 +85,16 @@ export function MobileAppShell() {
   // Search in header
   const [headerSearch, setHeaderSearch] = useState('')
 
-  // Urgent Popup Notification (Section 15 in PDF)
+  // Urgent circular popup (Section 15 in PDF) — the latest unacknowledged Critical / Urgent franchise broadcast
   const [showPopupNotification, setShowPopupNotification] = useState(false)
   const [popupAcknowledged, setPopupAcknowledged] = useState(false)
-
-  // Handle Role Switching
-  const handleRoleChange = (roleKey: 'franchise' | 'team_leader' | 'admin') => {
-    setCurrentUser(DEMO_MOBILE_USERS[roleKey])
-  }
 
   // Navigation handler
   const navigateTo = (screen: ScreenId) => {
     setScreenHistory((prev) => [...prev, currentScreen])
     setCurrentScreen(screen)
-
-    // Map screen to tab
-    if (screen === 'home') setCurrentTab('home')
-    else if (screen === 'sites') setCurrentTab('sites')
-    else if (screen === 'operations') setCurrentTab('operations')
-    else if (screen === 'payout') setCurrentTab('payout')
-    else if (screen === 'more') setCurrentTab('more')
+    const tab = TAB_OF[screen]
+    if (tab) setCurrentTab(tab)
   }
 
   // Back button handler
@@ -101,11 +103,8 @@ export function MobileAppShell() {
       const prev = screenHistory[screenHistory.length - 1]
       setScreenHistory((prevHist) => prevHist.slice(0, -1))
       setCurrentScreen(prev)
-      if (prev === 'home') setCurrentTab('home')
-      else if (prev === 'sites') setCurrentTab('sites')
-      else if (prev === 'operations') setCurrentTab('operations')
-      else if (prev === 'payout') setCurrentTab('payout')
-      else if (prev === 'more') setCurrentTab('more')
+      const tab = TAB_OF[prev]
+      if (tab) setCurrentTab(tab)
     } else {
       setCurrentScreen('home')
       setCurrentTab('home')
@@ -118,24 +117,29 @@ export function MobileAppShell() {
     setCurrentScreen(tab as ScreenId)
   }
 
-  // Login handler
-  const handleLoginSuccess = (user: MobileUser) => {
-    setCurrentUser(user)
-    setIsAuthenticated(true)
+  // Login handler (session already written by mobileSignIn / mobileOtpVerify)
+  const handleLoginSuccess = () => {
+    setScreenHistory([])
     setCurrentScreen('home')
     setCurrentTab('home')
+    setPopupAcknowledged(false)
     setShowPopupNotification(true)
   }
 
-  // Logout handler
+  // Logout handler — ends the shared session and returns to the mobile login
   const handleLogout = () => {
-    setIsAuthenticated(false)
-    setCurrentScreen('login')
+    mobileSignOut()
+    setIsDrawerOpen(false)
+    setShowPopupNotification(false)
+    setScreenHistory([])
+    setCurrentScreen('home')
+    setCurrentTab('home')
   }
 
   // Determine header properties
   const isTopLevelTab = ['home', 'more', 'operations', 'payout'].includes(currentScreen)
   const showBack = !isTopLevelTab && currentScreen !== 'login'
+  const onLoginScreen = !isAuthenticated || currentScreen === 'login'
 
   const screenTitles: Partial<Record<ScreenId, string>> = {
     home: undefined,
@@ -163,16 +167,8 @@ export function MobileAppShell() {
 
   // Render current screen component
   const renderScreenContent = () => {
-    if (!isAuthenticated || currentScreen === 'login') {
-      return (
-        <MobileLoginScreen
-          onLoginSuccess={handleLoginSuccess}
-          onContactSupport={() => {
-            setIsAuthenticated(true)
-            navigateTo('contact')
-          }}
-        />
-      )
+    if (onLoginScreen || !currentUser) {
+      return <MobileLoginScreen onLoginSuccess={handleLoginSuccess} />
     }
 
     switch (currentScreen) {
@@ -217,12 +213,15 @@ export function MobileAppShell() {
         return <MobilePayoutScreen user={currentUser} />
       case 'operations':
         return <MobileOperationsScreen onNavigate={(s) => navigateTo(s as ScreenId)} />
+      case 'indent-confirmation':
+        return <MobileIndentConfirmationScreen onBackToMore={() => navigateTo('operations')} />
+      case 'cash-balance':
+        return <MobileCashBalanceScreen onBackToMore={() => navigateTo('operations')} />
       case 'profile':
         return (
           <MobileProfileScreen
             user={currentUser}
             onBackToHome={() => navigateTo('home')}
-            onSelectRole={handleRoleChange}
             onLogout={handleLogout}
           />
         )
@@ -267,7 +266,7 @@ export function MobileAppShell() {
             )}
 
             {/* Mobile Header (App Bar) */}
-            {isAuthenticated && currentScreen !== 'login' && (
+            {!onLoginScreen && currentUser && (
               <MobileHeader
                 user={currentUser}
                 title={screenTitles[currentScreen]}
@@ -280,6 +279,7 @@ export function MobileAppShell() {
                 searchValue={headerSearch}
                 onSearchChange={setHeaderSearch}
                 showSearch={currentScreen === 'more'}
+                unreadAlertsCount={unreadAlerts}
               />
             )}
 
@@ -292,32 +292,36 @@ export function MobileAppShell() {
             </div>
 
             {/* Mobile Bottom Navigation Bar (5 tabs) */}
-            {isAuthenticated && currentScreen !== 'login' && (
+            {!onLoginScreen && (
               <MobileBottomNav currentTab={currentTab} onTabChange={handleTabChange} />
             )}
 
             {/* Slide-over Profile / Menu Drawer */}
-            <MobileDrawer
-              isOpen={isDrawerOpen}
-              onClose={() => setIsDrawerOpen(false)}
-              currentUser={currentUser}
-              onSelectRole={handleRoleChange}
-              onNavigate={(s) => navigateTo(s as ScreenId)}
-              onLogout={handleLogout}
-            />
+            {currentUser && (
+              <MobileDrawer
+                isOpen={isDrawerOpen}
+                onClose={() => setIsDrawerOpen(false)}
+                currentUser={currentUser}
+                onNavigate={(s) => navigateTo(s as ScreenId)}
+                onLogout={handleLogout}
+              />
+            )}
 
-            {/* Popup Notification Dialog (Section 15 of PDF) */}
-            {showPopupNotification && (
+            {/* Popup Notification Dialog (Section 15 of PDF) — real franchise circular awaiting acknowledgement */}
+            {showPopupNotification && !onLoginScreen && urgentBroadcast && (
               <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
                 <div className="w-full max-w-xs rounded-3xl bg-white p-5 shadow-2xl animate-in zoom-in-95">
                   <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-100 text-blue-700 mb-3">
                     <Sparkles size={20} />
                   </div>
                   <h3 className="font-extrabold text-sm text-[#0B2A6B]">
-                    Important Franchise Circular
+                    {urgentBroadcast.title}
                   </h3>
-                  <p className="mt-1 text-xs text-slate-600 leading-relaxed">
-                    Welcome to Dexter India Mobile ERP. Please note that CBR cash loading must be submitted daily before 8:00 PM for timely next-day fund disbursement.
+                  <p className="mt-1 text-xs text-slate-600 leading-relaxed max-h-40 overflow-y-auto whitespace-pre-line">
+                    {urgentBroadcast.message}
+                  </p>
+                  <p className="mt-1 text-[10px] text-slate-400">
+                    {urgentBroadcast.type} · {urgentBroadcast.date} · {urgentBroadcast.priority}
                   </p>
 
                   <label className="mt-3 flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
@@ -332,7 +336,10 @@ export function MobileAppShell() {
 
                   <button
                     disabled={!popupAcknowledged}
-                    onClick={() => setShowPopupNotification(false)}
+                    onClick={() => {
+                      acknowledge(urgentBroadcast.id)
+                      setShowPopupNotification(false)
+                    }}
                     className="mt-4 w-full h-10 rounded-xl bg-blue-600 text-white font-bold text-xs disabled:opacity-40"
                   >
                     Proceed to App

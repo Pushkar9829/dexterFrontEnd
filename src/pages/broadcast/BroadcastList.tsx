@@ -20,10 +20,12 @@ import {
 } from '@/data/broadcasts'
 import { PriorityBadge, StatusBadge } from './BroadcastOverview'
 import { toast } from '@/components/ui/Toast'
+import { guardAct, useCanIn } from '@/lib/guard'
 import { cn } from '@/lib/cn'
 
 export default function BroadcastList() {
   const navigate = useNavigate()
+  const allow = useCanIn('Broadcast')
   const [searchParams] = useSearchParams()
   const initialStatus = searchParams.get('status') || 'All'
   const { broadcasts } = useBroadcasts()
@@ -94,6 +96,7 @@ export default function BroadcastList() {
   const totalPages = Math.max(1, Math.ceil(filteredList.length / pageSize))
 
   const handleExport = () => {
+    if (!guardAct('Broadcast', 'Export')) return
     exportBroadcastsCsv(filteredList, 'all-broadcasts')
     toast('Broadcast records exported as CSV', 'success')
   }
@@ -112,22 +115,26 @@ export default function BroadcastList() {
         </div>
 
         <div className="flex items-center gap-2.5">
-          <button
-            type="button"
-            onClick={handleExport}
-            className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition-all"
-          >
-            <Download size={14} className="text-slate-500" />
-            <span>Export</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate('/work-management/broadcast/create')}
-            className="flex items-center gap-1.5 rounded-lg bg-[#0066FF] hover:bg-blue-700 px-4 py-2 text-xs font-semibold text-white shadow-xs transition-all"
-          >
-            <Plus size={15} />
-            <span>Create Broadcast</span>
-          </button>
+          {allow('Export') && (
+            <button
+              type="button"
+              onClick={handleExport}
+              className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition-all"
+            >
+              <Download size={14} className="text-slate-500" />
+              <span>Export</span>
+            </button>
+          )}
+          {allow('Create') && (
+            <button
+              type="button"
+              onClick={() => navigate('/work-management/broadcast/create')}
+              className="flex items-center gap-1.5 rounded-lg bg-[#0066FF] hover:bg-blue-700 px-4 py-2 text-xs font-semibold text-white shadow-xs transition-all"
+            >
+              <Plus size={15} />
+              <span>Create Broadcast</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -322,20 +329,23 @@ export default function BroadcastList() {
                             <Eye size={13} className="text-slate-400" />
                             <span>View Details</span>
                           </button>
+                          {allow('Create') && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigate('/work-management/broadcast/create')
+                                setOpenActionId(null)
+                              }}
+                              className="flex w-full items-center gap-2 px-3 py-1.5 hover:bg-slate-50"
+                            >
+                              <Plus size={13} className="text-slate-400" />
+                              <span>Duplicate</span>
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() => {
-                              navigate('/work-management/broadcast/create')
-                              setOpenActionId(null)
-                            }}
-                            className="flex w-full items-center gap-2 px-3 py-1.5 hover:bg-slate-50"
-                          >
-                            <Plus size={13} className="text-slate-400" />
-                            <span>Duplicate</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
+                              if (!guardAct('Broadcast', 'Create', 'resend broadcasts')) return
                               toast(`Dispatched re-broadcast for ${item.id}`, 'info')
                               setOpenActionId(null)
                             }}

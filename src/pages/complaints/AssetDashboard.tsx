@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Server, X } from 'lucide-react'
 import { Bar, BarChart, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
@@ -9,6 +9,7 @@ import { Modal } from '@/components/ui/Modal'
 import { SelectField, TextField } from '@/components/ui/Form'
 import { toast } from '@/components/ui/Toast'
 import { downloadCsv } from '@/lib/export'
+import { guardAct } from '@/lib/guard'
 import {
   ATM_MASTER,
   NETWORK_ATM_COUNT,
@@ -32,6 +33,8 @@ import {
   type Complaint,
 } from '@/data/complaints'
 import { recStore } from '@/data/complaintsAi'
+import { addMaintenanceAsync, apiEnabled, loadMaintenance, ownerOptions } from '@/data/complaintsApi'
+import { toastError } from '@/data/opsApi'
 import { BarRow, CHART, ComplaintsShell, GridCard, KV, Kpi, LinkBtn, Panel, Entry, ViewAll, BASE, useNow } from './shared'
 import { FilterBar, filterStore } from './FilterBar'
 import { daysBetween, matches, priorRange, shortRange } from './filters'
@@ -95,6 +98,9 @@ type Row = { atm: Atm; cases: Complaint[]; repeats: Complaint[]; repl: string[];
 export default function AssetDashboard() {
   const all = complaintStore.use()
   const maint = maintenanceStore.use()
+  useEffect(() => {
+    if (apiEnabled) loadMaintenance().catch((e) => toastError(e, 'Could not load maintenance tasks'))
+  }, [])
   const recs = recStore.use()
   const filter = filterStore.use()
   const now = useNow()
@@ -152,6 +158,13 @@ export default function AssetDashboard() {
   const taskFor = (atmId: string) => maint.filter((m) => m.atmId === atmId).at(-1)
 
   const createTask = (atmId: string, title: string, owner: string, due: string) => {
+    if (!guardAct('Complaints', 'Create', 'create maintenance tasks')) return
+    if (apiEnabled) {
+      addMaintenanceAsync({ atmId, title, owner, due: istDay(due), source: 'Asset Dashboard · Preventive maintenance' })
+        .then((m) => toast(`${m.id} created · ${title} (${atmId})`))
+        .catch(() => undefined)
+      return
+    }
     const id = nextTaskId(recs.flatMap((r) => (r.taskId ? [r.taskId] : [])))
     maintenanceStore.set((xs) => [...xs, { id, atmId, title, owner, due, createdAt: new Date(now).toISOString(), source: 'Asset Dashboard · Preventive maintenance' }])
     toast(`${id} created · ${title} (${atmId})`)
@@ -387,9 +400,10 @@ function MaintenanceModal({ init, onClose, onCreate }: { init: { atmId: string; 
   const atm = atmById(atmId)
   const [title, setTitle] = useState(init.title)
   const [owner, setOwner] = useState(atm?.engineer ?? '')
-  const [due, setDue] = useState('2026-10-09')
+  const [due, setDue] = useState(apiEnabled ? istDay(Date.now() + 2 * 86_400_000) : '2026-10-09')
   const [tried, setTried] = useState(false)
-  const owners = [...new Set(ATM_MASTER.map((a) => a.engineer))]
+  const owners = apiEnabled ? ownerOptions() : [...new Set(ATM_MASTER.map((a) => a.engineer))]
+  const atmOptions = apiEnabled ? [...new Set([init.atmId, ...complaintStore.get().map((c) => c.atmId)].filter(Boolean))] : ATM_MASTER.map((a) => a.atmId)
   const ok = atmId && title.trim() && owner && due
   return (
     <Modal
@@ -418,7 +432,7 @@ function MaintenanceModal({ init, onClose, onCreate }: { init: { atmId: string; 
         <SelectField
           label="ATM ID"
           required
-          options={ATM_MASTER.map((a) => a.atmId)}
+          options={atmOptions}
           value={atmId}
           onChange={(e) => {
             setAtm(e.target.value)

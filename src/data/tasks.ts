@@ -1,10 +1,15 @@
 import { createStore } from '@/lib/store'
+import { emitWorkflow } from './workflow'
+import { get, post, uploadFile } from '@/lib/api'
+import { getSession } from '@/lib/auth'
+import { apiCall, apiEnabled, createLoader, errMsg, fetchAll, toastError } from './bizApi'
 
 /* ------------------------------------------------------------------ */
 /*  Clock — one fixed "now" so every SLA number matches the design.    */
 /*  Tuesday, 06 October 2026, 09:14 IST. SLA clocks never pause.        */
 /* ------------------------------------------------------------------ */
-export const NOW = Date.parse('2026-10-06T09:14:00+05:30')
+// API mode: the real clock (refreshed on every hydration); mock mode keeps the fixed design clock.
+export let NOW = apiEnabled ? Date.now() : Date.parse('2026-10-06T09:14:00+05:30')
 const MIN = 60_000
 const HOUR = 60 * MIN
 
@@ -399,8 +404,9 @@ export const tasksStore = createStore<TasksState>('dexter.tasks.v1', () => ({ ta
 
 /* ------------------------------ actions ------------------------------ */
 
-export const CURRENT_EMPLOYEE = 'Rahul Kumar'
-export const CURRENT_LEAD = 'Priya Menon'
+// API mode: both become the signed-in user's name on hydration (live bindings).
+export let CURRENT_EMPLOYEE = 'Rahul Kumar'
+export let CURRENT_LEAD = 'Priya Menon'
 
 export const getTask = (id: string) => tasksStore.get().tasks.find((t) => t.id === id)
 
@@ -469,14 +475,25 @@ export function createTask(x: NewTaskInput): Task {
     ],
   }
   tasksStore.set((s) => ({ ...s, tasks: [t, ...s.tasks] }))
+  if (x.assignee) emitTaskAssign(t, x.assignee)
   return t
+}
+
+/** Work Management › Task assign → centralized workflow (TASK_ASSIGN template, notification + log). */
+function emitTaskAssign(t: Task, to: string) {
+  emitWorkflow({
+    module: 'Work Management', event: 'Assign', refId: t.id,
+    vars: { Record_ID: t.id, Current_Status: 'Assigned', Pending_Action: `${t.title} — assigned to ${to}`, Due_Date: new Date(slaOf(t).due).toISOString().slice(0, 10) },
+  })
 }
 
 export function reassign(id: string, to: string, by: string, reason: string) {
   const t = getTask(id)
   if (!t || t.assignee === to) return
+  if (apiEnabled) return void reassignApi(id, to, reason)
   patch(id, (x) => ({ ...x, assignee: to, status: x.status === 'New' && to ? 'Assigned' : x.status }))
   log(id, 'reassign', `Reassigned to ${to || 'Unassigned'}`, `${by} reassigned from ${t.assignee || 'Unassigned'}${reason ? `: ${reason}` : ''}. Original SLA retained.`)
+  if (to) emitTaskAssign({ ...t, assignee: to }, to)
 }
 
 export const openBlockers = (t: Task, all: Task[]) => t.blockedBy.map((b) => all.find((x) => x.id === b)).filter((b): b is Task => !!b && b.status !== 'Closed')
@@ -501,6 +518,7 @@ export function transition(id: string, action: Action, actor: string, note = '')
       if (!t.assignee) return { ok: false, message: 'Choose an assignee first (Reassign).' }
       set('Assigned')
       log(id, 'assign', `Assigned to ${t.assignee}`, `${actor} confirmed the assignment. Status: New → Assigned.`)
+      emitTaskAssign(t, t.assignee)
       return { ok: true, message: `${id} assigned to ${t.assignee}.` }
     case 'start':
       if (t.status !== 'Assigned') return { ok: false, message: 'Only Assigned tasks can be started.' }
@@ -560,7 +578,8 @@ export function transition(id: string, action: Action, actor: string, note = '')
   }
 }
 
-export function addEvidence(id: string, f: { name: string; size: number }, by: string) {
+export function addEvidence(id: string, f: File | { name: string; size: number }, by: string) {
+  if (apiEnabled) return void addEvidenceApi(id, f)
   const ext = (f.name.split('.').pop() ?? '').toUpperCase()
   const label = ['JPG', 'JPEG', 'PNG'].includes(ext) ? 'Photo' : ext === 'XLSX' ? 'Report' : 'Document'
   patch(id, (t) => ({ ...t, evidence: [...t.evidence, { id: uid('ev') + Date.now().toString(36), name: f.name, type: ext, label, size: f.size, by, at: iso(NOW), verified: false }] }))
@@ -570,11 +589,13 @@ export function addEvidence(id: string, f: { name: string; size: number }, by: s
 export function toggleVerify(id: string, evId: string, by: string) {
   const ev = getTask(id)?.evidence.find((e) => e.id === evId)
   if (!ev) return
+  if (apiEnabled) return void verifyEvidenceApi(id, evId, !ev.verified)
   patch(id, (t) => ({ ...t, evidence: t.evidence.map((e) => (e.id === evId ? { ...e, verified: !e.verified } : e)) }))
   log(id, 'verify', ev.verified ? 'Verification withdrawn' : 'Evidence verified', `${by} ${ev.verified ? 'marked' : 'verified'} ${ev.name}${ev.verified ? ' as unverified' : ''}.`)
 }
 
 export function addComment(id: string, by: string, text: string) {
+  if (apiEnabled) return void addCommentApi(id, text)
   const p = person(by)
   const t = getTask(id)
   const role = t?.assignee === by ? 'Current Assignee' : t?.approver === by ? 'Approver' : t?.reviewer === by ? 'Reviewer' : p.role
@@ -583,3 +604,152 @@ export function addComment(id: string, by: string, text: string) {
 }
 
 export const mentionsIn = (text: string) => PEOPLE.filter((p) => text.includes('@' + p.name)).map((p) => p.name)
+
+/* ================================================================== */
+/*  Backend API (VITE_API_URL) — /tasks. Mock mode never runs this.     */
+/* ================================================================== */
+
+type ApiPerson = { employeeId?: string; name: string }
+export type ApiWorkTask = {
+  taskId: string; title: string; description?: string; expectedOutcome?: string; priority: Priority; status: TaskStatus; department: Dept; region: Region; kind: TaskKind
+  source?: string; entityId?: string; entityLabel?: string; assignee?: ApiPerson; owner?: ApiPerson & { userId?: string }; reviewer?: ApiPerson; approver?: ApiPerson
+  tatHours: number; dueAt: string; closedAt?: string; parentId?: string; subtask?: boolean; depLabel?: string; blockedBy?: string[]; approved?: boolean
+  evidence?: { evId: string; name: string; fileId?: string; type: string; size: number; label?: string; by: string; at: string; verified: boolean }[]
+  comments?: { commentId: string; by: string; role: string; at: string; text: string }[]
+  audit?: { at: string; kind: string; title: string; detail: string; by?: string }[]
+  createdAt: string
+}
+
+/** Employee name ↔ id (backend assigns by employeeId; the UI picks by name). */
+const empIdByName = new Map<string, string>()
+export const employeeIdOf = (name?: string) => (name ? empIdByName.get(name) : undefined)
+const remember = (p?: ApiPerson) => {
+  if (p?.employeeId && p.name) empIdByName.set(p.name, p.employeeId)
+}
+const initials = (n: string) => n.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join('')
+
+export function fromApiTask(a: ApiWorkTask, prev?: Task): Task {
+  ;[a.assignee, a.owner, a.reviewer, a.approver].forEach(remember)
+  return {
+    id: a.taskId, title: a.title, description: a.description || a.title, expectedOutcome: a.expectedOutcome ?? '', priority: a.priority, status: a.status,
+    department: a.department, region: a.region, kind: a.kind, source: a.source ?? 'Manual', entityId: a.entityId, entityLabel: a.entityLabel || a.entityId || a.department,
+    assignee: a.assignee?.name ?? '', owner: a.owner?.name ?? '', reviewer: a.reviewer?.name ?? '', approver: a.approver?.name ?? '',
+    createdAt: a.createdAt, tatHours: a.tatHours, closedAt: a.closedAt, parentId: a.parentId, subtask: !!a.subtask, depLabel: a.depLabel, blockedBy: a.blockedBy ?? [], approved: !!a.approved,
+    evidence: (a.evidence ?? []).map((e) => ({ id: e.evId, name: e.name, type: e.type, size: e.size, label: e.label, by: e.by, at: e.at, verified: e.verified })),
+    // the list endpoint omits comments / audit — keep what a detail fetch already brought in
+    comments: a.comments ? a.comments.map((c) => ({ id: c.commentId, by: c.by, role: c.role, at: c.at, text: c.text })) : (prev?.comments ?? []),
+    audit: a.audit ? a.audit.map((x, i) => ({ id: `${a.taskId}-A${i}`, at: x.at, kind: x.kind as AuditKind, title: x.title, detail: x.detail })) : (prev?.audit ?? []),
+  }
+}
+
+function upsert(a: ApiWorkTask) {
+  tasksStore.set((s) => {
+    const prev = s.tasks.find((t) => t.id === a.taskId)
+    const t = fromApiTask(a, prev)
+    return { ...s, tasks: prev ? s.tasks.map((x) => (x.id === t.id ? t : x)) : [t, ...s.tasks] }
+  })
+}
+
+/** API mode: GET /tasks (all pages) + GET /employees/picker (people pickers — open to every staff role, Active only). */
+export const tasksLoader = createLoader('tasks', async () => {
+  NOW = Date.now()
+  const me = getSession()
+  if (me?.name) {
+    CURRENT_EMPLOYEE = me.name
+    CURRENT_LEAD = me.name
+  }
+  const [items, emps] = await Promise.all([
+    fetchAll<ApiWorkTask>('/tasks'),
+    get<{ items: { employeeId: string; name: string; designation?: string; department?: string; status?: string }[] }>('/employees/picker', { limit: 500 })
+      .then((r) => r.items ?? [])
+      .catch(() => []),
+  ])
+  emps.forEach((e) => empIdByName.set(e.name, e.employeeId))
+  const prevById = new Map(tasksStore.get().tasks.map((t) => [t.id, t]))
+  const tasks = items.map((a) => fromApiTask(a, prevById.get(a.taskId)))
+  // People pickers: active employees when readable, else everyone seen on a task.
+  const people: Person[] = emps.length
+    ? emps.map((e) => ({ name: e.name, role: e.designation ?? '', dept: e.department ?? '', initials: initials(e.name) }))
+    : [...empIdByName.keys()].map((n) => ({ name: n, role: '', dept: '', initials: initials(n) }))
+  PEOPLE.splice(0, PEOPLE.length, ...people)
+  VERIFICATION_TEAM.splice(0, VERIFICATION_TEAM.length, ...people.map((p) => p.name))
+  tasksStore.set((s) => ({ ...s, tasks, routine: [] }))
+})
+export const useTasksLoad = () => tasksLoader.use()
+
+/** GET /tasks/:id — full record incl. comments + audit. */
+export async function loadTaskDetail(id: string) {
+  if (!apiEnabled) return
+  try {
+    upsert(await get<ApiWorkTask>('/tasks/' + encodeURIComponent(id)))
+  } catch (e) {
+    toastError(e, `Could not load ${id}`)
+  }
+}
+
+const isoDue = (ms: number) => new Date(ms).toISOString()
+/** POST /tasks → the created task (store updated). */
+export async function createTaskApi(x: NewTaskInput & { blockedBy?: string[]; depLabel?: string; approver?: string; reviewer?: string }): Promise<Task> {
+  const a = await apiCall(
+    () =>
+      post<ApiWorkTask>('/tasks', {
+        title: x.title, description: x.description || undefined, expectedOutcome: x.expectedOutcome || undefined, priority: x.priority, department: x.department,
+        dueAt: isoDue(x.dueMs), assigneeId: employeeIdOf(x.assignee), approverId: employeeIdOf(x.approver), reviewerId: employeeIdOf(x.reviewer),
+        parentId: x.parentId || undefined, entityId: x.entityId || undefined, entityLabel: x.entityLabel || undefined, source: x.source, kind: x.kind,
+        blockedBy: x.blockedBy?.length ? x.blockedBy : undefined, depLabel: x.depLabel,
+      }),
+    'Could not create task',
+  )
+  upsert(a)
+  return getTask(a.taskId)!
+}
+
+/** POST /tasks/:id/<action> → ActionResult (store updated, dependents re-fetched on close). */
+export async function transitionApi(id: string, action: Action | 'block', note = ''): Promise<ActionResult> {
+  try {
+    const r = await post<{ task: ApiWorkTask; unblocked: string[] }>(`/tasks/${encodeURIComponent(id)}/${action}`, { note })
+    upsert(r.task)
+    if (r.unblocked?.length) await Promise.all(r.unblocked.map(loadTaskDetail))
+    const verb: Record<string, string> = { assign: 'assigned', start: 'is now In Progress', resume: 'resumed', submit: 'submitted for approval', approve: 'approved', return: 'returned for rework', close: 'closed', block: 'put on hold' }
+    return { ok: true, message: `${id} ${verb[action] ?? action}.${r.unblocked?.length ? ` ${r.unblocked.join(', ')} unblocked automatically.` : ''}`, unblocked: r.unblocked }
+  } catch (e) {
+    return { ok: false, message: errMsg(e) }
+  }
+}
+
+export async function reassignApi(id: string, to: string, reason: string) {
+  const assigneeId = employeeIdOf(to)
+  if (to && !assigneeId) {
+    toastError(new Error(`${to} is not a known employee`))
+    return
+  }
+  try {
+    upsert(await apiCall(() => post<ApiWorkTask>(`/tasks/${encodeURIComponent(id)}/reassign`, { assigneeId, reason: reason.trim().length >= 3 ? reason.trim() : 'Reassigned' }), 'Reassign failed'))
+  } catch {
+    /* toasted */
+  }
+}
+
+/** Upload the file (POST /files) then attach it — POST /tasks/:id/evidence. */
+export async function addEvidenceApi(id: string, f: File | { name: string; size: number }) {
+  try {
+    const fileId = f instanceof File ? (await apiCall(() => uploadFile(f, { purpose: 'task-evidence', entity: 'WorkTask', ref: id }), 'Upload failed')).fileId : undefined
+    upsert(await apiCall(() => post<ApiWorkTask>(`/tasks/${encodeURIComponent(id)}/evidence`, { name: f.name, size: f.size, fileId }), 'Could not add evidence'))
+  } catch {
+    /* toasted */
+  }
+}
+export async function verifyEvidenceApi(id: string, evId: string, verified: boolean) {
+  try {
+    upsert(await apiCall(() => post<ApiWorkTask>(`/tasks/${encodeURIComponent(id)}/evidence/${encodeURIComponent(evId)}/verify`, { verified }), 'Verification failed'))
+  } catch {
+    /* toasted */
+  }
+}
+export async function addCommentApi(id: string, text: string) {
+  try {
+    upsert(await apiCall(() => post<ApiWorkTask>(`/tasks/${encodeURIComponent(id)}/comments`, { text }), 'Comment failed'))
+  } catch {
+    /* toasted */
+  }
+}

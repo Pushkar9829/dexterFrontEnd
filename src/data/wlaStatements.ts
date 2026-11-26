@@ -1,455 +1,304 @@
+// WLA Statement Management (Operations spec §6).
+// Franchise uploads the bank statement of its mapped WLA account (mobile app; web on behalf) → validation (file type,
+// readability, period, account) → CRM / Finance review → Accepted / Returned / Rejected with reason → WLA Statement
+// Master. Returned statements are replaced by a new version (replacement history kept). Upload raises a CRM
+// verification task through the workflow engine (UAT 15).
 import { createStore } from '@/lib/store'
 import { downloadCsv } from '@/lib/export'
-import { KNOWN_TDS_ATMS, type AtmProfile, type UploadedDocItem } from '@/data/tdsLetters'
+import { siteStore, type Site } from '@/data/network'
+import { getFranchise } from '@/data/franchises'
+import { actorName, emitWorkflow, logAudit, nowIso } from '@/data/workflow'
+import { get, post } from '@/lib/api'
+import { apiCall, apiEnabled, createLoader, fetchAll } from '@/data/opsApi'
+import { downloadAuthed, uploadDoc, type OcrPreview } from '@/data/docsApi'
 
-export interface WlaStatementRecord {
-  id: string
-  month: string
-  hitachiCode: string
-  atmId: string
-  siteId: string
-  locationName: string
-  franchiseName: string
-  contactNo: string
-  email: string
-  model: string
-  state: string
-  clDate: string
-  acStatus: string
-  uploadStatus: 'Uploaded' | 'Pending'
-  remark: string
-  actionToBeTaken: 'Verified' | 'Send Reminder' | 'Review' | 'Follow Up'
-  uploadedDocuments: UploadedDocItem[]
+export type WlaStatus = 'Pending Verification' | 'Accepted' | 'Returned' | 'Rejected' | 'Replaced' | 'Processed'
+/** 'Processed' (Finance, locked) exists only with the backend. */
+export const WLA_STATUSES: WlaStatus[] = apiEnabled ? ['Pending Verification', 'Accepted', 'Processed', 'Returned', 'Rejected', 'Replaced'] : ['Pending Verification', 'Accepted', 'Returned', 'Rejected', 'Replaced']
+/** The backend file store accepts PDF / JPG / PNG only. */
+export const WLA_FILE_TYPES = apiEnabled ? ['pdf', 'jpg', 'jpeg', 'png'] : ['pdf', 'xlsx', 'xls', 'csv', 'jpg', 'jpeg', 'png']
+export const WLA_MAX_MB = 10
+
+export type WlaCheck = { key: 'fileType' | 'size' | 'readable' | 'period' | 'account' | 'duplicate'; label: string; ok: boolean; note?: string }
+export type WlaReviewCheck = { readable: boolean; accountVisible: boolean; periodVisible: boolean; chequeVisible: boolean; documentCorrect: boolean }
+export const REVIEW_LABELS: Record<keyof WlaReviewCheck, string> = {
+  readable: 'Statement is readable',
+  accountVisible: 'Account number visible & matches mapped WLA account',
+  periodVisible: 'Statement period visible & matches',
+  chequeVisible: 'Cheque / transaction reference numbers visible',
+  documentCorrect: 'Correct document (bank statement of the WLA account)',
 }
 
-export const INITIAL_WLA_RECORDS: WlaStatementRecord[] = [
-  {
-    id: 'WLA-01',
-    month: 'November 2026',
-    hitachiCode: 'HTH-1021',
-    atmId: 'MCRM7303',
-    siteId: 'S-1001',
-    locationName: 'Lucknow',
-    franchiseName: 'ABC Services',
-    contactNo: '98765 *****',
-    email: 'abc.services@financial.in',
-    model: 'Hitachi ATM Model XYZ',
-    state: 'UP',
-    clDate: '05-11-2026',
-    acStatus: 'Current Account',
-    uploadStatus: 'Uploaded',
-    remark: 'WLA statement received',
-    actionToBeTaken: 'Verified',
-    uploadedDocuments: [
-      {
-        id: 'DOC-WLA-101',
-        fileName: 'WLA_Statement_MCRM7303_Nov2026.pdf',
-        uploadedOn: '05-11-2026 11:30 AM',
-        uploadedBy: 'Paras Dubey (Operations)',
-        size: '1.9 MB',
-      },
-    ],
-  },
-  {
-    id: 'WLA-02',
-    month: 'November 2026',
-    hitachiCode: 'HTH-2045',
-    atmId: 'MBP12121',
-    siteId: 'S-1002',
-    locationName: 'Kanpur',
-    franchiseName: 'XYZ Enterprises',
-    contactNo: '91234 *****',
-    email: 'xyz.enterprises@partner.in',
-    model: 'Hitachi ATM Model 200',
-    state: 'UP',
-    clDate: '04-11-2026',
-    acStatus: 'Axis Indent',
-    uploadStatus: 'Pending',
-    remark: 'Awaiting upload',
-    actionToBeTaken: 'Send Reminder',
-    uploadedDocuments: [],
-  },
-  {
-    id: 'WLA-03',
-    month: 'November 2026',
-    hitachiCode: 'HTH-3090',
-    atmId: 'NODR5566',
-    siteId: 'S-1003',
-    locationName: 'Noida',
-    franchiseName: 'KLM Services',
-    contactNo: '98701 *****',
-    email: 'klm.services@domain.com',
-    model: 'Hitachi Cash Recycler 300',
-    state: 'UP',
-    clDate: '03-11-2026',
-    acStatus: 'ICICI SR',
-    uploadStatus: 'Uploaded',
-    remark: 'WLA statement received',
-    actionToBeTaken: 'Verified',
-    uploadedDocuments: [
-      {
-        id: 'DOC-WLA-102',
-        fileName: 'WLA_Statement_NODR5566_Nov2026.pdf',
-        uploadedOn: '03-11-2026 04:15 PM',
-        uploadedBy: 'Amit Jadhav',
-        size: '2.1 MB',
-      },
-    ],
-  },
-  {
-    id: 'WLA-04',
-    month: 'November 2026',
-    hitachiCode: 'HTH-4156',
-    atmId: 'DLHY8890',
-    siteId: 'S-1004',
-    locationName: 'Delhi',
-    franchiseName: 'PQR Solutions',
-    contactNo: '98987 *****',
-    email: 'pqr.solutions@delhiops.com',
-    model: 'Hitachi ATM Model 150',
-    state: 'DL',
-    clDate: '02-11-2026',
-    acStatus: 'Current Account',
-    uploadStatus: 'Pending',
-    remark: 'Not uploaded',
-    actionToBeTaken: 'Follow Up',
-    uploadedDocuments: [],
-  },
-  {
-    id: 'WLA-05',
-    month: 'November 2026',
-    hitachiCode: 'HTH-5011',
-    atmId: 'GZBD2211',
-    siteId: 'S-1005',
-    locationName: 'Ghaziabad',
-    franchiseName: 'LMN Enterprises',
-    contactNo: '99112 *****',
-    email: 'lmn.enterprises@gmail.com',
-    model: 'Hitachi Model XYZ',
-    state: 'UP',
-    clDate: '01-11-2026',
-    acStatus: 'Axis Indent',
-    uploadStatus: 'Uploaded',
-    remark: 'WLA statement received',
-    actionToBeTaken: 'Verified',
-    uploadedDocuments: [
-      {
-        id: 'DOC-WLA-103',
-        fileName: 'WLA_Statement_GZBD2211.pdf',
-        uploadedOn: '01-11-2026 10:20 AM',
-        uploadedBy: 'Suresh Nair',
-        size: '2.7 MB',
-      },
-    ],
-  },
-  {
-    id: 'WLA-06',
-    month: 'November 2026',
-    hitachiCode: 'HTH-6099',
-    atmId: 'PRYR3344',
-    siteId: 'S-1006',
-    locationName: 'Prayagraj',
-    franchiseName: 'RST Services',
-    contactNo: '99345 *****',
-    email: 'rst.prayagraj@outlook.com',
-    model: 'Hitachi CRM 400',
-    state: 'UP',
-    clDate: '01-11-2026',
-    acStatus: 'ICICI SR',
-    uploadStatus: 'Pending',
-    remark: 'Awaiting upload',
-    actionToBeTaken: 'Send Reminder',
-    uploadedDocuments: [],
-  },
-  {
-    id: 'WLA-07',
-    month: 'November 2026',
-    hitachiCode: 'HTH-7120',
-    atmId: 'VRNS9102',
-    siteId: 'S-1007',
-    locationName: 'Varanasi',
-    franchiseName: 'Kashi Tech Services',
-    contactNo: '97812 *****',
-    email: 'kashi.tech@gmail.com',
-    model: 'Hitachi Model XYZ',
-    state: 'UP',
-    clDate: '31-10-2026',
-    acStatus: 'Current Account',
-    uploadStatus: 'Uploaded',
-    remark: 'WLA statement received',
-    actionToBeTaken: 'Verified',
-    uploadedDocuments: [
-      {
-        id: 'DOC-WLA-104',
-        fileName: 'WLA_VRNS9102_Nov.pdf',
-        uploadedOn: '31-10-2026 02:40 PM',
-        uploadedBy: 'Paras Dubey (Operations)',
-        size: '1.4 MB',
-      },
-    ],
-  },
-  {
-    id: 'WLA-08',
-    month: 'November 2026',
-    hitachiCode: 'HTH-8234',
-    atmId: 'AGRA4412',
-    siteId: 'S-1008',
-    locationName: 'Agra',
-    franchiseName: 'Taj Financial Net',
-    contactNo: '96541 *****',
-    email: 'taj.fin@agra.co',
-    model: 'Hitachi ATM 250',
-    state: 'UP',
-    clDate: '30-10-2026',
-    acStatus: 'Axis Indent',
-    uploadStatus: 'Pending',
-    remark: 'Awaiting upload',
-    actionToBeTaken: 'Send Reminder',
-    uploadedDocuments: [],
-  },
-  {
-    id: 'WLA-09',
-    month: 'November 2026',
-    hitachiCode: 'HTH-9345',
-    atmId: 'MRUT1188',
-    siteId: 'S-1009',
-    locationName: 'Meerut',
-    franchiseName: 'Shree Balaji Fin',
-    contactNo: '95432 *****',
-    email: 'balaji.meerut@yahoo.com',
-    model: 'Hitachi ATM Model XYZ',
-    state: 'UP',
-    clDate: '29-10-2026',
-    acStatus: 'ICICI SR',
-    uploadStatus: 'Uploaded',
-    remark: 'WLA statement received',
-    actionToBeTaken: 'Verified',
-    uploadedDocuments: [
-      {
-        id: 'DOC-WLA-105',
-        fileName: 'WLA_MRUT1188_Nov.pdf',
-        uploadedOn: '29-10-2026 05:00 PM',
-        uploadedBy: 'Rajesh Sharma',
-        size: '1.8 MB',
-      },
-    ],
-  },
-  {
-    id: 'WLA-10',
-    month: 'November 2026',
-    hitachiCode: 'HTH-1056',
-    atmId: 'GKP7766',
-    siteId: 'S-1010',
-    locationName: 'Gorakhpur',
-    franchiseName: 'Purvanchal ATM Hub',
-    contactNo: '94321 *****',
-    email: 'purvanchal.atm@gmail.com',
-    model: 'Hitachi ATM Model XYZ',
-    state: 'UP',
-    clDate: '28-10-2026',
-    acStatus: 'Current Account',
-    uploadStatus: 'Pending',
-    remark: 'Not uploaded',
-    actionToBeTaken: 'Follow Up',
-    uploadedDocuments: [],
-  },
-  {
-    id: 'WLA-11',
-    month: 'November 2026',
-    hitachiCode: 'HTH-2167',
-    atmId: 'ALGH3322',
-    siteId: 'S-1011',
-    locationName: 'Aligarh',
-    franchiseName: 'Aligarh Banking Point',
-    contactNo: '93210 *****',
-    email: 'aligarh.bp@gmail.com',
-    model: 'Hitachi CRM 400',
-    state: 'UP',
-    clDate: '27-10-2026',
-    acStatus: 'Axis Indent',
-    uploadStatus: 'Uploaded',
-    remark: 'WLA statement received',
-    actionToBeTaken: 'Verified',
-    uploadedDocuments: [
-      {
-        id: 'DOC-WLA-106',
-        fileName: 'WLA_ALGH3322.pdf',
-        uploadedOn: '27-10-2026 01:10 PM',
-        uploadedBy: 'Paras Dubey (Operations)',
-        size: '2.5 MB',
-      },
-    ],
-  },
-  {
-    id: 'WLA-12',
-    month: 'November 2026',
-    hitachiCode: 'HTH-3278',
-    atmId: 'MRDB8899',
-    siteId: 'S-1012',
-    locationName: 'Moradabad',
-    franchiseName: 'Brass City Fin',
-    contactNo: '92109 *****',
-    email: 'brasscity.fin@gmail.com',
-    model: 'Hitachi ATM Model XYZ',
-    state: 'UP',
-    clDate: '26-10-2026',
-    acStatus: 'ICICI SR',
-    uploadStatus: 'Pending',
-    remark: 'Awaiting upload',
-    actionToBeTaken: 'Send Reminder',
-    uploadedDocuments: [],
-  },
-  {
-    id: 'WLA-13',
-    month: 'November 2026',
-    hitachiCode: 'HTH-4389',
-    atmId: 'BRLY5544',
-    siteId: 'S-1013',
-    locationName: 'Bareilly',
-    franchiseName: 'Rohilkhand Services',
-    contactNo: '91098 *****',
-    email: 'rohilkhand.srv@gmail.com',
-    model: 'Hitachi ATM 250',
-    state: 'UP',
-    clDate: '25-10-2026',
-    acStatus: 'Current Account',
-    uploadStatus: 'Uploaded',
-    remark: 'WLA statement received',
-    actionToBeTaken: 'Verified',
-    uploadedDocuments: [
-      {
-        id: 'DOC-WLA-107',
-        fileName: 'WLA_BRLY5544.pdf',
-        uploadedOn: '25-10-2026 12:15 PM',
-        uploadedBy: 'Amit Jadhav',
-        size: '1.7 MB',
-      },
-    ],
-  },
-  {
-    id: 'WLA-14',
-    month: 'November 2026',
-    hitachiCode: 'HTH-5490',
-    atmId: 'JHNS2211',
-    siteId: 'S-1014',
-    locationName: 'Jhansi',
-    franchiseName: 'Bundelkhand Fin Point',
-    contactNo: '90987 *****',
-    email: 'bundelkhand.fp@gmail.com',
-    model: 'Hitachi Model XYZ',
-    state: 'UP',
-    clDate: '24-10-2026',
-    acStatus: 'Axis Indent',
-    uploadStatus: 'Pending',
-    remark: 'Awaiting upload',
-    actionToBeTaken: 'Send Reminder',
-    uploadedDocuments: [],
-  },
-]
+export type WlaStatement = {
+  id: string
+  version: number
+  rootId: string // first upload of this site + period (replacement chain)
+  replaces?: string
+  replacedBy?: string
+  frId: string
+  franchiseName: string
+  siteId: string
+  atmId: string
+  wlaAccount: string // mapped account reference (masked)
+  bank: string
+  period: string // yyyy-mm
+  periodFrom: string
+  periodTo: string
+  file: { name: string; size: number; type: string }
+  passwordProtected: boolean
+  readableFlag: boolean // uploader confirms the file opens / is not blurred
+  checks: WlaCheck[]
+  channel: 'Mobile App' | 'Web (on behalf)'
+  uploadedBy: string
+  uploadedAt: string
+  status: WlaStatus
+  review?: WlaReviewCheck
+  reason?: string
+  remarks?: string
+  verifiedBy?: string
+  verifiedAt?: string
+  taskId?: string
+  fileId?: string // API mode: stored file
+  processedBy?: string
+  processedAt?: string
+  history: { at: string; by: string; action: string; remark?: string }[]
+  access: { at: string; by: string; action: 'View' | 'Download' }[]
+}
 
-export const wlaStore = createStore<WlaStatementRecord[]>('dexter_wla_statements_v1', () => INITIAL_WLA_RECORDS)
+const mask = (n: string) => (n.length > 4 ? `XXXX${n.slice(-4)}` : n)
+export const frNameOf = (frId: string) => getFranchise(frId)?.name ?? frId
+export const wlaFrUser = (frId: string) => `${frNameOf(frId)} (Franchise user)`
+export const accountOf = (s: Site) => (s.account ? { ref: `${s.account.type} · ${mask(s.account.accountNo)}`, bank: s.account.bank, approved: s.account.approval === 'Approved' } : null)
+export const periodRange = (p: string) => {
+  const [y, m] = p.split('-').map(Number)
+  const last = new Date(Date.UTC(y, m, 0)).getUTCDate()
+  return { from: `${p}-01`, to: `${p}-${String(last).padStart(2, '0')}` }
+}
+export const periodLabel = (p: string) => (p ? new Date(`${p}-01T00:00:00Z`).toLocaleDateString('en-IN', { month: 'short', year: 'numeric', timeZone: 'UTC' }) : '—')
 
-export function useWlaStatements() {
-  const records = wlaStore.use()
+/** Sites that can have a WLA statement: the franchise's sites with a mapped WLA account. */
+export const wlaSitesOf = (sites: Site[], frId?: string) => sites.filter((s) => (!frId || s.frId === frId))
+
+function seed(): WlaStatement[] {
+  const sites = siteStore.get().sites.filter((s) => s.account).slice(0, 14)
+  const out: WlaStatement[] = []
+  const plan: [WlaStatus, string][] = [
+    ['Accepted', '2026-09'], ['Accepted', '2026-10'], ['Pending Verification', '2026-10'], ['Returned', '2026-10'], ['Rejected', '2026-09'],
+    ['Pending Verification', '2026-10'], ['Accepted', '2026-09'], ['Pending Verification', '2026-10'], ['Accepted', '2026-10'], ['Returned', '2026-09'],
+  ]
+  plan.forEach(([status, period], i) => {
+    const s = sites[i % sites.length]
+    if (!s) return
+    const acc = accountOf(s)!
+    const { from, to } = periodRange(period)
+    const fu = wlaFrUser(s.frId)
+    const up = `2026-11-${String(2 + i).padStart(2, '0')}T10:${String(10 + i).padStart(2, '0')}:00.000Z`
+    const id = `WLA-2026-${String(1001 + i)}`
+    const rec: WlaStatement = {
+      id, version: 1, rootId: id, frId: s.frId, franchiseName: frNameOf(s.frId), siteId: s.siteId, atmId: s.atmId, wlaAccount: acc.ref, bank: acc.bank, period, periodFrom: from, periodTo: to,
+      file: { name: `WLA_${s.atmId}_${period.replace('-', '')}.pdf`, size: 420_000 + i * 13_000, type: 'pdf' }, passwordProtected: i % 4 === 0, readableFlag: true,
+      checks: [], channel: i % 3 === 2 ? 'Web (on behalf)' : 'Mobile App', uploadedBy: fu, uploadedAt: up, status,
+      history: [{ at: up, by: fu, action: 'Uploaded' }], access: [],
+    }
+    rec.checks = runChecks({ site: s, period, fileName: rec.file.name, size: rec.file.size, readable: true }, [])
+    if (status !== 'Pending Verification') {
+      const ok = status === 'Accepted'
+      rec.review = { readable: status !== 'Returned', accountVisible: ok || status === 'Returned', periodVisible: true, chequeVisible: ok, documentCorrect: status !== 'Rejected' }
+      rec.verifiedBy = i % 2 ? 'Kiran Rao' : 'Sanjay Gupta'
+      rec.verifiedAt = `2026-11-${String(4 + i).padStart(2, '0')}T12:00:00.000Z`
+      rec.reason = status === 'Returned' ? 'Statement pages 2–3 are blurred; cheque numbers not readable. Upload a clear copy.' : status === 'Rejected' ? 'Uploaded document is a passbook photo of a different account, not the WLA statement.' : undefined
+      rec.history.push({ at: rec.verifiedAt, by: rec.verifiedBy, action: status, remark: rec.reason })
+    }
+    out.push(rec)
+  })
+  return out.reverse()
+}
+
+export const wlaStore = createStore<WlaStatement[]>('dexter.wla.v2', seed)
+/** Hydrates from the backend in API mode (no-op in mock mode). */
+export const useWlaStatements = () => {
+  wlaLoader.use()
+  return wlaStore.use()
+}
+
+/** §6 step 2 — validation. */
+export function runChecks(i: { site?: Site; period: string; fileName: string; size: number; readable: boolean }, existing: WlaStatement[], replacingId?: string): WlaCheck[] {
+  const ext = i.fileName.split('.').pop()?.toLowerCase() ?? ''
+  const acc = i.site ? accountOf(i.site) : null
+  const now = new Date().toISOString().slice(0, 7)
+  const dup = existing.find((x) => x.siteId === i.site?.siteId && x.period === i.period && (x.status === 'Pending Verification' || x.status === 'Accepted') && x.id !== replacingId)
+  return [
+    { key: 'fileType', label: 'File type (PDF / Excel / CSV / image)', ok: WLA_FILE_TYPES.includes(ext), note: ext ? `.${ext}` : 'no file' },
+    { key: 'size', label: `Size ≤ ${WLA_MAX_MB} MB and not empty`, ok: i.size > 0 && i.size <= WLA_MAX_MB * 1024 * 1024 },
+    { key: 'readable', label: 'Readable (not blurred / corrupt / password shared)', ok: i.readable },
+    { key: 'period', label: 'Statement period is a completed month', ok: !!i.period && i.period < now, note: i.period ? periodLabel(i.period) : 'not selected' },
+    { key: 'account', label: 'Mapped WLA account exists for the site', ok: !!acc, note: acc ? `${acc.bank} · ${acc.ref}${acc.approved ? '' : ' (mapping approval pending)'}` : 'No account mapped in Site Master' },
+    { key: 'duplicate', label: 'No other pending / accepted statement for this site & month', ok: !dup, note: dup ? `${dup.id} (${dup.status}) — use replacement` : undefined },
+  ]
+}
+
+export type WlaUploadInput = { siteId: string; period: string; file: { name: string; size: number } | null; passwordProtected: boolean; password?: string; readable: boolean; remarks: string; replacingId?: string }
+
+export function uploadWla(i: WlaUploadInput, channel: WlaStatement['channel']): { error?: string; checks?: WlaCheck[]; rec?: WlaStatement } {
+  const site = siteStore.get().sites.find((s) => s.siteId === i.siteId)
+  if (!site) return { error: 'Select the site / ATM' }
+  if (!i.period) return { error: 'Select the statement month' }
+  if (!i.file) return { error: 'Attach the statement file' }
+  if (i.passwordProtected && !i.password?.trim()) return { error: 'Password-protected file: enter the password so CRM can open it' }
+  const list = wlaStore.get()
+  const prev = i.replacingId ? list.find((x) => x.id === i.replacingId) : undefined
+  if (i.replacingId && (!prev || prev.status !== 'Returned')) return { error: 'Only a Returned statement can be replaced' }
+  const checks = runChecks({ site, period: i.period, fileName: i.file.name, size: i.file.size, readable: i.readable }, list, i.replacingId)
+  const failed = checks.filter((c) => !c.ok)
+  if (failed.length) return { error: `Validation failed: ${failed.map((c) => c.label).join('; ')}`, checks }
+  const acc = accountOf(site)!
+  const { from, to } = periodRange(i.period)
+  const maker = channel === 'Mobile App' ? wlaFrUser(site.frId) : actorName()
+  const n = list.reduce((m, x) => Math.max(m, Number(x.id.split('-').pop()) || 0), 1000) + 1
+  const id = `WLA-2026-${n}`
+  const ext = i.file.name.split('.').pop()?.toLowerCase() ?? ''
+  const rec: WlaStatement = {
+    id, version: prev ? prev.version + 1 : 1, rootId: prev?.rootId ?? id, replaces: prev?.id, frId: site.frId, franchiseName: frNameOf(site.frId), siteId: site.siteId, atmId: site.atmId,
+    wlaAccount: acc.ref, bank: acc.bank, period: i.period, periodFrom: from, periodTo: to, file: { name: i.file.name, size: i.file.size, type: ext }, passwordProtected: i.passwordProtected, readableFlag: i.readable,
+    checks, channel, uploadedBy: maker, uploadedAt: nowIso(), status: 'Pending Verification', remarks: i.remarks.trim() || undefined,
+    history: [{ at: nowIso(), by: maker, action: prev ? `Uploaded replacement v${prev.version + 1} for ${prev.id}` : 'Uploaded', remark: i.remarks.trim() || undefined }], access: [],
+  }
+  const task = emitWorkflow({
+    module: 'WLA Statement', event: 'Submit', refId: id,
+    vars: { Record_ID: id, Site_ID: site.siteId, ATM_ID: site.atmId, Franchise_Name: rec.franchiseName, Current_Status: 'Pending Verification' },
+    nextAction: { title: `Verify WLA statement ${periodLabel(i.period)} – ${site.atmId}`, dueHours: 48, priority: 'Medium' },
+  })
+  rec.taskId = task?.id
+  wlaStore.set((l) => [rec, ...l.map((x) => (x.id === prev?.id ? { ...x, status: 'Replaced' as const, replacedBy: id, history: [...x.history, { at: nowIso(), by: maker, action: `Replaced by ${id}` }] } : x))])
+  return { rec, checks }
+}
+
+export function reviewWla(id: string, decision: 'Accepted' | 'Returned' | 'Rejected', review: WlaReviewCheck, reason: string) {
+  const r = wlaStore.get().find((x) => x.id === id)
+  if (!r || r.status !== 'Pending Verification') return 'Only pending statements can be reviewed'
+  if (r.uploadedBy === actorName()) return 'Maker-checker: you uploaded this statement'
+  if (decision === 'Accepted' && Object.values(review).some((v) => !v)) return 'All review checks must pass to accept — otherwise return or reject with a reason'
+  if (decision !== 'Accepted' && !reason.trim()) return `A reason is required to mark the statement ${decision}`
+  wlaStore.set((l) => l.map((x) => (x.id === id ? { ...x, status: decision, review, reason: reason.trim() || undefined, verifiedBy: actorName(), verifiedAt: nowIso(), history: [...x.history, { at: nowIso(), by: actorName(), action: decision, remark: reason.trim() || undefined }] } : x)))
+  emitWorkflow({ module: 'WLA Statement', event: decision === 'Accepted' ? 'Approve' : decision === 'Returned' ? 'Return' : 'Reject', refId: id, vars: { Record_ID: id, Site_ID: r.siteId, ATM_ID: r.atmId, Franchise_Name: r.franchiseName, Current_Status: decision } })
+  return null
+}
+
+export function logWlaAccess(id: string, by: string, action: 'View' | 'Download') {
+  wlaStore.set((l) => l.map((x) => (x.id === id ? { ...x, access: [...x.access, { at: nowIso(), by, action }] } : x)))
+  logAudit('WLA Statement', id, `Statement ${action.toLowerCase()}ed`, by)
+}
+
+export function exportWlaCsv(rows: WlaStatement[], name = 'wla-statement-master') {
+  downloadCsv(name, ['ID', 'Version', 'Replaces', 'Franchise', 'Site ID', 'ATM ID', 'WLA account', 'Bank', 'Period', 'File', 'Channel', 'Uploaded by', 'Uploaded at', 'Status', 'Reason', 'Verified by', 'Verified at'], rows.map((r) => [
+    r.id, String(r.version), r.replaces ?? '', r.franchiseName, r.siteId, r.atmId, r.wlaAccount, r.bank, r.period, r.file.name, r.channel, r.uploadedBy, r.uploadedAt, r.status, r.reason ?? '', r.verifiedBy ?? '', r.verifiedAt ?? '',
+  ]))
+}
+
+// ── API mode (backend /wla-statements) ───────────────────────────────────
+type ApiWla = {
+  wlaId: string; version: number; rootId: string; replaces?: string; replacedBy?: string; frId: string; franchiseName: string; siteId: string; atmId: string; wlaAccount: string; bank: string
+  period: string; periodFrom: string; periodTo: string; file: { fileId: string; name: string; size: number; mimeType?: string }; passwordProtected: boolean; readable: boolean
+  checks: { key: string; label: string; ok: boolean; note?: string }[]; channel: WlaStatement['channel']; uploadedBy: string; uploadedByName?: string; uploadedAt: string; status: WlaStatus
+  review?: WlaReviewCheck; reason?: string; remarks?: string; verifiedBy?: string; verifiedByName?: string; verifiedAt?: string; processedByName?: string; processedAt?: string
+  history?: { at: string; by: string; text: string }[]; access?: { at: string; by?: string; byName?: string; action: 'View' | 'Download' }[]
+}
+
+export function fromApiWla(r: ApiWla): WlaStatement {
   return {
-    records,
-    getRecordByAtmId: (atmId: string) => records.find((r) => r.atmId.toLowerCase() === atmId.toLowerCase()),
-    getRecordById: (id: string) => records.find((r) => r.id === id),
-    addOrUpdateRecord: (newRec: Partial<WlaStatementRecord> & { atmId: string; month: string }) => {
-      wlaStore.set((prev) => {
-        const existingIdx = prev.findIndex(
-          (r) => r.atmId.toLowerCase() === newRec.atmId.toLowerCase() && r.month === newRec.month,
-        )
-        const profile: AtmProfile = KNOWN_TDS_ATMS[newRec.atmId] || {
-          atmId: newRec.atmId,
-          hitachiCode: newRec.hitachiCode || `HTH-${Math.floor(1000 + Math.random() * 9000)}`,
-          siteId: newRec.siteId || 'S-1001',
-          franchiseName: newRec.franchiseName || 'Shree Sai Financial Services',
-          contactNo: newRec.contactNo || '+91 98765 43210',
-          email: newRec.email || 'sai.financial@gmail.com',
-          model: newRec.model || 'Hitachi ATM Model XYZ',
-          locationName: newRec.locationName || 'Lucknow',
-          state: newRec.state || 'UP',
-          acStatus: newRec.acStatus || 'Current Account',
-        }
-
-        if (existingIdx >= 0) {
-          const current = prev[existingIdx]
-          const updated: WlaStatementRecord = {
-            ...current,
-            ...newRec,
-            uploadStatus: 'Uploaded',
-            remark: newRec.remark || 'WLA statement received',
-            actionToBeTaken: 'Verified',
-            uploadedDocuments: [
-              ...(current.uploadedDocuments || []),
-              ...(newRec.uploadedDocuments || []),
-            ],
-          }
-          const next = [...prev]
-          next[existingIdx] = updated
-          return next
-        } else {
-          const newEntry: WlaStatementRecord = {
-            id: `WLA-${String(prev.length + 1).padStart(2, '0')}`,
-            month: newRec.month,
-            hitachiCode: profile.hitachiCode,
-            atmId: newRec.atmId,
-            siteId: profile.siteId,
-            locationName: profile.locationName,
-            franchiseName: profile.franchiseName,
-            contactNo: profile.contactNo,
-            email: profile.email,
-            model: profile.model,
-            state: profile.state,
-            clDate: newRec.clDate || '01-11-2026',
-            acStatus: profile.acStatus,
-            uploadStatus: 'Uploaded',
-            remark: newRec.remark || 'WLA statement received',
-            actionToBeTaken: 'Verified',
-            uploadedDocuments: newRec.uploadedDocuments || [],
-          }
-          return [newEntry, ...prev]
-        }
-      })
-    },
-    resetDummyData: () => {
-      wlaStore.reset()
-    },
+    id: r.wlaId, version: r.version, rootId: r.rootId, replaces: r.replaces, replacedBy: r.replacedBy, frId: r.frId, franchiseName: r.franchiseName, siteId: r.siteId, atmId: r.atmId,
+    wlaAccount: r.wlaAccount, bank: r.bank, period: r.period, periodFrom: r.periodFrom, periodTo: r.periodTo,
+    file: { name: r.file?.name ?? '', size: r.file?.size ?? 0, type: (r.file?.name ?? '').split('.').pop()?.toLowerCase() ?? '' },
+    fileId: r.file?.fileId,
+    passwordProtected: r.passwordProtected, readableFlag: r.readable, checks: (r.checks ?? []) as WlaCheck[], channel: r.channel,
+    uploadedBy: r.uploadedByName ?? r.uploadedBy, uploadedAt: r.uploadedAt, status: r.status, review: r.review, reason: r.reason, remarks: r.remarks,
+    verifiedBy: r.verifiedByName ?? r.verifiedBy, verifiedAt: r.verifiedAt, processedBy: r.processedByName, processedAt: r.processedAt,
+    history: (r.history ?? []).map((h) => ({ at: h.at, by: h.by, action: h.text })),
+    access: (r.access ?? []).map((a) => ({ at: a.at, by: a.byName ?? a.by ?? '', action: a.action })),
   }
 }
 
-export function exportWlaCsv(records: WlaStatementRecord[], filename = 'wla-statement-upload-status') {
-  const headers = [
-    'S.N.',
-    'Month',
-    'Hitachi Code',
-    'ATM ID',
-    'Location Name',
-    'Franchise Name',
-    'Contact No.',
-    'State',
-    'CL Date',
-    'A/C Status',
-    'Upload Status',
-    'Remark',
-    'Action to be Taken',
-  ]
-  const rows = records.map((r, i) => [
-    String(i + 1),
-    r.month,
-    r.hitachiCode,
-    r.atmId,
-    r.locationName,
-    r.franchiseName,
-    r.contactNo,
-    r.state,
-    r.clDate,
-    r.acStatus,
-    r.uploadStatus,
-    r.remark,
-    r.actionToBeTaken,
-  ])
-  downloadCsv(filename, headers, rows)
+export const wlaLoader = createLoader('WLA statements', async () => {
+  wlaStore.set((await fetchAll<ApiWla>('/wla-statements', { sort: '-uploadedAt' })).map(fromApiWla))
+})
+const upsertWla = (r: ApiWla) => {
+  const rec = fromApiWla(r)
+  wlaStore.set((l) => (l.some((x) => x.id === rec.id) ? l.map((x) => (x.id === rec.id ? rec : x)) : [rec, ...l]))
+  return rec
 }
 
+/** Upload (API: POST /files → POST /wla-statements; mock: local). `raw` is the real File picked by the user. */
+export async function uploadWlaAsync(i: WlaUploadInput, channel: WlaStatement['channel'], raw?: File | null): Promise<{ error?: string; checks?: WlaCheck[]; rec?: WlaStatement }> {
+  if (!apiEnabled) return uploadWla(i, channel)
+  const site = siteStore.get().sites.find((s) => s.siteId === i.siteId)
+  if (!site) return { error: 'Select the site / ATM' }
+  if (!i.period) return { error: 'Select the statement month' }
+  if (!i.file) return { error: 'Attach the statement file' }
+  const ext = i.file.name.split('.').pop()?.toLowerCase() ?? ''
+  if (!['pdf', 'jpg', 'jpeg', 'png'].includes(ext)) return { error: 'The server accepts PDF / JPG / PNG statements only' }
+  if (i.passwordProtected && !i.password?.trim()) return { error: 'Password-protected file: enter the password so CRM can open it' }
+  try {
+    const fileId = await uploadDoc(raw, { purpose: 'wla-statement', entity: 'WlaStatement' })
+    const r = await apiCall(() => post<ApiWla>('/wla-statements', { site: site.siteId, period: i.period, fileId, readable: i.readable, passwordProtected: i.passwordProtected, remarks: i.remarks.trim() || undefined, replacingId: i.replacingId }))
+    const rec = upsertWla(r)
+    if (i.replacingId) void wlaLoader.reload()
+    return { rec, checks: rec.checks }
+  } catch (e) {
+    const checks = (e as { details?: { checks?: WlaCheck[] } }).details?.checks
+    return { error: (e as Error).message, checks }
+  }
+}
+
+export async function reviewWlaAsync(id: string, decision: 'Accepted' | 'Returned' | 'Rejected', review: WlaReviewCheck, reason: string): Promise<string | null> {
+  if (!apiEnabled) return reviewWla(id, decision, review, reason)
+  if (decision !== 'Accepted' && !reason.trim()) return `A reason is required to mark the statement ${decision}`
+  try {
+    upsertWla(await apiCall(() => post<ApiWla>(`/wla-statements/${encodeURIComponent(id)}/review`, { decision, review, reason: reason.trim() || undefined })))
+    return null
+  } catch (e) {
+    return (e as Error).message
+  }
+}
+
+/** Finance processing (Accepted → Processed, locked). API mode only. */
+export async function processWlaAsync(id: string, note: string): Promise<string | null> {
+  if (!apiEnabled) return 'Processing is available with the backend only'
+  if (note.trim().length < 3) return 'A processing note is required (min 3 characters)'
+  try {
+    upsertWla(await apiCall(() => post<ApiWla>(`/wla-statements/${encodeURIComponent(id)}/process`, { note: note.trim() })))
+    return null
+  } catch (e) {
+    return (e as Error).message
+  }
+}
+
+/** View (logged server-side; returns the record with its access log) / Download (logged + file). */
+export async function logWlaAccessAsync(id: string, by: string, action: 'View' | 'Download') {
+  if (!apiEnabled) return logWlaAccess(id, by, action)
+  if (action === 'View') {
+    upsertWla(await apiCall(() => get<ApiWla>(`/wla-statements/${encodeURIComponent(id)}`)))
+    await loadWlaAccessLog(id).catch(() => undefined) // authoritative staff access log (does not log another View)
+    return
+  }
+  const x = wlaStore.get().find((s) => s.id === id)
+  await downloadAuthed(`/wla-statements/${encodeURIComponent(id)}/download`, x?.file.name ?? `${id}.pdf`)
+  void loadWlaAccessLog(id).catch(() => undefined) // refresh without logging another View
+}
+
+type ApiAccessLog = { total: number; views: number; downloads: number; items: { at: string; by?: string; byName?: string; action: 'View' | 'Download'; channel?: string; frId?: string }[] }
+/**
+ * Staff oversight: GET /wla-statements/:id/access-log ({total, views, downloads, items} newest first). Reading it does
+ * not add a View entry. Fills the record's access list (oldest first, as the local log). API mode only.
+ */
+export async function loadWlaAccessLog(id: string) {
+  if (!apiEnabled) return
+  const r = await get<ApiAccessLog>(`/wla-statements/${encodeURIComponent(id)}/access-log`)
+  const access = [...r.items].reverse().map((a) => ({ at: a.at, by: a.byName ?? a.by ?? '', action: a.action }))
+  wlaStore.set((l) => l.map((x) => (x.id === id ? { ...x, access } : x)))
+  return r
+}
+
+/** OCR suggestion for an uploaded file (always to be confirmed by the user). */
+export async function wlaOcrPreview(fileId: string) {
+  return apiCall(() => post<OcrPreview>('/wla-statements/ocr-preview', { fileId }))
+}

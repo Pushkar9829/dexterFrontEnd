@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   ArrowRight,
@@ -27,13 +27,19 @@ import { cn } from '@/lib/cn'
 import { downloadCsv } from '@/lib/export'
 import { franchiseStore } from '@/data/franchises'
 import {
+  backendReportIds,
+  fetchLiveReport,
   getReport,
+  type LiveReport,
   type PCol,
   type PRow,
   type ReportDef,
 } from '@/data/reportsHub'
 import { SavedReportsModal, ScheduledExportsModal } from './HubModals'
 import { FOOTER } from './financial/Shell'
+import { guardAct, useCanIn } from '@/lib/guard'
+import { apiEnabled } from '@/lib/api'
+import { errMsg } from '@/data/bizApi'
 
 // ── Decorative corner arcs matching image reference ─────────────────────────
 function CornerWaves() {
@@ -151,6 +157,7 @@ const toGridColumns = (cols: PCol[]): GridColumn<PRow>[] =>
   }))
 
 export default function ReportsHub() {
+  const allowRep = useCanIn('Reports')
   const navigate = useNavigate()
   const frs = franchiseStore.use()
   const [params, setParams] = useSearchParams()
@@ -317,17 +324,35 @@ export default function ReportsHub() {
     () => (activeReportId ? getReport(activeReportId) : undefined),
     [activeReportId],
   )
+  // API mode: reports the backend knows run live (GET /reports/:id); the rest keep the sample preview.
+  const [live, setLive] = useState<{ id: string; state: 'loading' | 'ok' | 'none' | 'error'; data?: LiveReport; error?: string } | null>(null)
+  useEffect(() => {
+    if (!apiEnabled || !activeReportId) return setLive(null)
+    let gone = false
+    setLive({ id: activeReportId, state: 'loading' })
+    backendReportIds()
+      .then(async (ids) => {
+        if (!ids.has(activeReportId)) return !gone && setLive({ id: activeReportId, state: 'none' })
+        const data = await fetchLiveReport(activeReportId)
+        if (!gone) setLive({ id: activeReportId, state: 'ok', data })
+      })
+      .catch((e) => !gone && setLive({ id: activeReportId, state: 'error', error: errMsg(e) }))
+    return () => {
+      gone = true
+    }
+  }, [activeReportId])
+  const liveData = live?.id === activeReportId && live.state === 'ok' ? live.data : undefined
+  const activeCols: PCol[] = liveData ? liveData.columns : (activeDef?.columns ?? [])
   const activeRows = useMemo(() => {
     if (!activeDef) return []
-    return (activeDef.build?.({ frs }) ?? []).map((r, i): PRow => ({
+    if (apiEnabled && live?.state === 'loading') return []
+    const src = liveData ? liveData.rows : (activeDef.build?.({ frs }) ?? [])
+    return src.map((r, i): PRow => ({
       ...r,
       __id: `${activeDef.id}-${i}`,
     }))
-  }, [activeDef, frs])
-  const activeColumns = useMemo(
-    () => (activeDef ? toGridColumns(activeDef.columns ?? []) : []),
-    [activeDef],
-  )
+  }, [activeDef, frs, liveData, live?.state])
+  const activeColumns = useMemo(() => toGridColumns(activeCols), [activeCols])
 
   const clearSearch = () => {
     setParams((p) => {
@@ -583,22 +608,25 @@ export default function ReportsHub() {
           footer={
             <div className="flex w-full items-center justify-between">
               <div className="flex items-center gap-2">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  icon={<Download size={14} />}
-                  onClick={() => {
-                    const cols = activeDef.columns ?? []
-                    downloadCsv(
-                      `${activeDef.id}-export`,
-                      cols.map((c) => c.label),
-                      activeRows.map((r) => cols.map((c) => String(r[c.key] ?? ''))),
-                    )
-                    toast(`Exported ${activeRows.length} rows to CSV`)
-                  }}
-                >
-                  Export CSV
-                </Button>
+                {allowRep('Export') && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    icon={<Download size={14} />}
+                    onClick={() => {
+                      if (!guardAct('Reports', 'Export', 'export reports')) return
+                      const cols = activeCols
+                      downloadCsv(
+                        `${activeDef.id}-export`,
+                        cols.map((c) => c.label),
+                        activeRows.map((r) => cols.map((c) => String(r[c.key] ?? ''))),
+                      )
+                      toast(`Exported ${activeRows.length} rows to CSV`)
+                    }}
+                  >
+                    Export CSV
+                  </Button>
+                )}
                 {activeDef.gridTo && (
                   <Link
                     to={activeDef.gridTo}
@@ -613,6 +641,14 @@ export default function ReportsHub() {
           }
         >
           <div className="space-y-3">
+            {apiEnabled && live?.id === activeReportId && live.state !== 'ok' && (
+              <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-800">
+                {live.state === 'loading' ? 'Loading live report…' : live.state === 'error' ? `Could not load live data: ${live.error}. Showing sample data.` : 'This report is not available on the server yet — showing sample data.'}
+              </p>
+            )}
+            {liveData && !liveData.available && (
+              <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-800">The source module for this report has no data on the server yet.</p>
+            )}
             <ExcelGrid
               title={activeDef.name}
               countLabel={`${activeRows.length.toLocaleString('en-IN')} records`}

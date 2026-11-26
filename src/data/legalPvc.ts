@@ -1,4 +1,8 @@
 import { createStore } from '@/lib/store'
+import { apiEnabled, del, patch, post } from '@/lib/api'
+import { apiCall, createLoader, fetchAll } from '@/data/bizApi'
+import { isoToSlash, legalIsFranchisee, slashToIso, snOf } from '@/data/legalApi'
+import { franchiseNameOf, siteAt } from '@/lib/siteRef'
 
 export type PvcStatus = 'Active' | 'Pending' | 'Not Generated' | 'Signature Pending'
 
@@ -15,6 +19,8 @@ export interface PvcRecord {
   pvcDate: string
   expiryDate: string
   status: PvcStatus
+  /** API mode: stored file id (POST /files) */
+  fileId?: string
   fileName?: string
   fileSizeKb?: number
   remark: string
@@ -26,7 +32,7 @@ export interface PvcState {
   records: PvcRecord[]
 }
 
-const SEED_PVC_RECORDS: PvcRecord[] = [
+const SEED_PVC_RECORDS_RAW: PvcRecord[] = [
   {
     id: 'PVC-001',
     sn: 1,
@@ -160,15 +166,104 @@ const SEED_PVC_RECORDS: PvcRecord[] = [
   },
 ]
 
-export const pvcStore = createStore<PvcState>('dexter.legal.pvc.v2', () => ({
-  records: SEED_PVC_RECORDS,
-}))
+/** Seed records re-pointed at real Site Master sites (deterministic via siteAt). */
+function seedPvcRecords(): PvcRecord[] {
+  return SEED_PVC_RECORDS_RAW.map((r, i) => {
+    const site = siteAt(i * 5 + 2)
+    const short = site.siteId.replace(/^SITE-/i, '')
+    return {
+      ...r,
+      siteId: site.siteId,
+      siteLoi: `LOI-${short}`,
+      atmId: site.atmId,
+      franchiseName: franchiseNameOf(site) || r.franchiseName,
+      fileName: r.fileName ? r.fileName.replace(r.siteId, site.siteId) : r.fileName,
+    }
+  })
+}
 
-export const usePvcRecords = () => pvcStore.use()
+// API mode keeps its own cache key and starts empty (never shows the mock seed); hydrated by pvcLoader.
+export const pvcStore = apiEnabled
+  ? createStore<PvcState>('dexter.legal.pvc.api.v1', () => ({ records: [] }))
+  : createStore<PvcState>('dexter.legal.pvc.v3', () => ({
+      records: seedPvcRecords(),
+    }))
+
+// ───────────── Backend (API mode): /legal/pvc ─────────────
+
+type ApiPvc = Omit<PvcRecord, 'id' | 'sn'> & { pvcId: string; frId?: string; fileId?: string }
+
+const pvcFromApi = (p: ApiPvc): PvcRecord => ({
+  id: p.pvcId,
+  sn: snOf(p.pvcId),
+  siteId: p.siteId,
+  siteLoi: p.siteLoi ?? '',
+  atmId: p.atmId ?? '',
+  franchiseName: p.franchiseName ?? '',
+  mobileNumber: p.mobileNumber ?? '',
+  model: p.model ?? '',
+  email: p.email ?? '',
+  pvcDate: isoToSlash(p.pvcDate),
+  expiryDate: isoToSlash(p.expiryDate),
+  status: p.status ?? 'Pending',
+  fileId: p.fileId,
+  fileName: p.fileName,
+  fileSizeKb: p.fileSizeKb,
+  remark: p.remark ?? '',
+  createdAt: p.createdAt,
+  updatedAt: p.updatedAt,
+})
+
+function pvcToApi(p: Partial<PvcRecord>) {
+  const b: Record<string, unknown> = {}
+  const copy = ['siteLoi', 'franchiseName', 'model', 'status', 'fileId', 'fileName', 'remark'] as const
+  copy.forEach((k) => {
+    if (p[k] !== undefined) b[k] = p[k]
+  })
+  if (p.mobileNumber !== undefined) b.mobileNumber = (p.mobileNumber ?? '').replace(/[^\d+]/g, '').slice(-15)
+  if (p.email !== undefined) b.email = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.email) ? p.email : ''
+  if (p.pvcDate !== undefined) b.pvcDate = slashToIso(p.pvcDate)
+  if (p.expiryDate !== undefined) b.expiryDate = slashToIso(p.expiryDate)
+  if (p.fileSizeKb !== undefined) b.fileSizeKb = Math.max(0, Math.round(p.fileSizeKb))
+  return b
+}
+
+/** Hydration: staff GET /legal/pvc; Franchisee GET /my/legal/pvc (own franchise, read-only, deleted hidden). */
+export const pvcLoader = createLoader('PVC records', async () => {
+  const items = await fetchAll<ApiPvc>(legalIsFranchisee() ? '/my/legal/pvc' : '/legal/pvc')
+  pvcStore.set({ records: items.map(pvcFromApi) })
+})
+
+const upsert = (r: PvcRecord) => pvcStore.set((s) => ({ records: s.records.some((x) => x.id === r.id) ? s.records.map((x) => (x.id === r.id ? r : x)) : [r, ...s.records] }))
+
+export const usePvcRecords = () => {
+  pvcLoader.use()
+  return pvcStore.use()
+}
+export const usePvcLoad = () => pvcLoader.use()
 
 export function getPvcRecord(id: string): PvcRecord | undefined {
   return pvcStore.get().records.find((r) => r.id === id || r.siteId === id)
 }
+
+/** Create. API mode: POST /legal/pvc (Site Master validated, audited). */
+export async function savePvcRecord(payload: Omit<PvcRecord, 'id' | 'sn' | 'createdAt' | 'updatedAt'>): Promise<PvcRecord> {
+  if (!apiEnabled || legalIsFranchisee()) return addPvcRecord(payload)
+  const r = await apiCall(() => post<ApiPvc>('/legal/pvc', { siteId: payload.siteId, ...pvcToApi(payload) }), 'Save failed')
+  const rec = pvcFromApi(r)
+  upsert(rec)
+  return rec
+}
+
+/** Update. API mode: PATCH /legal/pvc/:id. */
+export async function savePvcUpdate(id: string, payload: Partial<Omit<PvcRecord, 'id' | 'sn' | 'createdAt' | 'updatedAt'>>): Promise<boolean> {
+  if (!apiEnabled || legalIsFranchisee()) return updatePvcRecord(id, payload)
+  const r = await apiCall(() => patch<ApiPvc>(`/legal/pvc/${encodeURIComponent(id)}`, pvcToApi(payload)), 'Update failed')
+  upsert(pvcFromApi(r))
+  return true
+}
+
+// ───────────── Local (mock mode / franchise app) ─────────────
 
 export function addPvcRecord(
   payload: Omit<PvcRecord, 'id' | 'sn' | 'createdAt' | 'updatedAt'>
@@ -213,6 +308,15 @@ export function updatePvcRecord(
   return true
 }
 
+/** Soft delete. API mode: DELETE /legal/pvc/:id {reason} (kept in the DB with deletedAt / deleteReason, audited). */
+export async function removePvcRecord(id: string, reason: string): Promise<boolean> {
+  if (!apiEnabled || legalIsFranchisee()) return deletePvcRecord(id)
+  await apiCall(() => del(`/legal/pvc/${encodeURIComponent(id)}`, { reason }), 'Delete failed')
+  pvcStore.set((s) => ({ ...s, records: s.records.filter((r) => r.id !== id) }))
+  return true
+}
+
+/** Local delete (mock mode). */
 export function deletePvcRecord(id: string): boolean {
   const state = pvcStore.get()
   const exists = state.records.some((r) => r.id === id)

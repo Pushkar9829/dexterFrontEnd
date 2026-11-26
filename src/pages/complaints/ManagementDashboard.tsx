@@ -7,8 +7,10 @@ import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { toast } from '@/components/ui/Toast'
 import { downloadCsv } from '@/lib/export'
+import { guardAct, useCanIn } from '@/lib/guard'
+import { opsCan, usePermState } from '@/pages/operations/intel/opsData'
+import { SiteRef } from '@/lib/siteRef'
 import {
-  OWNERS,
   RECURRING_LABEL,
   atmById,
   complaintStore,
@@ -28,6 +30,7 @@ import {
 import { BarRow, Banner, CHART, Chip, ComplaintsShell, GridCard, Kpi, Panel, PriorityBadge, SlaText, StatusBadge, ViewAll, BASE, useNow } from './shared'
 import { FilterBar, filterStore } from './FilterBar'
 import { useReportMode } from '@/hooks/useReportMode'
+import { apiEnabled, assignComplaintAsync, ownerOptions } from '@/data/complaintsApi'
 import { daysBetween, matches, percentile, priorRange, shortRange, stateOf } from './filters'
 
 type Quick = 'All' | 'Open' | 'Priority' | 'Critical' | 'At risk' | 'Breached' | 'Escalated' | 'Closed'
@@ -51,6 +54,10 @@ export default function ManagementDashboard() {
   const [quick, setQuick] = useState<Quick>('All')
   const [bulkOwner, setBulkOwner] = useState('')
   const gridRef = useRef<HTMLDivElement>(null)
+  const allowIn = useCanIn('Complaints')
+  usePermState() // re-render when the Operations matrix loads / changes
+  // Assignment follows the Operations matrix (§17: CRM verifies / assigns) as the backend does.
+  const allow = (a: Parameters<typeof allowIn>[0]) => allowIn(a) && (a !== 'Assign' || opsCan('Complaint', 'Assign'))
 
   const d = useMemo(() => {
     const period = all.filter((c) => matches(c, filter))
@@ -140,7 +147,7 @@ export default function ManagementDashboard() {
   const allCols: GridColumn<Complaint>[] = [
     { key: 'id', header: 'Complaint ID', width: 120, sortable: true, pinned: true, render: (c) => <Link to={`${BASE}/${c.id}`} className="font-medium text-primary hover:underline">{c.id}</Link> },
     { key: 'receivedAt', header: 'Received', width: 120, sortable: true, value: (c) => c.receivedAt, render: (c) => fmtDT(c.receivedAt) },
-    { key: 'atmId', header: 'ATM ID', width: 120, sortable: true, filterable: true },
+    { key: 'atmId', header: 'ATM ID', width: 200, sortable: true, filterable: true, render: (c) => <span onClick={(e) => e.stopPropagation()}><SiteRef id={c.atmId} /></span> },
     { key: 'site', header: 'Site', width: 170, value: (c) => atmById(c.atmId)?.siteName ?? '' },
     { key: 'state', header: 'State', width: 130, sortable: true, filterable: true, value: stateOf },
     { key: 'category', header: 'Category', width: 150, sortable: true, filterable: true },
@@ -295,21 +302,38 @@ export default function ManagementDashboard() {
           columns={allCols}
           rowId={(c) => c.id}
           searchPlaceholder="Search ID, ATM, owner…"
-          selectable={!isReport}
-          bulkActions={!isReport ? (ids, clear) => (
+          selectable={!isReport && allow('Assign')}
+          toolbarButtons={allow('Export') ? ['filters', 'columns', 'export'] : ['filters', 'columns']}
+          bulkActions={!isReport && allow('Assign') ? (ids, clear) => (
             <span className="flex items-center gap-2">
               <select value={bulkOwner} onChange={(e) => setBulkOwner(e.target.value)} aria-label="New owner" className="h-7 rounded border border-line bg-white px-2 text-[12px]">
                 <option value="">Assign owner…</option>
-                {OWNERS.map((o) => (
+                {ownerOptions().map((o) => (
                   <option key={o}>{o}</option>
                 ))}
               </select>
               <Button
                 size="sm"
                 disabled={!bulkOwner}
-                onClick={() => {
-                  ids.forEach((id) => updateComplaint(id, () => ({ owner: bulkOwner }), { title: 'Owner reassigned', meta: `Paras Dubey · Bulk assignment → ${bulkOwner}` }))
-                  toast(`${ids.length} complaint${ids.length > 1 ? 's' : ''} assigned to ${bulkOwner}`)
+                onClick={async () => {
+                  if (!guardAct('Complaints', 'Assign', 'assign complaints')) return
+                  if (apiEnabled) {
+                    let done = 0
+                    for (const id of ids) {
+                      const c = complaintStore.get().find((x) => x.id === id)
+                      if (!c) continue
+                      try {
+                        await assignComplaintAsync(c, bulkOwner, 'Bulk assignment')
+                        done++
+                      } catch {
+                        /* toasted per complaint */
+                      }
+                    }
+                    toast(`${done} of ${ids.length} complaint${ids.length > 1 ? 's' : ''} assigned to ${bulkOwner}`)
+                  } else {
+                    ids.forEach((id) => updateComplaint(id, () => ({ owner: bulkOwner }), { title: 'Owner reassigned', meta: `Paras Dubey · Bulk assignment → ${bulkOwner}` }))
+                    toast(`${ids.length} complaint${ids.length > 1 ? 's' : ''} assigned to ${bulkOwner}`)
+                  }
                   setBulkOwner('')
                   clear()
                 }}

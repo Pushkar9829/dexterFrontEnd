@@ -1,5 +1,7 @@
 // Shared site / ATM registry for the CBR + Finance modules (Phase 6).
-// Canonical: FR-MH-00124 "Shree Sai Financial Services", site ST-MH-PUN-00124 "Kothrud · Paud Road", ATM DX-MH-01482, Garnet Model.
+// Sites are Site Master sites (SITE-MH-0001 / DXMH70007); the old demo IDs are kept as legacySiteId / legacyAtmId aliases.
+import { allSites, siteAt } from '@/lib/siteRef'
+import type { Site } from './network'
 
 export type CbrSite = {
   siteId: string
@@ -10,7 +12,11 @@ export type CbrSite = {
   model: 'Garnet Model' | 'Sapphire Model' | 'Topaz Model' | 'Emerald Model'
   make: 'Hitachi' | 'NCR' | 'Hyosung' | 'Diebold Nixdorf'
   bank: string
-  franchiseId: string
+  franchiseId: string // billing franchisee (FRANCHISEES) used by Finance
+  frId?: string // Site Master franchise of the site
+  state?: string
+  legacySiteId?: string
+  legacyAtmId?: string
 }
 
 export type FranchiseeInfo = {
@@ -35,24 +41,73 @@ export const FRANCHISEES: FranchiseeInfo[] = [
   { id: 'FR-WB-00183', name: 'Bengal Rural Payments', short: 'BRP', contact: '9433018307', pan: 'AAJFB2219C', panName: 'BENGAL RURAL PAYMENTS', gstin: '19AAJFB2219C1ZK', bank: 'Punjab National Bank', ifsc: 'PUNB0183100', accNo: '1831002100018307', sapCode: '410183' },
 ]
 
-export const SITES: CbrSite[] = [
-  { siteId: 'ST-MH-PUN-00124', loi: 'LOI-MH-PUN-00124', atmId: 'DX-MH-01482', location: 'Kothrud · Paud Road', city: 'Pune', model: 'Garnet Model', make: 'Hitachi', bank: 'Axis Bank', franchiseId: 'FR-MH-00124' },
-  { siteId: 'ST-MH-PUN-00131', loi: 'LOI-MH-PUN-00131', atmId: 'DX-MH-01497', location: 'Baner · Balewadi Phata', city: 'Pune', model: 'Sapphire Model', make: 'Hitachi', bank: 'Axis Bank', franchiseId: 'FR-MH-00124' },
-  { siteId: 'ST-MH-PUN-00138', loi: 'LOI-MH-PUN-00138', atmId: 'DX-MH-01503', location: 'Hadapsar · Magarpatta Road', city: 'Pune', model: 'Topaz Model', make: 'NCR', bank: 'Axis Bank', franchiseId: 'FR-MH-00124' },
-  { siteId: 'ST-MH-PUN-00142', loi: 'LOI-MH-PUN-00142', atmId: 'DX-MH-01511', location: 'Wakad · Datta Mandir Road', city: 'Pune', model: 'Emerald Model', make: 'Hitachi', bank: 'Axis Bank', franchiseId: 'FR-MH-00124' },
-  { siteId: 'ST-GJ-AMD-00218', loi: 'LOI-GJ-AMD-00218', atmId: 'DX-GJ-02187', location: 'Navrangpura · CG Road', city: 'Ahmedabad', model: 'Garnet Model', make: 'Hyosung', bank: 'Axis Bank', franchiseId: 'FR-GJ-00218' },
-  { siteId: 'ST-GJ-AMD-00224', loi: 'LOI-GJ-AMD-00224', atmId: 'DX-GJ-02193', location: 'Maninagar · Jawahar Chowk', city: 'Ahmedabad', model: 'Topaz Model', make: 'Hitachi', bank: 'Axis Bank', franchiseId: 'FR-GJ-00218' },
-  { siteId: 'ST-KA-BLR-00076', loi: 'LOI-KA-BLR-00076', atmId: 'DX-KA-00761', location: 'Jayanagar 4th Block', city: 'Bengaluru', model: 'Sapphire Model', make: 'NCR', bank: 'Axis Bank', franchiseId: 'FR-KA-00076' },
-  { siteId: 'ST-KA-BLR-00081', loi: 'LOI-KA-BLR-00081', atmId: 'DX-KA-00768', location: 'Whitefield · ITPL Main Road', city: 'Bengaluru', model: 'Garnet Model', make: 'Diebold Nixdorf', bank: 'Axis Bank', franchiseId: 'FR-KA-00076' },
-  { siteId: 'ST-UP-LKO-00305', loi: 'LOI-UP-LKO-00305', atmId: 'DX-UP-03051', location: 'Hazratganj · Ashok Marg', city: 'Lucknow', model: 'Emerald Model', make: 'Hitachi', bank: 'Axis Bank', franchiseId: 'FR-UP-00305' },
-  { siteId: 'ST-UP-LKO-00309', loi: 'LOI-UP-LKO-00309', atmId: 'DX-UP-03058', location: 'Gomti Nagar · Vibhuti Khand', city: 'Lucknow', model: 'Garnet Model', make: 'Hyosung', bank: 'Axis Bank', franchiseId: 'FR-UP-00305' },
-  { siteId: 'ST-WB-NDA-00183', loi: 'LOI-WB-NDA-00183', atmId: 'DX-WB-01831', location: 'Krishnanagar · Station Road', city: 'Nadia', model: 'Topaz Model', make: 'Hitachi', bank: 'Axis Bank', franchiseId: 'FR-WB-00183' },
-  { siteId: 'ST-WB-HGL-00187', loi: 'LOI-WB-HGL-00187', atmId: 'DX-WB-01836', location: 'Chinsurah · GT Road', city: 'Hooghly', model: 'Sapphire Model', make: 'NCR', bank: 'Axis Bank', franchiseId: 'FR-WB-00183' },
+// Legacy CBR demo sites (old module-specific IDs) → re-pointed at real Site Master sites (Franchise spec §2 / §8.7).
+// Each row picks a Full Funding (FFM) site of the same franchisee where the Site Master has one, else one in the same state.
+// [legacy site id, legacy ATM id, model, make, billing franchisee id, state]
+const LEGACY_ROWS: [string, string, CbrSite['model'], CbrSite['make'], string, string][] = [
+  ['ST-MH-PUN-00124', 'DX-MH-01482', 'Garnet Model', 'Hitachi', 'FR-MH-00124', 'Maharashtra'],
+  ['ST-MH-PUN-00131', 'DX-MH-01497', 'Sapphire Model', 'Hitachi', 'FR-MH-00124', 'Maharashtra'],
+  ['ST-MH-PUN-00138', 'DX-MH-01503', 'Topaz Model', 'NCR', 'FR-MH-00124', 'Maharashtra'],
+  ['ST-MH-PUN-00142', 'DX-MH-01511', 'Emerald Model', 'Hitachi', 'FR-MH-00124', 'Maharashtra'],
+  ['ST-GJ-AMD-00218', 'DX-GJ-02187', 'Garnet Model', 'Hyosung', 'FR-GJ-00218', 'Gujarat'],
+  ['ST-GJ-AMD-00224', 'DX-GJ-02193', 'Topaz Model', 'Hitachi', 'FR-GJ-00218', 'Gujarat'],
+  ['ST-KA-BLR-00076', 'DX-KA-00761', 'Sapphire Model', 'NCR', 'FR-KA-00076', 'Karnataka'],
+  ['ST-KA-BLR-00081', 'DX-KA-00768', 'Garnet Model', 'Diebold Nixdorf', 'FR-KA-00076', 'Karnataka'],
+  ['ST-UP-LKO-00305', 'DX-UP-03051', 'Emerald Model', 'Hitachi', 'FR-UP-00305', 'Uttar Pradesh'],
+  ['ST-UP-LKO-00309', 'DX-UP-03058', 'Garnet Model', 'Hyosung', 'FR-UP-00305', 'Uttar Pradesh'],
+  ['ST-WB-NDA-00183', 'DX-WB-01831', 'Topaz Model', 'Hitachi', 'FR-WB-00183', 'West Bengal'],
+  ['ST-WB-HGL-00187', 'DX-WB-01836', 'Sapphire Model', 'NCR', 'FR-WB-00183', 'West Bengal'],
 ]
 
-export const getSite = (id: string) => SITES.find((s) => s.siteId === id)
+/** Pick the k-th Site Master site matching the first non-empty filter (deterministic). */
+export function pickSite(k: number, ...filters: ((s: Site) => boolean)[]): Site {
+  for (const f of filters) if (allSites().some(f)) return siteAt(k, f)
+  return siteAt(k)
+}
+
+function buildSites(): CbrSite[] {
+  const used = new Set<string>()
+  return LEGACY_ROWS.map(([legacySiteId, legacyAtmId, model, make, franchiseId, state]) => {
+    const free = (x: Site) => !used.has(x.siteId)
+    const s = pickSite(0, (x) => free(x) && x.frId === franchiseId && x.siteType === 'FFM', (x) => free(x) && x.state === state && x.siteType === 'FFM', (x) => free(x) && x.state === state)
+    used.add(s.siteId)
+    return {
+      siteId: s.siteId,
+      loi: `LOI-${s.siteId.replace(/^SITE-/, '')}`,
+      atmId: s.atmId,
+      location: s.location,
+      city: s.district,
+      model,
+      make,
+      bank: s.account?.bank ?? 'Axis Bank',
+      franchiseId,
+      frId: s.frId,
+      state: s.state,
+      legacySiteId,
+      legacyAtmId,
+    }
+  })
+}
+
+export const SITES: CbrSite[] = buildSites()
+
+/** Old module-specific Site / ATM IDs (ST-MH-PUN-00124, DX-MH-01482) → the Site Master site they now point at. */
+const LEGACY_INDEX = new Map<string, CbrSite>(SITES.flatMap((s) => [[s.legacySiteId!.toUpperCase(), s], [s.legacyAtmId!.toUpperCase(), s]] as [string, CbrSite][]))
+export const legacyCbrSite = (id: string) => LEGACY_INDEX.get(id.trim().toUpperCase())
+
+/** Any Site Master site (API mode: daily CBR records reference live sites outside the legacy demo list). */
+function fromSiteMaster(id: string): CbrSite | undefined {
+  const k = id.trim().toLowerCase()
+  const s = allSites().find((x) => x.siteId.toLowerCase() === k || x.atmId.toLowerCase() === k)
+  if (!s) return undefined
+  return { siteId: s.siteId, loi: `LOI-${s.siteId.replace(/^SITE-/, '')}`, atmId: s.atmId, location: s.location, city: s.district, model: 'Garnet Model', make: 'NCR', bank: s.account?.bank ?? '—', franchiseId: s.frId, frId: s.frId, state: s.state }
+}
+
+export const getSite = (id: string) => SITES.find((s) => s.siteId === id) ?? legacyCbrSite(id) ?? fromSiteMaster(id)
 export const getFranchisee = (id: string) => FRANCHISEES.find((f) => f.id === id)
-export const franchiseeOf = (s: CbrSite) => getFranchisee(s.franchiseId)!
+/** Billing franchisee of a site; Site Master franchises outside the demo list get a minimal stand-in. */
+export const franchiseeOf = (s: CbrSite): FranchiseeInfo =>
+  getFranchisee(s.franchiseId) ?? { id: s.franchiseId, name: s.franchiseId, short: s.franchiseId, contact: '', pan: '', panName: '', gstin: '', bank: s.bank, ifsc: '', accNo: '', sapCode: '' }
 
 /** Deterministic PRNG so seeds are stable between reloads. */
 export function rng(seed: number) {

@@ -7,8 +7,12 @@ import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { toast } from '@/components/ui/Toast'
 import { cn } from '@/lib/cn'
-import { CURRENT_EMPLOYEE, DEPTS, getTask, isOpen, REGIONS, reassign, slaOf, tasksStore, VERIFICATION_TEAM, type Dept, type Region, type Task } from '@/data/tasks'
+import { CURRENT_EMPLOYEE, DEPTS, getTask, isOpen, REGIONS, reassign, slaOf, tasksStore, useTasksLoad, VERIFICATION_TEAM, type Dept, type Region, type Task } from '@/data/tasks'
+import { apiEnabled } from '@/data/bizApi'
 import {
+  apiBlockers,
+  commandCenterLoader,
+  commandCenterStore,
   BLOCKER_REGION_W,
   BLOCKERS,
   DEPT_BASE,
@@ -24,6 +28,7 @@ import {
   type Workflow,
 } from '@/data/tasksCommand'
 import { Footer, HeroBanner } from './ui'
+import { guardAct } from '@/lib/guard'
 
 const STAGE_CLS: Record<StageStatus, string> = {
   Complete: 'bg-emerald-50 text-emerald-700',
@@ -50,6 +55,10 @@ function liveStages(wf: Workflow, t?: Task): StageStatus[] {
 
 export default function CommandCenter() {
   const { tasks } = tasksStore.use()
+  // API mode: GET /tasks/command-center (month / week / today) + GET /tasks
+  useTasksLoad()
+  const ccLoad = commandCenterLoader.use()
+  const cc = commandCenterStore.use()
   const nav = useNavigate()
   const [depts, setDepts] = useState<Dept[]>([...DEPTS])
   const [regions, setRegions] = useState<Region[]>([...REGIONS])
@@ -58,8 +67,8 @@ export default function CommandCenter() {
   const [rebalance, setRebalance] = useState(false)
   const [trends, setTrends] = useState(false)
 
-  const k = useMemo(() => kpis(period, depts, regions), [period, depts, regions])
-  const sh = useMemo(() => share(period, depts, regions), [period, depts, regions])
+  const k = useMemo(() => kpis(period, depts, regions), [period, depts, regions, cc]) // eslint-disable-line react-hooks/exhaustive-deps
+  const sh = useMemo(() => share(period, depts, regions), [period, depts, regions, cc]) // eslint-disable-line react-hooks/exhaustive-deps
   const scope = (n: number) => Math.round(n * sh)
 
   const wfs = WORKFLOWS.filter(
@@ -68,8 +77,12 @@ export default function CommandCenter() {
   const shownWf = allWf ? wfs : wfs.slice(0, 4)
 
   const regionW = regions.reduce((a, r) => a + BLOCKER_REGION_W[r], 0)
-  const periodW = kpis(period, [...DEPTS], [...REGIONS]).total / kpis('month', [...DEPTS], [...REGIONS]).total
-  const blockers = BLOCKERS.map((b) => ({ ...b, count: Math.round(depts.reduce((a, d) => a + (b.byDept[d] ?? 0), 0) * regionW * periodW) }))
+  const monthTotal = kpis('month', [...DEPTS], [...REGIONS]).total
+  const periodW = monthTotal ? kpis(period, [...DEPTS], [...REGIONS]).total / monthTotal : 0
+  // API mode: live Waiting/Blocked counts per department (no region split on the backend)
+  const blockers = apiEnabled
+    ? apiBlockers(period).map((b) => ({ ...b, count: depts.reduce((a, d) => a + (b.byDept[d] ?? 0), 0) })).filter((b) => b.count > 0)
+    : BLOCKERS.map((b) => ({ ...b, count: Math.round(depts.reduce((a, d) => a + (b.byDept[d] ?? 0), 0) * regionW * periodW) }))
   const blockTotal = blockers.reduce((a, b) => a + b.count, 0)
   const biggest = [...blockers].sort((a, b) => b.count - a.count)[0]
 
@@ -91,6 +104,7 @@ export default function CommandCenter() {
   return (
     <div className="space-y-4">
       <HeroBanner title="Management Command Center" sub="Organization-wide task performance, dependencies and exceptions." code="CRM-07" />
+      {apiEnabled && ccLoad.loading && <div className="rounded-md border border-line bg-white px-3 py-2 text-[12px] text-muted">Loading live task metrics…</div>}
 
       <div className="flex flex-wrap items-center gap-2">
         <MultiSelect label={deptLabel} all={[...DEPTS]} value={depts} onChange={(v) => setDepts(v as Dept[])} />
@@ -418,6 +432,7 @@ function RebalanceModal({ onClose }: { onClose: () => void }) {
       toast('Select at least one task to reassign.', 'info')
       return
     }
+    if (!guardAct('Tasks', 'Assign', 'reassign tasks')) return
     sel.forEach((id) => reassign(id, to, 'Suresh Nair', reason))
     toast(`${sel.length} task${sel.length > 1 ? 's' : ''} reassigned to ${to}.`)
     onClose()

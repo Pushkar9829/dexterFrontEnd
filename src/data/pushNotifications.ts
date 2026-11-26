@@ -1,4 +1,6 @@
 import { createStore } from '@/lib/store'
+import { del, get, post } from '@/lib/api'
+import { apiEnabled, background, createLoader } from '@/data/bizApi'
 
 export interface PushNotification {
   id: string
@@ -129,11 +131,39 @@ const SEED_NOTIFICATIONS: PushNotification[] = [
 ]
 
 export const pushNotificationStore = createStore<PushNotification[]>(
-  'dexter_push_notifications_v1',
-  () => SEED_NOTIFICATIONS
+  apiEnabled ? 'dexter_push_notifications_api_v1' : 'dexter_push_notifications_v1',
+  () => (apiEnabled ? [] : SEED_NOTIFICATIONS)
 )
 
+// ── backend adapter (API mode): /broadcasts/push campaigns ─────────────────
+type ApiCampaign = Omit<PushNotification, 'id' | 'status' | 'color' | 'read'> & { campaignId: string; status: PushNotification['status']; enabled?: boolean; sentAt?: string; sentCount?: number }
+const fromApi = (c: ApiCampaign): PushNotification => ({
+  id: c.campaignId,
+  campaignName: c.campaignName,
+  title: c.title,
+  description: c.description,
+  organizationUnits: c.organizationUnits ?? [],
+  departments: c.departments ?? [],
+  designations: c.designations ?? [],
+  audience: c.audience,
+  fromDate: c.fromDate,
+  toDate: c.toDate,
+  status: c.status,
+  priority: c.priority,
+  color: c.priority === 'Critical' ? 'bg-rose-500' : c.priority === 'Normal' ? 'bg-blue-500' : 'bg-purple-500',
+  read: !!c.sentAt,
+  createdAt: c.createdAt,
+  updatedAt: c.updatedAt,
+})
+export const pushLoader = createLoader('push notifications', async () => {
+  const r = await get<{ items: ApiCampaign[] }>('/broadcasts/push')
+  pushNotificationStore.set(r.items.map(fromApi))
+})
+const resync = () => void pushLoader.reload()
+const upsert = (c: ApiCampaign) => pushNotificationStore.set((prev) => [fromApi(c), ...prev.filter((p) => p.id !== c.campaignId)])
+
 export function usePushNotifications() {
+  pushLoader.use()
   return pushNotificationStore.use()
 }
 
@@ -182,14 +212,31 @@ export function createPushNotification(data: {
   }
 
   pushNotificationStore.set([newRecord, ...current])
+  if (apiEnabled) {
+    // optimistic row (temporary id) replaced by the server campaign (PN-YYYY-NNN); sent immediately when active
+    background(
+      async () => {
+        const c = await post<ApiCampaign>('/broadcasts/push', { campaignName: data.campaignName, title: data.title, description: data.description, organizationUnits: data.organizationUnits, departments: data.departments, designations: data.designations, audience: data.audience || undefined, fromDate: data.fromDate, toDate: data.toDate, priority: data.priority ?? 'High' })
+        pushNotificationStore.set((prev) => [fromApi(c), ...prev.filter((p) => p.id !== id)])
+      },
+      'Could not create push notification',
+      resync,
+    )
+  }
   return newRecord
 }
 
 export function deletePushNotification(id: string) {
   pushNotificationStore.set((prev) => prev.filter((p) => p.id !== id))
+  background(() => del(`/broadcasts/push/${id}`), 'Could not delete push notification', resync)
 }
 
 export function toggleNotificationStatus(id: string) {
+  if (apiEnabled) {
+    // backend: enabled flag; status is derived (disabled or past toDate → Expired, future fromDate → Scheduled)
+    background(async () => upsert(await post<ApiCampaign>(`/broadcasts/push/${id}/toggle`)), 'Could not change push notification', resync)
+    return
+  }
   pushNotificationStore.set((prev) =>
     prev.map((p) =>
       p.id === id

@@ -13,24 +13,32 @@ import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { toast } from '@/components/ui/Toast'
 import { downloadCsv } from '@/lib/export'
+import { ViewOnlyNote, guardAct, useCanIn } from '@/lib/guard'
+import { SiteRef } from '@/lib/siteRef'
 import { useReportMode } from '@/hooks/useReportMode'
-import { useLegal, fmtDate } from '@/data/legal'
+import { useLegal, useLegalLoad, legalLoader, fmtDate } from '@/data/legal'
+import { apiEnabled } from '@/lib/api'
+import { LoadNote } from './ui'
 
 export default function AffidavitList() {
   const { isReport } = useReportMode()
   const state = useLegal()
+  const load = useLegalLoad()
+  const allow = useCanIn('Legal')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
 
   // Map affidavit documents for each site
   const rows = useMemo(() => {
-    return state.sites.map((site) => {
+    // API mode: only sites where the document has been issued (no invented 'Approved' rows)
+    return state.sites.filter((site) => !apiEnabled || state.docs.some((d) => d.siteId === site.id && d.kind === 'AFF')).map((site) => {
       const doc = state.docs.find((d) => d.siteId === site.id && d.kind === 'AFF')
       const status = doc?.status || 'Approved'
 
       return {
         id: site.id,
         siteId: site.id,
+        atmId: site.atmId,
         franchiseName: site.franchiseName,
         location: site.location,
         city: site.city,
@@ -50,6 +58,7 @@ export default function AffidavitList() {
       const matchSearch =
         !q ||
         r.id.toLowerCase().includes(q) ||
+        r.atmId.toLowerCase().includes(q) ||
         r.franchiseName.toLowerCase().includes(q) ||
         r.city.toLowerCase().includes(q) ||
         r.location.toLowerCase().includes(q)
@@ -69,11 +78,13 @@ export default function AffidavitList() {
   }, [rows])
 
   const exportData = () => {
+    if (!guardAct('Legal', 'Export')) return
     downloadCsv(
       'legal-affidavit-records',
-      ['Site ID', 'Franchise Name', 'Location', 'City', 'State', 'Status', 'Version', 'Signatory'],
+      ['Site ID', 'ATM ID', 'Franchise Name', 'Location', 'City', 'State', 'Status', 'Version', 'Signatory'],
       filtered.map((r) => [
         r.id,
+        r.atmId,
         r.franchiseName,
         r.location,
         r.city,
@@ -140,18 +151,21 @@ export default function AffidavitList() {
         </div>
 
         <div className="flex items-center gap-2.5">
-          {!isReport && (
+          {!isReport && allow('Create') && (
             <Link to="/legal/affidavit/new">
               <Button variant="primary" icon={<Plus size={15} />}>
                 New Affidavit
               </Button>
             </Link>
           )}
-          <Button variant="secondary" icon={<Download size={15} />} onClick={exportData}>
+          <Button variant="secondary" icon={<Download size={15} />} onClick={exportData} disabled={!allow('Export')} title={allow('Export') ? undefined : 'Export not permitted for your role'}>
             Export CSV
           </Button>
         </div>
       </div>
+
+      <ViewOnlyNote module="Legal" />
+      <LoadNote load={load} onRetry={() => void legalLoader.reload()} />
 
       {/* Summary Stat Pills */}
       <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -246,7 +260,7 @@ export default function AffidavitList() {
                         {r.id}
                       </Link>
                       <span className="block text-[11px] text-muted font-normal">
-                        Ver: {r.version}
+                        <SiteRef id={r.id} className="text-[11px]" /> · Ver: {r.version}
                       </span>
                     </td>
                     <td className="px-4 py-3">

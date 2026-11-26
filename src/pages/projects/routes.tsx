@@ -1,11 +1,11 @@
+import { lazy } from 'react'
 import { Route } from 'react-router-dom'
-import ProjectRegister from './ProjectRegister'
-import ProjectRecord from './ProjectRecord'
-import ProjectAudit from './ProjectAudit'
-import ProjectsHub from './ProjectsHub'
-import SiteInstallationList from './SiteInstallationList'
-import SiteInstallationForm from './SiteInstallationForm'
-
+const ProjectRegister = lazy(() => import('./ProjectRegister'))
+const ProjectRecord = lazy(() => import('./ProjectRecord'))
+const ProjectAudit = lazy(() => import('./ProjectAudit'))
+const ProjectsHub = lazy(() => import('./ProjectsHub'))
+const SiteInstallationList = lazy(() => import('./SiteInstallationList'))
+const SiteInstallationForm = lazy(() => import('./SiteInstallationForm'))
 export const projectRoutes = [
   <Route key="projects" path="/projects" element={<ProjectsHub />} />,
   <Route key="projects-active" path="/projects/active" element={<ProjectRegister />} />,

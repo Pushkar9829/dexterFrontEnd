@@ -35,8 +35,11 @@ import {
   nextDepositId,
   nextReceiptNo,
 } from '@/data/financeSdStore'
+import { allSites, franchiseNameOf, resolveSite, siteAt, SiteRef } from '@/lib/siteRef'
+import { useCanIn, guardAct } from '@/lib/guard'
+import { emitFinance } from './finWorkflow'
 
-const KNOWN_ATM_SITES = [
+const RAW_KNOWN_ATM_SITES = [
   {
     atmId: 'DX-MH-01482',
     siteId: 'ST-MH-PUN-00124',
@@ -86,12 +89,19 @@ const KNOWN_ATM_SITES = [
     amount: '250000',
   },
 ]
+// Bank / HPY details kept; Site ID, ATM ID and franchise come from the common Site Master
+const KNOWN_ATM_SITES = RAW_KNOWN_ATM_SITES.map((k, i) => {
+  const site = siteAt(i)
+  return { ...k, atmId: site.atmId, siteId: site.siteId, frName: franchiseNameOf(site) || k.frName }
+})
 
 export default function SdRecordPage() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
   const isNew = !id || id === 'new'
   const existing = !isNew ? getSecurityDeposit(id) : undefined
+  const allow = useCanIn('Finance')
+  const canSave = allow(existing ? 'Edit' : 'Create')
 
   // Card 1: ATM & Franchise Details
   const [atmId, setAtmId] = useState(existing?.atmId || '')
@@ -128,12 +138,14 @@ export default function SdRecordPage() {
   const [newBankName, setNewBankName] = useState('')
 
   // Handle ATM selection auto-fill
-  const handleAtmChange = (val: string) => {
-    setAtmId(val)
-    const match = KNOWN_ATM_SITES.find((k) => k.atmId === val)
+  const applySite = (val: string) => {
+    const site = resolveSite(val)
+    if (!site) return
+    setAtmId(site.atmId)
+    setSiteId(site.siteId)
+    setFrName(franchiseNameOf(site))
+    const match = KNOWN_ATM_SITES.find((k) => k.atmId === site.atmId)
     if (match) {
-      setSiteId(match.siteId)
-      setFrName(match.frName)
       setFrMobileNumber(match.frMobileNumber)
       setBank(match.bank)
       setHpyAccount(match.hpyAccount)
@@ -141,26 +153,19 @@ export default function SdRecordPage() {
       setFrAccount(match.frAccount)
       setFrIfsc(match.frIfsc)
       setAmount(match.amount)
-      toast(`Loaded details for ATM ${val}`)
     }
+    toast(`Loaded details for ${site.atmId} · ${site.siteId}`)
+  }
+
+  const handleAtmChange = (val: string) => {
+    setAtmId(val)
+    if (resolveSite(val)) applySite(val)
   }
 
   // Handle Site selection auto-fill
   const handleSiteChange = (val: string) => {
     setSiteId(val)
-    const match = KNOWN_ATM_SITES.find((k) => k.siteId === val)
-    if (match) {
-      setAtmId(match.atmId)
-      setFrName(match.frName)
-      setFrMobileNumber(match.frMobileNumber)
-      setBank(match.bank)
-      setHpyAccount(match.hpyAccount)
-      setAccountHolder(match.accountHolder)
-      setFrAccount(match.frAccount)
-      setFrIfsc(match.frIfsc)
-      setAmount(match.amount)
-      toast(`Loaded details for Site ${val}`)
-    }
+    if (resolveSite(val)) applySite(val)
   }
 
   // Add custom bank
@@ -179,6 +184,18 @@ export default function SdRecordPage() {
 
   // Save / Submit
   const handleSave = (isDraft: boolean) => {
+    if (!guardAct('Finance', existing ? 'Edit' : 'Create', existing ? 'edit security deposits' : 'create security deposits')) return
+    // Submitting marks the deposit Verified, i.e. an approval
+    if (!isDraft && !guardAct('Finance', 'Approve', 'verify security deposits')) return
+    const site = atmId.trim() || siteId.trim() ? resolveSite(atmId.trim() || siteId.trim()) : undefined
+    if ((atmId.trim() || siteId.trim()) && !site) {
+      toast('Site ID / ATM ID is not in the Site Master')
+      return
+    }
+    if (site && siteId.trim() && site.siteId !== siteId.trim()) {
+      toast(`ATM ${site.atmId} belongs to Site ${site.siteId}, not ${siteId.trim()}`)
+      return
+    }
     if (!siteId.trim() && !isDraft) {
       toast('Please select or enter Site ID')
       return
@@ -191,8 +208,8 @@ export default function SdRecordPage() {
     const payload: SecurityDeposit = {
       id: existing?.id || nextDepositId(),
       receiptNo: existing?.receiptNo || nextReceiptNo(),
-      siteId: siteId.trim(),
-      atmId: atmId.trim(),
+      siteId: site?.siteId ?? siteId.trim(),
+      atmId: site?.atmId ?? atmId.trim(),
       franchiseeName: frName.trim() || '—',
       franchiseeNo: frMobileNumber.trim() || '—',
       cashLiveDate: existing?.cashLiveDate || '2026-02-15',
@@ -219,7 +236,9 @@ export default function SdRecordPage() {
       updatedAt: new Date().toISOString(),
     }
 
-    saveSecurityDeposit(payload)
+    const savedSd = saveSecurityDeposit(payload)
+    if (!isDraft) emitFinance('Approve', savedSd.id, { what: 'security deposit', site: savedSd.atmId, franchise: savedSd.franchiseeName, status: savedSd.status })
+    else if (!existing) emitFinance('Submit', savedSd.id, { what: 'security deposit', site: savedSd.atmId, franchise: savedSd.franchiseeName, status: savedSd.status })
     toast(isDraft ? 'Security deposit draft saved' : 'Security deposit submitted successfully')
     navigate('/finance/sd')
   }
@@ -275,17 +294,18 @@ export default function SdRecordPage() {
               </label>
               <div className="relative">
                 <Cpu size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none" />
-                <select
+                <input
+                  list="sd-site-atms"
                   value={atmId}
-                  onChange={(e) => handleAtmChange(e.target.value)}
+                  onChange={(e) => handleAtmChange(e.target.value.trim())}
+                  placeholder="Select ATM ID"
                   className="w-full h-8.5 pl-8 pr-7 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] appearance-none"
-                >
-                  <option value="">Select ATM ID</option>
-                  <option value="DX-MH-01482">DX-MH-01482</option>
-                  <option value="DX-UP-02391">DX-UP-02391</option>
-                  <option value="DX-DL-03112">DX-DL-03112</option>
-                  <option value="DX-KA-04981">DX-KA-04981</option>
-                </select>
+                />
+                <datalist id="sd-site-atms">
+                  {allSites().map((st) => (
+                    <option key={st.atmId} value={st.atmId}>{st.siteId}</option>
+                  ))}
+                </datalist>
                 <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
               </div>
             </div>
@@ -297,19 +317,25 @@ export default function SdRecordPage() {
               </label>
               <div className="relative">
                 <MapPin size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none" />
-                <select
+                <input
+                  list="sd-site-ids"
                   value={siteId}
-                  onChange={(e) => handleSiteChange(e.target.value)}
+                  onChange={(e) => handleSiteChange(e.target.value.trim())}
+                  placeholder="Select Site ID"
                   className="w-full h-8.5 pl-8 pr-7 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] appearance-none"
-                >
-                  <option value="">Select Site ID</option>
-                  <option value="ST-MH-PUN-00124">ST-MH-PUN-00124</option>
-                  <option value="ST-UP-AGR-00219">ST-UP-AGR-00219</option>
-                  <option value="ST-DL-NOI-00342">ST-DL-NOI-00342</option>
-                  <option value="ST-KA-BLR-00481">ST-KA-BLR-00481</option>
-                </select>
+                />
+                <datalist id="sd-site-ids">
+                  {allSites().map((st) => (
+                    <option key={st.siteId} value={st.siteId}>{st.atmId}</option>
+                  ))}
+                </datalist>
                 <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
               </div>
+              {(atmId || siteId) && (
+                <div className="mt-1 text-[10.5px]">
+                  <SiteRef id={atmId || siteId} />
+                </div>
+              )}
             </div>
 
             {/* Transaction Date * */}
@@ -617,7 +643,7 @@ export default function SdRecordPage() {
         </button>
 
         {/* Right Action Buttons */}
-        <div className="flex items-center gap-3">
+        {canSave && <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={() => handleSave(true)}
@@ -627,15 +653,15 @@ export default function SdRecordPage() {
             <span>Save Draft</span>
           </button>
 
-          <button
+          {allow('Approve') && <button
             type="button"
             onClick={() => handleSave(false)}
             className="inline-flex items-center gap-1.5 h-9 px-5 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[13px] font-semibold transition-all shadow-sm hover:shadow"
           >
             <span>Submit</span>
             <ArrowRight size={16} />
-          </button>
-        </div>
+          </button>}
+        </div>}
       </div>
 
       {/* Add Bank Modal */}

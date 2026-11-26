@@ -1,5 +1,9 @@
 import { createStore } from '@/lib/store'
 import { downloadCsv } from '@/lib/export'
+import { get, patch, post } from '@/lib/api'
+import { getSession } from '@/lib/auth'
+import { toast } from '@/components/ui/Toast'
+import { apiCall, apiEnabled, background, createLoader, fetchAll } from '@/data/bizApi'
 
 export type BroadcastPriority = 'Critical' | 'Urgent' | 'Important' | 'Normal'
 export type BroadcastStatus =
@@ -450,10 +454,200 @@ function seed(): BroadcastState {
   }
 }
 
-export const broadcastStore = createStore<BroadcastState>('dexter.broadcasts.v1', seed)
-export const useBroadcasts = () => broadcastStore.use()
+// API mode keeps its own cache key so mock seeds never mix with server rows.
+export const broadcastStore = createStore<BroadcastState>(apiEnabled ? 'dexter.broadcasts.api.v1' : 'dexter.broadcasts.v1', apiEnabled ? () => ({ broadcasts: [], selectedId: null }) : seed)
 
-export function addBroadcast(item: Omit<BroadcastRecord, 'id' | 'date'>) {
+// ── backend adapter (API mode) ─────────────────────────────────────────────
+type ApiAudience = { allStaff: boolean; allFranchisees: boolean; roles: string[]; departments: string[]; franchiseIds: string[]; states: string[] }
+export type ApiBroadcast = {
+  broadcastId: string
+  title: string
+  subject?: string
+  type?: string
+  audienceLabel?: string
+  audience?: ApiAudience
+  recipientsCount?: number
+  priority: BroadcastPriority
+  language?: string
+  message?: string
+  attachment?: { fileId?: string; name: string; sizeKb?: number }
+  publishType?: 'Instant' | 'Scheduled'
+  scheduledFor?: string
+  status: BroadcastStatus
+  channels?: string[]
+  ackRequired?: boolean
+  approvalLevel?: string
+  createdBy?: string
+  createdByName?: string
+  submittedAt?: string
+  reviewerRemarks?: string
+  publishedAt?: string
+  createdAt?: string
+  readAt?: string
+  ackAt?: string
+  stats?: { readPercentage: number }
+}
+const prettyDay = (iso?: string) => (iso ? new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '')
+const prettyDayTime = (iso?: string) => {
+  if (!iso) return undefined
+  const d = new Date(iso)
+  return `${d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}, ${d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`
+}
+const ago = (iso?: string) => {
+  if (!iso) return ''
+  const m = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60_000))
+  if (m < 1) return 'Just now'
+  if (m < 60) return `${m}m ago`
+  if (m < 24 * 60) return `${Math.round(m / 60)}h ago`
+  return `${Math.round(m / 1440)}d ago`
+}
+function audienceGroupsOf(a?: ApiAudience): string[] {
+  if (!a) return []
+  return [
+    ...(a.allStaff ? ['All Staff'] : []),
+    ...(a.allFranchisees ? ['All Franchisees'] : []),
+    ...a.roles,
+    ...a.departments,
+    ...a.states.map((s) => `Franchisees · ${s}`),
+    ...(a.franchiseIds.length ? [`Franchisees (${a.franchiseIds.length})`] : []),
+  ]
+}
+export function fromApiBroadcast(b: ApiBroadcast, readPct?: number): BroadcastRecord {
+  const groups = audienceGroupsOf(b.audience)
+  return {
+    id: b.broadcastId,
+    title: b.title,
+    subject: b.subject || b.title,
+    type: b.type ?? 'Announcement',
+    audience: b.audienceLabel || groups[0] || 'All Staff',
+    audienceGroups: groups,
+    recipientsCount: b.recipientsCount ?? 0,
+    priority: b.priority,
+    language: b.language ?? 'English',
+    message: b.message ?? '',
+    attachment: b.attachment ? { name: b.attachment.name, size: b.attachment.sizeKb ? `${(b.attachment.sizeKb / 1024).toFixed(1)} MB` : '' } : undefined,
+    publishType: b.publishType ?? 'Instant',
+    scheduledFor: prettyDayTime(b.scheduledFor),
+    date: prettyDay(b.publishedAt ?? b.scheduledFor ?? b.submittedAt ?? b.createdAt),
+    status: b.status,
+    readPercentage: readPct ?? b.stats?.readPercentage ?? (b.readAt ? 100 : 0),
+    channels: b.channels ?? ['In-App'],
+    ackRequired: !!b.ackRequired,
+    approvalLevel: b.approvalLevel,
+    createdBy: b.createdByName ?? '',
+    submittedAt: ago(b.submittedAt ?? b.createdAt),
+    reviewerRemarks: b.reviewerRemarks,
+  }
+}
+
+const STAFF_ROLES = ['Super Admin', 'Admin', 'Sub-Admin', 'Project Head', 'Project Team', 'Finance Team', 'Legal Team', 'Operations Team', 'MIS Team', 'Field Officer / Team Leader', 'Engineer']
+const DEPARTMENTS = ['Management', 'Administration', 'Operations', 'Finance', 'Projects', 'Legal', 'Field Operations', 'Technical']
+/** UI audience group labels ("Operations (38)", "Cash Live Franchisees (142)") → backend audience. Unknown labels → all staff. */
+export function toApiAudience(groups: string[]): ApiAudience {
+  const a: ApiAudience = { allStaff: false, allFranchisees: false, roles: [], departments: [], franchiseIds: [], states: [] }
+  for (const raw of groups) {
+    const g = raw.replace(/\s*\(\d+\)\s*$/, '').trim()
+    const low = g.toLowerCase()
+    const role = STAFF_ROLES.find((r) => r.toLowerCase() === low)
+    const dept = DEPARTMENTS.find((d) => d.toLowerCase() === low)
+    if (/franchis/.test(low)) a.allFranchisees = true
+    else if (role) a.roles.push(role)
+    else if (dept) a.departments.push(dept)
+    else if (/^all\b|staff|corporate|employees/.test(low)) a.allStaff = true
+    else if (/field/.test(low)) a.departments.push('Field Operations')
+    else if (/manager|hod|head/.test(low)) a.departments.push('Management')
+    else if (/cash|operation|eod|cbr/.test(low)) a.departments.push('Operations')
+    else if (/financ|account|audit/.test(low)) a.departments.push('Finance')
+    else if (/legal|compliance/.test(low)) a.departments.push('Legal')
+    else if (/project|install/.test(low)) a.departments.push('Projects')
+    else if (/tech|engineer/.test(low)) a.departments.push('Technical')
+    else a.allStaff = true
+  }
+  a.departments = [...new Set(a.departments)]
+  if (!a.allStaff && !a.allFranchisees && !a.roles.length && !a.departments.length) a.allStaff = true
+  return a
+}
+/** Loose "Schedule - 05 Nov 2026, 10:30 AM" / ISO / datetime-local → ISO, or undefined when unparseable or not in the future. */
+export function parseSchedule(text?: string): string | undefined {
+  if (!text) return undefined
+  const t = text.replace(/^\s*schedule[d]?\s*[-:–]\s*/i, '').replace(',', '').trim()
+  const d = new Date(t)
+  if (Number.isNaN(d.getTime()) || d.getTime() <= Date.now() + 60_000) return undefined
+  return d.toISOString()
+}
+const CHANNEL_MAP: Record<string, string> = { 'IN-APP': 'In-App', EMAIL: 'Email', WHATSAPP: 'WhatsApp', SMS: 'SMS', PUSH: 'Push', 'ALL CHANNELS': 'All Channels', INAPP: 'In-App' }
+function toApiBody(item: Partial<Omit<BroadcastRecord, 'id' | 'date'>>, submit: boolean) {
+  const scheduledFor = parseSchedule(item.scheduledFor)
+  const channels = [...new Set((item.channels ?? ['In-App']).map((c) => CHANNEL_MAP[c.toUpperCase()]).filter(Boolean))]
+  const sizeKb = item.attachment ? Math.round((parseFloat(item.attachment.size) || 0) * (/mb/i.test(item.attachment.size) ? 1024 : 1)) : 0
+  return {
+    title: item.title,
+    subject: item.subject ?? '',
+    type: item.type,
+    audienceLabel: item.audience ?? '',
+    audience: toApiAudience(item.audienceGroups?.length ? item.audienceGroups : [item.audience ?? 'All Staff']),
+    priority: item.priority,
+    language: item.language,
+    message: item.message,
+    publishType: scheduledFor ? 'Scheduled' : 'Instant',
+    ...(scheduledFor ? { scheduledFor } : {}),
+    channels: channels.length ? channels : ['In-App'],
+    ackRequired: item.ackRequired,
+    approvalLevel: item.approvalLevel,
+    ...(item.attachment ? { attachment: { name: item.attachment.name, sizeKb } } : {}),
+    submit,
+  }
+}
+const isFranchiseeUser = () => /franchisee/i.test(getSession()?.role ?? '')
+
+export const broadcastsLoader = createLoader('broadcasts', async () => {
+  if (isFranchiseeUser()) {
+    const r = await get<{ items: ApiBroadcast[] }>('/my/broadcasts')
+    // own deliveries are always addressed to the franchise
+    const rows = r.items.map((b) => ({ ...fromApiBroadcast(b), audience: b.audienceLabel && /franchis/i.test(b.audienceLabel) ? b.audienceLabel : 'All Franchisees' }))
+    broadcastStore.set((s) => ({ ...s, broadcasts: rows }))
+    return
+  }
+  const [items, reports] = await Promise.all([
+    fetchAll<ApiBroadcast>('/broadcasts'),
+    get<{ items: { broadcastId: string; readPercentage: number }[] }>('/broadcasts/reports').catch(() => ({ items: [] })),
+  ])
+  const pct = new Map(reports.items.map((r) => [r.broadcastId, r.readPercentage]))
+  broadcastStore.set((s) => ({ ...s, broadcasts: items.map((b) => fromApiBroadcast(b, pct.get(b.broadcastId))) }))
+})
+const resync = () => void broadcastsLoader.reload()
+const replaceOne = (b: ApiBroadcast) =>
+  broadcastStore.set((s) => {
+    const prev = s.broadcasts.find((x) => x.id === b.broadcastId)
+    const rec = fromApiBroadcast(b, prev?.readPercentage)
+    return { ...s, broadcasts: prev ? s.broadcasts.map((x) => (x.id === b.broadcastId ? rec : x)) : [rec, ...s.broadcasts] }
+  })
+
+/** Store hook; in API mode hydrates from GET /broadcasts (+ /broadcasts/reports read %), franchisees from GET /my/broadcasts. */
+export const useBroadcasts = () => {
+  broadcastsLoader.use()
+  return broadcastStore.use()
+}
+/** Loading / error state of the broadcast hydration (API mode). */
+export const useBroadcastsLoad = () => broadcastsLoader.use()
+
+/** API mode: mark a delivered broadcast read / acknowledged (staff /broadcasts, franchisee /my/broadcasts). */
+export async function markBroadcastRead(id: string, ack = false) {
+  if (!apiEnabled) return
+  const base = isFranchiseeUser() ? '/my/broadcasts' : '/broadcasts'
+  await apiCall(() => post(`${base}/${id}/${ack ? 'ack' : 'read'}`))
+}
+
+export async function addBroadcast(item: Omit<BroadcastRecord, 'id' | 'date'>): Promise<boolean> {
+  if (apiEnabled) {
+    try {
+      const b = await apiCall(() => post<ApiBroadcast>('/broadcasts', toApiBody(item, item.status !== 'Draft')), 'Could not save broadcast')
+      replaceOne(b)
+      return true
+    } catch {
+      return false
+    }
+  }
   broadcastStore.set((s) => {
     const id = `BR-2611-${String(1041 + s.broadcasts.length)}`
     const now = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -467,16 +661,39 @@ export function addBroadcast(item: Omit<BroadcastRecord, 'id' | 'date'>) {
       broadcasts: [created, ...s.broadcasts],
     }
   })
+  return true
 }
 
-export function updateBroadcast(id: string, patch: Partial<BroadcastRecord>) {
+export function updateBroadcast(id: string, change: Partial<BroadcastRecord>) {
+  if (apiEnabled) {
+    // backend: only the author edits a Draft / Changes Requested / Rejected broadcast (409 LOCKED otherwise);
+    // an approved Scheduled broadcast cannot be cancelled or rescheduled.
+    const cur = broadcastStore.get().broadcasts.find((b) => b.id === id)
+    if (cur?.status === 'Scheduled') {
+      toast(`${id} is approved and scheduled — the backend does not allow changing it any more.`, 'error')
+      return
+    }
+    const body: Record<string, unknown> =
+      change.title !== undefined || change.message !== undefined || change.audienceGroups !== undefined ? toApiBody({ ...cur, ...change }, change.status === 'Pending Approval') : {}
+    if (change.scheduledFor !== undefined) {
+      const iso = parseSchedule(change.scheduledFor)
+      Object.assign(body, iso ? { publishType: 'Scheduled', scheduledFor: iso } : { publishType: 'Instant' })
+    }
+    if (change.status === 'Pending Approval') body.submit = true
+    background(async () => replaceOne(await patch<ApiBroadcast>(`/broadcasts/${id}`, body)), 'Could not update broadcast', resync)
+    return
+  }
   broadcastStore.set((s) => ({
     ...s,
-    broadcasts: s.broadcasts.map((b) => (b.id === id ? { ...b, ...patch } : b)),
+    broadcasts: s.broadcasts.map((b) => (b.id === id ? { ...b, ...change } : b)),
   }))
 }
 
 export function approveBroadcast(id: string, remarks?: string) {
+  if (apiEnabled) {
+    background(async () => replaceOne(await post<ApiBroadcast>(`/broadcasts/${id}/decision`, { decision: 'Approve', remarks: remarks?.trim() || undefined })), 'Decision failed', resync)
+    return
+  }
   broadcastStore.set((s) => ({
     ...s,
     broadcasts: s.broadcasts.map((b) =>
@@ -486,6 +703,10 @@ export function approveBroadcast(id: string, remarks?: string) {
 }
 
 export function rejectBroadcast(id: string, remarks?: string) {
+  if (apiEnabled) {
+    background(async () => replaceOne(await post<ApiBroadcast>(`/broadcasts/${id}/decision`, { decision: 'Reject', remarks: remarks?.trim() || 'Rejected' })), 'Decision failed', resync)
+    return
+  }
   broadcastStore.set((s) => ({
     ...s,
     broadcasts: s.broadcasts.map((b) =>
@@ -495,6 +716,10 @@ export function rejectBroadcast(id: string, remarks?: string) {
 }
 
 export function requestChangesBroadcast(id: string, remarks?: string) {
+  if (apiEnabled) {
+    background(async () => replaceOne(await post<ApiBroadcast>(`/broadcasts/${id}/decision`, { decision: 'Request Changes', remarks: remarks?.trim() || 'Changes requested' })), 'Decision failed', resync)
+    return
+  }
   broadcastStore.set((s) => ({
     ...s,
     broadcasts: s.broadcasts.map((b) =>

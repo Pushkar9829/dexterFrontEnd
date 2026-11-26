@@ -18,6 +18,8 @@ import { Modal } from '@/components/ui/Modal'
 import { toast } from '@/components/ui/Toast'
 import { downloadCsv } from '@/lib/export'
 import { cn } from '@/lib/cn'
+import { guardAct, useCanIn, ViewOnlyNote } from '@/lib/guard'
+import { emitWorkflow } from '@/data/workflow'
 
 export type ApprovalType =
   | 'Franchise Onboarding'
@@ -167,6 +169,7 @@ const INITIAL_APPROVALS: ApprovalItem[] = [
 
 export default function OnboardingApprovals() {
   const [approvals, setApprovals] = useState<ApprovalItem[]>(INITIAL_APPROVALS)
+  const allow = useCanIn('Onboarding')
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('All')
   const [statusFilter, setStatusFilter] = useState('All')
@@ -208,6 +211,8 @@ export default function OnboardingApprovals() {
 
   // Approve Action
   const handleApprove = (item: ApprovalItem) => {
+    if (!guardAct('Onboarding', 'Approve')) return
+    emitWorkflow({ module: 'Onboarding', event: 'Approve', refId: item.approvalId, vars: { Record_ID: item.approvalId, Franchise_Name: item.entityName, Current_Status: 'Approved' } })
     setApprovals((prev) =>
       prev.map((a) => (a.id === item.id ? { ...a, status: 'Approved', stage: 'Sign-off Completed' } : a))
     )
@@ -222,6 +227,8 @@ export default function OnboardingApprovals() {
       return
     }
     if (rejectModal) {
+      if (!guardAct('Onboarding', 'Reject')) return
+      emitWorkflow({ module: 'Onboarding', event: 'Reject', refId: rejectModal.approvalId, vars: { Record_ID: rejectModal.approvalId, Franchise_Name: rejectModal.entityName, Current_Status: 'Rejected', Pending_Action: 'Revise and resubmit' } })
       setApprovals((prev) =>
         prev.map((a) =>
           a.id === rejectModal.id
@@ -237,6 +244,7 @@ export default function OnboardingApprovals() {
 
   // Export CSV
   const handleExport = () => {
+    if (!guardAct('Onboarding', 'Export')) return
     const headers = [
       '#',
       'Approval ID',
@@ -298,16 +306,20 @@ export default function OnboardingApprovals() {
         </div>
 
         <div className="flex items-center gap-2.5">
-          <button
-            type="button"
-            onClick={handleExport}
-            className="inline-flex items-center gap-1.5 h-10 px-4 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[12.5px] font-semibold transition-all shadow-2xs cursor-pointer"
-          >
-            <Download size={15} />
-            <span>Export CSV</span>
-          </button>
+          {allow('Export') && (
+            <button
+              type="button"
+              onClick={handleExport}
+              className="inline-flex items-center gap-1.5 h-10 px-4 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[12.5px] font-semibold transition-all shadow-2xs cursor-pointer"
+            >
+              <Download size={15} />
+              <span>Export CSV</span>
+            </button>
+          )}
         </div>
       </div>
+
+      <ViewOnlyNote module="Onboarding" />
 
       {/* ── Top Metric Cards ──────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -508,22 +520,26 @@ export default function OnboardingApprovals() {
 
                       {a.status === 'Pending' && (
                         <>
-                          <button
-                            type="button"
-                            onClick={() => handleApprove(a)}
-                            className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded transition-colors cursor-pointer"
-                            title="Approve Request"
-                          >
-                            <Check size={14} strokeWidth={2.5} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setRejectModal(a)}
-                            className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors cursor-pointer"
-                            title="Reject Request"
-                          >
-                            <X size={14} strokeWidth={2.5} />
-                          </button>
+                          {allow('Approve') && (
+                            <button
+                              type="button"
+                              onClick={() => handleApprove(a)}
+                              className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded transition-colors cursor-pointer"
+                              title="Approve Request"
+                            >
+                              <Check size={14} strokeWidth={2.5} />
+                            </button>
+                          )}
+                          {allow('Reject') && (
+                            <button
+                              type="button"
+                              onClick={() => setRejectModal(a)}
+                              className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors cursor-pointer"
+                              title="Reject Request"
+                            >
+                              <X size={14} strokeWidth={2.5} />
+                            </button>
+                          )}
                         </>
                       )}
                     </div>
@@ -564,26 +580,30 @@ export default function OnboardingApprovals() {
             <div className="flex w-full items-center justify-between">
               {selectedItem.status === 'Pending' ? (
                 <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      handleApprove(selectedItem)
-                      setSelectedItem(null)
-                    }}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[12.5px] font-semibold transition-colors"
-                  >
-                    <Check size={14} /> Approve
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setRejectModal(selectedItem)
-                      setSelectedItem(null)
-                    }}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-[12.5px] font-semibold transition-colors"
-                  >
-                    <X size={14} /> Reject
-                  </button>
+                  {allow('Approve') && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleApprove(selectedItem)
+                        setSelectedItem(null)
+                      }}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[12.5px] font-semibold transition-colors"
+                    >
+                      <Check size={14} /> Approve
+                    </button>
+                  )}
+                  {allow('Reject') && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRejectModal(selectedItem)
+                        setSelectedItem(null)
+                      }}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-[12.5px] font-semibold transition-colors"
+                    >
+                      <X size={14} /> Reject
+                    </button>
+                  )}
                 </div>
               ) : (
                 <span className="text-[12px] text-slate-500">

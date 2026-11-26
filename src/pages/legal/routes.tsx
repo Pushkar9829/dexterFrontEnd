@@ -1,26 +1,26 @@
+import { lazy } from 'react'
 import { Route } from 'react-router-dom'
-import LegalData from './LegalData'
-import SiteRecord from './SiteRecord'
-import DocumentDetail from './DocumentDetail'
-import DocumentAudit from './DocumentAudit'
-import FranchiseeApp from './FranchiseeApp'
-import LegalHub from './LegalHub'
-import AddLoi from './AddLoi'
-import LoiList from './LoiList'
-import AffidavitList from './AffidavitList'
-import AddAffidavit from './AddAffidavit'
-import AgreementList from './AgreementList'
-import AddAgreement from './AddAgreement'
-import PvcList from './PvcList'
-import PvcForm from './PvcForm'
-import PvcRecord from './PvcRecord'
-import FmChecksList from './FmChecksList'
-import FmChecksForm from './FmChecksForm'
-import FmChecksRecord from './FmChecksRecord'
-import OtherDocList from './OtherDocList'
-import OtherDocForm from './OtherDocForm'
-import OtherDocRecord from './OtherDocRecord'
-
+const LegalData = lazy(() => import('./LegalData'))
+const SiteRecord = lazy(() => import('./SiteRecord'))
+const DocumentDetail = lazy(() => import('./DocumentDetail'))
+const DocumentAudit = lazy(() => import('./DocumentAudit'))
+const FranchiseeApp = lazy(() => import('./FranchiseeApp'))
+const LegalHub = lazy(() => import('./LegalHub'))
+const AddLoi = lazy(() => import('./AddLoi'))
+const LoiList = lazy(() => import('./LoiList'))
+const AffidavitList = lazy(() => import('./AffidavitList'))
+const AddAffidavit = lazy(() => import('./AddAffidavit'))
+const AgreementList = lazy(() => import('./AgreementList'))
+const AddAgreement = lazy(() => import('./AddAgreement'))
+const PvcList = lazy(() => import('./PvcList'))
+const PvcForm = lazy(() => import('./PvcForm'))
+const PvcRecord = lazy(() => import('./PvcRecord'))
+const FmChecksList = lazy(() => import('./FmChecksList'))
+const FmChecksForm = lazy(() => import('./FmChecksForm'))
+const FmChecksRecord = lazy(() => import('./FmChecksRecord'))
+const OtherDocList = lazy(() => import('./OtherDocList'))
+const OtherDocForm = lazy(() => import('./OtherDocForm'))
+const OtherDocRecord = lazy(() => import('./OtherDocRecord'))
 export const legalRoutes = [
   <Route key="legal" path="/legal" element={<LegalHub />} />,
   <Route key="legal-loi-new" path="/legal/loi/new" element={<AddLoi />} />,

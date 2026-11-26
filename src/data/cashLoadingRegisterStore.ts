@@ -1,5 +1,17 @@
 import { createStore } from '@/lib/store'
+import { franchiseNameOf, siteAt } from '@/lib/siteRef'
 import { downloadCsv } from '@/lib/export'
+import { useMemo } from 'react'
+import { clBalance, makeCashMaster, type CashRecord } from './cbr'
+import { apiEnabled } from './opsApi'
+
+/**
+ * Cash Loading Master — Self Funding only (Operations §3). Same workflow engine as CBR but its OWN
+ * store / ids (CL-…), validations and reports; never mixed with the CBR Master (§3.2, §19.1).
+ */
+export const clMaster = makeCashMaster('Cash Loading', 'dexter.cashloading.master.v1')
+
+// ── Legacy daily loading sheet (used by the SF Overview report) ───────────
 
 export interface CashLoadingRow {
   no: number
@@ -20,16 +32,8 @@ export interface CashLoadingRow {
   switchBalance: number
 }
 
-const SAMPLE_ATMS = [
-  { atmId: 'MBP13124', mfName: 'SSFS - Mumbai Central' },
-  { atmId: 'DX-MH-01482', mfName: 'Shree Sai Financial Services' },
-  { atmId: 'DX-GJ-02187', mfName: 'Patel Cash Solutions' },
-  { atmId: 'DX-KA-00761', mfName: 'Namma ATM Network' },
-  { atmId: 'DX-UP-03051', mfName: 'Awadh Banking Point' },
-  { atmId: 'DX-WB-01831', mfName: 'Bengal Rural Payments' },
-  { atmId: 'MPZ16801', mfName: 'Guruprit Singh Enterprises' },
-  { atmId: 'MCRM7303', mfName: 'Pawan Gupta Cash Services' },
-]
+// Self Funding (Cash Loading) sites from the common Site Master.
+const SAMPLE_ATMS = Array.from({ length: 8 }, (_, i) => siteAt(i * 3, (s) => s.siteType === 'SF')).map((s) => ({ atmId: s.atmId, mfName: franchiseNameOf(s) }))
 
 export const INITIAL_LOADING_RECORDS: CashLoadingRow[] = Array.from({ length: 32 }, (_, i) => {
   const rowNo = i + 1
@@ -77,12 +81,47 @@ export const INITIAL_LOADING_RECORDS: CashLoadingRow[] = Array.from({ length: 32
 })
 
 export const cashLoadingRegisterStore = createStore<CashLoadingRow[]>(
-  'dexter_cash_loading_register_v1',
+  'dexter_cash_loading_register_v2',
   () => INITIAL_LOADING_RECORDS,
 )
 
+/**
+ * API mode: there is no backend "daily loading sheet"; the rows are derived from the live Cash Loading Master
+ * (GET /cash-loading/records) — opening, withdrawal (dispense), loading and the provisional balance
+ * (Opening + Loading − Withdrawal). Purge / overage / shortage are not captured by the master (0).
+ */
+function registerRowsFrom(recs: CashRecord[]): CashLoadingRow[] {
+  return recs
+    .filter((r) => r.status !== 'Draft' && r.status !== 'Rejected')
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .map((r, i) => {
+      const physical = Math.max(0, r.openingBalance - r.cashWithdrawal)
+      const closing = clBalance(r)
+      return {
+        no: i + 1,
+        date: `${r.date.slice(8, 10)}-${r.date.slice(5, 7)}-${r.date.slice(0, 4)}`,
+        atmId: r.atmId,
+        mfName: r.franchiseName,
+        indentNo: r.id,
+        eodTime: '',
+        openingBalance: r.openingBalance,
+        dispense: r.cashWithdrawal,
+        purgeBin: 0,
+        overage: 0,
+        shortage: 0,
+        physicalCash: physical,
+        loading: r.amount,
+        closingBalance: closing,
+        remarks: r.remarks || r.status,
+        switchBalance: closing,
+      }
+    })
+}
+
 export function useCashLoadingRegister() {
-  const records = cashLoadingRegisterStore.use()
+  const local = cashLoadingRegisterStore.use()
+  const master = clMaster.store.use()
+  const records = useMemo(() => (apiEnabled ? registerRowsFrom(master) : local), [local, master])
   return {
     records,
     addRow: (row: Omit<CashLoadingRow, 'no'>) => {

@@ -8,6 +8,7 @@ import { Modal } from '@/components/ui/Modal'
 import { TextAreaField } from '@/components/ui/Form'
 import { toast } from '@/components/ui/Toast'
 import { downloadCsv } from '@/lib/export'
+import { guardAct } from '@/lib/guard'
 import {
   CURRENT_USER,
   RECURRING_ADVICE,
@@ -72,6 +73,7 @@ export default function AiDashboard() {
   })
 
   const accept = (r: Recommendation) => {
+    if (!guardAct('Complaints', 'Create', 'create preventive tasks')) return
     const id = nextTaskId(recs.flatMap((x) => (x.taskId ? [x.taskId] : [])))
     const at = new Date(now).toISOString()
     recStore.set((xs) => xs.map((x) => (x.id === r.id ? { ...x, status: 'Accepted', decidedAt: at, decidedBy: CURRENT_USER, taskId: id } : x)))
@@ -84,10 +86,11 @@ export default function AiDashboard() {
     toast(`Accepted · ${id} created for ${r.owner}`)
   }
   const reject = (r: Recommendation, reason: string) => {
+    if (!guardAct('Complaints', 'Edit', 'reject recommendations')) return
     recStore.set((xs) => xs.map((x) => (x.id === r.id ? { ...x, status: 'Rejected', decidedAt: new Date(now).toISOString(), decidedBy: CURRENT_USER, rejectReason: reason } : x)))
     toast(`${r.id} rejected`, 'info')
   }
-  const reconsider = (r: Recommendation) => recStore.set((xs) => xs.map((x) => (x.id === r.id ? { ...x, status: 'Needs review', decidedAt: undefined, decidedBy: undefined, rejectReason: undefined } : x)))
+  const reconsider = (r: Recommendation) => guardAct('Complaints', 'Edit', 'reconsider recommendations') && recStore.set((xs) => xs.map((x) => (x.id === r.id ? { ...x, status: 'Needs review', decidedAt: undefined, decidedBy: undefined, rejectReason: undefined } : x)))
 
   const shownRecs = recs.filter((r) => (recFilter === 'All' ? true : recFilter === 'Highlighted' ? r.highlighted : r.status === recFilter))
 
@@ -210,7 +213,7 @@ export default function AiDashboard() {
             </div>
             <h4 className="mt-3.5 text-[13px] font-semibold text-ink">{r.title}</h4>
             <p className="mt-2.5 text-[11px] text-primary">
-              {r.complaintId ? (
+              {r.complaintId && all.some((c) => c.id === r.complaintId) ? (
                 <Link to={`${BASE}/${r.complaintId}`} className="hover:underline">
                   {r.context}
                 </Link>
@@ -284,6 +287,7 @@ function PredictionReviewModal({ c, onClose }: { c: Complaint; onClose: () => vo
   const existing = reviewStore.get()[c.id]
   const [note, setNote] = useState(existing?.note ?? '')
   const save = (verdict: 'Agree' | 'Disagree') => {
+    if (!guardAct('Complaints', 'Edit', 'review predictions')) return
     reviewStore.set((r) => ({ ...r, [c.id]: { verdict, note, by: CURRENT_USER, at: new Date(nowMs()).toISOString() } }))
     updateComplaint(c.id, () => ({}), { title: 'AI prediction reviewed', meta: `${CURRENT_USER} · ${verdict} · ${c.ai!.prediction} (${c.ai!.score}/100)` })
     toast(`Review recorded for ${c.id}`)

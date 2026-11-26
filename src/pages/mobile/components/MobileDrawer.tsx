@@ -1,11 +1,10 @@
 import { X, User, Settings, Headphones, Ticket, FileText, Shield, LogOut, ChevronRight, CheckCircle } from 'lucide-react'
-import { type MobileUser } from '../data/mobileMockData'
+import { type MobileUser } from '../data/mobileSession'
 
 interface MobileDrawerProps {
   isOpen: boolean
   onClose: () => void
   currentUser: MobileUser
-  onSelectRole?: (roleKey: 'franchise' | 'team_leader' | 'admin') => void
   onNavigate: (screen: string) => void
   onLogout: () => void
 }
@@ -14,7 +13,6 @@ export function MobileDrawer({
   isOpen,
   onClose,
   currentUser,
-  onSelectRole: _onSelectRole,
   onNavigate,
   onLogout
 }: MobileDrawerProps) {
@@ -51,12 +49,8 @@ export function MobileDrawer({
           </button>
 
           <div className="flex items-center gap-3.5">
-            <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full border-2 border-white/80 shadow-md">
-              <img
-                src={currentUser.avatar}
-                alt={currentUser.name}
-                className="h-full w-full object-cover"
-              />
+            <div className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-white/80 bg-white/20 text-lg font-black text-white shadow-md">
+              {currentUser.initials}
             </div>
             <div className="leading-tight">
               <h3 className="text-base font-bold text-white">{currentUser.name}</h3>
@@ -64,7 +58,9 @@ export function MobileDrawer({
                 <CheckCircle size={10} className="text-emerald-300" />
                 {currentUser.roleTitle}
               </div>
-              <p className="mt-1 text-[11px] text-blue-200">{currentUser.franchiseId}</p>
+              <p className="mt-1 text-[11px] text-blue-200">
+                {currentUser.franchise?.name ?? currentUser.frId} · {currentUser.franchiseCode}
+              </p>
             </div>
           </div>
 

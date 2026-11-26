@@ -1,4 +1,4 @@
-import { useState, useRef, useId, useEffect } from 'react'
+import { useState, useRef, useId, useEffect, useMemo } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   Home,
@@ -17,11 +17,17 @@ import {
 } from 'lucide-react'
 import { toast } from '@/components/ui/Toast'
 import {
-  addPvcRecord,
-  getPvcRecord,
-  updatePvcRecord,
+  savePvcRecord,
+  savePvcUpdate,
+  usePvcRecords,
   type PvcStatus,
 } from '@/data/legalPvc'
+import { useLegal, type LegalSite } from '@/data/legal'
+import { apiEnabled } from '@/lib/api'
+import { uploadLegalFiles } from '@/data/legalApi'
+import { emitWorkflow } from '@/data/workflow'
+import { ViewOnlyNote, guardAct, useCanIn } from '@/lib/guard'
+import { franchiseNameOf, resolveSite, SiteRef } from '@/lib/siteRef'
 
 interface SiteOption {
   siteLoi: string
@@ -33,62 +39,16 @@ interface SiteOption {
   email: string
 }
 
-const PRESET_SITES: SiteOption[] = [
-  {
-    siteLoi: 'SIT-2025-001',
-    siteId: 'S-1001',
-    atmId: 'ATM001',
-    franchiseeName: 'Shree Sai Financial Services',
-    mobileNumber: '+91 98765 43210',
-    model: 'Hitachi ATM Model XYZ',
-    email: 'sai.financial@gmail.com',
-  },
-  {
-    siteLoi: 'SIT-2025-005',
-    siteId: 'S-1005',
-    atmId: 'ATM003',
-    franchiseeName: 'Om Finserve',
-    mobileNumber: '+91 98123 45678',
-    model: 'GRG ATM Model ABC',
-    email: 'contact@omfinserve.in',
-  },
-  {
-    siteLoi: 'SIT-2025-012',
-    siteId: 'S-1012',
-    atmId: 'ATM007',
-    franchiseeName: 'Kuber ATM Solutions',
-    mobileNumber: '+91 97654 32109',
-    model: 'NCR ATM Model 5886',
-    email: 'info@kuberatm.in',
-  },
-  {
-    siteLoi: 'SIT-2025-018',
-    siteId: 'S-1018',
-    atmId: 'ATM011',
-    franchiseeName: 'Madhav Enterprises',
-    mobileNumber: '+91 98987 65432',
-    model: 'Diebold ATM Model 5500',
-    email: 'madhav.ent@gmail.com',
-  },
-  {
-    siteLoi: 'SIT-2025-024',
-    siteId: 'S-1024',
-    atmId: 'ATM015',
-    franchiseeName: 'Shakti Associates',
-    mobileNumber: '+91 90012 34567',
-    model: 'Hitachi ATM Model ABC',
-    email: 'shakti.assoc@outlook.com',
-  },
-  {
-    siteLoi: 'SIT-2025-031',
-    siteId: 'S-1031',
-    atmId: 'ATM019',
-    franchiseeName: 'Balaji Payments & ATM',
-    mobileNumber: '+91 98450 67890',
-    model: 'Hyosung ATM 2800',
-    email: 'balaji.atm@fintech.in',
-  },
-]
+/** Site options come from the Legal register, whose sites are Site Master sites. */
+const toOption = (s: LegalSite): SiteOption => ({
+  siteLoi: s.siteLoi ?? s.id,
+  siteId: s.id,
+  atmId: s.atmId,
+  franchiseeName: s.franchiseName,
+  mobileNumber: s.contactNumber,
+  model: s.model,
+  email: s.email,
+})
 
 export default function PvcForm() {
   const navigate = useNavigate()
@@ -97,12 +57,18 @@ export default function PvcForm() {
   const dropdownRef = useRef<HTMLDivElement>(null)
   const remarkTextareaId = useId()
 
-  const existingRecord = id ? getPvcRecord(id) : undefined
+  const { records: pvcRecords } = usePvcRecords()
+  const existingRecord = id ? pvcRecords.find((r) => r.id === id || r.siteId === id) : undefined
   const isEdit = Boolean(existingRecord)
+  const allow = useCanIn('Legal')
+  const canSave = allow(isEdit ? 'Edit' : 'Create')
+  const legalSites = useLegal().sites
+  const PRESET_SITES = useMemo(() => legalSites.map(toOption), [legalSites])
+  const [siteError, setSiteError] = useState('')
 
   // Selected site data
-  const [selectedSite, setSelectedSite] = useState<SiteOption>(PRESET_SITES[0])
-  const [searchQuery, setSearchQuery] = useState(PRESET_SITES[0].siteLoi)
+  const [selectedSite, setSelectedSite] = useState<SiteOption>(PRESET_SITES[0] ?? { siteLoi: '', siteId: '', atmId: '', franchiseeName: '', mobileNumber: '', model: '', email: '' })
+  const [searchQuery, setSearchQuery] = useState(PRESET_SITES[0]?.siteLoi ?? '')
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
 
   // PVC Details: PVC Date & Expiry Date
@@ -141,7 +107,7 @@ export default function PvcForm() {
       setExpiryDate(existingRecord.expiryDate)
       setRemarks(existingRecord.remark === '-' ? '' : existingRecord.remark)
     }
-  }, [existingRecord])
+  }, [existingRecord, PRESET_SITES])
 
   // Filtered dropdown options
   const filteredSites = PRESET_SITES.filter(
@@ -153,6 +119,7 @@ export default function PvcForm() {
   )
 
   const handleSelectSite = (site: SiteOption) => {
+    setSiteError('')
     setSelectedSite(site)
     setSearchQuery(site.siteLoi)
     setIsDropdownOpen(false)
@@ -210,12 +177,34 @@ export default function PvcForm() {
     }
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!guardAct('Legal', isEdit ? 'Edit' : 'Create', isEdit ? 'edit PVC records' : 'add PVC records')) return
 
     if (!searchQuery.trim() || !selectedSite.siteId) {
       toast('Please select a Site/LOI Number')
       return
+    }
+
+    // Site must exist in Site Master (a typed Site ID / ATM ID is resolved too).
+    const q = searchQuery.trim()
+    const differs = q.toLowerCase() !== selectedSite.siteLoi.toLowerCase()
+    const typed = differs ? resolveSite(q.replace(/^LOI-/i, 'SITE-')) ?? resolveSite(q) : undefined
+    const master = typed ?? resolveSite(selectedSite.siteId)
+    if (!master || (differs && !typed)) {
+      setSiteError(`"${q}" is not in Site Master. Pick a valid Site ID / ATM ID.`)
+      toast('Site / ATM ID not found in Site Master', 'error')
+      return
+    }
+    setSiteError('')
+    const siteData = {
+      siteId: master.siteId,
+      siteLoi: typed ? `LOI-${master.siteId.replace(/^SITE-/i, '')}` : selectedSite.siteLoi,
+      atmId: master.atmId,
+      franchiseName: franchiseNameOf(master) || selectedSite.franchiseeName,
+      mobileNumber: typed ? '' : selectedSite.mobileNumber,
+      model: typed ? master.machineType : selectedSite.model,
+      email: typed ? '' : selectedSite.email,
     }
 
     if (!pvcDate.trim()) {
@@ -228,52 +217,63 @@ export default function PvcForm() {
       return
     }
 
+    if (!file && !existingRecord?.fileName) {
+      toast('Please upload the Police Verification Certificate (PDF, JPG or PNG) before saving', 'error')
+      return
+    }
+
     setIsSubmitting(true)
 
     const fileName = file
       ? file.name
-      : existingRecord?.fileName || `PVC_${selectedSite.siteId}_Signed.pdf`
+      : existingRecord?.fileName || `PVC_${master.siteId}_Signed.pdf`
     const fileSizeKb = file
       ? Math.round(file.size / 1024)
       : existingRecord?.fileSizeKb || 1420
 
     const status: PvcStatus = file || existingRecord?.fileName ? 'Active' : 'Pending'
 
+    // API mode: the certificate goes to POST /files first; errors are toasted by the data layer
+    const uploaded = file ? await uploadLegalFiles([file], { entity: 'LegalPvc', ref: master.siteId }).catch(() => null) : []
+    if (!uploaded) return setIsSubmitting(false)
+    const fileId = uploaded[0]?.fileId ?? existingRecord?.fileId
+
+    let refId: string
     if (isEdit && existingRecord) {
-      updatePvcRecord(existingRecord.id, {
-        siteId: selectedSite.siteId,
-        siteLoi: selectedSite.siteLoi,
-        atmId: selectedSite.atmId,
-        franchiseName: selectedSite.franchiseeName,
-        mobileNumber: selectedSite.mobileNumber,
-        model: selectedSite.model,
-        email: selectedSite.email,
+      refId = existingRecord.id
+      const ok = await savePvcUpdate(existingRecord.id, {
+        ...siteData,
         pvcDate,
         expiryDate,
+        fileId,
         fileName,
         fileSizeKb,
         remark: remarks.trim() || 'Verified',
         status: existingRecord.status === 'Not Generated' ? 'Active' : existingRecord.status,
-      })
+      }).catch(() => null)
+      if (!ok) return setIsSubmitting(false)
       toast('Police Verification Certificate (PVC) updated successfully')
     } else {
-      addPvcRecord({
-        siteId: selectedSite.siteId,
-        siteLoi: selectedSite.siteLoi,
-        atmId: selectedSite.atmId,
-        franchiseName: selectedSite.franchiseeName,
-        mobileNumber: selectedSite.mobileNumber,
-        model: selectedSite.model,
-        email: selectedSite.email,
+      const created = await savePvcRecord({
+        ...siteData,
         pvcDate,
         expiryDate,
+        fileId,
         fileName,
         fileSizeKb,
         remark: remarks.trim() || 'Verified',
         status,
-      })
+      }).catch(() => null)
+      if (!created) return setIsSubmitting(false)
+      refId = created.id
       toast('New Police Verification Certificate (PVC) created successfully')
     }
+
+    if (!apiEnabled) emitWorkflow({
+      module: 'Legal', event: 'Submit', refId,
+      vars: { Site_ID: siteData.siteId, ATM_ID: siteData.atmId, Site_LOI_Number: siteData.siteLoi, Franchise_Name: siteData.franchiseName, Current_Status: status },
+      nextAction: { title: 'Verify PVC', dueHours: 48 },
+    })
 
     setTimeout(() => {
       setIsSubmitting(false)
@@ -318,6 +318,8 @@ export default function PvcForm() {
         </p>
       </div>
 
+      <ViewOnlyNote module="Legal" />
+
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* CARD 1: Site Details */}
         <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-5 sm:p-6">
@@ -351,10 +353,11 @@ export default function PvcForm() {
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value)
+                  setSiteError('')
                   setIsDropdownOpen(true)
                 }}
                 onFocus={() => setIsDropdownOpen(true)}
-                placeholder="Search Site/LOI Number (e.g. SIT-2025-001)"
+                placeholder="Search Site/LOI Number, Site ID or ATM ID (e.g. SITE-MH-0001)"
                 className="w-full h-10.5 pl-10 pr-10 text-[13px] rounded-xl border border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF] transition-all shadow-2xs"
               />
               <button
@@ -415,6 +418,8 @@ export default function PvcForm() {
             <span>Details will be auto-fetched after selecting a site.</span>
           </div>
 
+          {siteError && <p className="-mt-3 mb-4 text-[12px] font-medium text-red-600">{siteError}</p>}
+
           {/* 6 Auto-filled Readonly/Tinted Fields Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             {/* Site ID */}
@@ -426,7 +431,7 @@ export default function PvcForm() {
                 className="h-10 px-3.5 rounded-xl bg-[#F0F5FA] border border-[#E2ECF8] text-[12.5px] font-medium text-slate-800 flex items-center truncate"
                 title={selectedSite.siteId}
               >
-                {selectedSite.siteId || '—'}
+                {selectedSite.siteId ? <SiteRef id={selectedSite.siteId} /> : '—'}
               </div>
             </div>
 
@@ -691,7 +696,8 @@ export default function PvcForm() {
           {/* Submit Button */}
           <button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isSubmitting || !canSave}
+            title={canSave ? undefined : 'Your role cannot save Legal records'}
             className="h-10 px-6 rounded-xl bg-[#0066FF] hover:bg-blue-700 text-white font-medium text-[13px] flex items-center gap-2 transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
           >
             <FileText size={16} /> Submit

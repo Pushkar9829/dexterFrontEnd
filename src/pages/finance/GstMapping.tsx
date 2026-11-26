@@ -25,7 +25,9 @@ import {
   type GstVerificationStatus,
   type GstFilingFrequency,
 } from '@/data/financeGstMapping'
-import { FRANCHISEES } from '@/data/cbrSites'
+import { franchiseStore } from '@/data/franchises'
+import { useCanIn, guardAct, ViewOnlyNote } from '@/lib/guard'
+import { emitFinance, statusEvent } from './finWorkflow'
 import { Modal } from '@/components/ui/Modal'
 import { toast } from '@/components/ui/Toast'
 import { downloadCsv } from '@/lib/export'
@@ -33,6 +35,8 @@ import { cn } from '@/lib/cn'
 
 export default function GstMapping() {
   const mappings = gstMappingStore.use()
+  const allow = useCanIn('Finance')
+  const franchises = franchiseStore.use().filter((f) => f.tier === 'Franchise')
 
   // Search & Filters
   const [searchQuery, setSearchQuery] = useState('')
@@ -92,36 +96,33 @@ export default function GstMapping() {
 
   // Handle open Add Modal
   const handleOpenAdd = () => {
+    if (!guardAct('Finance', 'Create', 'create GST mappings')) return
     setEditingMapping(emptyGstMapping())
     setIsModalOpen(true)
   }
 
   // Handle open Edit Modal
   const handleOpenEdit = (mapping: FranchiseGstMapping) => {
+    if (!guardAct('Finance', 'Edit', 'edit GST mappings')) return
     setEditingMapping({ ...mapping })
     setIsModalOpen(true)
   }
 
   // Handle auto-population on Franchise selection
   const handleFranchiseSelect = (frId: string) => {
-    const matched = FRANCHISEES.find((f) => f.id === frId)
+    // Franchise master (same franchises the Site Master refers to); GSTIN / PAN are entered below
+    const matched = franchiseStore.get().find((f) => f.id === frId)
     if (matched) {
-      const gstin = matched.gstin || ''
-      const pan = matched.pan || (gstin.length >= 12 ? gstin.slice(2, 12) : '')
-      const stateCode = gstin.slice(0, 2)
-      const stateInfo = STATE_CODE_MAP[stateCode]
-
+      const stateInfo = Object.values(STATE_CODE_MAP).find((s) => s.state === matched.state)
       setEditingMapping((prev) => ({
         ...prev,
         franchiseId: matched.id,
         franchiseeName: matched.name,
-        legalBusinessName: matched.panName || matched.name,
-        tradeName: matched.name,
-        gstin,
-        panNumber: pan,
+        legalBusinessName: prev.legalBusinessName || matched.name,
+        tradeName: prev.tradeName || matched.name,
         state: stateInfo ? stateInfo.state : prev.state,
-        stateCode: stateCode || prev.stateCode,
-        contactPhone: matched.contact ? `+91 ${matched.contact}` : prev.contactPhone,
+        stateCode: prev.gstin ? prev.stateCode : stateInfo?.code ?? prev.stateCode,
+        city: prev.city || matched.city,
       }))
       toast(`Selected franchise ${matched.name}`, 'info')
     } else {
@@ -151,6 +152,7 @@ export default function GstMapping() {
   // Save Mapping
   const handleSaveSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    if (!guardAct('Finance', editingMapping.id ? 'Edit' : 'Create', editingMapping.id ? 'edit GST mappings' : 'create GST mappings')) return
     if (!editingMapping.franchiseeName.trim()) {
       toast('Please enter Franchisee Name', 'error')
       return
@@ -164,7 +166,10 @@ export default function GstMapping() {
       return
     }
 
-    saveGstMapping(editingMapping)
+    const prevStatus = editingMapping.id ? mappings.find((m) => m.id === editingMapping.id)?.verificationStatus : undefined
+    const savedMap = saveGstMapping(editingMapping)
+    const ev = editingMapping.id ? statusEvent(prevStatus, savedMap.verificationStatus) ?? (/discrepancy|suspend/i.test(savedMap.verificationStatus) && prevStatus !== savedMap.verificationStatus ? 'Reject' : undefined) : 'Submit'
+    if (ev) emitFinance(ev, savedMap.id, { what: 'franchise GST mapping', franchise: savedMap.franchiseeName, status: savedMap.verificationStatus })
     toast(
       editingMapping.id
         ? `GST Mapping for ${editingMapping.franchiseeName} updated!`
@@ -176,6 +181,7 @@ export default function GstMapping() {
 
   // Delete Mapping
   const handleDelete = (mapping: FranchiseGstMapping) => {
+    if (!guardAct('Finance', 'Delete', 'delete GST mappings')) return
     if (confirm(`Are you sure you want to delete GST Mapping for ${mapping.franchiseeName}?`)) {
       deleteGstMapping(mapping.id)
       toast(`Mapping ${mapping.id} removed`, 'info')
@@ -184,6 +190,7 @@ export default function GstMapping() {
 
   // Export CSV
   const handleExportCsv = () => {
+    if (!guardAct('Finance', 'Export', 'export GST mappings')) return
     const headers = [
       'S.No.',
       'Mapping ID',
@@ -261,24 +268,26 @@ export default function GstMapping() {
             <ArrowLeft size={13} />
             <span>Back to GST Hub</span>
           </Link>
-          <button
+          {allow('Export') && <button
             type="button"
             onClick={handleExportCsv}
             className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[12px] font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs"
           >
             <Download size={13} />
             <span>Export CSV</span>
-          </button>
-          <button
+          </button>}
+          {allow('Create') && <button
             type="button"
             onClick={handleOpenAdd}
             className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-1.5 text-[12px] font-semibold text-white hover:bg-primary-hover shadow-xs transition-colors"
           >
             <Plus size={14} />
             <span>Map New Franchise GST</span>
-          </button>
+          </button>}
         </div>
       </div>
+
+      <ViewOnlyNote module="Finance" />
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -521,22 +530,22 @@ export default function GstMapping() {
                         >
                           <Eye size={14} />
                         </button>
-                        <button
+                        {allow('Edit') && <button
                           type="button"
                           onClick={() => handleOpenEdit(row)}
                           title="Edit GST Mapping"
                           className="rounded p-1.5 text-slate-600 hover:bg-blue-50 hover:text-primary transition-colors"
                         >
                           <Pencil size={14} />
-                        </button>
-                        <button
+                        </button>}
+                        {allow('Delete') && <button
                           type="button"
                           onClick={() => handleDelete(row)}
                           title="Delete Mapping"
                           className="rounded p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors"
                         >
                           <Trash2 size={14} />
-                        </button>
+                        </button>}
                       </div>
                     </td>
                   </tr>
@@ -619,9 +628,9 @@ export default function GstMapping() {
                     className="w-full rounded-lg border border-slate-200 bg-white p-2 focus:border-primary focus:outline-hidden"
                   >
                     <option value="">-- Choose Franchise or Custom --</option>
-                    {FRANCHISEES.map((f) => (
+                    {franchises.map((f) => (
                       <option key={f.id} value={f.id}>
-                        {f.id} — {f.name} ({f.pan})
+                        {f.id} — {f.name} ({f.city})
                       </option>
                     ))}
                   </select>

@@ -44,12 +44,15 @@ import {
   GST_PAYMENT_STATUSES,
   type GstRecord,
 } from '@/data/financeGst'
-import { SITES, FRANCHISEES } from '@/data/cbrSites'
+import { resolveSite, SiteRef } from '@/lib/siteRef'
+import { useCanIn, guardAct, ViewOnlyNote } from '@/lib/guard'
+import { emitFinance, gstPatchFromSite } from './finWorkflow'
 import GstInvoiceTemplate from '@/components/finance/GstInvoiceTemplate'
 
 export default function GstList() {
   const { isReport } = useReportMode()
   const records = gstStore.use()
+  const allow = useCanIn('Finance')
   const formRef = useRef<HTMLDivElement>(null)
 
   // 1. On first load: KEEP FORM COMPLETELY EMPTY
@@ -218,24 +221,9 @@ export default function GstList() {
       toast('Please enter a Site ID to search')
       return
     }
-    const found = SITES.find(
-      (s) => s.siteId.toLowerCase() === inputSite.toLowerCase() || s.atmId.toLowerCase() === inputSite.toLowerCase()
-    )
+    const found = resolveSite(inputSite)
     if (found) {
-      const fr = FRANCHISEES.find((f) => f.id === found.franchiseId)
-      setFormData((prev) => ({
-        ...prev,
-        siteId: found.siteId,
-        atmId: found.atmId,
-        locationName: `${found.location}, ${found.city}`,
-        sapCode: fr?.sapCode || prev.sapCode,
-        franchiseeName: fr?.name || prev.franchiseeName,
-        contactNo: fr?.contact || prev.contactNo,
-        gstNumber: fr?.gstin || prev.gstNumber,
-        stateCode: fr?.gstin ? fr.gstin.slice(0, 2) : '09',
-        panNumber: fr?.gstin ? fr.gstin.slice(2, 12) : prev.panNumber,
-        address: `${found.location}\n${found.city}\nUttar Pradesh - 201306`,
-      }))
+      setFormData((prev) => gstPatchFromSite(prev, found))
       toast(`Loaded details for Site ID ${found.siteId}`)
     } else {
       toast('Site ID not found in master records')
@@ -248,24 +236,9 @@ export default function GstList() {
       toast('Please enter an ATM ID to search')
       return
     }
-    const found = SITES.find(
-      (s) => s.atmId.toLowerCase() === inputAtm.toLowerCase() || s.siteId.toLowerCase() === inputAtm.toLowerCase()
-    )
+    const found = resolveSite(inputAtm)
     if (found) {
-      const fr = FRANCHISEES.find((f) => f.id === found.franchiseId)
-      setFormData((prev) => ({
-        ...prev,
-        siteId: found.siteId,
-        atmId: found.atmId,
-        locationName: `${found.location}, ${found.city}`,
-        sapCode: fr?.sapCode || prev.sapCode,
-        franchiseeName: fr?.name || prev.franchiseeName,
-        contactNo: fr?.contact || prev.contactNo,
-        gstNumber: fr?.gstin || prev.gstNumber,
-        stateCode: fr?.gstin ? fr.gstin.slice(0, 2) : '09',
-        panNumber: fr?.gstin ? fr.gstin.slice(2, 12) : prev.panNumber,
-        address: `${found.location}\n${found.city}\nUttar Pradesh - 201306`,
-      }))
+      setFormData((prev) => gstPatchFromSite(prev, found))
       toast(`Loaded details for ATM ID ${found.atmId}`)
     } else {
       toast('ATM ID not found in master records')
@@ -288,13 +261,27 @@ export default function GstList() {
   }
 
   // Save Draft action
+  // Site / ATM must exist in the Site Master; returns the site-normalised record (or null after telling the user)
+  const checkSite = (): GstRecord | null => {
+    if (!formData.siteId && !formData.atmId) return formData
+    const site = resolveSite(formData.atmId || formData.siteId)
+    if (!site) {
+      toast('Site ID / ATM ID is not in the Site Master', 'error')
+      return null
+    }
+    return { ...formData, siteId: site.siteId, atmId: site.atmId }
+  }
+
   const handleSaveDraft = () => {
+    if (!guardAct('Finance', activeEditingId ? 'Edit' : 'Create', 'save GST invoices')) return
     if (!formData.franchiseeName && !formData.siteId) {
       toast('Please enter Franchisee Name or Site ID')
       return
     }
+    const checked = checkSite()
+    if (!checked) return
     const saved = saveGst({
-      ...formData,
+      ...checked,
       invoiceStatus: formData.invoiceStatus || 'Pending at Franchise',
       paymentStatus: formData.paymentStatus || 'Pending',
     })
@@ -305,22 +292,27 @@ export default function GstList() {
 
   // Submit for Review action
   const handleSubmitReview = () => {
+    if (!guardAct('Finance', activeEditingId ? 'Edit' : 'Create', 'submit GST invoices')) return
     if (!formData.franchiseeName) {
       toast('Please enter Franchisee Name before submitting')
       return
     }
+    const checked = checkSite()
+    if (!checked) return
     const saved = saveGst({
-      ...formData,
+      ...checked,
       invoiceStatus: 'Pending at Team',
       paymentStatus: formData.paymentStatus || 'Pending',
     })
     setFormData(saved)
     setActiveEditingId(saved.id)
+    emitFinance('Submit', saved.id, { what: 'GST invoice', site: saved.atmId || saved.siteId, franchise: saved.franchiseeName, status: saved.invoiceStatus })
     toast(`Invoice ${saved.invoiceNumber} submitted for review successfully!`)
   }
 
   // Export CSV
   const handleExport = () => {
+    if (!guardAct('Finance', 'Export', 'export GST data')) return
     const headers = [
       'S.N.',
       'F. Year',
@@ -377,6 +369,7 @@ export default function GstList() {
 
   // Delete handler
   const handleDeleteRow = (id: string, name: string) => {
+    if (!guardAct('Finance', 'Delete', 'delete GST records')) return
     if (confirm(`Are you sure you want to delete the GST invoice record for ${name}?`)) {
       deleteGst(id)
       if (activeEditingId === id) {
@@ -421,6 +414,8 @@ export default function GstList() {
           </>
         )}
       </div>
+
+      {!isReport && <ViewOnlyNote module="Finance" />}
 
       {/* 1. TOP HEADER BANNER */}
       <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-[#061838] via-[#09224f] to-[#041129] px-6 py-4.5 text-white shadow-md">
@@ -688,7 +683,7 @@ export default function GstList() {
                       value={formData.atmId}
                       onChange={(e) => updateFormField('atmId', e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handleAtmSearch()}
-                      placeholder="ATM12345"
+                      placeholder="DXMH70007"
                       className="w-full h-8 pl-2.5 pr-7 text-[12px] border border-slate-200 rounded-md bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0066FF] focus:border-[#0066FF]"
                     />
                     <button
@@ -700,6 +695,11 @@ export default function GstList() {
                       <Search size={14} />
                     </button>
                   </div>
+                  {(formData.atmId || formData.siteId) && (
+                    <div className="mt-0.5 text-[10.5px]">
+                      <SiteRef id={formData.atmId || formData.siteId} />
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1097,13 +1097,13 @@ export default function GstList() {
         {/* Action Buttons Row */}
         <div className="flex flex-wrap items-center justify-end gap-2.5 mt-4 pt-1">
           {/* Save Draft Button */}
-          <button
+          {allow(activeEditingId ? 'Edit' : 'Create') && <button
             onClick={handleSaveDraft}
             className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg border border-blue-600 bg-white hover:bg-blue-50 text-blue-700 text-[12.5px] font-semibold transition-colors shadow-2xs"
           >
             <Save size={14} strokeWidth={2.2} />
             <span>Save Draft</span>
-          </button>
+          </button>}
 
           {/* Generate Invoice PDF Button */}
           <button
@@ -1118,13 +1118,13 @@ export default function GstList() {
           </button>
 
           {/* Submit for Review Button */}
-          <button
+          {allow(activeEditingId ? 'Edit' : 'Create') && <button
             onClick={handleSubmitReview}
             className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-[#10b981] hover:bg-[#059669] text-white text-[12.5px] font-semibold transition-colors shadow-sm"
           >
             <Send size={14} strokeWidth={2.2} />
             <span>Submit for Review</span>
-          </button>
+          </button>}
         </div>
       </div>
       )}
@@ -1177,13 +1177,13 @@ export default function GstList() {
             </button>
 
             {/* Export Button */}
-            <button
+            {allow('Export') && <button
               onClick={handleExport}
               className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 text-[12px] font-medium transition-colors"
             >
               <Download size={13} />
               <span>Export</span>
-            </button>
+            </button>}
           </div>
         </div>
 
@@ -1345,7 +1345,7 @@ export default function GstList() {
                       <td className="py-2.5 px-3 text-center text-slate-600 font-medium whitespace-nowrap">{row.sn}</td>
                       <td className="py-2.5 px-3 text-center text-slate-700 whitespace-nowrap">{row.fYear}</td>
                       <td className="py-2.5 px-3 text-center text-slate-700 whitespace-nowrap">{displayMonth}</td>
-                      <td className="py-2.5 px-3 text-center font-medium text-slate-800 whitespace-nowrap">{row.siteId}</td>
+                      <td className="py-2.5 px-3 text-center font-medium text-slate-800 whitespace-nowrap"><SiteRef id={row.atmId || row.siteId} /></td>
                       <td className="py-2.5 px-3.5 font-semibold text-slate-800 whitespace-nowrap">
                         {row.franchiseeName}
                       </td>
@@ -1439,9 +1439,10 @@ export default function GstList() {
                                     >
                                       <Pencil size={13} /> Edit in Form
                                     </button>
-                                    <button
+                                    {allow('Approve') && <button
                                       onClick={() => {
-                                        saveGst({
+                                        if (!guardAct('Finance', 'Approve', 'mark GST payments')) return
+                                        const paid = saveGst({
                                           ...row,
                                           paymentStatus: row.paymentStatus === 'Paid' ? 'Pending' : 'Paid',
                                           paidAmount: row.paymentStatus === 'Paid' ? '0.00' : row.netAmount,
@@ -1450,6 +1451,7 @@ export default function GstList() {
                                               ? ''
                                               : new Date().toLocaleDateString('en-GB').replace(/\//g, '-'),
                                         })
+                                        if (paid.paymentStatus === 'Paid') emitFinance('Approve', paid.id, { what: 'GST payment', site: paid.atmId || paid.siteId, franchise: paid.franchiseeName, status: 'Paid' })
                                         toast(
                                           `Marked payment as ${row.paymentStatus === 'Paid' ? 'Pending' : 'Paid'
                                           }`
@@ -1460,7 +1462,7 @@ export default function GstList() {
                                     >
                                       <CheckCircle2 size={13} className="text-emerald-600" />
                                       {row.paymentStatus === 'Paid' ? 'Mark Unpaid' : 'Mark as Paid'}
-                                    </button>
+                                    </button>}
                                     <button
                                       onClick={() => {
                                         setPdfModalRecord(row)
@@ -1471,12 +1473,12 @@ export default function GstList() {
                                       <FileText size={13} className="text-rose-500" /> Generate PDF
                                     </button>
                                     <div className="border-t border-slate-100 my-1" />
-                                    <button
+                                    {allow('Delete') && <button
                                       onClick={() => handleDeleteRow(row.id, row.franchiseeName)}
                                       className="w-full text-left px-3 py-1.5 hover:bg-rose-50 text-rose-600 flex items-center gap-2"
                                     >
                                       <Trash2 size={13} /> Delete Record
-                                    </button>
+                                    </button>}
                                   </div>
                                 )}
                               </div>

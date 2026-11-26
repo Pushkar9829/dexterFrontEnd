@@ -1,4 +1,6 @@
 import { createStore } from '@/lib/store'
+import { apiEnabled, finDelete, finLoader, finSave, type FinCfg } from './financeApi'
+import { franchiseNameOf, resolveSite, siteAt } from '@/lib/siteRef'
 
 export interface ClfRecord {
   id: string
@@ -92,7 +94,7 @@ export interface MasterAtmAccount {
   holder: string
 }
 
-export const ATM_MASTER_DATA: Record<string, MasterAtmAccount> = {
+const RAW_ATM_MASTER: Record<string, MasterAtmAccount> = {
   ATM001: {
     atmId: 'ATM001',
     siteId: 'S-1001',
@@ -215,6 +217,15 @@ export const ATM_MASTER_DATA: Record<string, MasterAtmAccount> = {
   },
 }
 
+// Keyed by Site Master ATM ID (DXMH70007 style): the bank / HPY details above are kept, the site identity
+// (Site ID, ATM ID, franchise) always comes from the common Site Master.
+export const ATM_MASTER_DATA: Record<string, MasterAtmAccount> = Object.fromEntries(
+  Object.values(RAW_ATM_MASTER).map((m, k) => {
+    const site = siteAt(k)
+    return [site.atmId, { ...m, atmId: site.atmId, siteId: site.siteId, franchiseName: franchiseNameOf(site), franchiseNo: site.frId }]
+  }),
+)
+
 export function getMasterAccountForAtm(atmId: string): MasterAtmAccount {
   if (ATM_MASTER_DATA[atmId]) {
     return ATM_MASTER_DATA[atmId]
@@ -223,14 +234,15 @@ export function getMasterAccountForAtm(atmId: string): MasterAtmAccount {
   const byHpy = Object.values(ATM_MASTER_DATA).find((m) => m.hpyCode === atmId || m.hpyAccount === atmId)
   if (byHpy) return byHpy
 
-  // Default fallback
-  const num = atmId.replace(/\D/g, '') || '01'
+  // Not in the bank master: identity from the Site Master (empty when the ATM is unknown — the form blocks saving)
+  const site = resolveSite(atmId)
+  const num = (site?.atmId ?? atmId).replace(/\D/g, '').slice(-3) || '01'
   return {
-    atmId: atmId || 'ATM001',
-    siteId: `S-10${num.padStart(2, '0')}`,
+    atmId: site?.atmId ?? atmId,
+    siteId: site?.siteId ?? '',
+    franchiseName: site ? franchiseNameOf(site) : '',
+    franchiseNo: site?.frId ?? '',
     hpyCode: `HPY${num.padStart(3, '0')}`,
-    franchiseName: 'Dexter India Partner',
-    franchiseNo: `FR0${num.padStart(2, '0')}`,
     nameAsPerPan: 'Dexter India Pvt Ltd',
     panNumber: 'ABCDE1234F',
     accountNumber: `123456${num.padStart(6, '0')}`,
@@ -431,7 +443,7 @@ function seedClf(): ClfRecord[] {
     const atmSuffix = String(i + 10).padStart(3, '0')
 
     moreRows.push({
-      id: `CLF-${1000 + i}`,
+      id: `CLF-${1024 + i}`, // after the hand-written head rows (CLF-1001…1024) — was colliding with them
       siteId: partner.site,
       atmId: `ATM${atmSuffix}`,
       franchiseeName: partner.name,
@@ -463,12 +475,28 @@ function seedClf(): ClfRecord[] {
     })
   }
 
-  return [...exactImageRows, ...moreRows]
+  // Site identity from the Site Master (head rows line up with ATM_MASTER_DATA, i.e. siteAt(0..4))
+  return [...exactImageRows, ...moreRows].map((r, i) => {
+    const site = siteAt(i)
+    return { ...r, siteId: site.siteId, atmId: site.atmId, franchiseeName: franchiseNameOf(site), franchiseeNo: site.frId }
+  })
 }
 
-export const clfStore = createStore<ClfRecord[]>('dexter.finance.clf.v3', seedClf)
+export const clfStore = createStore<ClfRecord[]>(apiEnabled ? 'dexter.finance.clf.api' : 'dexter.finance.clf.v5', apiEnabled ? () => [] : seedClf)
 
-export const useClfRecords = (): ClfRecord[] => clfStore.use()
+/** API mode: CLF payments ↔ /finance/clf (amount in paise, ISO dates, HH:mm time). */
+export const clfCfg: FinCfg<ClfRecord> = {
+  key: 'clf', label: 'CLF payment', get: () => clfStore.get(), set: (l) => clfStore.set(l),
+  fields: ['clfStatus', 'clfAmount', 'hpyCode', 'hpyAccount', 'cashLiveDate', 'paymentType', 'paymentDate', 'transactionDate', 'transferTime', 'settlementBank', 'nameAsPerPan', 'panNumber', 'beneficiaryName', 'bankName', 'accountNumber', 'ifscCode', 'utr', 'senderName', 'senderAccountNumber', 'senderIfsc', 'franchiseeName', 'franchiseeNo'],
+  money: ['clfAmount'], dates: ['cashLiveDate', 'paymentDate', 'transactionDate'], dateOut: 'dmy', times: ['transferTime'], draftField: 'isDraft',
+  fromExtra: (_r, f) => ({ frBank: f.bankName ?? '', holder: f.beneficiaryName ?? f.nameAsPerPan ?? '' }),
+  toExtra: (f) => (f.paymentType === 'Select Payment Type' ? { paymentType: undefined } : {}),
+}
+
+export const useClfRecords = (): ClfRecord[] => {
+  finLoader(clfCfg).use()
+  return clfStore.use()
+}
 
 export function getClfRecord(id: string): ClfRecord | undefined {
   const all = clfStore.get()
@@ -509,16 +537,18 @@ export function saveClfRecord(record: ClfRecord): ClfRecord {
     }
     return [toSave, ...list]
   })
+  if (apiEnabled) void finSave(clfCfg, existing, toSave)
 
   return toSave
 }
 
 export function deleteClfRecord(id: string) {
+  if (apiEnabled) void finDelete(clfCfg, id)
   clfStore.set((list) => list.filter((c) => c.id !== id))
 }
 
 export function createEmptyClfRecord(): ClfRecord {
-  const master = ATM_MASTER_DATA['ATM001']
+  const master = Object.values(ATM_MASTER_DATA)[0]
   return {
     id: '',
     siteId: master.siteId,

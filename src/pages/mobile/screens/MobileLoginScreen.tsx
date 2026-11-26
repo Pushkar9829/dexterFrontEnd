@@ -14,23 +14,25 @@ import {
   Loader2,
   ShieldCheck,
 } from 'lucide-react'
-import { type MobileUser, DEMO_MOBILE_USERS } from '../data/mobileMockData'
+import { DEMO_PASSWORD } from '@/pages/auth/flow'
+import { mobileApiLogin, mobileApiOtpStart, mobileApiResend, mobileApiVerify, mobileOtpStart, mobileOtpVerify, mobileSignIn, type ApiLoginResult, type OtpPurpose } from '../data/mobileSession'
+import { apiEnabled } from '@/lib/api'
 
 interface MobileLoginScreenProps {
-  onLoginSuccess: (user: MobileUser) => void
-  onContactSupport: () => void
+  onLoginSuccess: () => void
 }
 
-export function MobileLoginScreen({ onLoginSuccess, onContactSupport }: MobileLoginScreenProps) {
-  // Active demo persona
-  const [selectedRole, setSelectedRole] = useState<'admin' | 'franchise' | 'team_leader'>('franchise')
+/** Demo franchisee login (Security accounts › USR-009). Same credentials as the web portal. */
+const DEMO_IDENTITY = 'ranjeetpal@gmail.com'
 
-  // Form credentials (defaulting to admin@dexterindia.com as shown in the inspiration mockup)
-  const [identifier, setIdentifier] = useState('ranjeetpal@gmail.com')
-  const [password, setPassword] = useState('•••••••••')
+export function MobileLoginScreen({ onLoginSuccess }: MobileLoginScreenProps) {
+  // Form credentials — authenticated against the same accounts / password store as the web portal
+  const [identifier, setIdentifier] = useState(DEMO_IDENTITY)
+  const [password, setPassword] = useState(DEMO_PASSWORD)
   const [showPassword, setShowPassword] = useState(false)
   const [rememberMe, setRememberMe] = useState(true)
   const [isLoggingIn, setIsLoggingIn] = useState(false)
+  const [loginError, setLoginError] = useState<string | null>(null)
 
   // Modals state
   const [showOtpModal, setShowOtpModal] = useState(false)
@@ -38,11 +40,26 @@ export function MobileLoginScreen({ onLoginSuccess, onContactSupport }: MobileLo
   const [showSupportModal, setShowSupportModal] = useState(false)
 
   // OTP state
-  const [otpDigits, setOtpDigits] = useState<string[]>(['4', '8', '2', '9', '1', '0'])
-  const [otpTimer, setOtpTimer] = useState(28)
+  const [otpDigits, setOtpDigits] = useState<string[]>(['', '', '', '', '', ''])
+  const [otpTimer, setOtpTimer] = useState(30)
   const [isOtpTimerActive, setIsOtpTimerActive] = useState(true)
   const [isOtpVerifying, setIsOtpVerifying] = useState(false)
+  const [otpError, setOtpError] = useState<string | null>(null)
+  const [otpTarget, setOtpTarget] = useState('')
+  const [demoOtp, setDemoOtp] = useState('')
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([])
+  // API mode: the backend challenge being answered (MFA OTP, then a new-device OTP when the server asks for one)
+  const [challenge, setChallenge] = useState<{ id: string; purpose: OtpPurpose } | null>(null)
+  const openChallenge = (r: Extract<ApiLoginResult, { ok: 'otp' }>) => {
+    setChallenge({ id: r.challengeId, purpose: r.purpose })
+    setOtpTarget(r.purpose === 'device' ? `${r.to} (new device check)` : r.to)
+    setDemoOtp(r.code ?? '')
+    setOtpDigits(['', '', '', '', '', ''])
+    setOtpTimer(30)
+    setIsOtpTimerActive(true)
+    setOtpError(null)
+    setShowOtpModal(true)
+  }
 
   // Forgot password state
   const [forgotTarget, setForgotTarget] = useState('')
@@ -62,31 +79,75 @@ export function MobileLoginScreen({ onLoginSuccess, onContactSupport }: MobileLo
     return () => clearInterval(interval)
   }, [showOtpModal, isOtpTimerActive, otpTimer])
 
-  // Handle normal submit
+  // Password login against the shared auth (src/lib/auth.ts session)
   const handleLogin = (e?: React.FormEvent) => {
     if (e) e.preventDefault()
+    setLoginError(null)
     setIsLoggingIn(true)
-    let role = selectedRole
-    if (identifier.toLowerCase().includes('admin')) role = 'admin'
-    else if (identifier.toLowerCase().includes('mukesh')) role = 'team_leader'
-    else if (identifier.toLowerCase().includes('ranjeet')) role = 'franchise'
-    setSelectedRole(role)
+    if (apiEnabled) {
+      void mobileApiLogin(identifier, password).then((res) => {
+        setIsLoggingIn(false)
+        if (res.ok === true) onLoginSuccess()
+        else if (res.ok === 'otp') openChallenge(res)
+        else setLoginError(res.error)
+      })
+      return
+    }
     setTimeout(() => {
+      const res = mobileSignIn(identifier, password)
       setIsLoggingIn(false)
-      onLoginSuccess(DEMO_MOBILE_USERS[role])
-    }, 550)
+      if (res.ok) onLoginSuccess()
+      else setLoginError(res.error)
+    }, 350)
+  }
+
+  const startOtp = () => {
+    setLoginError(null)
+    setOtpError(null)
+    if (apiEnabled) {
+      // OTP-only sign-in (POST /auth/otp-login/start → /verify → device / session / password-change steps → tokens)
+      setIsLoggingIn(true)
+      void mobileApiOtpStart(identifier).then((res) => {
+        setIsLoggingIn(false)
+        if (res.ok === true) onLoginSuccess()
+        else if (res.ok === 'otp') openChallenge(res)
+        else setLoginError(res.error)
+      })
+      return
+    }
+    const res = mobileOtpStart(identifier)
+    if (!res.ok) {
+      setLoginError(res.error)
+      return
+    }
+    setOtpTarget(res.to)
+    setDemoOtp(res.code)
+    setOtpDigits(['', '', '', '', '', ''])
+    setOtpTimer(30)
+    setIsOtpTimerActive(true)
+    setShowOtpModal(true)
   }
 
   // Handle OTP digit change with auto-advance
   const handleOtpChange = (index: number, val: string) => {
-    const digit = val.slice(-1)
-    const next = [...otpDigits]
-    next[index] = digit
-    setOtpDigits(next)
-
-    if (digit && index < 5) {
-      otpInputRefs.current[index + 1]?.focus()
+    const digits = val.replace(/\D/g, '')
+    // Several digits at once (fast typing, SMS auto-fill, paste into one box): spread them from this box onwards.
+    if (digits.length > 1) {
+      setOtpDigits((prev) => {
+        const next = [...prev]
+        digits.slice(0, 6 - index).split('').forEach((d, i) => (next[index + i] = d))
+        return next
+      })
+      otpInputRefs.current[Math.min(index + digits.length, 5)]?.focus()
+      return
     }
+    const digit = digits.slice(-1)
+    setOtpDigits((prev) => {
+      const next = [...prev]
+      next[index] = digit
+      return next
+    })
+    if (digit && index < 5) otpInputRefs.current[index + 1]?.focus()
   }
 
   const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -107,18 +168,54 @@ export function MobileLoginScreen({ onLoginSuccess, onContactSupport }: MobileLo
   }
 
   const handleVerifyOtp = () => {
+    if (otpDigits.join('').length !== 6) {
+      setOtpError('Enter all 6 digits of the code.')
+      return
+    }
     setIsOtpVerifying(true)
+    setOtpError(null)
+    if (apiEnabled && challenge) {
+      void mobileApiVerify(challenge.id, challenge.purpose, otpDigits.join('')).then((res) => {
+        setIsOtpVerifying(false)
+        if (res.ok === true) {
+          setShowOtpModal(false)
+          setChallenge(null)
+          onLoginSuccess()
+        } else if (res.ok === 'otp') openChallenge(res)
+        else setOtpError(res.error)
+      })
+      return
+    }
     setTimeout(() => {
+      const res = mobileOtpVerify(identifier, otpDigits.join(''))
       setIsOtpVerifying(false)
-      setShowOtpModal(false)
-      onLoginSuccess(DEMO_MOBILE_USERS[selectedRole])
-    }, 600)
+      if (res.ok) {
+        setShowOtpModal(false)
+        onLoginSuccess()
+      } else setOtpError(res.error)
+    }, 300)
   }
 
   const handleResendOtp = () => {
+    if (apiEnabled && challenge) {
+      void mobileApiResend(challenge.id, challenge.purpose).then((res) => {
+        if (!res.ok) return setOtpError(res.error)
+        setDemoOtp(res.code ?? '')
+        setOtpTimer(30)
+        setIsOtpTimerActive(true)
+        setOtpDigits(['', '', '', '', '', ''])
+      })
+      return
+    }
+    const res = mobileOtpStart(identifier)
+    if (!res.ok) {
+      setOtpError(res.error)
+      return
+    }
+    setDemoOtp(res.code)
     setOtpTimer(30)
     setIsOtpTimerActive(true)
-    setOtpDigits(['4', '8', '2', '9', '1', '0'])
+    setOtpDigits(['', '', '', '', '', ''])
   }
 
   return (
@@ -355,6 +452,10 @@ export function MobileLoginScreen({ onLoginSuccess, onContactSupport }: MobileLo
               </button>
             </div>
 
+            {loginError && (
+              <p className="rounded-xl bg-rose-50 border border-rose-200 px-2.5 py-1.5 text-[11px] font-semibold text-rose-700">{loginError}</p>
+            )}
+
             {/* Primary Action Button: Login with Arrow Right */}
             <button
               type="submit"
@@ -388,11 +489,7 @@ export function MobileLoginScreen({ onLoginSuccess, onContactSupport }: MobileLo
           {/* Secondary Action: Login with OTP with distinctive OTP badge icon */}
           <button
             type="button"
-            onClick={() => {
-              setOtpTimer(28)
-              setIsOtpTimerActive(true)
-              setShowOtpModal(true)
-            }}
+            onClick={startOtp}
             className="w-full h-10.5 flex items-center justify-center gap-2 rounded-2xl border border-blue-200 bg-blue-50/50 hover:bg-blue-100/60 active:bg-blue-100 text-[#0066FF] font-bold text-[11.5px] transition-all cursor-pointer shadow-2xs"
           >
             <div className="w-4.5 h-4.5 rounded-md border-1.5 border-[#0066FF] flex items-center justify-center text-[7.5px] font-black text-[#0066FF]">
@@ -460,13 +557,9 @@ export function MobileLoginScreen({ onLoginSuccess, onContactSupport }: MobileLo
             </div>
 
             <p className="mt-3.5 text-xs text-slate-600 leading-relaxed">
-              Enter 6-digit OTP sent to registered mobile{' '}
+              Enter the 6-digit code sent to{' '}
               <strong className="text-slate-800 font-bold">
-                {selectedRole === 'franchise'
-                  ? '+91 8126817131'
-                  : selectedRole === 'team_leader'
-                    ? '+91 9719020867'
-                    : '+91 8954008232'}
+                {otpTarget}
               </strong>
             </p>
 
@@ -480,7 +573,9 @@ export function MobileLoginScreen({ onLoginSuccess, onContactSupport }: MobileLo
                   }}
                   type="text"
                   inputMode="numeric"
-                  maxLength={1}
+                  maxLength={6}
+                  autoComplete={idx === 0 ? 'one-time-code' : 'off'}
+                  aria-label={`OTP digit ${idx + 1}`}
                   value={digit}
                   onChange={(e) => handleOtpChange(idx, e.target.value)}
                   onKeyDown={(e) => handleOtpKeyDown(idx, e)}
@@ -488,6 +583,10 @@ export function MobileLoginScreen({ onLoginSuccess, onContactSupport }: MobileLo
                 />
               ))}
             </div>
+
+            {otpError && (
+              <p className="-mt-2 mb-3 rounded-lg bg-rose-50 border border-rose-200 px-2.5 py-1.5 text-[11px] font-semibold text-rose-700">{otpError}</p>
+            )}
 
             {/* Timer & Resend */}
             <div className="flex items-center justify-between text-xs mb-5">
@@ -533,13 +632,13 @@ export function MobileLoginScreen({ onLoginSuccess, onContactSupport }: MobileLo
                 )}
               </button>
 
-              <button
+              {demoOtp && <button
                 type="button"
-                onClick={() => setOtpDigits(['4', '8', '2', '9', '1', '0'])}
+                onClick={() => setOtpDigits(demoOtp.split(''))}
                 className="w-full py-1.5 text-center text-[11px] font-bold text-slate-500 hover:text-[#0066FF] cursor-pointer"
               >
-                Auto-fill Demo Code (482910)
-              </button>
+                Auto-fill Demo Code ({demoOtp}) · no SMS gateway in demo
+              </button>}
             </div>
           </div>
         </div>
@@ -730,13 +829,10 @@ export function MobileLoginScreen({ onLoginSuccess, onContactSupport }: MobileLo
 
             <button
               type="button"
-              onClick={() => {
-                setShowSupportModal(false)
-                onContactSupport()
-              }}
+              onClick={() => setShowSupportModal(false)}
               className="w-full h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors cursor-pointer"
             >
-              Open In-App Help Ticket Desk
+              Close · Sign in to raise a ticket in the app
             </button>
           </div>
         </div>

@@ -1,12 +1,12 @@
+import { lazy } from 'react'
 import { Navigate, Route } from 'react-router-dom'
-import ReportsHub from './ReportsHub'
-import FinancialReport from './financial/FinancialReport'
-import { DlrDetail } from './financial/Dlr'
-import { ReportRecord } from './financial/ReportPages'
-import MonthlyCbrMis from './MonthlyCbrMis'
-import MonthlyTxnsReport from './MonthlyTxnsReport'
-import ChargeBackDisputeList from '../operations/ChargeBackDisputeList'
-
+const ReportsHub = lazy(() => import('./ReportsHub'))
+const FinancialReport = lazy(() => import('./financial/FinancialReport'))
+const DlrDetail = lazy(() => import('./financial/Dlr').then((m) => ({ default: m.DlrDetail })))
+const ReportRecord = lazy(() => import('./financial/ReportPages').then((m) => ({ default: m.ReportRecord })))
+const MonthlyCbrMis = lazy(() => import('./MonthlyCbrMis'))
+const MonthlyTxnsReport = lazy(() => import('./MonthlyTxnsReport'))
+const ChargeBackDisputeList = lazy(() => import('../operations/ChargeBackDisputeList'))
 export const reportRoutes = [
   <Route key="reports-hub" path="/reports" element={<ReportsHub />} />,
   <Route key="reports-monthly-txns" path="/reports/monthly-txns" element={<MonthlyTxnsReport />} />,

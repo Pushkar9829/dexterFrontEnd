@@ -5,6 +5,7 @@ import { Pagination } from '@/components/ui/Pagination'
 import { toast } from '@/components/ui/Toast'
 import { cn } from '@/lib/cn'
 import { downloadCsv } from '@/lib/export'
+import { guardAct, useCanIn } from '@/lib/guard'
 import { MULTI_SEP, denoTotal, dmy, inr, type Row } from '@/data/reportsFinancial'
 
 export type ColKind = 'text' | 'money' | 'signed' | 'number' | 'date' | 'time' | 'enum' | 'multi' | 'phone' | 'email' | 'ifsc' | 'deno'
@@ -537,7 +538,9 @@ export function ReportSheet({
     readOnlyRow,
   }
 
+  const allowRep = useCanIn('Reports')
   const onExport = () => {
+    if (!guardAct('Reports', 'Export', 'export reports')) return
     downloadCsv(
       exportName,
       allCols.map((c) => c.label),
@@ -574,9 +577,11 @@ export function ReportSheet({
         <button type="button" onClick={() => setPanel(panel === 'columns' ? null : 'columns')} className={btn(panel === 'columns')}>
           <Columns3 size={14} /> Columns
         </button>
-        <button type="button" onClick={onExport} className={btn(false)}>
-          <Download size={14} /> Export .xlsx
-        </button>
+        {allowRep('Export') && (
+          <button type="button" onClick={onExport} className={btn(false)}>
+            <Download size={14} /> Export .xlsx
+          </button>
+        )}
       </div>
       {panel === 'filters' && (
         <div className="absolute top-full right-4 z-30 mt-1 w-72 rounded-lg border border-line bg-white p-3 shadow-lg">

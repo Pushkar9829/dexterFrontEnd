@@ -1,4 +1,5 @@
 import { createStore } from '@/lib/store'
+import { siteAt, franchiseNameOf } from '@/lib/siteRef'
 
 export type SfMachineType = 'NCR' | 'Perto' | 'CRM'
 
@@ -21,58 +22,13 @@ export interface CashLoadingOverviewRow {
   spoc: string
   machineType: SfMachineType
   atmId: string
+  siteId?: string // Site Master Site ID
   franchiseeName: string
   cbrDate: string
   counterDate: string
   status: SfStatus
   date: string
 }
-
-const SEED_ATM_IDS = [
-  'MPZ16801',
-  'MPZ1626',
-  'MPZ13549',
-  'MPZ28724',
-  'MPZ43899',
-  'MPZ59074',
-  'MPZ74249',
-  'MPZ89424',
-  'MPZ104599',
-  'MPZ119774',
-  'MPZ134949',
-  'MPZ150124',
-  'MPZ165299',
-  'MPZ180474',
-  'MPZ195649',
-  'MPZ210824',
-  'MPZ225999',
-  'MPZ241174',
-  'MPZ256349',
-  'MPZ271524',
-]
-
-const SEED_FRANCHISEES = [
-  'Guruprit Singh',
-  'Pawan Gupta',
-  'Guruprit Singh',
-  'Pawan Gupta',
-  'Guruprit Singh',
-  'Pawan Gupta',
-  'Guruprit Singh',
-  'Pawan Gupta',
-  'Guruprit Singh',
-  'Pawan Gupta',
-  'Guruprit Singh',
-  'Pawan Gupta',
-  'Guruprit Singh',
-  'Pawan Gupta',
-  'Guruprit Singh',
-  'Pawan Gupta',
-  'Guruprit Singh',
-  'Pawan Gupta',
-  'Guruprit Singh',
-  'Pawan Gupta',
-]
 
 const SEED_STATUSES: SfStatus[] = [
   '',
@@ -97,17 +53,20 @@ const SEED_STATUSES: SfStatus[] = [
   'Email Done',
 ]
 
+// Seed rows are the Self Funding (SF) sites of the Site Master — ATM ID, franchise and machine type come from there.
 function generateOverviewRows(): CashLoadingOverviewRow[] {
-  return SEED_ATM_IDS.map((atmId, idx) => {
+  return SEED_STATUSES.map((_, idx) => {
     const sn = idx + 1
-    const mType: SfMachineType = idx % 3 === 0 ? 'NCR' : idx % 3 === 1 ? 'Perto' : 'CRM'
+    const site = siteAt(idx, (s) => s.siteType === 'SF')
+    const mType: SfMachineType = (SF_MACHINE_TYPES as string[]).includes(site.machineType) ? (site.machineType as SfMachineType) : 'NCR'
     return {
       id: `CL-OVW-${sn}`,
       sn,
       spoc: 'Harsh',
       machineType: mType,
-      atmId,
-      franchiseeName: SEED_FRANCHISEES[idx] ?? 'Pawan Gupta',
+      atmId: site.atmId,
+      siteId: site.siteId,
+      franchiseeName: franchiseNameOf(site),
       cbrDate: '02.11.2026',
       counterDate: '02.11.2026',
       status: SEED_STATUSES[idx] ?? '',
@@ -117,7 +76,7 @@ function generateOverviewRows(): CashLoadingOverviewRow[] {
 }
 
 export const cashLoadingOverviewStore = createStore<CashLoadingOverviewRow[]>(
-  'dexter_cash_loading_overview_sf',
+  'dexter_cash_loading_overview_sf.v2',
   () => generateOverviewRows(),
 )
 

@@ -1,12 +1,12 @@
+import { lazy } from 'react'
 import { Route, useParams } from 'react-router-dom'
-import Consolidated from './Consolidated'
-import DailyCbrPage from './DailyCbr'
-import EodSummary from './EodSummary'
-import MobileCbr from './MobileCbr'
-import CbrHub from './CbrHub'
-import CashReplenishment from './CashReplenishment'
-import CashReplenishmentForm from './CashReplenishmentForm'
-
+const Consolidated = lazy(() => import('./Consolidated'))
+const DailyCbrPage = lazy(() => import('./DailyCbr'))
+const EodSummary = lazy(() => import('./EodSummary'))
+const MobileCbr = lazy(() => import('./MobileCbr'))
+const CbrHub = lazy(() => import('./CbrHub'))
+const CashReplenishment = lazy(() => import('./CashReplenishment'))
+const CashReplenishmentForm = lazy(() => import('./CashReplenishmentForm'))
 // keyed by record id so prev / next day navigation starts with a clean (non-editing) state
 function DailyRoute() {
   const { recordId = '' } = useParams()

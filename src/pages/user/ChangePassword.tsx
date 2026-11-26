@@ -11,6 +11,7 @@ import {
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { toast } from '@/components/ui/Toast'
+import { apiEnabled, post } from '@/lib/api'
 
 export default function ChangePassword() {
   const navigate = useNavigate()
@@ -39,6 +40,16 @@ export default function ChangePassword() {
     e.preventDefault()
     if (!isValid) {
       toast('Please satisfy all password complexity requirements before saving.')
+      return
+    }
+    if (apiEnabled) {
+      // POST /auth/password/change — server checks the current password, policy and history; ends other sessions.
+      post('/auth/password/change', { currentPassword, newPassword })
+        .then(() => {
+          toast('Your password has been changed. Your other sessions were signed out.')
+          navigate('/user/my-account')
+        })
+        .catch((err: Error) => toast(err.message || 'Could not change the password.', 'error'))
       return
     }
     toast('Your password has been changed successfully!')

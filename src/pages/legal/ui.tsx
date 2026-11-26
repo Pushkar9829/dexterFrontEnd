@@ -86,3 +86,20 @@ export function Monogram({ text, className }: { text: string; className?: string
 export function Note({ children, className }: { children: ReactNode; className?: string }) {
   return <div className={cn('rounded-xl border border-blue-100 bg-primary-soft/60 px-4 py-3 text-[12px] text-ink-2', className)}>{children}</div>
 }
+
+/** API mode: loading / error line for a legal register (nothing in mock mode or once loaded). */
+export function LoadNote({ load, what = 'legal records', onRetry }: { load: { loading: boolean; error: string | null; loaded: boolean }; what?: string; onRetry?: () => void }) {
+  if (load.loaded && !load.error) return null
+  if (load.error)
+    return (
+      <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[12.5px] text-red-700">
+        Could not load {what} from the server: {load.error}
+        {onRetry && (
+          <button className="ml-2 font-semibold underline" onClick={onRetry}>
+            Retry
+          </button>
+        )}
+      </div>
+    )
+  return <div className="mb-3 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-[12.5px] text-blue-700">Loading {what} from the server…</div>
+}

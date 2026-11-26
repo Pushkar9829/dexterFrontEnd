@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { ArrowLeft, GitFork, Settings, SlidersHorizontal } from 'lucide-react'
 import { HubTile, type HubTileTheme } from '@/components/ui/HubTile'
+import { workflowTiles } from '@/pages/setup/workflow/routes'
 
 interface SetupTileConfig {
   title: string
@@ -57,7 +58,7 @@ export default function SetupHub() {
         <p className="mt-1 text-[13px] text-muted">Configure SLA rules, escalation hierarchies and business organization units.</p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {SETUP_TILES.map((tile) => (
+        {[...SETUP_TILES, ...workflowTiles.map((t, i): SetupTileConfig => ({ ...t, title: t.title.toUpperCase(), Icon: i % 2 ? GitFork : Settings, theme: (['blue', 'purple', 'emerald', 'amber', 'rose', 'cyan', 'indigo', 'teal'] as HubTileTheme[])[i % 8], tag: 'Workflow Engine', badge: 'Ops §14', actionText: 'Open' }))].map((tile) => (
           <HubTile key={tile.title} {...tile} />
         ))}
       </div>

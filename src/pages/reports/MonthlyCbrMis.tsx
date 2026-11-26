@@ -23,6 +23,7 @@ import {
 } from 'lucide-react'
 import { downloadCsv } from '@/lib/export'
 import { toast } from '@/components/ui/Toast'
+import { guardAct, useCanIn } from '@/lib/guard'
 
 interface MonthlyCbrRow {
   sn: number
@@ -319,6 +320,7 @@ function generateInitialRows(): MonthlyCbrRow[] {
 const ALL_ROWS = generateInitialRows()
 
 export default function MonthlyCbrMis() {
+  const allowRep = useCanIn('Reports')
   // Filter States matching Image 01
   const [monthYear, setMonthYear] = useState('October 2026')
   const [fromDate, setFromDate] = useState('01/10/2026')
@@ -382,6 +384,7 @@ export default function MonthlyCbrMis() {
   }
 
   const handleExport = (format: 'csv' | 'xlsx' = 'csv') => {
+    if (!guardAct('Reports', 'Export', 'export reports')) return
     setExportOpen(false)
     const headers = [
       'S.N.',
@@ -499,15 +502,17 @@ export default function MonthlyCbrMis() {
           </button>
 
           <div className="relative">
-            <button
-              type="button"
-              onClick={() => setExportOpen((o) => !o)}
-              className="inline-flex items-center gap-2 h-9.5 px-4 rounded-lg border border-[#0066FF] bg-white hover:bg-blue-50/50 text-[#0066FF] text-[12.5px] font-semibold transition-all shadow-2xs cursor-pointer"
-            >
-              <Download size={14} className="text-[#0066FF]" />
-              <span>Download</span>
-              <ChevronDown size={13} className="text-[#0066FF]" />
-            </button>
+            {allowRep('Export') && (
+              <button
+                type="button"
+                onClick={() => setExportOpen((o) => !o)}
+                className="inline-flex items-center gap-2 h-9.5 px-4 rounded-lg border border-[#0066FF] bg-white hover:bg-blue-50/50 text-[#0066FF] text-[12.5px] font-semibold transition-all shadow-2xs cursor-pointer"
+              >
+                <Download size={14} className="text-[#0066FF]" />
+                <span>Download</span>
+                <ChevronDown size={13} className="text-[#0066FF]" />
+              </button>
+            )}
 
             {exportOpen && (
               <div className="absolute right-0 mt-1 w-40 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-20 text-[12px]">

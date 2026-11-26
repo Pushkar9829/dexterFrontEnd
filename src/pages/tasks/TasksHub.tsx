@@ -11,6 +11,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { HubTile, type HubTileTheme } from '@/components/ui/HubTile'
+import { useCanIn } from '@/lib/guard'
 
 interface TaskTileConfig {
   title: string
@@ -117,6 +118,7 @@ const TASK_TILES: TaskTileConfig[] = [
 ]
 
 export default function TasksHub() {
+  const allow = useCanIn('Tasks')
   return (
     <div className="max-w-[1020px]">
       <div className="mb-5 sm:mb-6">
@@ -127,7 +129,7 @@ export default function TasksHub() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {TASK_TILES.map((tile) => (
+        {TASK_TILES.filter((tile) => tile.to !== '/tasks/create' || allow('Create')).map((tile) => (
           <HubTile key={tile.title} {...tile} />
         ))}
       </div>

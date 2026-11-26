@@ -15,9 +15,9 @@ interface AccountTileConfig {
 
 const ACCOUNT_TILES: AccountTileConfig[] = [
   {
-    title: 'PAYOUT',
-    sub: 'Process, schedule, and track monthly payouts, PAN routing and bank disbursements for partners.',
-    to: '/finance/payout',
+    title: 'PAYOUT MANAGEMENT',
+    sub: 'Payout overview with AI, account mapping, monthly payout (file / manual / auto reconciliation), plan mapping, Business Model, Franchise, MF, SMF and Team Leader.',
+    to: '/finance/payouts',
     Icon: Wallet,
     theme: 'rose',
     tag: 'Partner Settlements',

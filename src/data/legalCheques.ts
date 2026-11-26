@@ -1,4 +1,9 @@
 import { createStore } from '@/lib/store'
+import { api, apiEnabled, patch, post } from '@/lib/api'
+import { apiCall, createLoader, fetchAll } from '@/data/bizApi'
+import { useLegal } from '@/data/legal'
+import { isoToSlash, legalIsFranchisee, mobile10, slashToIso, snOf } from '@/data/legalApi'
+import { franchiseNameOf, siteAt } from '@/lib/siteRef'
 
 export type ChequeCollectionType = 'Employee' | 'SMF' | 'MF' | 'FR' | 'Party Vendor'
 export type ChequeAcknowledgementStatus = 'Acknowledged' | 'Pending' | 'Received' | 'Rejected'
@@ -14,6 +19,8 @@ export interface ChequeEntry {
 }
 
 export interface ChequeDocument {
+  /** API mode: stored file id (POST /files) */
+  fileId?: string
   name: string
   sizeKb: number
   type: string
@@ -51,7 +58,8 @@ export interface ChequesState {
   records: ChequeRecord[]
 }
 
-export const KNOWN_SITES = [
+/** Contact / bank presets per seed slot; Site ID, ATM ID and franchise come from Site Master (siteAt). */
+const KNOWN_SITE_PRESETS = [
   {
     siteId: 'S-1001',
     atmId: 'ATM001',
@@ -108,7 +116,13 @@ export const KNOWN_SITES = [
   },
 ]
 
-const SEED_CHEQUE_RECORDS: ChequeRecord[] = [
+/** Sites offered on the cheque form — every one is a real Site Master site. */
+export const KNOWN_SITES = KNOWN_SITE_PRESETS.map((p, i) => {
+  const site = siteAt(i * 5 + 2)
+  return { ...p, siteId: site.siteId, atmId: site.atmId, franchiseeName: franchiseNameOf(site) || p.franchiseeName }
+})
+
+const SEED_CHEQUE_RECORDS_RAW: ChequeRecord[] = [
   {
     id: 'CHQ-2025-001',
     sn: 1,
@@ -288,21 +302,119 @@ const SEED_CHEQUE_RECORDS: ChequeRecord[] = [
   },
 ]
 
-export const chequesStore = createStore<ChequesState>(
-  'dexter_cheques_store_v1',
-  () => ({ records: SEED_CHEQUE_RECORDS })
-)
+/** Seed records re-pointed at Site Master sites (same slot → same site as KNOWN_SITES). */
+function seedChequeRecords(): ChequeRecord[] {
+  return SEED_CHEQUE_RECORDS_RAW.map((r) => {
+    const k = KNOWN_SITE_PRESETS.findIndex((p) => p.siteId === r.siteId)
+    const ks = KNOWN_SITES[k >= 0 ? k : 0]
+    return { ...r, siteId: ks.siteId, atmId: ks.atmId, franchiseeName: ks.franchiseeName }
+  })
+}
+
+// API mode keeps its own cache key and starts empty (never shows the mock seed); hydrated by chequesLoader.
+export const chequesStore = apiEnabled
+  ? createStore<ChequesState>('dexter_cheques_store_api_v1', () => ({ records: [] }))
+  : createStore<ChequesState>('dexter_cheques_store_v2', () => ({ records: seedChequeRecords() }))
+
+// ───────────── Backend (API mode): /legal/cheques ─────────────
+
+type ApiCheque = Omit<ChequeRecord, 'id' | 'sn' | 'chequeEntries' | 'documents'> & {
+  chequeId: string
+  frId?: string
+  documents?: (ChequeDocument & { fileId?: string })[]
+  chequeEntries?: Omit<ChequeEntry, 'id'>[]
+}
+
+const chequeFromApi = (c: ApiCheque): ChequeRecord => ({
+  id: c.chequeId,
+  sn: snOf(c.chequeId),
+  siteId: c.siteId,
+  atmId: c.atmId ?? '',
+  franchiseeName: c.franchiseeName ?? '',
+  mobileNumber: c.mobileNumber ?? '',
+  model: c.model ?? '',
+  type: c.type,
+  frBankName: c.frBankName ?? '',
+  frPod: c.frPod ?? '',
+  frPodDate: isoToSlash(c.frPodDate),
+  hitachiChequeNumber: c.hitachiChequeNumber ?? '',
+  dexterChequeNumber: c.dexterChequeNumber ?? '',
+  podToBank: c.podToBank ?? '',
+  bankPodDate: isoToSlash(c.bankPodDate),
+  acknowledgement: c.acknowledgement ?? 'Pending',
+  dispatchedBy: c.dispatchedBy ?? '',
+  receivedBy: c.receivedBy ?? '',
+  documentType: c.documentType ?? 'Cheque Scan PDF',
+  documents: (c.documents ?? []).map((d) => ({ name: d.name, sizeKb: d.sizeKb ?? 0, type: d.type ?? 'application/pdf', fileId: d.fileId })),
+  handoverStaff: c.handoverStaff ?? '',
+  remark: c.remark ?? '',
+  chequeEntries: (c.chequeEntries ?? []).map((e) => ({ ...e, id: `entry-${e.sn}` })),
+  createdAt: c.createdAt,
+  updatedAt: c.updatedAt,
+})
+
+/** Frontend record → backend body (dates ISO, mobile 10 digits, entries without UI ids). */
+function chequeToApi(p: Partial<ChequeRecord>) {
+  const b: Record<string, unknown> = {}
+  const copy = ['franchiseeName', 'model', 'type', 'frBankName', 'frPod', 'hitachiChequeNumber', 'dexterChequeNumber', 'podToBank', 'acknowledgement', 'dispatchedBy', 'receivedBy', 'documentType', 'handoverStaff', 'remark'] as const
+  copy.forEach((k) => {
+    if (p[k] !== undefined) b[k] = p[k]
+  })
+  if (p.mobileNumber !== undefined) b.mobileNumber = mobile10(p.mobileNumber)
+  if (p.frPodDate !== undefined) b.frPodDate = slashToIso(p.frPodDate)
+  if (p.bankPodDate !== undefined) b.bankPodDate = slashToIso(p.bankPodDate)
+  if (p.documents !== undefined) b.documents = p.documents.map((d) => ({ name: d.name, sizeKb: Math.max(0, Math.round(d.sizeKb || 0)), type: d.type || 'application/pdf', fileId: d.fileId }))
+  if (p.chequeEntries !== undefined) b.chequeEntries = p.chequeEntries.map((e, i) => ({ sn: e.sn || i + 1, bankName: e.bankName, accountNumber: String(e.accountNumber).replace(/\D/g, ''), chequeNumber: String(e.chequeNumber).trim(), allottedTo: e.allottedTo }))
+  return b
+}
+
+/** Hydration: staff GET /legal/cheques; Franchisee GET /my/legal/cheques (own franchise, read-only, deleted hidden). */
+export const chequesLoader = createLoader('cheque records', async () => {
+  const items = await fetchAll<ApiCheque>(legalIsFranchisee() ? '/my/legal/cheques' : '/legal/cheques')
+  chequesStore.set({ records: items.map(chequeFromApi) })
+})
+
+const upsert = (r: ChequeRecord) => chequesStore.set((s) => ({ records: s.records.some((x) => x.id === r.id) ? s.records.map((x) => (x.id === r.id ? r : x)) : [r, ...s.records] }))
 
 export function useChequeRecords() {
+  const load = chequesLoader.use()
   const state = chequesStore.use()
   return {
     records: state.records,
+    load,
   }
 }
 
 export function getChequeRecord(id: string): ChequeRecord | undefined {
   return chequesStore.get().records.find((r) => r.id === id)
 }
+
+/** Create a record. API mode: POST /legal/cheques (Site Master validated, audited) → server record. */
+export async function saveChequeRecord(payload: Omit<ChequeRecord, 'id' | 'sn' | 'createdAt' | 'updatedAt'>): Promise<ChequeRecord> {
+  if (!apiEnabled || legalIsFranchisee()) return addChequeRecord(payload)
+  const r = await apiCall(() => post<ApiCheque>('/legal/cheques', { siteId: payload.siteId, ...chequeToApi(payload) }), 'Save failed')
+  const rec = chequeFromApi(r)
+  upsert(rec)
+  return rec
+}
+
+/** Update a record. API mode: PATCH /legal/cheques/:id. */
+export async function saveChequeUpdate(id: string, payload: Partial<Omit<ChequeRecord, 'id' | 'sn' | 'createdAt'>>): Promise<boolean> {
+  if (!apiEnabled || legalIsFranchisee()) return updateChequeRecord(id, payload)
+  const r = await apiCall(() => patch<ApiCheque>(`/legal/cheques/${encodeURIComponent(id)}`, chequeToApi(payload)), 'Update failed')
+  upsert(chequeFromApi(r))
+  return true
+}
+
+/** Soft delete. API mode: DELETE /legal/cheques/:id {reason} (mandatory; deletedAt / deleteReason kept, audited). */
+export async function removeChequeRecord(id: string, reason: string): Promise<boolean> {
+  if (!apiEnabled || legalIsFranchisee()) return deleteChequeRecord(id)
+  await apiCall(() => api(`/legal/cheques/${encodeURIComponent(id)}`, { method: 'DELETE', body: { reason } }), 'Delete failed')
+  chequesStore.set((s) => ({ records: s.records.filter((r) => r.id !== id) }))
+  return true
+}
+
+// ───────────── Local (mock mode / franchise app) ─────────────
 
 export function addChequeRecord(
   payload: Omit<ChequeRecord, 'id' | 'sn' | 'createdAt' | 'updatedAt'>
@@ -359,4 +471,15 @@ export function deleteChequeRecord(id: string): boolean {
   }))
 
   return true
+}
+
+export type ChequeSiteOption = (typeof KNOWN_SITES)[number]
+/**
+ * Sites offered on the legal register forms. Mock: KNOWN_SITES. API mode: the legal workspace sites
+ * (GET /legal/docs + /legal/sites, hydrated by data/legal) — bank / contact presets are not part of the backend site.
+ */
+export function useLegalSiteOptions(): ChequeSiteOption[] {
+  const legal = useLegal()
+  if (!apiEnabled) return KNOWN_SITES
+  return legal.sites.map((s) => ({ siteId: s.id, atmId: s.atmId, franchiseeName: s.franchiseName, mobileNumber: s.contactNumber, model: s.model, bankName: '', accountNumber: '' }))
 }

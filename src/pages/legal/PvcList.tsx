@@ -22,13 +22,20 @@ import {
   Eye,
 } from 'lucide-react'
 import { useReportMode } from '@/hooks/useReportMode'
-import { usePvcRecords, deletePvcRecord, type PvcStatus } from '@/data/legalPvc'
+import { usePvcRecords, usePvcLoad, pvcLoader, removePvcRecord, type PvcStatus } from '@/data/legalPvc'
+import { promptReason } from '@/lib/reason'
+import { apiEnabled } from '@/lib/api'
+import { LoadNote } from './ui'
 import { downloadCsv } from '@/lib/export'
+import { Can, ViewOnlyNote, guardAct, useCanIn } from '@/lib/guard'
+import { SiteRef } from '@/lib/siteRef'
 import { toast } from '@/components/ui/Toast'
 
 export default function PvcList() {
+  const allow = useCanIn('Legal')
   const { isReport } = useReportMode()
   const { records } = usePvcRecords()
+  const load = usePvcLoad()
 
   // Filter States
   const [filterSiteId, setFilterSiteId] = useState('')
@@ -123,6 +130,7 @@ export default function PvcList() {
   }
 
   const handleExport = () => {
+    if (!guardAct('Legal', 'Export')) return
     downloadCsv(
       'police-verification-certificates',
       [
@@ -154,10 +162,13 @@ export default function PvcList() {
   }
 
   const handleDelete = (id: string, siteId: string) => {
-    if (confirm(`Are you sure you want to delete PVC record for ${siteId}?`)) {
-      deletePvcRecord(id)
-      toast('Record deleted')
-    }
+    if (!guardAct('Legal', 'Delete')) return
+    // API mode: soft delete with a mandatory reason (DELETE /legal/pvc/:id {reason})
+    const reason = apiEnabled ? promptReason(`Delete the PVC record for ${siteId}?`) : confirm(`Are you sure you want to delete PVC record for ${siteId}?`) ? 'local' : null
+    if (!reason) return
+    removePvcRecord(id, reason)
+      .then(() => toast('Record deleted'))
+      .catch(() => undefined)
   }
 
   // Filtered List
@@ -268,6 +279,7 @@ export default function PvcList() {
         </div>
 
         {!isReport && (
+          <Can module="Legal" action="Create">
           <Link to="/legal/pvc/new">
             <button
               type="button"
@@ -276,8 +288,12 @@ export default function PvcList() {
               <Plus size={16} /> New PVC
             </button>
           </Link>
+          </Can>
         )}
       </div>
+
+      <ViewOnlyNote module="Legal" />
+      <LoadNote load={load} what="PVC records" onRetry={() => void pvcLoader.reload()} />
 
       {/* CARD 1: Filter Card */}
       <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-5 sm:p-6">
@@ -519,6 +535,8 @@ export default function PvcList() {
               <button
                 type="button"
                 onClick={handleExport}
+                disabled={!allow('Export')}
+                title={allow('Export') ? undefined : 'Export not permitted for your role'}
                 className="h-8.5 px-3.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 font-medium text-[12.5px] flex items-center gap-1 shadow-2xs transition-colors cursor-pointer"
               >
                 <Download size={14} /> Download <ChevronDown size={13} className="text-slate-400" />
@@ -626,7 +644,7 @@ export default function PvcList() {
                       </Link>
                     </td>
                     <td className="py-2.5 px-3 border-r border-slate-100 text-slate-700 font-medium whitespace-nowrap">
-                      {r.atmId}
+                      <SiteRef id={r.siteId} />
                     </td>
                     <td className="py-2.5 px-3 border-r border-slate-100 font-medium text-slate-800 text-left whitespace-nowrap">
                       {r.franchiseName}
@@ -646,12 +664,14 @@ export default function PvcList() {
                     <td className="py-2.5 px-3 border-r border-slate-100 whitespace-nowrap">
                       {r.status === 'Not Generated' ? (
                         !isReport ? (
+                          <Can module="Legal" action="Create">
                           <Link
                             to="/legal/pvc/new"
                             className="inline-flex items-center justify-center gap-1 w-[88px] h-[26px] rounded-md text-[11px] font-semibold border border-[#B9D5FF] text-[#0066FF] bg-[#EEF4FF] hover:bg-blue-100 transition-colors shadow-2xs mx-auto"
                           >
                             <Plus size={12} strokeWidth={2.4} /> Generate
                           </Link>
+                          </Can>
                         ) : (
                           <span className="text-slate-400 text-[11px] italic">Not Generated</span>
                         )
@@ -679,6 +699,7 @@ export default function PvcList() {
                           </Link>
                         ) : (
                           <>
+                            <Can module="Legal" action="Edit">
                             <Link
                               to={`/legal/pvc/${r.id}/edit`}
                               className="w-6.5 h-6.5 rounded flex items-center justify-center text-[#0066FF] hover:bg-blue-50 border border-blue-200/60 transition-colors"
@@ -686,6 +707,8 @@ export default function PvcList() {
                             >
                               <Edit3 size={12} />
                             </Link>
+                            </Can>
+                            <Can module="Legal" action="Delete">
                             <button
                               type="button"
                               onClick={() => handleDelete(r.id, r.siteId)}
@@ -694,6 +717,7 @@ export default function PvcList() {
                             >
                               <Trash2 size={12} />
                             </button>
+                            </Can>
                           </>
                         )}
                       </div>

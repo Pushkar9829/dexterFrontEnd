@@ -44,7 +44,11 @@ import {
   nextEmployeeCode,
   nextTpCode,
   saveEmployee,
+  useEmployees,
 } from '@/data/employeeStore'
+import { guardAct } from '@/lib/guard'
+import { emitWorkflow } from '@/data/workflow'
+import { apiEnabled } from '@/lib/api'
 
 const SECTIONS = [
   { id: 'section-basic', label: '1. Basic Info' },
@@ -89,6 +93,8 @@ export default function EmployeeOnboardingForm() {
   })
 
   // Watch for ID changes
+  // API mode: the store hydrates after mount — load the record once it arrives
+  const hydrated = useEmployees().some((e) => !!id && (e.id === id || e.employeeCode === id || e.tpCode === id))
   useEffect(() => {
     if (!isNew && id) {
       const found = getEmployee(id)
@@ -96,7 +102,7 @@ export default function EmployeeOnboardingForm() {
         setEmployee(JSON.parse(JSON.stringify(found)))
       }
     }
-  }, [id, isNew])
+  }, [id, isNew, hydrated])
 
   // Field updater
   const updateField = <K extends keyof Employee>(key: K, value: Employee[K]) => {
@@ -155,10 +161,17 @@ export default function EmployeeOnboardingForm() {
 
   // Submit for Approval
   const handleSubmit = () => {
+    if (!guardAct('Users', isNew ? 'Create' : 'Edit', 'save employees')) return
     if (!handleValidate()) return
     const saved = saveEmployee({
       ...employee,
       status: 'Active',
+    })
+    // API mode: the backend emits the Onboarding workflow event on save
+    if (!apiEnabled) emitWorkflow({
+      module: 'Onboarding', event: 'Submit', refId: saved.employeeCode,
+      vars: { Record_ID: saved.employeeCode, Current_Status: 'Submitted', Pending_Action: 'Approve employee onboarding' },
+      nextAction: { title: `Approve employee onboarding ${saved.fullName} (${saved.employeeCode})` },
     })
     toast(`Employee ${saved.fullName} (${saved.employeeCode}) submitted for approval!`)
     navigate('/onboarding/users')

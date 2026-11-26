@@ -1,1324 +1,293 @@
-import { useState, useMemo } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
-import {
-  Home,
-  ChevronRight,
-  Filter,
-  Search,
-  RotateCcw,
-  Download,
-  Building2,
-  Calendar,
-  MapPin,
-  Smartphone,
-  Map,
-  ChevronDown,
-  ChevronsLeft,
-  ChevronLeft,
-  ChevronsRight,
-  BarChart2,
-  FileSpreadsheet,
-  FileText,
-  SlidersHorizontal,
-  Plus,
-  Pencil,
-  Trash2,
-  X,
-} from 'lucide-react'
-import {
-  useFfmSfEod,
-  exportFfmSfEodCsv,
-  getMonthDates,
-  type FfmSfMonthlyEodRecord,
-} from '@/data/eodStore'
+import { useEffect, useMemo, useState } from 'react'
+import { apiEnabled } from '@/data/opsApi'
+import { AlertTriangle, CheckCircle2, Download, Lock } from 'lucide-react'
+import { Button } from '@/components/ui/Button'
+import { Modal } from '@/components/ui/Modal'
+import { Pagination } from '@/components/ui/Pagination'
 import { toast } from '@/components/ui/Toast'
-import { useReportMode } from '@/hooks/useReportMode'
+import { SelectField, TextAreaField, TextField } from '@/components/ui/Form'
+import { cn } from '@/lib/cn'
+import { useRole } from '@/lib/rbac'
+import { useSites } from '@/data/network'
+import { crmEodSites, type EodFunding } from '@/data/eodStore'
+import { opsMeLoader, rightsFor, type OpsRights } from './eod2/access'
+import {
+  BUSINESS_CLOSE_NOTE, CURRENT_MONTH, FORMULA_PENDING_NOTE, MONTHS, acceptDifferenceAsync, approveMonthlyAsync, buildMonthly, correctDayAsync, exportMonthlyCsv, loadMonthlyRow, monthLabel, monthlyLoadState, reconcileMonthlyAsync, sourceOf, startReviewAsync, useMonthlyMeta, verifyMonthlyAsync,
+  type MonthlyRow, type MonthlyStatus,
+} from './eod2/monthly'
+import { contains, dmy, inr, signedInr } from './eod2/fmt'
+import { Kpi, KV, NoAccess, Note, OpsPage, Panel, RoleTableCard, SearchBox, Sel, Status, TableWrap, TD, TH, TR, Tabs, Timeline } from './eod2/ui'
 
+const STATUSES: MonthlyStatus[] = ['Month open', 'Matched', 'Mismatch', 'Under Review', 'Corrected', 'Verified', 'Approved']
+
+/** CRM Monthly EOD (§5.5) — source picked automatically from the site's funding model. */
 export default function MonthlyEodList() {
-  const [searchParams, setSearchParams] = useSearchParams()
-  const { isReport } = useReportMode()
-  const { records, addOrUpdateRecord, deleteRecord } = useFfmSfEod()
+  const role = useRole()
+  opsMeLoader.use()
+  const rights = rightsFor('Monthly EOD', role)
+  const { sites } = useSites()
+  const meta = useMonthlyMeta()
+  const [month, setMonth] = useState<string>('2026-10')
+  const [funding, setFunding] = useState<EodFunding>('Full Funding')
+  const [status, setStatus] = useState('')
+  const [q, setQ] = useState('')
+  const [page, setPage] = useState(1)
+  const [size, setSize] = useState(10)
+  const [openId, setOpenId] = useState<string | null>(null)
 
-  // ── Modal state for Add / Edit ──────────────────────────────────────────
-  const [showModal, setShowModal] = useState(false)
-  const [editingRecord, setEditingRecord] = useState<FfmSfMonthlyEodRecord | null>(null)
-
-  const [formData, setFormData] = useState({
-    fundingType: 'FFM' as 'FFM' | 'SF',
-    month: 'October 2026',
-    siteId: '',
-    atmId: '',
-    frName: '',
-    state: 'Uttar Pradesh',
-    openDms: '',
-    openPhys: '',
-    openOverage: '0',
-    hpyFund: '',
-    frLoading: '',
-    apnaDispense: '',
-    actualMachine: '',
-    closeDms: '',
-    closePhys: '',
-    closeOverage: '0',
-  })
-
-  // ── Tab state: 'FFM' | 'SF' ──────────────────────────────────────────────
-  const activeTab: 'FFM' | 'SF' =
-    searchParams.get('tab')?.toUpperCase() === 'SF' ? 'SF' : 'FFM'
-
-  const handleTabSwitch = (tab: 'FFM' | 'SF') => {
-    setSearchParams({ tab: tab.toLowerCase(), ...(isReport ? { source: 'report' } : {}) })
-    setCurrentPage(1)
-    toast(
-      tab === 'FFM'
-        ? 'Switched to Full Funding (FFM) Sites'
-        : 'Switched to Self Funding (SF) Sites'
-    )
-  }
-
-  // ── Filter input states ──────────────────────────────────────────────────
-  const [selectedMonth, setSelectedMonth] = useState('October 2026')
-  const [filterSiteId, setFilterSiteId] = useState('All Sites')
-  const [filterAtmId, setFilterAtmId] = useState('All ATM')
-  const [filterFranchise, setFilterFranchise] = useState('All Franchise')
-  const [filterState, setFilterState] = useState('All States')
-
-  // Extra filter option state (toggled via Add Filter Option button)
-  const [showExtraFilters, setShowExtraFilters] = useState(false)
-  const [varianceOnly, setVarianceOnly] = useState(false)
-  const [minBalance, setMinBalance] = useState('')
-  const [maxBalance, setMaxBalance] = useState('')
-
-  // Export dropdown
-  const [showExportMenu, setShowExportMenu] = useState(false)
-
-  // Applied Filters state
-  const [appliedFilters, setAppliedFilters] = useState({
-    month: 'October 2026',
-    siteId: 'All Sites',
-    atmId: 'All ATM',
-    franchise: 'All Franchise',
-    state: 'All States',
-    varianceOnly: false,
-    minBalance: '',
-    maxBalance: '',
-  })
-
-  // Pagination & Page Size
-  const [pageSize, setPageSize] = useState<number>(20)
-  const [currentPage, setCurrentPage] = useState<number>(1)
-
-  // ── Month Dates calculation (e.g. October 2026 -> 30.09.2026 and 31.10.2026) ──
-  const dates = useMemo(() => {
-    return getMonthDates(appliedFilters.month)
-  }, [appliedFilters.month])
-
-  // ── Dynamic filter dropdown options ──
-  const monthOptions = ['October 2026', 'November 2026', 'September 2026', 'August 2026', 'July 2026']
-
-  const siteOptions = useMemo(() => {
-    const list = records
-      .filter((r) => r.fundingType === activeTab)
-      .map((r) => r.siteId)
-      .filter(Boolean)
-    return ['All Sites', ...Array.from(new Set(list)).sort()]
-  }, [records, activeTab])
-
-  const atmOptions = useMemo(() => {
-    const list = records
-      .filter((r) => r.fundingType === activeTab)
-      .map((r) => r.atmId)
-      .filter(Boolean)
-    return ['All ATM', ...Array.from(new Set(list)).sort()]
-  }, [records, activeTab])
-
-  const franchiseOptions = useMemo(() => {
-    const list = records
-      .filter((r) => r.fundingType === activeTab)
-      .map((r) => r.frName)
-      .filter(Boolean)
-    return ['All Franchise', ...Array.from(new Set(list)).sort()]
-  }, [records, activeTab])
-
-  const stateOptions = useMemo(() => {
-    const list = records
-      .filter((r) => r.fundingType === activeTab)
-      .map((r) => r.state)
-      .filter(Boolean)
-    return ['All States', ...Array.from(new Set(list)).sort()]
-  }, [records, activeTab])
-
-  // ── Filter handlers ──
-  const handleSearch = () => {
-    setAppliedFilters({
-      month: selectedMonth,
-      siteId: filterSiteId,
-      atmId: filterAtmId,
-      franchise: filterFranchise,
-      state: filterState,
-      varianceOnly,
-      minBalance,
-      maxBalance,
-    })
-    setCurrentPage(1)
-    toast('Filters applied to EOD report')
-  }
-
-  const handleReset = () => {
-    setSelectedMonth('October 2026')
-    setFilterSiteId('All Sites')
-    setFilterAtmId('All ATM')
-    setFilterFranchise('All Franchise')
-    setFilterState('All States')
-    setVarianceOnly(false)
-    setMinBalance('')
-    setMaxBalance('')
-    setAppliedFilters({
-      month: 'October 2026',
-      siteId: 'All Sites',
-      atmId: 'All ATM',
-      franchise: 'All Franchise',
-      state: 'All States',
-      varianceOnly: false,
-      minBalance: '',
-      maxBalance: '',
-    })
-    setCurrentPage(1)
-    toast('Filters reset to default')
-  }
-
-  // ── Filtered Records ──
-  const filteredRecords = useMemo(() => {
-    return records.filter((r) => {
-      // Must match active tab (FFM or SF)
-      if (r.fundingType !== activeTab) return false
-
-      // Match selected Month
-      if (appliedFilters.month && r.month !== appliedFilters.month) return false
-
-      // Match Site ID
-      if (appliedFilters.siteId !== 'All Sites' && r.siteId !== appliedFilters.siteId) return false
-
-      // Match ATM ID
-      if (appliedFilters.atmId !== 'All ATM' && r.atmId !== appliedFilters.atmId) return false
-
-      // Match Franchise Name
-      if (appliedFilters.franchise !== 'All Franchise' && r.frName !== appliedFilters.franchise) return false
-
-      // Match State
-      if (appliedFilters.state !== 'All States' && r.state !== appliedFilters.state) return false
-
-      // Variance Only filter
-      if (appliedFilters.varianceOnly) {
-        const hasVariance = r.openPhys !== r.openDms || r.closePhys !== r.closeDms
-        if (!hasVariance) return false
-      }
-
-      // Min/Max Balance filter
-      if (appliedFilters.minBalance && r.actualMachine < Number(appliedFilters.minBalance)) return false
-      if (appliedFilters.maxBalance && r.actualMachine > Number(appliedFilters.maxBalance)) return false
-
-      return true
-    })
-  }, [records, activeTab, appliedFilters])
-
-  // ── Pagination calculations ──
-  const totalRecords = filteredRecords.length
-  const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize))
-  const safePage = Math.min(currentPage, totalPages)
-  const startIndex = (safePage - 1) * pageSize
-  const endIndex = Math.min(startIndex + pageSize, totalRecords)
-  const paginatedRecords = filteredRecords.slice(startIndex, endIndex)
-
-  // ── Export handlers ──
-  const handleExportCsv = () => {
-    const filename = `${activeTab.toLowerCase()}-eod-consolidated-${appliedFilters.month.replace(/\s+/g, '-').toLowerCase()}`
-    exportFfmSfEodCsv(filteredRecords, filename, dates.openingDate, dates.closingDate, dates.monthYear)
-    setShowExportMenu(false)
-    toast(`Exported ${activeTab} EOD report as CSV`)
-  }
-
-  const handleExportExcel = () => {
-    const filename = `${activeTab.toLowerCase()}-eod-consolidated-${appliedFilters.month.replace(/\s+/g, '-').toLowerCase()}`
-    exportFfmSfEodCsv(filteredRecords, filename, dates.openingDate, dates.closingDate, dates.monthYear)
-    setShowExportMenu(false)
-    toast(`Exported ${activeTab} EOD report for Excel`)
-  }
-
-  // ── Add / Edit Handlers ──
-  const handleOpenAdd = () => {
-    setEditingRecord(null)
-    setFormData({
-      fundingType: activeTab,
-      month: appliedFilters.month || selectedMonth || 'October 2026',
-      siteId: '',
-      atmId: '',
-      frName: '',
-      state: filterState !== 'All States' ? filterState : 'Uttar Pradesh',
-      openDms: '',
-      openPhys: '',
-      openOverage: '0',
-      hpyFund: '',
-      frLoading: '',
-      apnaDispense: '',
-      actualMachine: '',
-      closeDms: '',
-      closePhys: '',
-      closeOverage: '0',
-    })
-    setShowModal(true)
-  }
-
-  const handleOpenEdit = (rec: FfmSfMonthlyEodRecord) => {
-    setEditingRecord(rec)
-    setFormData({
-      fundingType: rec.fundingType,
-      month: rec.month,
-      siteId: rec.siteId,
-      atmId: rec.atmId,
-      frName: rec.frName,
-      state: rec.state,
-      openDms: String(rec.openDms ?? ''),
-      openPhys: String(rec.openPhys ?? ''),
-      openOverage: String(rec.openOverage ?? '0'),
-      hpyFund: String(rec.hpyFund ?? ''),
-      frLoading: String(rec.frLoading ?? ''),
-      apnaDispense: String(rec.apnaDispense ?? ''),
-      actualMachine: String(rec.actualMachine ?? ''),
-      closeDms: String(rec.closeDms ?? ''),
-      closePhys: String(rec.closePhys ?? ''),
-      closeOverage: String(rec.closeOverage ?? '0'),
-    })
-    setShowModal(true)
-  }
-
-  const handleAtmChange = (val: string) => {
-    const atmUpper = val.toUpperCase()
-    const match = records.find((r) => r.atmId.toUpperCase() === atmUpper)
-    if (match) {
-      setFormData((prev) => ({
-        ...prev,
-        atmId: atmUpper,
-        siteId: match.siteId || prev.siteId,
-        frName: match.frName || prev.frName,
-        state: match.state || prev.state,
-        fundingType: match.fundingType || prev.fundingType,
-      }))
-    } else {
-      setFormData((prev) => ({ ...prev, atmId: atmUpper }))
-    }
-  }
-
-  const handleSubmitForm = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!formData.atmId.trim()) {
-      toast('Please enter ATM ID', 'error')
-      return
-    }
-    if (!formData.frName.trim()) {
-      toast('Please enter Franchise Name', 'error')
-      return
-    }
-
-    const id = editingRecord ? editingRecord.id : `FFMSF-${Date.now()}`
-    const recordToSave: FfmSfMonthlyEodRecord = {
-      id,
-      fundingType: formData.fundingType,
-      month: formData.month,
-      siteId: formData.siteId.trim() || `ST-${formData.atmId.trim()}`,
-      atmId: formData.atmId.trim(),
-      frName: formData.frName.trim(),
-      state: formData.state.trim() || 'Uttar Pradesh',
-      openDms: Number(formData.openDms) || 0,
-      openPhys: Number(formData.openPhys) || 0,
-      openOverage: Number(formData.openOverage) || 0,
-      hpyFund: Number(formData.hpyFund) || 0,
-      frLoading: Number(formData.frLoading) || 0,
-      apnaDispense: Number(formData.apnaDispense) || 0,
-      actualMachine: Number(formData.actualMachine) || 0,
-      closeDms: Number(formData.closeDms) || 0,
-      closePhys: Number(formData.closePhys) || 0,
-      closeOverage: Number(formData.closeOverage) || 0,
-    }
-
-    addOrUpdateRecord(recordToSave)
-    toast(
-      editingRecord
-        ? `Updated EOD record for ${recordToSave.atmId}`
-        : `Added new EOD record for ${recordToSave.atmId}`,
-      'success'
-    )
-    setShowModal(false)
-    setEditingRecord(null)
-  }
-
-  const handleDelete = (id: string, atmId: string) => {
-    if (window.confirm(`Are you sure you want to delete the EOD record for ${atmId}?`)) {
-      deleteRecord(id)
-      toast(`Deleted EOD record for ${atmId}`)
-    }
-  }
-
-  // Format currency helper (displays standard Indian numeric or empty)
-  const formatINR = (val: number | undefined) => {
-    if (val === undefined || isNaN(val)) return '—'
-    return val.toLocaleString('en-IN')
-  }
+  const all = useMemo(() => crmEodSites(sites).map((s) => buildMonthly(s, month, meta)).filter((r): r is MonthlyRow => !!r), [sites, month, meta])
+  const inModel = all.filter((r) => r.funding === funding)
+  const rows = inModel.filter((r) => (!status || r.status === status) && contains(q, r.atmId, r.siteId, r.franchiseName))
+  const open = openId ? all.find((r) => r.id === openId) : undefined
+  if (!rights.view) return <NoAccess module="Monthly EOD" />
+  const cnt = (s: MonthlyStatus) => inModel.filter((r) => r.status === s).length
+  const paged = rows.slice((page - 1) * size, page * size)
 
   return (
-    <div className="w-full min-w-0 pb-16 font-sans space-y-4">
-      {/* ── Breadcrumb matching Image 01 & 02 ── */}
-      <div className="flex items-center gap-1.5 text-[12px] text-slate-500">
-        <Home size={14} className="text-slate-400 shrink-0" />
-        <Link to="/dashboard" className="hover:text-[#0066FF] transition-colors">
-          Workspace
-        </Link>
-        <ChevronRight size={12} className="text-slate-400 shrink-0" />
-        {isReport ? (
-          <>
-            <Link to="/reports" className="hover:text-[#0066FF] transition-colors">
-              Reports & MIS
-            </Link>
-            <ChevronRight size={12} className="text-slate-400 shrink-0" />
-            <span className="font-semibold text-slate-800">
-              Monthly EOD ({activeTab === 'FFM' ? 'Full Funding Sites' : 'Self Funding Sites'})
-            </span>
-          </>
-        ) : (
-          <>
-            <Link to="/operations" className="hover:text-[#0066FF] transition-colors">
-              Operations
-            </Link>
-            <ChevronRight size={12} className="text-slate-400 shrink-0" />
-            <Link to="/operations/eod" className="hover:text-[#0066FF] transition-colors">
-              Monthly EOD
-            </Link>
-            <ChevronRight size={12} className="text-slate-400 shrink-0" />
-            <span className="font-semibold text-slate-800">
-              {activeTab === 'FFM' ? 'Full Funding Sites' : 'Self Funding Sites'}
-            </span>
-          </>
-        )}
+    <OpsPage
+      title="Monthly EOD — CRM"
+      sub="Monthly EOD data is matched against the consolidated cash of the site's own funding model. Mismatches are highlighted for review / correction."
+      back={{ to: '/operations/eod', label: 'EOD Management' }}
+      actions={rights.export && <Button variant="secondary" icon={<Download size={15} />} onClick={() => exportMonthlyCsv(rows, `monthly-eod-${funding === 'Full Funding' ? 'cbr' : 'cash-loading'}-${month}`)}>Export</Button>}
+    >
+      <div className="grid gap-3 md:grid-cols-2">
+        <Note tone="blue">{BUSINESS_CLOSE_NOTE}</Note>
+        <Note tone="amber">{FORMULA_PENDING_NOTE}</Note>
+      </div>
+      {apiEnabled && monthlyLoadState(month) === 'loading' && <Note tone="blue">Loading Monthly EOD for {monthLabel(month)}…</Note>}
+      {apiEnabled && monthlyLoadState(month) === 'error' && <Note tone="red">Could not load Monthly EOD for {monthLabel(month)}.</Note>}
+
+      <Tabs
+        value={funding}
+        onChange={(f) => { setFunding(f); setPage(1); setStatus('') }}
+        tabs={[
+          { id: 'Full Funding', label: `Full Funding → source: ${sourceOf('Full Funding')} (${all.filter((r) => r.funding === 'Full Funding').length})` },
+          { id: 'Self Funding', label: `Self Funding → source: ${sourceOf('Self Funding')} (${all.filter((r) => r.funding === 'Self Funding').length})` },
+        ]}
+      />
+
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-7">
+        {STATUSES.map((s) => (
+          <Kpi key={s} label={s} value={cnt(s)} tone={s === 'Mismatch' ? 'red' : s === 'Under Review' ? 'amber' : s === 'Approved' || s === 'Matched' ? 'green' : 'navy'} onClick={() => { setStatus((c) => (c === s ? '' : s)); setPage(1) }} active={status === s} />
+        ))}
       </div>
 
-      {/* ── Page Header with Title & Two-Tab Switcher matching Image 01 ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-1">
-        <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#0066FF] text-white shadow-xs">
-            <BarChart2 size={22} />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-[#1E293B] sm:text-[25px]">
-              {activeTab === 'FFM'
-                ? 'Full Funding Sites EOD Consolidated Report'
-                : 'Self Funding Sites EOD Consolidated Report'}
-            </h1>
-            <p className="mt-0.5 text-[13px] text-[#64748B]">
-              {activeTab === 'FFM'
-                ? 'View consolidated EOD data for Full Funding (FFM) sites with date-wise details.'
-                : 'View consolidated EOD data for Self Funding (SF) sites with date-wise details.'}
-            </p>
+      <Panel>
+        <div className="flex flex-wrap items-end gap-3">
+          <SearchBox value={q} onChange={(v) => { setQ(v); setPage(1) }} placeholder="ATM, site or franchise" />
+          <Sel label="Month" value={month} onChange={(v) => { setMonth(v); setPage(1) }} options={[...MONTHS]} all={null} />
+          <Sel label="Status" value={status} onChange={(v) => { setStatus(v); setPage(1) }} options={STATUSES} />
+        </div>
+      </Panel>
+
+      <Panel title={`${monthLabel(month)} · ${funding} · ${rows.length} CRM site(s)`} sub={`Monthly EOD vs ${sourceOf(funding)} consolidated cash. Red rows have open mismatches.`} pad={false}>
+        <TableWrap empty={!rows.length}>
+          <thead className="bg-slate-50">
+            <tr>
+              {['ATM / Site', 'Franchise', 'Source', 'Source closing', 'EOD closing', 'Δ closing', 'Source loaded', 'EOD loaded', 'Mismatch days', 'Status', ''].map((h) => (
+                <th key={h} className={TH}>
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {paged.map((r) => {
+              const d = r.totals.eod.closing - r.totals.source.closing
+              return (
+                <tr key={r.id} className={cn(TR, r.mismatchDays > 0 && 'bg-red-50/50')}>
+                  <td className={TD}>
+                    <div className="font-medium">{r.atmId}</div>
+                    <div className="text-[11px] text-muted">{r.siteId}</div>
+                  </td>
+                  <td className={TD}>{r.franchiseName}</td>
+                  <td className={TD}>
+                    {r.source}
+                    <div className="max-w-[220px] truncate text-[10.5px] text-muted" title={r.sourceOrigin}>{r.sourceOrigin}</div>
+                  </td>
+                  <td className={TD}>{inr(r.totals.source.closing)}</td>
+                  <td className={TD}>{inr(r.totals.eod.closing)}</td>
+                  <td className={cn(TD, d !== 0 && 'font-semibold text-red-600')}>{signedInr(d)}</td>
+                  <td className={TD}>{inr(r.totals.source.loaded)}</td>
+                  <td className={cn(TD, r.totals.eod.loaded !== r.totals.source.loaded && 'font-semibold text-red-600')}>{inr(r.totals.eod.loaded)}</td>
+                  <td className={cn(TD, r.mismatchDays > 0 && 'font-bold text-red-600')}>{r.mismatchDays}</td>
+                  <td className={TD}>
+                    <Status text={r.status} tone={r.status === 'Mismatch' ? 'red' : r.status === 'Under Review' ? 'amber' : r.status === 'Month open' ? 'gray' : undefined} />
+                  </td>
+                  <td className={TD}>
+                    <Button size="sm" variant="secondary" onClick={() => setOpenId(r.id)}>
+                      Open
+                    </Button>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </TableWrap>
+        <Pagination page={page} pageSize={size} total={rows.length} onPage={setPage} onPageSize={(n) => { setSize(n); setPage(1) }} noun="sites" />
+      </Panel>
+      <RoleTableCard modules={['Monthly EOD']} />
+      {open && <MonthlyDetail row={open} rights={rights} onClose={() => setOpenId(null)} />}
+    </OpsPage>
+  )
+}
+
+function MonthlyDetail({ row, rights, onClose }: { row: MonthlyRow; rights: OpsRights; onClose: () => void }) {
+  const [onlyMismatch, setOnlyMismatch] = useState(row.mismatchDays > 0)
+  const [edit, setEdit] = useState<{ date: string; mode: 'correct' | 'accept' } | null>(null)
+  const [note, setNote] = useState('')
+  const canFix = rights.reconcile || rights.verify || rights.approve
+  useEffect(() => {
+    if (apiEnabled) void loadMonthlyRow(row.siteId, row.month).catch(() => undefined)
+  }, [row.siteId, row.month])
+  const days = onlyMismatch ? row.days.filter((d) => d.mismatch || d.corrected || d.accepted) : row.days
+  const run = async (fn: () => Promise<string | null>, ok: string) => {
+    const e = await fn()
+    if (e && apiEnabled) return
+    toast(e ?? ok, e ? 'error' : 'success')
+  }
+  const log = [
+    ...row.meta.reviews,
+    ...row.meta.corrections.map((c) => ({ at: c.at, by: c.by, text: `Corrected ${dmy(c.date)} ${c.field}: ${inr(c.old)} → ${inr(c.value)} — ${c.reason}` })),
+    ...row.meta.accepted.map((a) => ({ at: a.at, by: a.by, text: `Accepted difference on ${dmy(a.date)} — ${a.reason}` })),
+    ...(row.meta.verifiedAt ? [{ at: row.meta.verifiedAt, by: row.meta.verifiedBy!, text: 'Verified' }] : []),
+    ...(row.meta.approvedAt ? [{ at: row.meta.approvedAt, by: row.meta.approvedBy!, text: 'Approved' }] : []),
+  ].sort((a, b) => a.at.localeCompare(b.at))
+
+  return (
+    <Modal title={`Monthly EOD · ${row.atmId} · ${monthLabel(row.month)}`} sub={`${row.franchiseName} · ${row.funding} → ${row.source}`} onClose={onClose} width={1080}>
+      <div className="space-y-4">
+        <KV
+          cols={4}
+          items={[
+            ['Status', <Status key="s" text={row.status} />],
+            ['Source (auto)', row.source],
+            ['Source feed', row.sourceOrigin],
+            ['Mismatch days', <b key="m" className={row.mismatchDays ? 'text-red-600' : 'text-emerald-700'}>{row.mismatchDays}</b>],
+            ['Source: loaded / dispensed', `${inr(row.totals.source.loaded)} / ${inr(row.totals.source.dispensed)}`],
+            ['EOD: loaded / dispensed', `${inr(row.totals.eod.loaded)} / ${inr(row.totals.eod.dispensed)}`],
+            ['Closing: source / EOD', `${inr(row.totals.source.closing)} / ${inr(row.totals.eod.closing)}`],
+            ['Verified / approved', `${row.meta.verifiedBy ?? '—'} / ${row.meta.approvedBy ?? '—'}`],
+          ]}
+        />
+        {row.status === 'Month open' && <Note tone="blue">{monthLabel(CURRENT_MONTH)} is still running — verification opens after month end.</Note>}
+
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-2 text-[12px]">
+            <input type="checkbox" checked={onlyMismatch} onChange={(e) => setOnlyMismatch(e.target.checked)} className="accent-[#1e3f95]" /> Show only mismatch / corrected days
+          </label>
+          <div className="ml-auto flex flex-wrap gap-2">
+            {rights.verify && !row.meta.verifiedBy && (
+              <Button size="sm" icon={<CheckCircle2 size={13} />} onClick={() => run(() => verifyMonthlyAsync(row), 'Monthly EOD verified — approval task created')} disabled={row.mismatchDays > 0 || row.status === 'Month open'}>
+                Verify
+              </Button>
+            )}
+            {rights.approve && row.meta.verifiedBy && !row.meta.approvedBy && (
+              <Button size="sm" icon={<Lock size={13} />} onClick={() => run(() => approveMonthlyAsync(row), 'Monthly EOD approved')}>
+                Approve
+              </Button>
+            )}
           </div>
         </div>
 
-        {/* ── Top Tab Bar + Add Record Button ── */}
-        <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-auto">
-          <div className="flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50/70 p-1 shadow-xs">
-            <button
-              type="button"
-              onClick={() => handleTabSwitch('FFM')}
-              className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-[13px] font-bold transition-all cursor-pointer ${
-                activeTab === 'FFM'
-                  ? 'bg-[#0066FF] text-white shadow-sm'
-                  : 'text-[#0066FF] hover:bg-white/80'
-              }`}
-            >
-              <span>Full Funding (FFM)</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleTabSwitch('SF')}
-              className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-[13px] font-bold transition-all cursor-pointer ${
-                activeTab === 'SF'
-                  ? 'bg-[#0066FF] text-white shadow-sm'
-                  : 'text-[#0066FF] hover:bg-white/80'
-              }`}
-            >
-              <span>Self Funding (SF)</span>
-            </button>
-          </div>
-
-          <button
-            type="button"
-            onClick={handleOpenAdd}
-            className="inline-flex items-center gap-1.5 h-10 px-4 rounded-xl bg-[#0066FF] hover:bg-[#0052CC] text-white text-[13px] font-semibold transition-colors shadow-xs cursor-pointer"
-          >
-            <Plus size={15} />
-            <span>Add Record</span>
-          </button>
-        </div>
-      </div>
-
-      {/* ── Filter Card matching Image 02 ── */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-4 sm:p-5">
-        {/* Filter Card Header */}
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-8 h-8 rounded-lg bg-[#0066FF] flex items-center justify-center text-white shrink-0 shadow-xs">
-            <Filter size={16} />
-          </div>
-          <div>
-            <h2 className="text-[14.5px] font-bold text-slate-900 leading-tight">Filter</h2>
-            <p className="text-[12px] text-slate-500">
-              Use below filters to search and manage {activeTab === 'FFM' ? 'Full Funding (FFM)' : 'Self Funding (SF)'} monthly EOD records.
-            </p>
-          </div>
-        </div>
-
-        {/* 5 Filter Inputs Grid + Action Buttons matching Image 02 layout */}
-        <div className="flex flex-col lg:flex-row lg:items-end gap-3.5 justify-between">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 flex-1">
-            {/* 1. Month & Year * */}
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                Month & Year <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <Calendar size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none" />
-                <select
-                  value={selectedMonth}
-                  onChange={(e) => setSelectedMonth(e.target.value)}
-                  className="w-full h-8.5 pl-8 pr-7 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF] appearance-none cursor-pointer"
-                >
-                  {monthOptions.map((m) => (
-                    <option key={m} value={m}>
-                      {m}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown size={13} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              </div>
-            </div>
-
-            {/* 2. Site ID */}
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-700 mb-1">Site ID</label>
-              <div className="relative">
-                <MapPin size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none" />
-                <select
-                  value={filterSiteId}
-                  onChange={(e) => setFilterSiteId(e.target.value)}
-                  className="w-full h-8.5 pl-8 pr-7 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF] appearance-none cursor-pointer"
-                >
-                  {siteOptions.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown size={13} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              </div>
-            </div>
-
-            {/* 3. ATM ID */}
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-700 mb-1">ATM ID</label>
-              <div className="relative">
-                <Smartphone size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none" />
-                <select
-                  value={filterAtmId}
-                  onChange={(e) => setFilterAtmId(e.target.value)}
-                  className="w-full h-8.5 pl-8 pr-7 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF] appearance-none cursor-pointer"
-                >
-                  {atmOptions.map((a) => (
-                    <option key={a} value={a}>
-                      {a}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown size={13} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              </div>
-            </div>
-
-            {/* 4. Franchise Name */}
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-700 mb-1">Franchise Name</label>
-              <div className="relative">
-                <Building2 size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none" />
-                <select
-                  value={filterFranchise}
-                  onChange={(e) => setFilterFranchise(e.target.value)}
-                  className="w-full h-8.5 pl-8 pr-7 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF] appearance-none cursor-pointer truncate"
-                >
-                  {franchiseOptions.map((f) => (
-                    <option key={f} value={f}>
-                      {f}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown size={13} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              </div>
-            </div>
-
-            {/* 5. State */}
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-700 mb-1">State</label>
-              <div className="relative">
-                <Map size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0066FF] pointer-events-none" />
-                <select
-                  value={filterState}
-                  onChange={(e) => setFilterState(e.target.value)}
-                  className="w-full h-8.5 pl-8 pr-7 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF] appearance-none cursor-pointer"
-                >
-                  {stateOptions.map((st) => (
-                    <option key={st} value={st}>
-                      {st}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown size={13} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              </div>
-            </div>
-          </div>
-
-          {/* ── Action Buttons inside the Red Box line matching Image 02 ── */}
-          <div className="flex flex-wrap items-center gap-2 shrink-0 self-start lg:self-end pt-1">
-            {/* Search (Blue) */}
-            <button
-              type="button"
-              onClick={handleSearch}
-              className="inline-flex items-center gap-1.5 h-8.5 px-4 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[12.5px] font-semibold transition-colors shadow-xs cursor-pointer"
-            >
-              <Search size={14} />
-              <span>Search</span>
-            </button>
-
-            {/* Add Filter Option (White outline) */}
-            <button
-              type="button"
-              onClick={() => setShowExtraFilters((prev) => !prev)}
-              className={`inline-flex items-center gap-1.5 h-8.5 px-3 rounded-lg border text-[12.5px] font-medium transition-colors shadow-xs cursor-pointer ${
-                showExtraFilters
-                  ? 'border-[#0066FF] bg-blue-50/60 text-[#0066FF]'
-                  : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
-              }`}
-            >
-              <Filter size={13} className="text-[#0066FF]" />
-              <span>{showExtraFilters ? 'Hide Extra Filters' : 'Add Filter Option'}</span>
-            </button>
-
-            {/* Download Dropdown (White outline) */}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setShowExportMenu((prev) => !prev)}
-                className="inline-flex items-center gap-1.5 h-8.5 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[12.5px] font-medium transition-colors shadow-xs cursor-pointer"
-              >
-                <Download size={13} className="text-[#0066FF]" />
-                <span>Download</span>
-                <ChevronDown size={12} className="text-slate-400" />
-              </button>
-
-              {showExportMenu && (
-                <div className="absolute right-0 top-full mt-1.5 w-48 rounded-xl border border-slate-200 bg-white py-1.5 shadow-lg z-30">
-                  <button
-                    type="button"
-                    onClick={handleExportCsv}
-                    className="w-full px-3.5 py-2 text-left text-[12px] font-medium text-slate-700 hover:bg-blue-50/60 hover:text-[#0066FF] flex items-center gap-2 cursor-pointer"
-                  >
-                    <FileSpreadsheet size={14} className="text-emerald-600" />
-                    <span>Download as CSV</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleExportExcel}
-                    className="w-full px-3.5 py-2 text-left text-[12px] font-medium text-slate-700 hover:bg-blue-50/60 hover:text-[#0066FF] flex items-center gap-2 cursor-pointer"
-                  >
-                    <FileText size={14} className="text-[#0066FF]" />
-                    <span>Download as Excel</span>
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Reset (White outline) */}
-            <button
-              type="button"
-              onClick={handleReset}
-              className="inline-flex items-center gap-1.5 h-8.5 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[12.5px] font-medium transition-colors shadow-xs cursor-pointer"
-            >
-              <RotateCcw size={13} />
-              <span>Reset</span>
-            </button>
-          </div>
-        </div>
-
-        {/* ── Optional Extra Filters (Toggled by 'Add Filter Option') ── */}
-        {showExtraFilters && (
-          <div className="mt-4 pt-3.5 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-3.5 bg-slate-50/60 p-3 rounded-xl">
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                Discrepancy / Variance
-              </label>
-              <button
-                type="button"
-                onClick={() => setVarianceOnly(!varianceOnly)}
-                className={`w-full h-8.5 px-3 rounded-lg border text-[12px] font-semibold transition-all flex items-center justify-between cursor-pointer ${
-                  varianceOnly
-                    ? 'border-amber-400 bg-amber-50 text-amber-800'
-                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-                }`}
-              >
-                <span>Show Variance Only</span>
-                <SlidersHorizontal size={13} className={varianceOnly ? 'text-amber-600' : 'text-slate-400'} />
-              </button>
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                Min Machine Balance (₹)
-              </label>
-              <input
-                type="number"
-                placeholder="e.g. 200000"
-                value={minBalance}
-                onChange={(e) => setMinBalance(e.target.value)}
-                className="w-full h-8.5 px-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]"
-              />
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                Max Machine Balance (₹)
-              </label>
-              <input
-                type="number"
-                placeholder="e.g. 800000"
-                value={maxBalance}
-                onChange={(e) => setMaxBalance(e.target.value)}
-                className="w-full h-8.5 px-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]"
-              />
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* ── Table Card matching Image 02 ── */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-        {/* Table Card Header matching Image 02 */}
-        <div className="px-5 py-3.5 flex items-center justify-between border-b border-slate-100">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[#0066FF] flex items-center justify-center text-white shrink-0 shadow-xs">
-              <BarChart2 size={16} />
-            </div>
-            <h3 className="text-[14.5px] font-bold text-slate-900">
-              {activeTab === 'FFM' ? 'Full Funding Sites' : 'Self Funding Sites'} EOD Consolidated Report – {appliedFilters.month}
-            </h3>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={handleOpenAdd}
-              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[12px] font-semibold transition-colors shadow-xs cursor-pointer"
-            >
-              <Plus size={13} />
-              <span>Add Record</span>
-            </button>
-            <span className="text-[12.5px] text-slate-600 font-medium">
-              Total Records: <strong className="text-slate-900 font-bold">{totalRecords}</strong>
-            </span>
-            <select
-              value={pageSize}
-              onChange={(e) => {
-                setPageSize(Number(e.target.value))
-                setCurrentPage(1)
-              }}
-              className="h-8 px-2.5 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-700 font-medium outline-none focus:border-[#0066FF] cursor-pointer"
-            >
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
-            </select>
-          </div>
-        </div>
-
-        {/* ── Data Table with Vibrant Canary Yellow Header Row matching Image 02 ── */}
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-left min-w-[1450px]">
-            {/* Header: Bright Yellow background as in Image 02 */}
-            <thead>
-              <tr className="bg-[#FFFF00] text-slate-950 font-bold text-[11px] leading-snug border-b-2 border-amber-300">
-                <th className="py-2.5 px-2 text-center border-r border-amber-300 w-[55px] uppercase select-none">
-                  S.N.
-                </th>
-                <th className="py-2.5 px-2.5 text-center border-r border-amber-300 w-[110px] uppercase select-none">
-                  ATM ID
-                </th>
-                <th className="py-2.5 px-2.5 text-center border-r border-amber-300 w-[150px] uppercase select-none">
-                  FR Name
-                </th>
-                <th className="py-2.5 px-2 text-center border-r border-amber-300 w-[170px] uppercase select-none">
-                  Machine Balance as per DMS @11:00 PM ({dates.openingDate})
-                </th>
-                <th className="py-2.5 px-2 text-center border-r border-amber-300 w-[170px] uppercase select-none">
-                  Physical Balance as per FR @11:00 PM ({dates.openingDate})
-                </th>
-                <th className="py-2.5 px-2 text-center border-r border-amber-300 w-[140px] uppercase select-none">
-                  Actual Overage as on {dates.openingDate}
-                </th>
-                <th className="py-2.5 px-2 text-center border-r border-amber-300 w-[140px] uppercase select-none">
-                  HPY Gen Fund {dates.monthYear}
-                </th>
-                <th className="py-2.5 px-2 text-center border-r border-amber-300 w-[140px] uppercase select-none">
-                  FR Loading Fund {dates.monthYear}
-                </th>
-                <th className="py-2.5 px-2 text-center border-r border-amber-300 w-[160px] uppercase select-none">
-                  Apna App Dispenser Fund {dates.monthYear}
-                </th>
-                <th className="py-2.5 px-2 text-center border-r border-amber-300 w-[140px] uppercase select-none">
-                  Actual Machine Balance {dates.closingDate}
-                </th>
-                <th className="py-2.5 px-2 text-center border-r border-amber-300 w-[170px] uppercase select-none">
-                  Machine Balance as per DMS @11:00 PM ({dates.closingDate})
-                </th>
-                <th className="py-2.5 px-2 text-center border-r border-amber-300 w-[170px] uppercase select-none">
-                  Physical Balance as per FR @11:00 PM ({dates.closingDate})
-                </th>
-                <th className="py-2.5 px-2 text-center border-r border-amber-300 w-[140px] uppercase select-none">
-                  Actual Overage as on {dates.closingDate}
-                </th>
-                <th className="py-2.5 px-2 text-center w-[90px] uppercase select-none">
-                  Action
-                </th>
+        <div className="max-h-[360px] overflow-auto rounded-lg border border-line">
+          <table className="w-full border-collapse">
+            <thead className="sticky top-0 bg-slate-50">
+              <tr>
+                {['Date', 'Opening', 'Src loaded', 'EOD loaded', 'Src dispensed', 'EOD dispensed', 'Src closing', 'EOD closing', 'Δ', 'Note', ''].map((h) => (
+                  <th key={h} className={TH}>
+                    {h}
+                  </th>
+                ))}
               </tr>
             </thead>
-
-            {/* Table Body */}
-            <tbody className="divide-y divide-slate-100 text-[12px] text-slate-800">
-              {paginatedRecords.length > 0 ? (
-                paginatedRecords.map((rec, index) => {
-                  const serialNo = startIndex + index + 1
-                  const hasOpeningVariance = rec.openPhys !== rec.openDms
-                  const hasClosingVariance = rec.closePhys !== rec.closeDms
-
-                  return (
-                    <tr
-                      key={rec.id}
-                      className="hover:bg-blue-50/30 transition-colors"
-                    >
-                      {/* 1. S.N. */}
-                      <td className="py-2.5 px-2 text-center font-semibold text-slate-600 border-r border-slate-100">
-                        {serialNo}
-                      </td>
-
-                      {/* 2. ATM ID */}
-                      <td className="py-2.5 px-2.5 font-bold text-[#0066FF] border-r border-slate-100">
-                        {rec.atmId}
-                      </td>
-
-                      {/* 3. FR Name */}
-                      <td className="py-2.5 px-2.5 font-medium text-slate-800 border-r border-slate-100 truncate max-w-[150px]">
-                        {rec.frName}
-                      </td>
-
-                      {/* 4. Machine Balance as per DMS (Opening) */}
-                      <td className="py-2.5 px-2.5 text-right font-medium text-slate-700 border-r border-slate-100">
-                        {formatINR(rec.openDms)}
-                      </td>
-
-                      {/* 5. Physical Balance as per FR (Opening) */}
-                      <td className={`py-2.5 px-2.5 text-right font-medium border-r border-slate-100 ${
-                        hasOpeningVariance ? 'bg-amber-50 text-amber-800 font-bold' : 'text-slate-700'
-                      }`}>
-                        {formatINR(rec.openPhys)}
-                      </td>
-
-                      {/* 6. Actual Overage (Opening) */}
-                      <td className="py-2.5 px-2.5 text-right font-medium text-slate-700 border-r border-slate-100">
-                        {rec.openOverage > 0 ? (
-                          <span className="text-emerald-700 font-semibold">{formatINR(rec.openOverage)}</span>
-                        ) : (
-                          '0'
-                        )}
-                      </td>
-
-                      {/* 7. HPY Gen Fund */}
-                      <td className="py-2.5 px-2.5 text-right font-medium text-slate-700 border-r border-slate-100">
-                        {formatINR(rec.hpyFund)}
-                      </td>
-
-                      {/* 8. FR Loading Fund */}
-                      <td className="py-2.5 px-2.5 text-right font-medium text-slate-700 border-r border-slate-100">
-                        {formatINR(rec.frLoading)}
-                      </td>
-
-                      {/* 9. Apna App Dispenser Fund */}
-                      <td className="py-2.5 px-2.5 text-right font-medium text-slate-700 border-r border-slate-100">
-                        {formatINR(rec.apnaDispense)}
-                      </td>
-
-                      {/* 10. Actual Machine Balance (Closing) */}
-                      <td className="py-2.5 px-2.5 text-right font-semibold text-slate-900 border-r border-slate-100">
-                        {formatINR(rec.actualMachine)}
-                      </td>
-
-                      {/* 11. Machine Balance as per DMS (Closing) */}
-                      <td className="py-2.5 px-2.5 text-right font-medium text-slate-700 border-r border-slate-100">
-                        {formatINR(rec.closeDms)}
-                      </td>
-
-                      {/* 12. Physical Balance as per FR (Closing) */}
-                      <td className={`py-2.5 px-2.5 text-right font-medium border-r border-slate-100 ${
-                        hasClosingVariance ? 'bg-amber-50 text-amber-800 font-bold' : 'text-slate-700'
-                      }`}>
-                        {formatINR(rec.closePhys)}
-                      </td>
-
-                      {/* 13. Actual Overage (Closing) */}
-                      <td className="py-2.5 px-2.5 text-right font-medium text-slate-700 border-r border-slate-100">
-                        {rec.closeOverage > 0 ? (
-                          <span className="text-emerald-700 font-semibold">{formatINR(rec.closeOverage)}</span>
-                        ) : (
-                          '0'
-                        )}
-                      </td>
-
-                      {/* 14. Action buttons */}
-                      <td className="py-2 px-2 text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEdit(rec)}
-                            className="p-1 rounded-md text-[#0066FF] hover:bg-blue-100/70 transition-colors cursor-pointer"
-                            title="Edit Record"
-                            aria-label={`Edit ${rec.atmId}`}
-                          >
-                            <Pencil size={13} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDelete(rec.id, rec.atmId)}
-                            className="p-1 rounded-md text-red-500 hover:bg-red-100/70 transition-colors cursor-pointer"
-                            title="Delete Record"
-                            aria-label={`Delete ${rec.atmId}`}
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })
-              ) : (
-                /* ── Matching Image 02 empty state: 10 rows with S.N. 1-10 and blank cells ── */
-                Array.from({ length: 10 }, (_, idx) => (
-                  <tr key={`empty-row-${idx}`} className="h-9 hover:bg-slate-50/50">
-                    <td className="py-2 px-2 text-center font-semibold text-slate-500 border-r border-slate-100">
-                      {idx + 1}
-                    </td>
-                    <td className="py-2 px-2.5 text-center text-slate-300 border-r border-slate-100">—</td>
-                    <td className="py-2 px-2.5 text-center text-slate-300 border-r border-slate-100">—</td>
-                    <td className="py-2 px-2.5 text-center text-slate-300 border-r border-slate-100">—</td>
-                    <td className="py-2 px-2.5 text-center text-slate-300 border-r border-slate-100">—</td>
-                    <td className="py-2 px-2.5 text-center text-slate-300 border-r border-slate-100">—</td>
-                    <td className="py-2 px-2.5 text-center text-slate-300 border-r border-slate-100">—</td>
-                    <td className="py-2 px-2.5 text-center text-slate-300 border-r border-slate-100">—</td>
-                    <td className="py-2 px-2.5 text-center text-slate-300 border-r border-slate-100">—</td>
-                    <td className="py-2 px-2.5 text-center text-slate-300 border-r border-slate-100">—</td>
-                    <td className="py-2 px-2.5 text-center text-slate-300 border-r border-slate-100">—</td>
-                    <td className="py-2 px-2.5 text-center text-slate-300 border-r border-slate-100">—</td>
-                    <td className="py-2 px-2.5 text-center text-slate-300 border-r border-slate-100">—</td>
-                    <td className="py-2 px-2.5 text-center text-slate-300">—</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* ── Table Footer & Pagination matching Image 02 ── */}
-        <div className="px-5 py-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-t border-slate-100 text-[12px] text-slate-600 bg-white">
-          <div>
-            Showing <strong className="text-slate-900 font-semibold">{totalRecords > 0 ? startIndex + 1 : 1}</strong> to{' '}
-            <strong className="text-slate-900 font-semibold">{totalRecords > 0 ? endIndex : 0}</strong> of{' '}
-            <strong className="text-slate-900 font-semibold">{totalRecords}</strong> records
-          </div>
-
-          <div className="flex items-center gap-1 self-center sm:self-auto">
-            <button
-              type="button"
-              onClick={() => setCurrentPage(1)}
-              disabled={safePage === 1}
-              className="p-1.5 rounded-md border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
-              title="First page"
-            >
-              <ChevronsLeft size={14} />
-            </button>
-            <button
-              type="button"
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={safePage === 1}
-              className="p-1.5 rounded-md border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
-              title="Previous page"
-            >
-              <ChevronLeft size={14} />
-            </button>
-
-            {Array.from({ length: totalPages }, (_, i) => i + 1)
-              .filter((p) => p === 1 || p === totalPages || Math.abs(p - safePage) <= 1)
-              .map((p, idx, arr) => {
-                const prev = arr[idx - 1]
-                const isGap = prev && p - prev > 1
+            <tbody>
+              {days.map((d) => {
+                const delta = d.eod.closing - d.source.closing
+                const bad = (k: 'loaded' | 'dispensed' | 'closing') => d.eod[k] !== d.source[k] && !d.accepted
                 return (
-                  <span key={p} className="flex items-center">
-                    {isGap && <span className="px-1 text-slate-400">…</span>}
-                    <button
-                      type="button"
-                      onClick={() => setCurrentPage(p)}
-                      className={`min-w-8 h-8 px-2 rounded-lg text-[12px] font-semibold transition-all cursor-pointer ${
-                        safePage === p
-                          ? 'bg-[#0066FF] text-white shadow-xs'
-                          : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                      }`}
-                    >
-                      {p}
-                    </button>
-                  </span>
+                  <tr key={d.date} className={cn(TR, d.mismatch && 'bg-red-50')}>
+                    <td className={TD}>{dmy(d.date)}</td>
+                    <td className={TD}>{inr(d.source.opening)}</td>
+                    <td className={TD}>{inr(d.source.loaded)}</td>
+                    <td className={cn(TD, bad('loaded') && 'font-bold text-red-600')}>{inr(d.eod.loaded)}</td>
+                    <td className={TD}>{inr(d.source.dispensed)}</td>
+                    <td className={cn(TD, bad('dispensed') && 'font-bold text-red-600')}>{inr(d.eod.dispensed)}</td>
+                    <td className={TD}>{inr(d.source.closing)}</td>
+                    <td className={cn(TD, bad('closing') && 'font-bold text-red-600')}>{inr(d.eod.closing)}</td>
+                    <td className={cn(TD, delta !== 0 && 'text-red-600')}>{signedInr(delta)}</td>
+                    <td className={`${TD} max-w-[200px] text-[11px] whitespace-normal text-muted`}>
+                      {d.mismatch && <span className="inline-flex items-center gap-1 font-semibold text-red-600"><AlertTriangle size={12} /> Mismatch</span>}
+                      {d.corrected && <div>Corrected by {d.corrected.by}</div>}
+                      {d.accepted && <div className="text-emerald-700">Accepted: {d.accepted.reason}</div>}
+                    </td>
+                    <td className={TD}>
+                      {canFix && !row.meta.verifiedBy && (d.mismatch || d.corrected) && (
+                        <div className="flex gap-1">
+                          <Button size="sm" variant="secondary" onClick={() => setEdit({ date: d.date, mode: 'correct' })}>Correct</Button>
+                          {d.mismatch && <Button size="sm" variant="ghost" onClick={() => setEdit({ date: d.date, mode: 'accept' })}>Accept Δ</Button>}
+                        </div>
+                      )}
+                    </td>
+                  </tr>
                 )
               })}
-
-            <button
-              type="button"
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              disabled={safePage === totalPages || totalRecords === 0}
-              className="p-1.5 rounded-md border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
-              title="Next page"
-            >
-              <ChevronRight size={14} />
-            </button>
-            <button
-              type="button"
-              onClick={() => setCurrentPage(totalPages)}
-              disabled={safePage === totalPages || totalRecords === 0}
-              className="p-1.5 rounded-md border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
-              title="Last page"
-            >
-              <ChevronsRight size={14} />
-            </button>
-          </div>
+            </tbody>
+          </table>
+          {!days.length && <div className="p-6 text-center text-[12px] text-muted">No mismatch days — all days match the source.</div>}
         </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <Panel title="Review / correction workflow">
+            {canFix && !row.meta.verifiedBy ? (
+              <div className="space-y-2">
+                <TextAreaField label="Review note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Checked CBR consolidated report; franchise to confirm 14-Oct closing" />
+                <Button size="sm" onClick={() => void startReviewAsync(row, note).then((e) => { if (e) { if (!apiEnabled) toast(e, 'error') } else { toast('Review note added — resolution task created'); setNote('') } })}>
+                  Add review note
+                </Button>
+                {apiEnabled && rights.reconcile && (
+                  <Button size="sm" variant="secondary" className="ml-2" onClick={() => void reconcileMonthlyAsync(row, note).then((e) => { if (!e) { toast('Reconciliation note saved'); setNote('') } })}>
+                    Save as reconciliation (Finance)
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <p className="text-[12px] text-muted">{row.meta.verifiedBy ? 'Verified months are locked.' : 'View only for your role.'}</p>
+            )}
+          </Panel>
+          <Panel title="History">{log.length ? <Timeline items={log} /> : <p className="text-[12px] text-muted">No reviews or corrections yet.</p>}</Panel>
+        </div>
+        <p className="text-[11px] text-muted">Source is read-only here; corrections change the Monthly EOD declaration, never the {row.source}.</p>
       </div>
+      {edit && <FixModal row={row} date={edit.date} mode={edit.mode} onClose={() => setEdit(null)} />}
+    </Modal>
+  )
+}
 
-      {/* ── Add / Edit Monthly EOD Record Modal ── */}
-      {showModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-xs"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setShowModal(false)
-          }}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            className="flex max-h-[92vh] w-full max-w-3xl flex-col rounded-2xl bg-white shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150 overflow-hidden"
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 bg-slate-50/50">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#0066FF] text-white shadow-xs">
-                  {editingRecord ? <Pencil size={16} /> : <Plus size={18} />}
-                </div>
-                <div>
-                  <h3 className="text-[16px] font-bold text-slate-900 leading-tight">
-                    {editingRecord ? 'Edit Monthly EOD Record' : 'Add Monthly EOD Record'}
-                  </h3>
-                  <p className="text-[12px] text-slate-500 mt-0.5">
-                    {editingRecord
-                      ? `Updating record for ATM ${editingRecord.atmId} · ${editingRecord.month}`
-                      : `Enter details for ${formData.fundingType} monthly EOD record`}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowModal(false)}
-                className="grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
-                aria-label="Close"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            {/* Scrollable Form Body */}
-            <form onSubmit={handleSubmitForm} className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
-              {/* 1. Identity & Location */}
-              <div>
-                <h4 className="text-[12px] font-bold text-slate-900 uppercase tracking-wider mb-2.5 flex items-center gap-1.5 text-[#0066FF]">
-                  <Building2 size={14} /> Site &amp; Identity Details
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Funding Type <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={formData.fundingType}
-                      onChange={(e) => setFormData({ ...formData, fundingType: e.target.value as 'FFM' | 'SF' })}
-                      className="w-full h-8.5 px-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 font-medium outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]"
-                    >
-                      <option value="FFM">Full Funding (FFM)</option>
-                      <option value="SF">Self Funding (SF)</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Month &amp; Year <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={formData.month}
-                      onChange={(e) => setFormData({ ...formData, month: e.target.value })}
-                      className="w-full h-8.5 px-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 font-medium outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]"
-                    >
-                      {monthOptions.map((m) => (
-                        <option key={m} value={m}>{m}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      State <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.state}
-                      onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                      placeholder="e.g. Uttar Pradesh"
-                      className="w-full h-8.5 px-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      ATM ID <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.atmId}
-                      onChange={(e) => handleAtmChange(e.target.value)}
-                      placeholder="e.g. MCRM7303"
-                      className="w-full h-8.5 px-3 text-[12px] font-mono uppercase font-bold rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Site ID <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.siteId}
-                      onChange={(e) => setFormData({ ...formData, siteId: e.target.value })}
-                      placeholder="e.g. ST-UP-LKO-00305"
-                      className="w-full h-8.5 px-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Franchise Name (FR Name) <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.frName}
-                      onChange={(e) => setFormData({ ...formData, frName: e.target.value })}
-                      placeholder="e.g. Shree Sai Financial Services"
-                      className="w-full h-8.5 px-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* 2. Opening Balance Positions */}
-              <div className="pt-2 border-t border-slate-100">
-                <h4 className="text-[12px] font-bold text-slate-900 uppercase tracking-wider mb-2.5 flex items-center gap-1.5 text-[#0066FF]">
-                  <Calendar size={14} /> Opening Balance Position ({dates.openingDate} @ 11:00 PM)
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Machine Balance as per DMS (₹)
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.openDms}
-                      onChange={(e) => setFormData({ ...formData, openDms: e.target.value })}
-                      placeholder="e.g. 500000"
-                      className="w-full h-8.5 px-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Physical Balance as per FR (₹)
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.openPhys}
-                      onChange={(e) => setFormData({ ...formData, openPhys: e.target.value })}
-                      placeholder="e.g. 500000"
-                      className="w-full h-8.5 px-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Actual Overage on {dates.openingDate} (₹)
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.openOverage}
-                      onChange={(e) => setFormData({ ...formData, openOverage: e.target.value })}
-                      placeholder="e.g. 0"
-                      className="w-full h-8.5 px-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* 3. Funds Movement in Month */}
-              <div className="pt-2 border-t border-slate-100">
-                <h4 className="text-[12px] font-bold text-slate-900 uppercase tracking-wider mb-2.5 flex items-center gap-1.5 text-[#0066FF]">
-                  <SlidersHorizontal size={14} /> Fund Movements ({dates.monthYear})
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      HPY Gen Fund (₹)
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.hpyFund}
-                      onChange={(e) => setFormData({ ...formData, hpyFund: e.target.value })}
-                      placeholder="e.g. 150000"
-                      className="w-full h-8.5 px-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      FR Loading Fund (₹)
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.frLoading}
-                      onChange={(e) => setFormData({ ...formData, frLoading: e.target.value })}
-                      placeholder="e.g. 200000"
-                      className="w-full h-8.5 px-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Apna App Dispenser Fund (₹)
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.apnaDispense}
-                      onChange={(e) => setFormData({ ...formData, apnaDispense: e.target.value })}
-                      placeholder="e.g. 180000"
-                      className="w-full h-8.5 px-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* 4. Closing Balance Positions */}
-              <div className="pt-2 border-t border-slate-100">
-                <h4 className="text-[12px] font-bold text-slate-900 uppercase tracking-wider mb-2.5 flex items-center gap-1.5 text-[#0066FF]">
-                  <Calendar size={14} /> Closing Balance Position ({dates.closingDate} @ 11:00 PM)
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Actual Machine Balance (₹)
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.actualMachine}
-                      onChange={(e) => setFormData({ ...formData, actualMachine: e.target.value })}
-                      placeholder="e.g. 480000"
-                      className="w-full h-8.5 px-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      DMS Balance (Closing) (₹)
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.closeDms}
-                      onChange={(e) => setFormData({ ...formData, closeDms: e.target.value })}
-                      placeholder="e.g. 480000"
-                      className="w-full h-8.5 px-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Physical Balance (Closing) (₹)
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.closePhys}
-                      onChange={(e) => setFormData({ ...formData, closePhys: e.target.value })}
-                      placeholder="e.g. 480000"
-                      className="w-full h-8.5 px-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Actual Overage (Closing) (₹)
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.closeOverage}
-                      onChange={(e) => setFormData({ ...formData, closeOverage: e.target.value })}
-                      placeholder="e.g. 0"
-                      className="w-full h-8.5 px-3 text-[12px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Modal Footer */}
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="h-9 px-4 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-[12.5px] font-medium transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="h-9 px-5 rounded-xl bg-[#0066FF] hover:bg-[#0052CC] text-white text-[12.5px] font-semibold transition-colors shadow-xs cursor-pointer inline-flex items-center gap-1.5"
-                >
-                  {editingRecord ? 'Save Changes' : 'Add Record'}
-                </button>
-              </div>
-            </form>
+function FixModal({ row, date, mode, onClose }: { row: MonthlyRow; date: string; mode: 'correct' | 'accept'; onClose: () => void }) {
+  const day = row.days.find((d) => d.date === date)!
+  const [field, setField] = useState<'closing' | 'loaded' | 'dispensed'>(day.eod.closing !== day.source.closing ? 'closing' : day.eod.loaded !== day.source.loaded ? 'loaded' : 'dispensed')
+  const [value, setValue] = useState(String(day.source[field]))
+  const [reason, setReason] = useState('')
+  const [err, setErr] = useState('')
+  const save = async () => {
+    const e = mode === 'correct' ? await correctDayAsync(row, date, field, Number(value), reason) : await acceptDifferenceAsync(row, date, reason)
+    if (e) return setErr(e)
+    toast(mode === 'correct' ? `Corrected ${dmy(date)} ${field}` : `Difference on ${dmy(date)} accepted`)
+    onClose()
+  }
+  return (
+    <Modal title={mode === 'correct' ? `Correct EOD value · ${dmy(date)}` : `Accept difference · ${dmy(date)}`} onClose={onClose} footer={<><Button variant="secondary" onClick={onClose}>Cancel</Button><Button onClick={save}>Save</Button></>}>
+      <div className="space-y-3">
+        {mode === 'correct' && (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <SelectField label="Field" value={field} onChange={(e) => { const f = e.target.value as typeof field; setField(f); setValue(String(day.source[f])) }} options={['closing', 'loaded', 'dispensed']} />
+            <TextField label={`EOD ${field} (₹) — now ${inr(day.eod[field])}, source ${inr(day.source[field])}`} type="number" value={value} onChange={(e) => setValue(e.target.value)} />
           </div>
-        </div>
-      )}
-    </div>
+        )}
+        <TextAreaField label={mode === 'correct' ? 'Correction reason' : 'Why is the difference accepted?'} required value={reason} onChange={(e) => setReason(e.target.value)} />
+        {err && <Note tone="red">{err}</Note>}
+      </div>
+    </Modal>
   )
 }

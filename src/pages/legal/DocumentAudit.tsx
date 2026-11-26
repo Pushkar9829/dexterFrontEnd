@@ -1,9 +1,9 @@
 import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom'
 import { AlertCircle, CheckCircle2, Eye } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { DOC_META, eventsFor, fmtDateTime, getDoc, getSite, useLegal } from '@/data/legal'
+import { DOC_META, eventsFor, fmtDateTime, getDoc, getSite, useLegal, useLegalLoad, legalLoader } from '@/data/legal'
 import { AuditHistory } from './AuditHistory'
-import { StatusBadge } from './ui'
+import { LoadNote, StatusBadge } from './ui'
 
 /** Audit History · complete lifecycle of one legal document across all versions (read-only). */
 export default function DocumentAudit() {
@@ -12,6 +12,8 @@ export default function DocumentAudit() {
   const state = useLegal()
   const doc = getDoc(state, docId)
   const site = doc && getSite(state, doc.siteId)
+  const load = useLegalLoad()
+  if ((!doc || !site) && !load.loaded) return <LoadNote load={load} what="the document" onRetry={() => void legalLoader.reload()} />
   if (!doc || !site) return <Navigate to={siteId ? `/legal/${siteId}` : '/legal'} replace />
 
   const m = DOC_META[doc.kind]

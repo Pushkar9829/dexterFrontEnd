@@ -3,13 +3,16 @@ import { CalendarDays } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/cn'
 import { createStore } from '@/lib/store'
+import { apiEnabled } from '@/lib/api'
 import { PROJECT_LIST, STATE_LIST } from '@/data/complaints'
 import { Dropdown, MultiCheck } from './shared'
 import { RANGE_PRESETS, rangeLabel, type DashFilter } from './filters'
 
-export const DEFAULT_FILTER: DashFilter = { from: '2026-10-01', to: '2026-10-06', projects: [], states: [] }
+export const DEFAULT_FILTER: DashFilter = apiEnabled
+  ? { from: RANGE_PRESETS[4].from, to: RANGE_PRESETS[4].to, projects: [], states: [] } // live data: last 30 days
+  : { from: '2026-10-01', to: '2026-10-06', projects: [], states: [] }
 /** Shared by the Management and Asset dashboards so the filter survives tab switches. */
-export const filterStore = createStore<DashFilter>('dexter.complaints.filters.v1', () => DEFAULT_FILTER)
+export const filterStore = createStore<DashFilter>(apiEnabled ? 'dexter.api.complaints.filters.v1' : 'dexter.complaints.filters.v1', () => DEFAULT_FILTER)
 
 function RangePanel({ value, onApply, close }: { value: DashFilter; onApply: (f: string, t: string) => void; close: () => void }) {
   const [from, setFrom] = useState(value.from)

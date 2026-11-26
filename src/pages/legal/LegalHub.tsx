@@ -1,5 +1,6 @@
 import { ClipboardCheck, FileCheck2, FileText, FolderOpen, Scale, ShieldCheck } from 'lucide-react'
 import { HubTile, type HubTileTheme } from '@/components/ui/HubTile'
+import { ViewOnlyNote } from '@/lib/guard'
 
 interface LegalTileConfig {
   title: string
@@ -84,6 +85,8 @@ export default function LegalHub() {
           Manage legal documentation, checks, and records in one place.
         </p>
       </div>
+
+      <ViewOnlyNote module="Legal" />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {LEGAL_TILES.map((tile) => (

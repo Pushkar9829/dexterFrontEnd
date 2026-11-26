@@ -1,3 +1,5 @@
+import { apiEnabled } from '@/lib/api'
+import { promptReason } from '@/lib/reason'
 import { useState, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
@@ -23,17 +25,22 @@ import {
 import { useReportMode } from '@/hooks/useReportMode'
 import {
   useChequeRecords,
-  deleteChequeRecord,
+  removeChequeRecord,
+  chequesLoader,
   type ChequeAcknowledgementStatus,
   type ChequeCollectionType,
 } from '@/data/legalCheques'
 import { downloadCsv } from '@/lib/export'
+import { Can, ViewOnlyNote, guardAct, useCanIn } from '@/lib/guard'
+import { SiteRef } from '@/lib/siteRef'
 import { toast } from '@/components/ui/Toast'
+import { LoadNote } from './ui'
 
 export default function FmChecksList() {
+  const allow = useCanIn('Legal')
   const navigate = useNavigate()
   const { isReport } = useReportMode()
-  const { records } = useChequeRecords()
+  const { records, load } = useChequeRecords()
 
   // Filter States
   const [filterSiteId, setFilterSiteId] = useState('')
@@ -138,6 +145,7 @@ export default function FmChecksList() {
   }
 
   const handleExport = () => {
+    if (!guardAct('Legal', 'Export')) return
     downloadCsv(
       'cheques-data-records',
       [
@@ -181,10 +189,12 @@ export default function FmChecksList() {
   }
 
   const handleDelete = (id: string, siteId: string) => {
-    if (confirm(`Are you sure you want to delete cheque record for ${siteId}?`)) {
-      deleteChequeRecord(id)
-      toast('Cheque record deleted')
-    }
+    if (!guardAct('Legal', 'Delete')) return
+    const reason = apiEnabled ? promptReason(`Delete the cheque record for ${siteId}?`) : confirm(`Are you sure you want to delete cheque record for ${siteId}?`) ? 'local' : null
+    if (!reason) return
+    removeChequeRecord(id, reason)
+      .then(() => toast('Cheque record deleted'))
+      .catch(() => undefined)
   }
 
   // Filtered List
@@ -303,6 +313,7 @@ export default function FmChecksList() {
         )}
 
         {!isReport && (
+          <Can module="Legal" action="Create">
           <Link to="/legal/fm-checks/new">
             <button
               type="button"
@@ -311,8 +322,12 @@ export default function FmChecksList() {
               <Plus size={16} /> New Cheque
             </button>
           </Link>
+          </Can>
         )}
       </div>
+
+      <ViewOnlyNote module="Legal" />
+      <LoadNote load={load} what="cheque records" onRetry={() => void chequesLoader.reload()} />
 
       {/* CARD 1: Filter Card matching Page 01 */}
       <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-5 sm:p-6">
@@ -595,6 +610,8 @@ export default function FmChecksList() {
             <button
               type="button"
               onClick={handleExport}
+              disabled={!allow('Export')}
+              title={allow('Export') ? undefined : 'Export not permitted for your role'}
               className="h-8.5 px-3.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 font-medium text-[12.5px] flex items-center gap-1 shadow-2xs transition-colors cursor-pointer"
             >
               <Download size={14} /> Download <ChevronDown size={13} className="text-slate-400" />
@@ -720,7 +737,7 @@ export default function FmChecksList() {
                       </Link>
                     </td>
                     <td className="py-2.5 px-3 border-r border-slate-100 text-slate-700 font-medium whitespace-nowrap">
-                      {r.atmId}
+                      <SiteRef id={r.siteId} />
                     </td>
                     <td className="py-2.5 px-3 border-r border-slate-100 font-medium text-slate-800 text-left whitespace-nowrap">
                       {r.franchiseeName}
@@ -773,6 +790,7 @@ export default function FmChecksList() {
                           </Link>
                         ) : (
                           <>
+                            <Can module="Legal" action="Edit">
                             <button
                               type="button"
                               onClick={() => navigate(`/legal/fm-checks/${r.id}/edit`)}
@@ -781,6 +799,8 @@ export default function FmChecksList() {
                             >
                               <Edit3 size={12} />
                             </button>
+                            </Can>
+                            <Can module="Legal" action="Delete">
                             <button
                               type="button"
                               onClick={() => handleDelete(r.id, r.siteId)}
@@ -789,6 +809,7 @@ export default function FmChecksList() {
                             >
                               <Trash2 size={12} />
                             </button>
+                            </Can>
                           </>
                         )}
                       </div>
@@ -813,6 +834,7 @@ export default function FmChecksList() {
                       </p>
                       {!isReport && (
                         <div className="mt-4">
+                          <Can module="Legal" action="Create">
                           <Link to="/legal/fm-checks/new">
                             <button
                               type="button"
@@ -821,6 +843,7 @@ export default function FmChecksList() {
                               <Plus size={14} /> New Cheque
                             </button>
                           </Link>
+                          </Can>
                         </div>
                       )}
                     </div>

@@ -1,30 +1,30 @@
+import { lazy } from 'react'
 import { Route } from 'react-router-dom'
-import OperationsHub from './OperationsHub'
-import CashLoadingHub from './CashLoadingHub'
-import CashLoadingOverview from './CashLoadingOverview'
-import CashLoadingRegister from './CashLoadingRegister'
-import CashLoadingForm from './CashLoadingForm'
-import WlaStatementList from './WlaStatementList'
-import WlaStatementUpload from './WlaStatementUpload'
-import TdsLettersList from './TdsLettersList'
-import TdsLetterUpload from './TdsLetterUpload'
-import TxnDataList from './TxnDataList'
-import TxnDataDaily from './TxnDataDaily'
-import EodHub from './EodHub'
-import EodOverview from './EodOverview'
-import MonthlyEodList from './MonthlyEodList'
-import CrmEodDocketList from './CrmEodDocketList'
-import CrmEodDocketForm from './CrmEodDocketForm'
-import ReconciliationHub from './ReconciliationHub'
-import FailedTxnsDisputeList from './FailedTxnsDisputeList'
-import FailedTxnsDisputeCreate from './FailedTxnsDisputeCreate'
-import ChargeBackDisputeList from './ChargeBackDisputeList'
-import ChargeBackDisputeForm from './ChargeBackDisputeForm'
-import DaakHub from './daak/DaakHub'
-import RpRollsList from './rp-rolls/RpRollsList'
-import RpRollsEntryForm from './rp-rolls/RpRollsEntryForm'
-import HampReport from './HampReport'
-
+const OperationsHub = lazy(() => import('./OperationsHub'))
+const CashLoadingHub = lazy(() => import('./CashLoadingHub'))
+const CashLoadingOverview = lazy(() => import('./CashLoadingOverview'))
+const CashLoadingRegister = lazy(() => import('./CashLoadingRegister'))
+const CashLoadingForm = lazy(() => import('./CashLoadingForm'))
+const WlaStatementList = lazy(() => import('./WlaStatementList'))
+const WlaStatementUpload = lazy(() => import('./WlaStatementUpload'))
+const TdsLettersList = lazy(() => import('./TdsLettersList'))
+const TdsLetterUpload = lazy(() => import('./TdsLetterUpload'))
+const TxnDataList = lazy(() => import('./TxnDataList'))
+const TxnDataDaily = lazy(() => import('./TxnDataDaily'))
+const EodHub = lazy(() => import('./EodHub'))
+const EodOverview = lazy(() => import('./EodOverview'))
+const MonthlyEodList = lazy(() => import('./MonthlyEodList'))
+const CrmEodDocketList = lazy(() => import('./CrmEodDocketList'))
+const CrmEodDocketForm = lazy(() => import('./CrmEodDocketForm'))
+const ReconciliationHub = lazy(() => import('./ReconciliationHub'))
+const FailedTxnsDisputeList = lazy(() => import('./FailedTxnsDisputeList'))
+const FailedTxnsDisputeCreate = lazy(() => import('./FailedTxnsDisputeCreate'))
+const ChargeBackDisputeList = lazy(() => import('./ChargeBackDisputeList'))
+const ChargeBackDisputeForm = lazy(() => import('./ChargeBackDisputeForm'))
+const DaakHub = lazy(() => import('./daak/DaakHub'))
+const RpRollsList = lazy(() => import('./rp-rolls/RpRollsList'))
+const RpRollsEntryForm = lazy(() => import('./rp-rolls/RpRollsEntryForm'))
+const HampReport = lazy(() => import('./HampReport'))
 export const operationsRoutes = [
   <Route key="ops-hamp-report" path="/operations/hamp-report" element={<HampReport />} />,
   <Route key="ops-hamp" path="/operations/hamp" element={<HampReport />} />,

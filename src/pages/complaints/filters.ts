@@ -1,4 +1,5 @@
 import { atmById, istDay, type Complaint } from '@/data/complaints'
+import { apiEnabled } from '@/lib/api'
 
 export type RangeFilter = { from: string; to: string }
 export type DashFilter = RangeFilter & { projects: string[]; states: string[] }
@@ -17,13 +18,23 @@ export function rangeLabel({ from, to }: RangeFilter) {
 }
 export const shortRange = (r: RangeFilter) => rangeLabel(r).replace(/ \d{4}$/, '')
 
-export const RANGE_PRESETS: { label: string; from: string; to: string }[] = [
-  { label: 'Reporting period', from: '2026-10-01', to: '2026-10-06' },
-  { label: 'Last 3 days', from: '2026-10-04', to: '2026-10-06' },
-  { label: 'Latest day', from: '2026-10-06', to: '2026-10-06' },
-  { label: 'Prior period', from: '2026-09-25', to: '2026-09-30' },
-  { label: 'Last 30 days', from: '2026-09-07', to: '2026-10-06' },
-]
+const dayOff = (n: number) => istDay(Date.now() - n * 86_400_000)
+/** API mode works on live data, so presets are relative to today; mock mode keeps the frozen design period. */
+export const RANGE_PRESETS: { label: string; from: string; to: string }[] = apiEnabled
+  ? [
+      { label: 'Last 7 days', from: dayOff(6), to: dayOff(0) },
+      { label: 'Last 3 days', from: dayOff(2), to: dayOff(0) },
+      { label: 'Today', from: dayOff(0), to: dayOff(0) },
+      { label: 'Prior 7 days', from: dayOff(13), to: dayOff(7) },
+      { label: 'Last 30 days', from: dayOff(29), to: dayOff(0) },
+    ]
+  : [
+      { label: 'Reporting period', from: '2026-10-01', to: '2026-10-06' },
+      { label: 'Last 3 days', from: '2026-10-04', to: '2026-10-06' },
+      { label: 'Latest day', from: '2026-10-06', to: '2026-10-06' },
+      { label: 'Prior period', from: '2026-09-25', to: '2026-09-30' },
+      { label: 'Last 30 days', from: '2026-09-07', to: '2026-10-06' },
+    ]
 
 export const projectKey = (c: Complaint) => {
   const a = atmById(c.atmId)

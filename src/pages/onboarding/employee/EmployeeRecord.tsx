@@ -18,30 +18,38 @@ import {
   ChevronRight,
   Home,
 } from 'lucide-react'
-import { getEmployee, deleteEmployee, setEmployeeStatus } from '@/data/employeeStore'
+import { getEmployee, deleteEmployee, setEmployeeStatus, useEmployees, useEmployeesLoad } from '@/data/employeeStore'
 import { toast } from '@/components/ui/Toast'
+import { guardAct, useCanIn } from '@/lib/guard'
 
 export default function EmployeeRecord() {
   const navigate = useNavigate()
   const { id = '' } = useParams<{ id: string }>()
+  useEmployees() // API mode: hydrate (and re-render) when the record arrives
+  const load = useEmployeesLoad()
   const emp = getEmployee(id)
 
   const [showMaskedAccount, setShowMaskedAccount] = useState(true)
+  const allow = useCanIn('Users')
 
   if (!emp) {
+    if (!load.loaded) return <div className="rounded-xl border border-line bg-white p-10 text-center text-[13px] text-muted">{load.error ?? 'Loading employee record…'}</div>
     return <Navigate to="/onboarding/users" replace />
   }
 
   const handleDelete = () => {
+    if (!guardAct('Users', 'Delete', 'delete employees')) return
     if (confirm(`Are you sure you want to delete employee ${emp.fullName} (${emp.employeeCode})?`)) {
-      deleteEmployee(emp.id)
+      if (!deleteEmployee(emp.id)) return
       toast(`Employee ${emp.fullName} removed successfully`)
       navigate('/onboarding/users')
     }
   }
 
   const handleToggleStatus = () => {
+    if (!guardAct('Users', 'Edit', 'change employee status')) return
     const nextStatus = emp.status === 'Active' ? 'Inactive' : 'Active'
+    if (!guardAct('Onboarding', 'Approve', 'activate / deactivate employees')) return
     setEmployeeStatus([emp.id], nextStatus)
     toast(`Employee status updated to ${nextStatus}`)
   }
@@ -108,32 +116,38 @@ export default function EmployeeRecord() {
             <span>Print</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => navigate(`/onboarding/users/${emp.id}/edit`)}
-            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[12px] font-semibold transition-all shadow-sm"
-          >
-            <Edit2 size={14} />
-            <span>Edit Employee</span>
-          </button>
+          {allow('Edit') && (
+            <button
+              type="button"
+              onClick={() => navigate(`/onboarding/users/${emp.id}/edit`)}
+              className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[12px] font-semibold transition-all shadow-sm"
+            >
+              <Edit2 size={14} />
+              <span>Edit Employee</span>
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={handleToggleStatus}
-            className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-[12px] font-semibold transition-all shadow-xs"
-          >
-            <CheckCircle2 size={15} className="text-[#0066FF]" />
-            <span>{emp.status === 'Active' ? 'Deactivate' : 'Activate'}</span>
-          </button>
+          {allow('Edit') && (
+            <button
+              type="button"
+              onClick={handleToggleStatus}
+              className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-[12px] font-semibold transition-all shadow-xs"
+            >
+              <CheckCircle2 size={15} className="text-[#0066FF]" />
+              <span>{emp.status === 'Active' ? 'Deactivate' : 'Activate'}</span>
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={handleDelete}
-            className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-[12px] font-semibold transition-all shadow-xs"
-          >
-            <Trash2 size={14} />
-            <span>Delete</span>
-          </button>
+          {allow('Delete') && (
+            <button
+              type="button"
+              onClick={handleDelete}
+              className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-[12px] font-semibold transition-all shadow-xs"
+            >
+              <Trash2 size={14} />
+              <span>Delete</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -619,14 +633,16 @@ export default function EmployeeRecord() {
             <span>Print Record</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => navigate(`/onboarding/users/${emp.id}/edit`)}
-            className="inline-flex items-center gap-1.5 h-9 px-5 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[13px] font-semibold transition-all shadow-sm hover:shadow"
-          >
-            <Edit2 size={15} />
-            <span>Edit Employee</span>
-          </button>
+          {allow('Edit') && (
+            <button
+              type="button"
+              onClick={() => navigate(`/onboarding/users/${emp.id}/edit`)}
+              className="inline-flex items-center gap-1.5 h-9 px-5 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[13px] font-semibold transition-all shadow-sm hover:shadow"
+            >
+              <Edit2 size={15} />
+              <span>Edit Employee</span>
+            </button>
+          )}
         </div>
       </div>
     </div>

@@ -23,9 +23,9 @@ export default function UserProfile() {
   const [profile, setProfile] = useState({
     name: authUser?.name || 'Paras Dubey',
     role: authUser?.role || 'Operations Lead',
-    empId: 'EMP-0102',
-    email: 'Paras.Dubey@dexterindia.in',
-    phone: '+91 98201 44582',
+    empId: authUser?.employeeId || authUser?.userId || 'EMP-0102',
+    email: authUser?.email || 'Paras.Dubey@dexterindia.in',
+    phone: authUser?.mobile ? `+91 ${authUser.mobile}` : '+91 98201 44582',
     department: 'ATM Operations & Support',
     location: 'Mumbai Central, Maharashtra',
     joinedDate: '14 Jan 2024',
@@ -75,7 +75,7 @@ export default function UserProfile() {
         {/* Left Column: Avatar & Summary */}
         <Card className="p-6 text-center">
           <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-tr from-[#0066FF] to-indigo-600 text-3xl font-bold text-white shadow-md">
-            AS
+            {authUser?.initials || 'AS'}
           </div>
           <h2 className="mt-4 text-xl font-bold text-[#1E293B]">{profile.name}</h2>
           <p className="text-[13px] font-medium text-[#0066FF]">{profile.role}</p>

@@ -1,7 +1,10 @@
 import { createStore } from '@/lib/store'
+import { del, get, patch, post } from '@/lib/api'
+import { apiEnabled, background, createLoader, fetchAll } from '@/data/bizApi'
 
-/* Email workspace mock data. Mail clock: 27 Aug 2025, 11:45 IST (matches the Figma inbox). */
-export const EMAIL_NOW = Date.parse('2025-08-27T11:45:00+05:30')
+/* Email workspace mock data. Mail clock: 27 Aug 2025, 11:45 IST (matches the Figma inbox).
+   API mode (VITE_API_URL): the real clock, and the mailbox is the signed-in user's own (/mail). */
+export const EMAIL_NOW = apiEnabled ? Date.now() : Date.parse('2025-08-27T11:45:00+05:30')
 const at = (s: string) => new Date(s + '+05:30').toISOString()
 
 export type MailPriority = 'High' | 'Medium' | 'Normal' | 'Low'
@@ -268,14 +271,170 @@ function seed(): Mail[] {
 }
 
 export type EmailState = { mails: Mail[] }
-export const emailStore = createStore<EmailState>('dexter.email.v1', () => ({ mails: seed() }))
+// API mode keeps its own cache key and starts empty (hydrated from GET /mail per folder).
+const _emailStore = createStore<EmailState>(apiEnabled ? 'dexter.email.api.v1' : 'dexter.email.v1', () => ({ mails: apiEnabled ? [] : seed() }))
 
-export const updateMails = (ids: string[], fn: (m: Mail) => Mail) =>
-  emailStore.set((s) => ({ mails: s.mails.map((x) => (ids.includes(x.id) ? fn(x) : x)) }))
-export const getMail = (id?: string | null) => emailStore.get().mails.find((x) => x.id === id)
-export const upsertMail = (mail: Mail) =>
-  emailStore.set((s) => ({ mails: s.mails.some((x) => x.id === mail.id) ? s.mails.map((x) => (x.id === mail.id ? mail : x)) : [mail, ...s.mails] }))
-export const removeMail = (id: string) => emailStore.set((s) => ({ mails: s.mails.filter((x) => x.id !== id) }))
+// ── backend adapter (API mode): /mail ───────────────────────────────────────
+type ApiMail = {
+  mailId: string
+  folder: MailFolder
+  threadId?: string
+  fromName: string
+  fromEmail: string
+  to: string[]
+  cc: string[]
+  bcc: string[]
+  subject: string
+  body: string
+  at: string
+  read: boolean
+  starred: boolean
+  archived: boolean
+  priority: MailPriority
+  department: string
+  status: MailStatus
+  attachments: { fileId?: string; name: string; size: number }[]
+  sendState?: 'Sent' | 'Scheduled'
+  scheduledAt?: string
+  replyTo?: string
+  link?: { module: string; refId: string }
+}
+const fromApiMail = (x: ApiMail, keepId?: string): Mail => ({
+  id: keepId ?? x.mailId,
+  folder: x.folder,
+  threadId: x.threadId,
+  fromName: x.fromName,
+  fromEmail: x.fromEmail,
+  to: x.to ?? [],
+  cc: x.cc ?? [],
+  bcc: x.bcc ?? [],
+  subject: x.subject ?? '',
+  body: x.body ?? '',
+  at: x.at,
+  read: x.read,
+  starred: x.starred,
+  archived: x.archived,
+  tracker: x.link?.refId,
+  priority: x.priority,
+  department: x.department ?? '',
+  account: x.folder === 'inbox' ? (x.to[0] ?? x.fromEmail) : x.fromEmail,
+  status: x.status,
+  assigned: false,
+  mention: false,
+  followUp: false,
+  attachments: (x.attachments ?? []).map((a) => ({ name: a.name, size: a.size })),
+  sendState: x.sendState,
+  scheduledAt: x.scheduledAt,
+  replyTo: x.replyTo,
+})
+/** local (composer) id → server mailId; ids already on the server map to themselves. */
+const idMap = new Map<string, string>()
+const sid = (id: string) => idMap.get(id) ?? id
+const isServerId = (id: string) => idMap.has(id) || /^ML/i.test(id)
+/** per-mail save chain so autosaves never race (first POST creates the draft, later saves PATCH it). */
+const chains = new Map<string, Promise<unknown>>()
+const chain = (id: string, fn: () => Promise<unknown>) => {
+  const next = (chains.get(id) ?? Promise.resolve()).catch(() => undefined).then(fn)
+  chains.set(id, next)
+  return next
+}
+/** drafts consumed by a send (Compose removes them right after) — no DELETE for those. */
+const sentDrafts = new Set<string>()
+
+export const mailLoader = createLoader('mailbox', async () => {
+  const [inbox, sent, drafts, archived] = await Promise.all(
+    (['inbox', 'sent', 'drafts', 'archived'] as const).map((folder) => fetchAll<ApiMail>('/mail', { folder }, 5)),
+  )
+  const seen = new Set<string>()
+  const mails = [...inbox, ...sent, ...drafts, ...archived].filter((x) => !seen.has(x.mailId) && seen.add(x.mailId)).map((x) => fromApiMail(x))
+  idMap.clear()
+  _emailStore.set({ mails })
+})
+const resyncMail = () => void mailLoader.reload()
+
+/** Store; `use()` hydrates the mailbox from the backend in API mode. */
+export const emailStore = {
+  ..._emailStore,
+  use(): EmailState {
+    mailLoader.use()
+    return _emailStore.use()
+  },
+}
+export const useMailLoad = () => mailLoader.use()
+
+const composeBody = (m: Mail) => ({
+  to: m.to,
+  cc: m.cc,
+  bcc: m.bcc,
+  subject: m.subject,
+  body: m.body,
+  priority: m.priority,
+  ...(m.department ? { department: m.department } : {}),
+  attachments: m.attachments.map((a) => ({ name: a.name, size: Math.round(a.size) })),
+  ...(m.replyTo && isServerId(m.replyTo) ? { replyTo: sid(m.replyTo) } : {}),
+  ...(m.tracker ? { link: { module: 'Case', refId: m.tracker } } : {}),
+})
+const replaceFromServer = (localId: string, x: ApiMail) => {
+  idMap.set(localId, x.mailId)
+  _emailStore.set((s) => ({ mails: s.mails.map((m) => (m.id === localId ? { ...fromApiMail(x, localId), html: m.html, tracker: m.tracker ?? x.link?.refId, followUp: m.followUp, meeting: m.meeting, followUpTask: m.followUpTask } : m)) }))
+}
+
+export const updateMails = (ids: string[], fn: (m: Mail) => Mail) => {
+  const before = new Map(_emailStore.get().mails.filter((x) => ids.includes(x.id)).map((x) => [x.id, x]))
+  _emailStore.set((s) => ({ mails: s.mails.map((x) => (ids.includes(x.id) ? fn(x) : x)) }))
+  if (!apiEnabled) return
+  // read / starred / archived / status / priority live on the server; follow-up / tracker tags stay local
+  for (const id of ids) {
+    const a = before.get(id)
+    const b = _emailStore.get().mails.find((x) => x.id === id)
+    if (!a || !b || !isServerId(id)) continue
+    const body: Record<string, unknown> = {}
+    for (const k of ['read', 'starred', 'archived', 'status', 'priority'] as const) if (a[k] !== b[k]) body[k] = b[k]
+    if (Object.keys(body).length) background(() => chain(id, () => patch(`/mail/${sid(id)}`, body)), 'Could not update mail', resyncMail)
+  }
+}
+export const getMail = (id?: string | null) => _emailStore.get().mails.find((x) => x.id === id)
+export const upsertMail = (mail: Mail, opts: { draftId?: string | null } = {}) => {
+  _emailStore.set((s) => ({ mails: s.mails.some((x) => x.id === mail.id) ? s.mails.map((x) => (x.id === mail.id ? mail : x)) : [mail, ...s.mails] }))
+  if (!apiEnabled) return
+  if (mail.folder === 'drafts') {
+    background(
+      () =>
+        chain(mail.id, async () => {
+          const x = isServerId(mail.id) ? await patch<ApiMail>(`/mail/drafts/${sid(mail.id)}`, composeBody(mail)) : await post<ApiMail>('/mail/drafts', composeBody(mail))
+          replaceFromServer(mail.id, x)
+        }),
+      'Could not save draft',
+    )
+  } else if (mail.folder === 'sent') {
+    // a send from the composer: the open draft (if any) is sent as-is with the latest content
+    const draft = opts.draftId ? _emailStore.get().mails.find((x) => x.id === opts.draftId) : undefined
+    if (draft) sentDrafts.add(draft.id)
+    background(
+      () =>
+        (draft ? chain(draft.id, () => Promise.resolve()) : Promise.resolve()).then(async () => {
+          const draftId = draft && isServerId(draft.id) ? sid(draft.id) : undefined
+          const x = await post<ApiMail>('/mail/send', { ...composeBody(mail), ...(draftId ? { draftId } : {}), ...(mail.scheduledAt ? { scheduledAt: mail.scheduledAt } : {}) })
+          replaceFromServer(mail.id, x)
+        }),
+      'Could not send mail',
+      () => _emailStore.set((s) => ({ mails: s.mails.filter((m) => m.id !== mail.id) })),
+    )
+  }
+}
+export const removeMail = (id: string) => {
+  const m = _emailStore.get().mails.find((x) => x.id === id)
+  _emailStore.set((s) => ({ mails: s.mails.filter((x) => x.id !== id) }))
+  if (!apiEnabled || !m || sentDrafts.has(id)) return
+  background(
+    () => chain(id, async () => (isServerId(id) ? (m.folder === 'drafts' ? del(`/mail/drafts/${sid(id)}`) : del(`/mail/${sid(id)}`)) : undefined)),
+    'Could not delete mail',
+    resyncMail,
+  )
+}
+/** API mode: the case timeline for a record (linked mails + workflow system emails). */
+export const fetchCaseTimeline = (refId: string) =>
+  get<{ refId: string; items: { at: string; kind: string; title: string; detail: string; mailId?: string }[] }>(`/mail/cases/${encodeURIComponent(refId)}`)
 export const newMailId = (p: string) => `${p}${Date.now().toString(36)}`
 
 export const blankMail = (folder: MailFolder): Mail =>

@@ -1,4 +1,11 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
+import { toast } from '@/components/ui/Toast'
+import { siteStore, useSites } from '@/data/network'
+import { apiEnabled, uploadFile } from '@/lib/api'
+import { mobileFrStore } from '@/pages/operations/eod2/fmt'
+import { ACK_TEXT, ACK_VERSION } from '@/data/workflow'
+import { KIND_META, cbrMaster, checkSiteFor, newDoc, type CashDoc, type CashKind } from '@/data/cbr'
+import { clMaster } from '@/data/cashLoadingRegisterStore'
 import {
   Banknote,
   Calendar,
@@ -33,9 +40,28 @@ export function MobileCbrScreen({ onBackToMore }: MobileCbrScreenProps) {
   // Mode: Axis Indent vs WLA Account Form
   const [mode, setMode] = useState<'axis' | 'wla'>('axis')
 
-  // Header Form Fields
-  const [atmId, setAtmId] = useState('MPZ14409')
-  const [txnDate, setTxnDate] = useState('2025-09-25')
+  // Header Form Fields — ATM is looked up in the Site Master; its funding model routes the entry to
+  // CBR (Full Funding) or the Cash Loading Register (Self Funding) — Operations §2 / §3.
+  const sites = useSites()
+  const appSites = useMemo(() => {
+    const frId = mobileFrStore.get()
+    const ffm = sites.sites.filter((s) => s.frId === frId && s.siteType === 'FFM')
+    const sf = sites.sites.filter((s) => s.frId === frId && s.siteType === 'SF')
+    return [...ffm, ...sf]
+  }, [sites])
+  const [atmId, setAtmId] = useState(() => siteStore.get().sites.find((s) => s.frId === mobileFrStore.get() && (s.siteType === 'FFM' || s.siteType === 'SF'))?.atmId ?? '')
+  const [txnDate, setTxnDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const route = useMemo(() => {
+    const cbr = checkSiteFor('CBR', atmId)
+    if (cbr.ok) return { ok: true as const, kind: 'CBR' as const, snap: cbr.snap }
+    const cl = checkSiteFor('Cash Loading', atmId)
+    if (cl.ok) return { ok: true as const, kind: 'Cash Loading' as const, snap: cl.snap }
+    return { ok: false as const, error: cl.snap ? `${cl.snap.fundingModel} site (${cl.snap.siteType}) — CBR / Cash Loading entry is not applicable.` : cbr.error }
+  }, [atmId])
+  const [showAck, setShowAck] = useState(false)
+  const [ackLang, setAckLang] = useState<'Hindi' | 'English'>('English')
+  const [ackAgree, setAckAgree] = useState(false)
+  const [submitted, setSubmitted] = useState<{ id: string; kind: CashKind } | null>(null)
 
   // Axis Indent Status Fields
   const [hpyGivenIndent, setHpyGivenIndent] = useState('500000')
@@ -177,6 +203,8 @@ export function MobileCbrScreen({ onBackToMore }: MobileCbrScreenProps) {
     size: string
     previewUrl?: string
     uploadedAt: string
+    /** the picked file (API mode uploads it to POST /files before the record is saved) */
+    file?: File
   }
 
   const [counter01Slip, setCounter01Slip] = useState<SlipFile | null>(null)
@@ -201,7 +229,8 @@ export function MobileCbrScreen({ onBackToMore }: MobileCbrScreenProps) {
         name: file.name,
         size: `${sizeInMb} MB`,
         previewUrl,
-        uploadedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        uploadedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        file,
       })
     } else {
       setSlip({
@@ -239,20 +268,114 @@ export function MobileCbrScreen({ onBackToMore }: MobileCbrScreenProps) {
   const handleAxisCountChange = (denom: DenomKey, value: string) => {
     const numericVal = parseInt(value, 10)
     const newCount = isNaN(numericVal) || numericVal < 0 ? 0 : numericVal
-    setAxisDenomCounts((prev) => {
-      const next = { ...prev, [denom]: newCount }
-      setWithdrawalFund(String(calcTotal(next)))
-      return next
-    })
+    const next = { ...axisDenomCounts, [denom]: newCount }
+    setAxisDenomCounts(next)
+    setWithdrawalFund(String(calcTotal(next)))
   }
+
+  // Map the app form onto the funding-model master (CBR for FFM, Cash Loading for SF).
+  const slipDoc = (s: SlipFile | null, label: string): CashDoc[] => (s ? [newDoc(`${label} – ${s.name}`, Math.round((parseFloat(s.size) || 1) * 1024 * 1024))] : [])
+  const masterInput = (kind: CashKind) => ({
+    atmId,
+    formName: KIND_META[kind].formNames[0],
+    date: txnDate,
+    lastDate: '',
+    amount: totalLoading,
+    dailyIndent: mode === 'axis' ? Number(revisedIndent || hpyGivenIndent || 0) : Number(hpyGivenFund || 0),
+    cashWithdrawal: mode === 'axis' ? Number(withdrawalFund || 0) : totalWlaWithdrawal,
+    openingBalance: kind === 'Cash Loading' && mode === 'wla' ? Number(lastDayBalance || 0) : 0,
+    remarks: `${mode === 'axis' ? 'Axis Indent' : 'WLA Account'} form (app). ${remark}`.trim(),
+    documents: [...slipDoc(counter01Slip, 'Counter 01'), ...slipDoc(counter02Slip, 'Counter 02')],
+  })
+  const masterFor = (kind: CashKind) => (kind === 'CBR' ? cbrMaster : clMaster)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    setIsSubmitting(true)
-    setTimeout(() => {
-      setIsSubmitting(false)
+    if (!route.ok) {
+      toast(route.error, 'error')
+      return
+    }
+    if (totalLoading <= 0) {
+      toast('Enter the loading denominations before submitting.', 'error')
+      return
+    }
+    if (!counter01Slip && !counter02Slip) {
+      toast('Attach at least one counter slip.', 'error')
+      return
+    }
+    setAckAgree(false)
+    setShowAck(true)
+  }
+
+  /** API mode: upload the picked counter slips → documents carrying the server file ids. */
+  const uploadSlips = async (): Promise<CashDoc[]> => {
+    const out: CashDoc[] = []
+    for (const [s, label] of [[counter01Slip, 'Counter 01'], [counter02Slip, 'Counter 02']] as const) {
+      if (!s) continue
+      if (!s.file) throw new Error(`${label} slip: pick the photo / PDF again (the file is needed for upload).`)
+      const r = await uploadFile(s.file, { purpose: 'cbr-slip', entity: route.ok && route.kind === 'CBR' ? 'CbrRecord' : 'CashLoadingRecord' })
+      out.push({ id: r.fileId, name: `${label} – ${s.name}`, size: s.file.size, at: new Date().toISOString(), by: 'Franchise App' })
+    }
+    return out
+  }
+  const confirmAckApi = async (kind: CashKind) => {
+    const master = masterFor(kind)
+    try {
+      const documents = await uploadSlips()
+      const saved = await master.saveDraftAsync({ ...masterInput(kind), documents }, { asFranchise: true, channel: 'Franchise App' })
+      if (!saved.ok) return toast(saved.error, 'error')
+      const res = await master.submitAsync(saved.id, { lang: ackLang, asFranchise: true })
+      if (!res.ok) return toast(`${res.error} (kept as draft ${saved.id})`, 'error')
+      setSubmitted({ id: saved.id, kind })
       setShowSuccessModal(true)
-    }, 700)
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Upload failed', 'error')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const confirmAck = () => {
+    if (!route.ok) return
+    setShowAck(false)
+    setIsSubmitting(true)
+    if (apiEnabled) {
+      void confirmAckApi(route.kind)
+      return
+    }
+    const master = masterFor(route.kind)
+    const saved = master.saveDraft(masterInput(route.kind), { asFranchise: true, channel: 'Franchise App' })
+    if (!saved.ok) {
+      setIsSubmitting(false)
+      toast(saved.error, 'error')
+      return
+    }
+    const res = master.submit(saved.id, { lang: ackLang, asFranchise: true })
+    setIsSubmitting(false)
+    if (!res.ok) {
+      toast(`${res.error} (kept as draft ${saved.id})`, 'error')
+      return
+    }
+    setSubmitted({ id: saved.id, kind: route.kind })
+    setShowSuccessModal(true)
+  }
+
+  const saveDraft = () => {
+    if (!route.ok) {
+      toast(route.error, 'error')
+      return
+    }
+    if (apiEnabled) {
+      const kind = route.kind
+      void uploadSlips()
+        .then((documents) => masterFor(kind).saveDraftAsync({ ...masterInput(kind), documents }, { asFranchise: true, channel: 'Franchise App' }))
+        .then((res) => (res.ok ? toast(`Draft ${res.id} saved`, 'info') : toast(res.error, 'error')))
+        .catch((err) => toast(err instanceof Error ? err.message : 'Upload failed', 'error'))
+      return
+    }
+    const res = masterFor(route.kind).saveDraft(masterInput(route.kind), { asFranchise: true, channel: 'Franchise App' })
+    if (res.ok) toast(`Draft ${res.id} saved`, 'info')
+    else toast(res.error, 'error')
   }
 
   return (
@@ -312,18 +435,21 @@ export function MobileCbrScreen({ onBackToMore }: MobileCbrScreenProps) {
               <span className="text-rose-500">*</span>
             </label>
             <div className="relative">
-              <select
+              <input
                 value={atmId}
+                list="mobile-cbr-atms"
                 onChange={(e) => setAtmId(e.target.value)}
-                className="w-full h-8 pl-6 pr-6 rounded-lg border border-blue-200 bg-blue-50/40 text-[11px] font-black text-[#0A2665] focus:outline-none focus:ring-1 focus:ring-blue-500 appearance-none"
-              >
-                <option value="MPZ14409">MPZ14409 (Primary)</option>
-                <option value="ATM-001">ATM-001 (Ahmedabad)</option>
-                <option value="ATM-002">ATM-002 (Gandhinagar)</option>
-                <option value="ATM-003">ATM-003 (Surat)</option>
-              </select>
+                placeholder="Search ATM ID"
+                className="w-full h-8 pl-6 pr-2 rounded-lg border border-blue-200 bg-blue-50/40 text-[11px] font-black text-[#0A2665] focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+              <datalist id="mobile-cbr-atms">
+                {appSites.map((s) => (
+                  <option key={s.siteId} value={s.atmId}>
+                    {s.siteType === 'FFM' ? 'Full Funding' : 'Self Funding'} · {s.location}
+                  </option>
+                ))}
+              </datalist>
               <Search size={11} className="absolute left-2 top-2.5 text-slate-400 pointer-events-none" />
-              <span className="absolute right-2 top-2 text-slate-400 pointer-events-none text-[10px]">▼</span>
             </div>
           </div>
 
@@ -342,6 +468,13 @@ export function MobileCbrScreen({ onBackToMore }: MobileCbrScreenProps) {
               />
               <Calendar size={11} className="absolute left-2 top-2.5 text-slate-400 pointer-events-none" />
             </div>
+          </div>
+          <div
+            className={`col-span-2 rounded-lg px-2 py-1.5 text-[10.5px] font-bold ${route.ok ? (route.kind === 'CBR' ? 'bg-violet-50 text-violet-700 border border-violet-200' : 'bg-amber-50 text-amber-700 border border-amber-200') : 'bg-rose-50 text-rose-700 border border-rose-200'}`}
+          >
+            {route.ok
+              ? `${route.snap.franchiseName} · ${route.snap.atmLocation} · ${route.snap.bank} — ${route.snap.fundingModel}: saved as ${route.kind === 'CBR' ? 'CBR (Cash Replacement)' : 'Cash Loading'}`
+              : route.error}
           </div>
         </div>
 
@@ -942,7 +1075,7 @@ export function MobileCbrScreen({ onBackToMore }: MobileCbrScreenProps) {
 
           <button
             type="button"
-            onClick={() => alert('Draft saved successfully to local storage!')}
+            onClick={saveDraft}
             className="flex-1 h-10 rounded-full border border-blue-300 bg-blue-50/80 text-[#1258E2] text-xs font-bold hover:bg-blue-100 active:scale-95 transition-all shadow-2xs flex items-center justify-center gap-1.5"
           >
             <Save size={14} /> Save Draft
@@ -967,17 +1100,48 @@ export function MobileCbrScreen({ onBackToMore }: MobileCbrScreenProps) {
       {/* =========================================================================
        * SUCCESS MODAL POPUP
        * ========================================================================= */}
+      {showAck && route.ok && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-xs rounded-3xl bg-white p-4 shadow-2xl text-left space-y-2.5">
+            <h3 className="font-black text-sm text-[#0A2665]">Acknowledgement / पावती</h3>
+            <p className="text-[10px] text-slate-500">
+              {route.kind} · {atmId} · ₹{totalLoading.toLocaleString('en-IN')} · {ACK_VERSION}
+            </p>
+            <p className="rounded-xl bg-slate-50 border border-slate-200 p-2 text-[11px] text-slate-700">{ACK_TEXT.English}</p>
+            <p className="rounded-xl bg-slate-50 border border-slate-200 p-2 text-[11px] text-slate-700">{ACK_TEXT.Hindi}</p>
+            <div className="flex gap-3 text-[11px] font-bold text-slate-700">
+              {(['English', 'Hindi'] as const).map((l) => (
+                <label key={l} className="flex items-center gap-1">
+                  <input type="radio" name="mobile-ack-lang" checked={ackLang === l} onChange={() => setAckLang(l)} />
+                  {l === 'Hindi' ? 'हिन्दी' : 'English'}
+                </label>
+              ))}
+            </div>
+            <label className="flex items-start gap-1.5 text-[11px] text-slate-700">
+              <input type="checkbox" className="mt-0.5" checked={ackAgree} onChange={(e) => setAckAgree(e.target.checked)} />
+              I agree / मैं सहमत हूँ
+            </label>
+            <div className="flex gap-2 pt-1">
+              <button type="button" onClick={() => setShowAck(false)} className="flex-1 h-9 rounded-full border border-blue-300 text-xs font-bold text-[#1258E2]">
+                Cancel
+              </button>
+              <button type="button" disabled={!ackAgree} onClick={confirmAck} className="flex-1 h-9 rounded-full bg-[#1258E2] text-white text-xs font-bold disabled:opacity-50">
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showSuccessModal && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="w-full max-w-xs rounded-3xl bg-white p-5 shadow-2xl animate-in zoom-in-95 text-center">
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 mb-3 shadow-inner">
               <CheckCircle2 size={26} strokeWidth={2.5} />
             </div>
-            <h3 className="font-black text-base text-[#0A2665]">CBR Form Submitted!</h3>
+            <h3 className="font-black text-base text-[#0A2665]">{submitted?.kind === 'Cash Loading' ? 'Cash Loading' : 'CBR'} Submitted!</h3>
             <p className="mt-1 text-xs text-slate-600 leading-relaxed">
-              Your {mode === 'axis' ? 'Axis Indent' : 'WLA Account'} Cash Loading CBR for{' '}
-              <strong className="text-slate-900">{atmId}</strong> has been transmitted to Dexter
-              India operations.
+              {submitted?.id} for <strong className="text-slate-900">{atmId}</strong> is now Pending Verification by the CRM Executive (acknowledged in {ackLang}, {ACK_VERSION}).
             </p>
 
             <div className="mt-3 p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-mono space-y-1">
@@ -1003,7 +1167,7 @@ export function MobileCbrScreen({ onBackToMore }: MobileCbrScreenProps) {
               </div>
               <div className="flex justify-between text-slate-500">
                 <span>Status:</span>
-                <strong className="text-emerald-600">VERIFIED & SAVED</strong>
+                <strong className="text-amber-600">PENDING VERIFICATION</strong>
               </div>
             </div>
 
@@ -1067,7 +1231,7 @@ export function MobileCbrScreen({ onBackToMore }: MobileCbrScreenProps) {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-500">TIME:</span>
-                  <span>{new Date().toLocaleTimeString()}</span>
+                  <span>{(previewingSlip === 'counter01' ? counter01Slip : counter02Slip)?.uploadedAt ?? '—'}</span>
                 </div>
                 <div className="border-t border-dashed border-slate-400 pt-1.5 space-y-1">
                   <div className="flex justify-between text-slate-600">

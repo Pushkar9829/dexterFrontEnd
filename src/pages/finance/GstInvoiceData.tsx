@@ -34,10 +34,13 @@ import GstInvoiceTemplate from '@/components/finance/GstInvoiceTemplate'
 import { downloadCsv } from '@/lib/export'
 import { toast } from '@/components/ui/Toast'
 import { useReportMode } from '@/hooks/useReportMode'
+import { useCanIn, guardAct, ViewOnlyNote } from '@/lib/guard'
+import { SiteRef } from '@/lib/siteRef'
 
 export default function GstInvoiceData() {
   const { isReport } = useReportMode()
   const records = gstStore.use()
+  const allow = useCanIn('Finance')
 
   // Modal preview state
   const [pdfModalRecord, setPdfModalRecord] = useState<GstRecord | null>(null)
@@ -127,6 +130,7 @@ export default function GstInvoiceData() {
 
   // Export CSV
   const handleExportCsv = () => {
+    if (!guardAct('Finance', 'Export', 'export GST invoices')) return
     const headers = [
       'S.No.',
       'F. Year',
@@ -179,6 +183,7 @@ export default function GstInvoiceData() {
 
   // Delete invoice
   const handleDeleteRow = (id: string, invNo: string) => {
+    if (!guardAct('Finance', 'Delete', 'delete GST invoices')) return
     if (confirm(`Are you sure you want to delete invoice ${invNo || id}?`)) {
       deleteGst(id)
       toast(`Deleted invoice ${invNo || id}`, 'info')
@@ -248,15 +253,15 @@ export default function GstInvoiceData() {
               <span>GST Invoice Hub</span>
             </Link>
           )}
-          <button
+          {allow('Export') && <button
             type="button"
             onClick={handleExportCsv}
             className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[12px] font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs"
           >
             <Download size={13} />
             <span>Export CSV</span>
-          </button>
-          {!isReport && (
+          </button>}
+          {!isReport && allow('Create') && (
             <Link
               to="/finance/gst/invoice/new"
               className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-1.5 text-[12px] font-semibold text-white hover:bg-primary-hover shadow-xs transition-colors"
@@ -281,15 +286,17 @@ export default function GstInvoiceData() {
               {records.length}
             </span>
           </Link>
-          <Link
+          {allow('Create') && <Link
             to="/finance/gst/invoice/new"
             className="inline-flex items-center gap-2 border-b-2 border-transparent px-4 py-2 text-[13px] font-medium text-slate-600 hover:border-slate-300 hover:text-slate-900 transition-colors"
           >
             <Plus size={15} />
             <span>New GST Invoice Entry</span>
-          </Link>
+          </Link>}
         </div>
       )}
+
+      {!isReport && <ViewOnlyNote module="Finance" />}
 
       {/* Quick KPI Status Cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -624,7 +631,7 @@ export default function GstInvoiceData() {
                       </td>
                       <td className="py-2.5 px-3.5">
                         <div className="font-semibold text-slate-900">{row.franchiseeName}</div>
-                        <div className="text-[11px] text-slate-500 font-mono">{row.atmId}</div>
+                        <div className="text-[11px] text-slate-500 font-mono"><SiteRef id={row.atmId || row.siteId} /></div>
                       </td>
                       <td className="py-2.5 px-3.5 text-right font-mono font-semibold text-slate-900">
                         ₹ {row.invoiceAmount || '0.00'}
@@ -656,21 +663,21 @@ export default function GstInvoiceData() {
                           >
                             <Eye size={14} />
                           </button>
-                          <Link
+                          {allow('Edit') && <Link
                             to={`/finance/gst/invoice/${row.id}/edit`}
                             title="Edit Invoice Entry"
                             className="p-1 rounded text-slate-600 hover:bg-blue-50 hover:text-primary transition-colors"
                           >
                             <Pencil size={14} />
-                          </Link>
-                          <button
+                          </Link>}
+                          {allow('Delete') && <button
                             type="button"
                             onClick={() => handleDeleteRow(row.id, row.invoiceNumber)}
                             title="Delete Record"
                             className="p-1 rounded text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors"
                           >
                             <Trash2 size={14} />
-                          </button>
+                          </button>}
                         </div>
                       </td>
                     </tr>

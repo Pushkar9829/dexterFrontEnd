@@ -1,4 +1,4 @@
-import { CalendarCheck, Receipt, Users } from 'lucide-react'
+import { CalendarCheck, CalendarClock, Receipt, Users } from 'lucide-react'
 import { HubTile, type HubTileTheme } from '@/components/ui/HubTile'
 
 interface HrmsTileConfig {
@@ -22,6 +22,16 @@ const HRMS_TILES: HrmsTileConfig[] = [
     tag: 'Time & Attendance',
     badge: 'Daily Log',
     actionText: 'Manage attendance',
+  },
+  {
+    title: 'LEAVE & REGULARISATION',
+    sub: 'Apply for leave, regularise a missed punch, and approve or reject team requests.',
+    to: '/hrms/leave',
+    Icon: CalendarClock,
+    theme: 'amber',
+    tag: 'Leave Management',
+    badge: 'Requests',
+    actionText: 'Manage leave',
   },
   {
     title: 'EXPENSES',

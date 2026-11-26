@@ -16,13 +16,16 @@ import {
 import {
   hampStore,
   updateHampRow,
-  addHampRow,
+  addHampRowAsync,
+  hampLoader,
   HAMP_STATUS_OPTIONS,
   type HampViewType,
 } from '@/data/hampReport'
 import { downloadCsv } from '@/lib/export'
 import { toast } from '@/components/ui/Toast'
+import { resolveSite, franchiseNameOf } from '@/lib/siteRef'
 import { cn } from '@/lib/cn'
+import { LoadBanner } from './recon2/shared'
 
 export default function HampReport() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -31,6 +34,7 @@ export default function HampReport() {
   const [activeTab, setActiveTab] = useState<HampViewType>(initialTab)
 
   const rows = hampStore.use()
+  const load = hampLoader.use()
 
   // Selected date in header
   const [selectedDate, setSelectedDate] = useState('2026-11-03')
@@ -135,22 +139,32 @@ export default function HampReport() {
   }
 
   // Handle Add Row
-  const handleAddSubmit = (e: React.FormEvent) => {
+  const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!newRowData.atmId.trim() || !newRowData.franchiseeName.trim()) {
-      toast('Please enter ATM ID and Franchisee Name', 'error')
+    if (!newRowData.atmId.trim()) {
+      toast('Please enter ATM ID', 'error')
       return
     }
-    addHampRow({
+    const site = resolveSite(newRowData.atmId)
+    if (!site) {
+      toast(`ATM / Site "${newRowData.atmId.trim()}" was not found in the Site Master`, 'error')
+      return
+    }
+    try {
+      await addHampRowAsync({
+      siteId: site.siteId,
       type: activeTab,
       spoc: newRowData.spoc,
-      atmId: newRowData.atmId.trim().toUpperCase(),
-      franchiseeName: newRowData.franchiseeName.trim(),
+      atmId: site.atmId,
+      franchiseeName: newRowData.franchiseeName.trim() || franchiseNameOf(site),
       cbrDate: newRowData.cbrDate,
       counterDate: newRowData.counterDate,
       status: newRowData.status,
       date: selectedDate,
     })
+    } catch {
+      return // error already toasted
+    }
     toast(`Added new ${activeTab} record`, 'success')
     setShowAddModal(false)
     setNewRowData({
@@ -176,6 +190,7 @@ export default function HampReport() {
 
   return (
     <div className="space-y-4 pb-12 font-sans max-w-[1440px] mx-auto min-w-0">
+      <LoadBanner state={load} onRetry={() => void hampLoader.reload()} />
       {/* ── 1. Top Breadcrumbs ────────────────────────────────────────── */}
       <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-[12px] text-[#64748B]">
         <Link
@@ -591,9 +606,12 @@ export default function HampReport() {
                     type="text"
                     required
                     value={newRowData.atmId}
-                    onChange={(e) => setNewRowData({ ...newRowData, atmId: e.target.value })}
+                    onChange={(e) => {
+                      const site = resolveSite(e.target.value)
+                      setNewRowData({ ...newRowData, atmId: e.target.value, ...(site ? { franchiseeName: franchiseNameOf(site) } : {}) })
+                    }}
                     className="w-full h-9 rounded-lg border border-slate-200 px-3 text-[12.5px] uppercase font-mono focus:border-[#0066FF] focus:outline-none"
-                    placeholder={activeTab === 'ATM' ? 'e.g. MPZ17001' : 'e.g. MCRM17001'}
+                    placeholder="Site Master ATM ID or Site ID"
                   />
                 </div>
               </div>

@@ -17,13 +17,14 @@ import {
   X,
 } from 'lucide-react'
 import { toast } from '@/components/ui/Toast'
+import { resolveSite, siteFields } from '@/lib/siteRef'
 import { RpRollsIcon } from '@/components/icons/RpRollsIcon'
 import {
   KNOWN_ATMS,
   STATES_LIST,
   COURIER_LIST,
   HUB_LOCATIONS_LIST,
-  addRpRollRecord,
+  addRpRollRecordAsync,
   getStoredDraft,
   saveStoredDraft,
   clearStoredDraft,
@@ -35,20 +36,18 @@ export default function RpRollsEntryForm() {
   const initialDraft = getStoredDraft()
 
   // Card 1: Site & Franchise Details
-  const [atmId, setAtmId] = useState(initialDraft?.atmId || 'MCRM0389')
-  const [siteId, setSiteId] = useState(initialDraft?.siteId || 'MCRM1943')
-  const [franchiseeName, setFranchiseeName] = useState(initialDraft?.franchiseeName || 'Siddhant Shakya')
-  const [frName, setFrName] = useState(initialDraft?.frName || 'Dexter India Management & Services Pvt. Ltd.')
-  const [frNumber, setFrNumber] = useState(initialDraft?.frNumber || '8755555003')
+  const def = KNOWN_ATMS[0]
+  const [atmId, setAtmId] = useState(initialDraft?.atmId || def.atmId)
+  const [siteId, setSiteId] = useState(initialDraft?.siteId || def.siteId)
+  const [franchiseeName, setFranchiseeName] = useState(initialDraft?.franchiseeName || def.franchiseeName)
+  const [frName, setFrName] = useState(initialDraft?.frName || def.frName)
+  const [frNumber, setFrNumber] = useState(initialDraft?.frNumber || def.frNumber)
 
   // Card 2: Location / Address Details
-  const [hubLocations, setHubLocations] = useState(initialDraft?.hubLocations || 'MAINPURI - MCRM1943')
-  const [frAddressWithPin, setFrAddressWithPin] = useState(
-    initialDraft?.frAddressWithPin ||
-      'Anil Automobiles, Chaudhary Petrol Pump, Kachehari Road Mainpuri, U.P. 205001'
-  )
-  const [state, setState] = useState(initialDraft?.state || 'Uttar Pradesh')
-  const [pinCode, setPinCode] = useState(initialDraft?.pinCode || '205001')
+  const [hubLocations, setHubLocations] = useState(initialDraft?.hubLocations || def.hubLocations)
+  const [frAddressWithPin, setFrAddressWithPin] = useState(initialDraft?.frAddressWithPin || def.frAddressWithPin)
+  const [state, setState] = useState(initialDraft?.state || def.state)
+  const [pinCode, setPinCode] = useState(initialDraft?.pinCode || def.pinCode)
 
   // Card 3: Dispatch Details
   const [despatchChallanNo, setDespatchChallanNo] = useState(initialDraft?.despatchChallanNo || 'KVP-H-610')
@@ -134,13 +133,20 @@ export default function RpRollsEntryForm() {
   }
 
   // Handle Submit for Delivery
-  const handleSubmitForDelivery = (e: FormEvent) => {
+  const handleSubmitForDelivery = async (e: FormEvent) => {
     e.preventDefault()
 
     if (!atmId.trim()) {
       toast('Please enter ATM ID', 'error')
       return
     }
+    // Site Master is the single source: the ATM / Site ID must exist there and the site fields come from it
+    const site = resolveSite(atmId) ?? resolveSite(siteId)
+    if (!site) {
+      toast(`ATM / Site "${atmId.trim()}" was not found in the Site Master`, 'error')
+      return
+    }
+    const sf = siteFields(site)
     if (!frAddressWithPin.trim()) {
       toast('Please enter FR Address with PIN code', 'error')
       return
@@ -154,10 +160,11 @@ export default function RpRollsEntryForm() {
       return
     }
 
-    addRpRollRecord({
-      atmId: atmId.trim(),
-      siteId: siteId.trim(),
-      franchiseeName: franchiseeName.trim(),
+    try {
+      await addRpRollRecordAsync({
+      atmId: sf.atmId,
+      siteId: sf.siteId,
+      franchiseeName: franchiseeName.trim() || sf.franchise,
       hubLocations: hubLocations.trim(),
       frName: frName.trim(),
       frAddressWithPin: frAddressWithPin.trim(),
@@ -172,7 +179,11 @@ export default function RpRollsEntryForm() {
       remarks: remarks.trim() || 'Delivered',
       documentName: uploadedFile?.name,
       status: remarks.trim() || 'Delivered',
-    })
+    }, uploadedFile)
+    } catch (err) {
+      if (err instanceof Error && !('code' in err)) toast(err.message, 'error')
+      return
+    }
 
     clearStoredDraft()
     toast('RP Roll entry submitted for delivery successfully!', 'success')
@@ -242,9 +253,17 @@ export default function RpRollsEntryForm() {
                   onChange={(e) => {
                     setAtmId(e.target.value)
                     setShowAtmSuggestions(true)
+                    const site = resolveSite(e.target.value)
+                    if (site) {
+                      setSiteId(site.siteId)
+                      setFranchiseeName(siteFields(site).franchise)
+                      setState(site.state.toUpperCase())
+                      setPinCode(site.pin)
+                      setFrAddressWithPin(`${site.address}, ${site.state} ${site.pin}`)
+                    }
                   }}
                   onFocus={() => setShowAtmSuggestions(true)}
-                  placeholder="e.g. MCRM0389"
+                  placeholder="ATM ID or Site ID (Site Master)"
                   className="w-full rounded-lg border border-[#CBD5E1] bg-white pl-8.5 pr-20 py-2 text-[12.5px] font-medium text-[#1E293B] outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]"
                 />
                 {atmId && (
@@ -265,6 +284,10 @@ export default function RpRollsEntryForm() {
                   Searchable
                 </button>
               </div>
+
+              {atmId.trim() && !resolveSite(atmId) && (
+                <p className="mt-1 text-[11px] text-red-600">Not found in the Site Master — enter a Site Master ATM ID or Site ID.</p>
+              )}
 
               {/* Suggestions dropdown */}
               {showAtmSuggestions && (
@@ -301,7 +324,7 @@ export default function RpRollsEntryForm() {
                 type="text"
                 value={siteId}
                 onChange={(e) => setSiteId(e.target.value)}
-                placeholder="e.g. MCRM1943"
+                placeholder="Site Master Site ID"
                 className="w-full rounded-lg border border-[#CBD5E1] bg-white px-3 py-2 text-[12.5px] text-[#1E293B] outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]"
               />
             </div>

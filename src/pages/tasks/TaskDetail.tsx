@@ -1,4 +1,5 @@
-import { useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { apiEnabled } from '@/data/bizApi'
 import { complaintStore, maintenanceStore } from '@/data/complaints'
 import { Link, useParams } from 'react-router-dom'
 import {
@@ -37,6 +38,9 @@ import { cn } from '@/lib/cn'
 import {
   addComment,
   addEvidence,
+  loadTaskDetail,
+  transitionApi,
+  useTasksLoad,
   blocksOf,
   CURRENT_EMPLOYEE,
   CURRENT_LEAD,
@@ -65,18 +69,29 @@ import {
 } from '@/data/tasks'
 import { fmtSize } from '@/components/ui/Form'
 import { Avatar, Footer, StatusBadge } from './ui'
+import { guardAct, useCanIn, ViewOnlyNote } from '@/lib/guard'
+import type { Action as RightAction } from '@/lib/rbac'
 
 const ACCEPT = ['pdf', 'docx', 'xlsx', 'jpg', 'jpeg', 'png']
 const MAX_MB = 20
 
+const TASK_RIGHT: Record<Action, RightAction> = { assign: 'Assign', start: 'Edit', resume: 'Edit', submit: 'Edit', approve: 'Approve', return: 'Approve', close: 'Close' }
+
 export default function TaskDetail() {
+  const allow = useCanIn('Tasks')
   const { taskId = '' } = useParams()
   const { tasks, viewAs } = tasksStore.use()
   const t = tasks.find((x) => x.id === taskId)
+  // API mode: hydrate the list, then GET /tasks/:id for comments + audit trail
+  const load = useTasksLoad()
+  useEffect(() => {
+    if (apiEnabled && taskId) void loadTaskDetail(taskId)
+  }, [taskId])
   const actor = viewAs === 'Team Leader' ? CURRENT_LEAD : CURRENT_EMPLOYEE
   const [modal, setModal] = useState<null | 'reassign' | 'remind' | 'return'>(null)
   const commentRef = useRef<HTMLTextAreaElement>(null)
 
+  if (!t && apiEnabled && (load.loading || !load.loaded)) return <div className="rounded-xl border border-line bg-white p-10 text-center text-[13px] text-muted">Loading task {taskId}…</div>
   if (!t) {
     // tasks raised from complaints / maintenance live in the complaints module
     const cmp = complaintStore.get().find((c) => c.tasks.some((x) => x.id === taskId))
@@ -115,6 +130,12 @@ export default function TaskDetail() {
   const s = slaOf(t)
   const href = entityHref(t.entityId)
   const run = (a: Action, by = actor, note = '') => {
+    if (!guardAct('Tasks', TASK_RIGHT[a], `${a} tasks`)) return { ok: false, message: '' }
+    if (apiEnabled) {
+      // POST /tasks/:id/<action> — the server enforces lifecycle, approver and maker-checker rules
+      void transitionApi(t.id, a, note).then((r) => toast(r.message, r.ok ? 'success' : 'error'))
+      return { ok: true, message: '' }
+    }
     const r = transition(t.id, a, by, note)
     toast(r.message, r.ok ? 'success' : 'info')
     return r
@@ -122,6 +143,7 @@ export default function TaskDetail() {
 
   return (
     <div className="space-y-4">
+      <ViewOnlyNote module="Tasks" />
       {/* Header */}
       <section className="rounded-xl border border-line bg-white px-5 pt-5 pb-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -134,9 +156,11 @@ export default function TaskDetail() {
             <StatusBadge s={t.status} className="gap-1! px-2! py-[3px]! text-[10px]! leading-[13px]! font-semibold! [&>span:first-child]:hidden" />
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" size="sm" className="h-[34px] px-3" icon={<Users size={14} />} onClick={() => setModal('reassign')} disabled={t.status === 'Closed'}>
-              Reassign
-            </Button>
+            {allow('Assign') && (
+              <Button variant="secondary" size="sm" className="h-[34px] px-3" icon={<Users size={14} />} onClick={() => setModal('reassign')} disabled={t.status === 'Closed'}>
+                Reassign
+              </Button>
+            )}
             <Button
               variant="secondary"
               size="sm"
@@ -291,6 +315,7 @@ function ActionBar({ t, actor, run, onReturn }: { t: Task; actor: string; run: (
   const all = tasksStore.get().tasks
   const blockers = openBlockers(t, all)
   const approval = needsApproval(t)
+  const allow = useCanIn('Tasks')
   const closeBlockReason = blockers.length
     ? `Blocked by ${blockers.map((b) => `${b.id} (${b.depLabel ?? b.title})`).join(', ')}`
     : approval && !(t.status === 'Pending Approval' && t.approved)
@@ -307,27 +332,27 @@ function ActionBar({ t, actor, run, onReturn }: { t: Task; actor: string; run: (
   return (
     <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] [&_button]:h-7 [&_button]:text-[11px]">
       <span className="font-semibold text-muted">Next step</span>
-      {t.status === 'New' && (
+      {t.status === 'New' && allow('Assign') && (
         <Button size="sm" icon={<UserPlus size={14} />} onClick={() => run('assign')}>
           Confirm assignment
         </Button>
       )}
-      {t.status === 'Assigned' && (
+      {t.status === 'Assigned' && allow('Edit') && (
         <Button size="sm" icon={<Play size={14} />} onClick={() => run('start')}>
           Start
         </Button>
       )}
-      {t.status === 'Waiting/Blocked' && (
+      {t.status === 'Waiting/Blocked' && allow('Edit') && (
         <Button size="sm" icon={<Play size={14} />} onClick={() => run('resume')} disabled={blockers.length > 0} title={blockers.length ? `Waiting on ${blockers.map((b) => b.id).join(', ')}` : undefined}>
           Resume work
         </Button>
       )}
-      {t.status === 'In Progress' && approval && (
+      {t.status === 'In Progress' && approval && allow('Edit') && (
         <Button size="sm" icon={<Send size={14} />} onClick={() => run('submit')}>
           Submit for approval
         </Button>
       )}
-      {t.status === 'Pending Approval' && (
+      {t.status === 'Pending Approval' && allow('Approve') && (
         <span className="flex flex-wrap items-center gap-2">
           <span className="text-muted">Approver · {t.approver}</span>
           <Button size="sm" variant="secondary" icon={<ShieldCheck size={14} className="text-emerald-600" />} onClick={() => run('approve', t.approver)} disabled={!!t.approved}>
@@ -338,7 +363,7 @@ function ActionBar({ t, actor, run, onReturn }: { t: Task; actor: string; run: (
           </Button>
         </span>
       )}
-      {(t.status === 'In Progress' || t.status === 'Pending Approval') && (
+      {(t.status === 'In Progress' || t.status === 'Pending Approval') && allow('Close') && (
         <Button size="sm" variant={closeBlockReason ? 'secondary' : 'primary'} icon={<CheckCircle2 size={14} />} onClick={() => run('close')} disabled={!!closeBlockReason} title={closeBlockReason || undefined}>
           Close task
         </Button>
@@ -465,7 +490,7 @@ function Evidence({ t, actor }: { t: Task; actor: string }) {
       if (!ACCEPT.includes(ext)) errs.push(`${f.name}: only PDF, DOCX, XLSX, JPG or PNG files are accepted.`)
       else if (f.size > MAX_MB * 1024 * 1024) errs.push(`${f.name}: larger than ${MAX_MB} MB.`)
       else {
-        addEvidence(t.id, { name: f.name, size: f.size }, actor)
+        addEvidence(t.id, apiEnabled ? f : { name: f.name, size: f.size }, actor)
         ok++
       }
     })
@@ -716,6 +741,7 @@ function ReassignModal({ t, actor, onClose }: { t: Task; actor: string; onClose:
   const save = () => {
     if (to === t.assignee) return setErr('Choose a different assignee.')
     if (!reason.trim()) return setErr('Give a reason — it is recorded in the audit trail.')
+    if (!guardAct('Tasks', 'Assign', 'reassign tasks')) return
     reassign(t.id, to, actor, reason.trim())
     toast(`${t.id} reassigned to ${to || 'Unassigned'}. SLA unchanged.`)
     onClose()

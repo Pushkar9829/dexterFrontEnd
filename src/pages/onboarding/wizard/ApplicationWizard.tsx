@@ -21,6 +21,7 @@ import { CraAtms, Documents, FranchiseBank, ImagesOffice, ShopDimensions, SiteDe
 import { Review } from './Review'
 import { validateStep, type Errors } from './validate'
 import { MasterFranchiseForm } from './master/MasterFranchiseForm'
+import { guardAct } from '@/lib/guard'
 
 export const STEPS_CONFIG = [
   { num: '01', title: 'Site Details', icon: MapPin },
@@ -135,6 +136,7 @@ export function ApplicationWizard({ app, onClose, initialTier, onFranchiseAdded 
   }
 
   const saveDraft = () => {
+    if (!guardAct('Onboarding', id ? 'Edit' : 'Create', 'save applications')) return
     const saved = saveApplication(id, form, 'Draft')
     setId(saved.id)
     setSavedAt(timeNow())
@@ -143,6 +145,7 @@ export function ApplicationWizard({ app, onClose, initialTier, onFranchiseAdded 
   }
 
   const submit = () => {
+    if (!guardAct('Onboarding', id ? 'Edit' : 'Create', 'save applications')) return
     for (let s = 1; s <= 4; s++) {
       const e = validateStep(s, form)
       if (Object.keys(e).length) {
@@ -255,7 +258,7 @@ export function ApplicationWizard({ app, onClose, initialTier, onFranchiseAdded 
               form={form}
               set={set}
               readOnly={readOnly}
-              onSectionChange={(key, index, title) => setMasterStepInfo({ key, index, title })}
+              onSectionChange={(key, index, title) => setMasterStepInfo((p) => (p.key === key && p.index === index && p.title === title ? p : { key, index, title }))}
             />
           </div>
         </div>

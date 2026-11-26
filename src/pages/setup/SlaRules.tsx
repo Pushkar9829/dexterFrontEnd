@@ -289,16 +289,11 @@ export default function SlaRules() {
 
   // Toggle Rule Status
   const toggleStatus = (id: string) => {
-    setRules((prev) =>
-      prev.map((r) => {
-        if (r.id === id) {
-          const next = r.status === 'Active' ? 'Inactive' : 'Active'
-          toast(`Rule ${r.ruleCode} is now ${next}`, 'info')
-          return { ...r, status: next }
-        }
-        return r
-      })
-    )
+    const target = rules.find((r) => r.id === id)
+    if (!target) return
+    const next = target.status === 'Active' ? 'Inactive' : 'Active'
+    setRules((prev) => prev.map((r) => (r.id === id ? { ...r, status: next } : r)))
+    toast(`Rule ${target.ruleCode} is now ${next}`, 'info')
   }
 
   // Delete Rule

@@ -2,7 +2,9 @@
 // 11 fields: S.N. (system), LOI Code, ATM ID, Pan name, PAN NO | Acc. Name / Acc. No. / Bank Name / IFSC (Settlement) | Email Subject, Status.
 // The design supplies no Status options — Status is a free-text field; Active | Pending verification | Inactive are offered as suggestions only.
 import { createStore } from '@/lib/store'
-import { SITES, getFranchisee } from './cbrSites'
+import { apiEnabled, finDelete, finLoader, finSave, type FinCfg } from './financeApi'
+import { FRANCHISEES } from './cbrSites'
+import { franchiseNameOf, siteAt } from '@/lib/siteRef'
 
 export const PAYOUT_STATUSES = ['Active', 'Pending verification', 'Inactive'] as const
 export type PayoutStatus = (typeof PAYOUT_STATUSES)[number]
@@ -63,43 +65,44 @@ export const ACC_RE = /^\d{9,18}$/
 export const maskAcc = (v: string) => (v ? `•••• ${v.slice(-4)}` : '')
 
 function seed(): PayoutRecord[] {
+  // Site identity from the common Site Master (siteAt is deterministic); bank details from the static payee list.
   const out: PayoutRecord[] = []
-  // each site's ATM, plus a second ATM on a few high-volume sites
-  const extra: [string, string][] = [
-    ['ST-MH-PUN-00124', 'DX-MH-01483'],
-    ['ST-MH-PUN-00131', 'DX-MH-01498'],
-    ['ST-KA-BLR-00076', 'DX-KA-00762'],
-    ['ST-KA-BLR-00081', 'DX-KA-00769'],
-    ['ST-GJ-AMD-00218', 'DX-GJ-02188'],
-    ['ST-UP-LKO-00305', 'DX-UP-03052'],
-  ]
-  const pairs: [string, string][] = [...SITES.map((s) => [s.siteId, s.atmId] as [string, string]), ...extra]
-  pairs.forEach(([siteId, atmId], i) => {
-    const site = SITES.find((s) => s.siteId === siteId)!
-    const fr = getFranchisee(site.franchiseId)!
+  for (let i = 0; i < 20; i++) {
+    const site = siteAt(i)
+    const fr = FRANCHISEES[i % FRANCHISEES.length]
+    if (!site || !fr) continue
     const sn = i + 1
     const status: string = i === 9 ? 'Inactive' : i >= 14 ? 'Pending verification' : i === 11 ? '' : 'Active'
     out.push({
       id: `PAY-${String(sn).padStart(4, '0')}`,
       sn,
-      loiCode: site.loi,
-      atmId,
+      loiCode: site.siteId,
+      atmId: site.atmId,
       panName: fr.panName,
       panNo: fr.pan,
       accName: fr.panName,
       accNo: i >= 12 ? fr.accNo.slice(0, -2) + String(10 + i) : fr.accNo,
       bankName: fr.bank,
       ifsc: fr.ifsc,
-      emailSubject: `Payout advice – ${atmId} – ${fr.name}`,
+      emailSubject: `Payout advice – ${site.atmId} – ${franchiseNameOf(site) || fr.name}`,
       status,
       updatedAt: '2026-10-08T12:15:00+05:30',
       updatedBy: 'Vikram Shah',
     })
-  })
+  }
   return out
 }
 
-export const payoutStore = createStore<PayoutRecord[]>('dexter.finance.payout.v1', seed)
+const payoutRaw = createStore<PayoutRecord[]>(apiEnabled ? 'dexter.finance.payout.api' : 'dexter.finance.payout.v2', apiEnabled ? () => [] : seed)
+/** API mode: payout accounts ↔ /finance/payout-accounts (approval writes the Site Master payout mapping). */
+export const payoutAccCfg: FinCfg<PayoutRecord> = {
+  key: 'payout-accounts', label: 'Payout account', get: () => payoutRaw.get(), set: (l) => payoutRaw.set(l),
+  fields: ['loiCode', 'panName', 'panNo', 'accName', 'accNo', 'bankName', 'ifsc', 'emailSubject', 'payoutStatus'],
+  rename: { status: 'payoutStatus' }, statusField: 'status',
+  fromExtra: (r) => ({ sn: Number(String(r.recordId).replace(/\D/g, '')) || 0, updatedBy: r.approvedByName ?? r.createdByName ?? '', updatedAt: r.updatedAt ?? '' }),
+}
+/** payoutStore.use() also hydrates from the backend in API mode. */
+export const payoutStore = { ...payoutRaw, use: (): PayoutRecord[] => (finLoader(payoutAccCfg).use(), payoutRaw.use()) }
 export const getPayout = (id: string) => payoutStore.get().find((p) => p.id === id)
 
 export const emptyPayout = (): PayoutRecord => ({
@@ -113,13 +116,17 @@ export function savePayout(rec: PayoutRecord): PayoutRecord {
     const sn = all.reduce((m, p) => Math.max(m, p.sn), 0) + 1
     const created = { ...rec, ...stamp, sn, id: `PAY-${String(sn).padStart(4, '0')}` }
     payoutStore.set([...all, created])
+    if (apiEnabled) void finSave(payoutAccCfg, undefined, created)
     return created
   }
+  const prev = payoutStore.get().find((p) => p.id === rec.id)
   const saved = { ...rec, ...stamp }
   payoutStore.set((all) => all.map((p) => (p.id === rec.id ? saved : p)))
+  if (apiEnabled) void finSave(payoutAccCfg, prev, saved)
   return saved
 }
 
 export function deletePayout(id: string) {
+  if (apiEnabled) void finDelete(payoutAccCfg, id)
   payoutStore.set((all) => all.filter((p) => p.id !== id))
 }

@@ -31,10 +31,12 @@ import {
   deleteExpense,
   expenseStore,
 } from '@/data/financeExpenses'
+import { useCanIn, guardAct, ViewOnlyNote } from '@/lib/guard'
 
 export default function StaffExpenseList() {
   const navigate = useNavigate()
   const records = expenseStore.use()
+  const allow = useCanIn('Finance')
 
   // Filter States
   const [filterClaimId, setFilterClaimId] = useState('')
@@ -140,6 +142,7 @@ export default function StaffExpenseList() {
 
   // Export CSV
   const handleExport = () => {
+    if (!guardAct('Finance', 'Export', 'export expense claims')) return
     const headers = [
       'S.N.',
       'Claim ID',
@@ -181,6 +184,7 @@ export default function StaffExpenseList() {
   }
 
   const handleDelete = (id: string, name: string) => {
+    if (!guardAct('Finance', 'Delete', 'delete expense claims')) return
     if (confirm(`Are you sure you want to delete expense claim ${id} for ${name}?`)) {
       deleteExpense(id)
       toast('Record deleted')
@@ -218,7 +222,7 @@ export default function StaffExpenseList() {
           </p>
         </div>
 
-        <div>
+        {allow('Create') && <div>
           <button
             onClick={() => navigate('/finance/hr-payments/expenses/new')}
             className="inline-flex items-center gap-2 h-9.5 px-4 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[13px] font-semibold transition-all shadow-sm hover:shadow"
@@ -226,8 +230,10 @@ export default function StaffExpenseList() {
             <Plus size={16} strokeWidth={2.4} />
             <span>New Expense Claim</span>
           </button>
-        </div>
+        </div>}
       </div>
+
+      <ViewOnlyNote module="Finance" />
 
       {/* Filter Section */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 sm:p-5">
@@ -420,14 +426,14 @@ export default function StaffExpenseList() {
             <span>Reset</span>
           </button>
 
-          <button
+          {allow('Export') && <button
             onClick={handleExport}
             className="inline-flex items-center gap-1.5 h-8.5 px-4 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[12px] font-medium transition-all"
           >
             <Download size={14} />
             <span>Download</span>
             <ChevronDown size={12} className="text-slate-400 ml-0.5" />
-          </button>
+          </button>}
         </div>
       </div>
 
@@ -584,17 +590,17 @@ export default function StaffExpenseList() {
                         <button
                           onClick={() => navigate(`/finance/hr-payments/expenses/${item.id}`)}
                           className="w-6.5 h-6.5 rounded flex items-center justify-center text-[#0066FF] hover:bg-blue-50 border border-blue-200/60 transition-colors"
-                          title="Edit / Open"
+                          title={allow('Edit') ? 'Edit / Open' : 'Open'}
                         >
                           <Edit2 size={12} />
                         </button>
-                        <button
+                        {allow('Delete') && <button
                           onClick={() => handleDelete(item.id, item.empName)}
                           className="w-6.5 h-6.5 rounded flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 border border-slate-200 hover:border-red-200 transition-colors"
                           title="Delete"
                         >
                           <Trash2 size={12} />
-                        </button>
+                        </button>}
                       </div>
                     </td>
                   </tr>
@@ -615,7 +621,7 @@ export default function StaffExpenseList() {
                         Try adjusting your filters or click on "New Expense Claim" to submit a claim.
                       </p>
 
-                      <div className="mt-4 flex items-center gap-2">
+                      {allow('Create') && <div className="mt-4 flex items-center gap-2">
                         <button
                           onClick={() => navigate('/finance/hr-payments/expenses/new')}
                           className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[11px] font-semibold transition-all shadow-xs"
@@ -623,7 +629,7 @@ export default function StaffExpenseList() {
                           <Plus size={13} />
                           New Expense Claim
                         </button>
-                      </div>
+                      </div>}
                     </div>
                   </td>
                 </tr>

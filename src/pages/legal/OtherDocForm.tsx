@@ -15,19 +15,28 @@ import {
 } from 'lucide-react'
 import {
   getOtherDocRecord,
-  addOtherDocRecord,
-  updateOtherDocRecord,
+  saveOtherDoc,
+  otherDocsLoader,
   type OtherDocCategory,
   type OtherDocStatus,
   type OtherDocFile,
 } from '@/data/legalOtherDocs'
-import { KNOWN_SITES } from '@/data/legalCheques'
+import { useLegalSiteOptions } from '@/data/legalCheques'
+import { apiEnabled } from '@/lib/api'
+import { uploadLegalFiles } from '@/data/legalApi'
 import { toast } from '@/components/ui/Toast'
+import { ViewOnlyNote, canIn, guardAct, useCanIn } from '@/lib/guard'
+import { franchiseNameOf, resolveSite, SiteRef } from '@/lib/siteRef'
+import { emitWorkflow } from '@/data/workflow'
 
 export default function OtherDocForm() {
+  const KNOWN_SITES = useLegalSiteOptions()
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
   const isEditing = Boolean(id)
+  const allow = useCanIn('Legal')
+  const canSave = allow(isEditing ? 'Edit' : 'Create')
+  const [siteError, setSiteError] = useState('')
 
   // Section 1: Site Details
   const [siteId, setSiteId] = useState('')
@@ -51,11 +60,13 @@ export default function OtherDocForm() {
   const [verifiedBy, setVerifiedBy] = useState('Paras Dubey')
 
   // Section 5: Status & Remarks
-  const [status, setStatus] = useState<OtherDocStatus>('Verified')
+  const [status, setStatus] = useState<OtherDocStatus>(() => (canIn('Legal', 'Approve') ? 'Verified' : 'Pending Review'))
   const [remark, setRemark] = useState('')
 
   useEffect(() => {
     if (id) {
+      // API mode: wait for GET /legal/other-docs before looking the record up
+      void otherDocsLoader.load().then(() => {
       const existing = getOtherDocRecord(id)
       if (existing) {
         setSiteId(existing.siteId)
@@ -77,11 +88,13 @@ export default function OtherDocForm() {
         toast('Document record not found')
         navigate('/legal/other-documents')
       }
+      })
     }
   }, [id, navigate])
 
   const handleSiteChange = (selectedSiteId: string) => {
     setSiteId(selectedSiteId)
+    setSiteError(selectedSiteId && !resolveSite(selectedSiteId) ? 'Not found in Site Master' : '')
     const site = KNOWN_SITES.find((s) => s.siteId === selectedSiteId)
     if (site) {
       setAtmId(site.atmId)
@@ -91,15 +104,15 @@ export default function OtherDocForm() {
     }
   }
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files || files.length === 0) return
+    const picked = Array.from(files)
+    e.target.value = ''
 
-    const newDocs: OtherDocFile[] = Array.from(files).map((f) => ({
-      name: f.name,
-      sizeKb: Math.round(f.size / 1024),
-      type: f.type || 'application/pdf',
-    }))
+    // API mode: each file goes to POST /files first (fileId kept on the record)
+    const newDocs: OtherDocFile[] | null = await uploadLegalFiles(picked, { entity: 'LegalOtherDoc', ref: id ?? siteId }).catch(() => null)
+    if (!newDocs) return
 
     setDocuments((prev) => [...prev, ...newDocs])
     toast(`Uploaded ${newDocs.length} file(s)`)
@@ -109,11 +122,21 @@ export default function OtherDocForm() {
     setDocuments((prev) => prev.filter((_, i) => i !== index))
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!guardAct('Legal', isEditing ? 'Edit' : 'Create', isEditing ? 'edit legal documents' : 'add legal documents')) return
+    // marking a document Verified is an approval; Action Required / Expired is a rejection
+    if (status === 'Verified' && !guardAct('Legal', 'Approve', 'verify documents')) return
+    if ((status === 'Action Required' || status === 'Expired') && !guardAct('Legal', 'Reject', 'reject documents')) return
 
     if (!siteId) {
       toast('Please select a Site ID')
+      return
+    }
+    const master = resolveSite(siteId)
+    if (!master) {
+      setSiteError(`"${siteId}" is not in Site Master. Pick a valid Site ID.`)
+      toast('Site ID not found in Site Master', 'error')
       return
     }
     if (!category) {
@@ -127,9 +150,9 @@ export default function OtherDocForm() {
 
     const todayStr = new Date().toLocaleDateString('en-GB')
     const recordPayload = {
-      siteId,
-      atmId: atmId || 'ATM001',
-      franchiseeName: franchiseeName || 'Shree Sai Financial Services',
+      siteId: master.siteId,
+      atmId: master.atmId,
+      franchiseeName: franchiseNameOf(master) || franchiseeName,
       mobileNumber: mobileNumber || '+91 98765 43210',
       model: model || 'Hitachi ATM Model XYZ',
       category: category as OtherDocCategory,
@@ -141,21 +164,27 @@ export default function OtherDocForm() {
       status,
       verifiedBy,
       verificationDate: todayStr,
-      documents: documents.length > 0 ? documents : [
+      documents: documents.length > 0 || apiEnabled ? documents : [
         { name: `${siteId}_${category.replace(/\s+/g, '_')}.pdf`, sizeKb: 1450, type: 'application/pdf' },
       ],
       remark,
     }
 
-    if (isEditing && id) {
-      updateOtherDocRecord(id, recordPayload)
-      toast('Document record updated successfully')
-      navigate(`/legal/other-documents/${id}`)
-    } else {
-      const created = addOtherDocRecord(recordPayload)
-      toast('Document record created successfully')
-      navigate(`/legal/other-documents/${created.id}`)
+    const wf = (refId: string) => {
+      const doc = recordPayload.category
+      const vars = { Site_ID: master.siteId, ATM_ID: master.atmId, Franchise_Name: recordPayload.franchiseeName, Current_Status: status }
+      if (status === 'Verified') emitWorkflow({ module: 'Legal', event: 'Approve', refId, vars })
+      else if (status === 'Action Required' || status === 'Expired')
+        emitWorkflow({ module: 'Legal', event: 'Reject', refId, vars: { ...vars, Pending_Action: `Re-upload ${doc}` }, nextAction: { title: `Re-upload ${doc}`, dueHours: 72 } })
+      else emitWorkflow({ module: 'Legal', event: 'Submit', refId, vars, nextAction: { title: `Verify ${doc}`, dueHours: 48 } })
     }
+
+    // API mode: the server emits the workflow events and sets verifiedBy / date on verification
+    const saved = await saveOtherDoc(isEditing ? id : undefined, recordPayload).catch(() => null)
+    if (!saved) return
+    if (!apiEnabled) wf(saved.id)
+    toast(isEditing ? 'Document record updated successfully' : 'Document record created successfully')
+    navigate(`/legal/other-documents/${saved.id}`)
   }
 
   return (
@@ -200,6 +229,8 @@ export default function OtherDocForm() {
         </div>
       </div>
 
+      <ViewOnlyNote module="Legal" />
+
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* SECTION 1: Site Details */}
         <div className="bg-white rounded-xl border border-slate-200/90 shadow-xs p-5">
@@ -222,7 +253,8 @@ export default function OtherDocForm() {
                 required
                 className="w-full h-9 pl-8 pr-8 text-[12.5px] rounded-lg border border-slate-200 bg-white text-slate-800 outline-none focus:border-[#0066FF] appearance-none"
               >
-                <option value="">Search Site ID (e.g. S-1001)</option>
+                <option value="">Search Site ID (e.g. SITE-MH-0001)</option>
+                {siteId && !KNOWN_SITES.some((s) => s.siteId === siteId) && <option value={siteId}>{siteId}</option>}
                 {KNOWN_SITES.map((s) => (
                   <option key={s.siteId} value={s.siteId}>
                     {s.siteId} - {s.franchiseeName} ({s.atmId})
@@ -231,6 +263,8 @@ export default function OtherDocForm() {
               </select>
               <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             </div>
+            {siteError && <p className="mt-1 text-[11.5px] font-medium text-red-600">{siteError}</p>}
+            {siteId && !siteError && <p className="mt-1 text-[11.5px] text-slate-500">Site Master: <SiteRef id={siteId} /></p>}
           </div>
         </div>
 
@@ -564,7 +598,9 @@ export default function OtherDocForm() {
 
           <button
             type="submit"
-            className="h-9 px-6 rounded-lg bg-[#0066FF] hover:bg-blue-700 text-white font-medium text-[13px] flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+            disabled={!canSave}
+            title={canSave ? undefined : 'Your role cannot save Legal records'}
+            className="h-9 px-6 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg bg-[#0066FF] hover:bg-blue-700 text-white font-medium text-[13px] flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
           >
             <Check size={15} /> Submit
           </button>

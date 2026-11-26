@@ -1,6 +1,6 @@
 import {
   LayoutGrid, UserPlus, Briefcase, Scale, FolderKanban, BarChart3, SlidersHorizontal,
-  Landmark, ShieldCheck, Users, type LucideIcon,
+  Landmark, ShieldCheck, Users, Database, Lock, type LucideIcon,
 } from 'lucide-react'
 
 export type NavItem = {
@@ -10,7 +10,8 @@ export type NavItem = {
   children?: NavItem[]
 }
 
-export type NavGroup = NavItem & { icon: LucideIcon }
+/** `onlyIfBlocked`: show the item only to roles that cannot open that path (e.g. a direct link for roles without the parent hub). */
+export type NavGroup = NavItem & { icon: LucideIcon; onlyIfBlocked?: string }
 
 // Full sidebar from the Figma (all modules). Routes without a built page fall back to a placeholder.
 export const NAV: NavGroup[] = [
@@ -22,6 +23,9 @@ export const NAV: NavGroup[] = [
   },
   {
     label: 'Work Management', icon: Briefcase, to: '/work-management',
+  },
+  {
+    label: 'Master Data', icon: Database, to: '/master-data',
   },
   {
     label: 'Legal', icon: Scale, to: '/legal',
@@ -43,6 +47,10 @@ export const NAV: NavGroup[] = [
   },
   {
     label: 'HRMS', icon: Users, to: '/hrms',
+  },
+  {
+    // Roles without the Governance hub (e.g. Franchisee) still need their own privacy requests.
+    label: 'My Privacy', icon: Lock, to: '/governance/privacy/my', onlyIfBlocked: '/governance',
   },
 ]
 
@@ -76,7 +84,7 @@ const PREFIX_TRAIL: Record<string, string[]> = {
   '/franchise/super-master': ['Onboarding', 'Franchise Management', 'Super Master Franchise'],
   '/franchise/master': ['Onboarding', 'Franchise Management', 'Master Franchise'],
   '/franchise/franchise': ['Onboarding', 'Franchise Management', 'Franchise'],
-  '/franchise/master-data': ['Onboarding', 'Franchise Management', 'Master Data'],
+  '/franchise/master-data': ['Onboarding', 'Franchise Management', 'Franchise Database'],
   '/franchise/apna-app': ['Onboarding', 'Franchise Management', 'Apna App'],
   '/franchise/apna-app/new': ['Onboarding', 'Franchise Management', 'Apna App', 'New Registration'],
   '/franchise': ['Onboarding', 'Franchise Management'],
@@ -112,7 +120,7 @@ const PREFIX_TRAIL: Record<string, string[]> = {
   '/legal/other-documents': ['Workspace', 'Legal', 'Other Legal Documents'],
   '/legal/data': ['Legal', 'Legal Data'],
   '/legal': ['Legal'],
-  '/projects/active': ['Workspace', 'Projects', 'Site Master'],
+  '/projects/active': ['Workspace', 'Projects', 'Project Site Register'],
   '/projects/archived': ['Workspace', 'Projects', 'Archived Projects'],
   '/projects/installation': ['Workspace', 'Projects', 'Site Installation'],
   '/projects/installation/new': ['Projects', 'Site Readiness', 'Site Number'],
@@ -210,13 +218,11 @@ const PREFIX_TRAIL: Record<string, string[]> = {
   '/finance/hr-payments/expenses/new': ['Workspace', 'Finance', 'HR Payments', 'Expenses', 'new'],
   '/governance': ['Workspace', 'Governance'],
   '/governance/push-notifications': ['Workspace', 'Governance', 'Push Notifications'],
-  '/governance/audit': ['Workspace', 'Governance', 'Audit'],
-  '/governance/sessions': ['Workspace', 'Governance', 'Sessions'],
   '/governance/security': ['Workspace', 'Governance', 'Security'],
-  '/governance/compliance': ['Workspace', 'Governance', 'Compliance'],
   '/work-management': ['Workspace', 'Work Management'],
   '/hrms': ['Workspace', 'HRMS'],
   '/hrms/attendance': ['Workspace', 'HRMS', 'Attendance'],
+  '/hrms/leave': ['Workspace', 'HRMS', 'Leave & Regularisation'],
   '/hrms/expenses': ['Workspace', 'HR & Administration', 'Staff & Office Expense Management'],
   '/tasks': ['Workspace', 'Tasks'],
   '/tasks/create': ['Workspace', 'Tasks', 'Create Task'],
@@ -241,6 +247,11 @@ const PREFIX_TRAIL: Record<string, string[]> = {
   '/user/tickets': ['Workspace', 'User', 'Help & Support', 'Tickets'],
   '/user/help-center': ['Workspace', 'User', 'Help & Support', 'Help Center'],
   '/user/tour': ['Workspace', 'User', 'Help & Support', 'Take a tour'],
+}
+
+/** Modules register their breadcrumb trails at startup (see App.tsx). */
+export function registerCrumbs(map: Record<string, string[]>) {
+  Object.assign(PREFIX_TRAIL, map)
 }
 
 export function trailFor(pathname: string): string[] {

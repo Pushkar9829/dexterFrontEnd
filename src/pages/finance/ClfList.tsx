@@ -35,11 +35,14 @@ import {
   deleteClfRecord,
   useClfRecords,
 } from '@/data/financeClf'
+import { useCanIn, guardAct, ViewOnlyNote } from '@/lib/guard'
+import { SiteRef } from '@/lib/siteRef'
 
 export default function ClfList() {
   const navigate = useNavigate()
   const { isReport } = useReportMode()
   const records = useClfRecords()
+  const allow = useCanIn('Finance')
 
   // Filter States
   const [filterSiteId, setFilterSiteId] = useState('')
@@ -192,6 +195,7 @@ export default function ClfList() {
 
   // Export CSV
   const handleExport = () => {
+    if (!guardAct('Finance', 'Export', 'export CLF data')) return
     const headers = [
       'S.N.',
       'Site ID',
@@ -233,6 +237,7 @@ export default function ClfList() {
   }
 
   const handleDelete = (id: string, name: string) => {
+    if (!guardAct('Finance', 'Delete', 'delete CLF records')) return
     if (confirm(`Are you sure you want to delete the record for ${name}?`)) {
       deleteClfRecord(id)
       toast('Record deleted')
@@ -267,6 +272,8 @@ export default function ClfList() {
         )}
       </div>
 
+      {!isReport && <ViewOnlyNote module="Finance" />}
+
       {/* Page Title & Top Action Button matching Image 1 */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-1">
         <div>
@@ -278,7 +285,7 @@ export default function ClfList() {
           </p>
         </div>
 
-        {!isReport && (
+        {!isReport && allow('Create') && (
           <div>
             <button
               onClick={() => navigate('/finance/clf/new')}
@@ -653,14 +660,14 @@ export default function ClfList() {
             <span>Reset</span>
           </button>
 
-          <button
+          {allow('Export') && <button
             onClick={handleExport}
             className="inline-flex items-center gap-1.5 h-8.5 px-4 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[12px] font-medium transition-all"
           >
             <Download size={14} />
             <span>Download</span>
             <ChevronDown size={12} className="text-slate-400 ml-0.5" />
-          </button>
+          </button>}
         </div>
       </div>
 
@@ -767,7 +774,7 @@ export default function ClfList() {
                       </button>
                     </td>
                     <td className="py-2.5 px-3 border-r border-slate-100 whitespace-nowrap font-medium text-slate-700">
-                      {item.atmId || '—'}
+                      <SiteRef id={item.atmId} />
                     </td>
                     <td className="py-2.5 px-3 border-r border-slate-100 font-medium text-slate-800 text-left whitespace-nowrap">
                       {item.franchiseeName || '—'}
@@ -808,17 +815,17 @@ export default function ClfList() {
                             <button
                               onClick={() => navigate(`/finance/clf/${item.id}`)}
                               className="w-6.5 h-6.5 rounded flex items-center justify-center text-[#0066FF] hover:bg-blue-50 border border-blue-200/60 transition-colors"
-                              title="Edit"
+                              title={allow('Edit') ? 'Edit' : 'View'}
                             >
-                              <Edit2 size={12} />
+                              {allow('Edit') ? <Edit2 size={12} /> : <Eye size={12} />}
                             </button>
-                            <button
+                            {allow('Delete') && <button
                               onClick={() => handleDelete(item.id, item.franchiseeName)}
                               className="w-6.5 h-6.5 rounded flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 border border-slate-200 hover:border-red-200 transition-colors"
                               title="Delete"
                             >
                               <Trash2 size={12} />
-                            </button>
+                            </button>}
                           </>
                         )}
                       </div>
@@ -843,7 +850,7 @@ export default function ClfList() {
                           : 'Try adjusting your filters or click on "New CLF" to add a record.'}
                       </p>
 
-                      {!isReport && (
+                      {!isReport && allow('Create') && (
                         <div className="mt-4 flex items-center gap-2">
                           <button
                             onClick={() => navigate('/finance/clf/new')}

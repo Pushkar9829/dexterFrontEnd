@@ -1,4 +1,6 @@
 import { createStore } from '@/lib/store'
+import { apiEnabled, finDelete, finLoader, finSave, type FinCfg } from './financeApi'
+import { franchiseNameOf, siteAt } from '@/lib/siteRef'
 import {
   SEED_SECURITY_DEPOSITS,
   createEmptySecurityDeposit,
@@ -10,10 +12,26 @@ function sanitizeDeposits(list: SecurityDeposit[]): SecurityDeposit[] {
   return list.filter((s) => Boolean(s.franchiseeName?.trim() || s.siteId?.trim() || s.txnNumber?.trim()))
 }
 
-export const securityDepositStore = createStore<SecurityDeposit[]>(
-  'dexter.finance.sd.v1',
-  () => SEED_SECURITY_DEPOSITS,
-)
+// Site identity (Site ID / ATM ID / franchise) from the common Site Master
+const seedDeposits = (): SecurityDeposit[] =>
+  SEED_SECURITY_DEPOSITS.map((d, i) => {
+    const site = siteAt(i)
+    return { ...d, siteId: site.siteId, atmId: site.atmId, franchiseeName: franchiseNameOf(site) || d.franchiseeName }
+  })
+
+export const securityDepositStore = createStore<SecurityDeposit[]>(apiEnabled ? 'dexter.finance.sd.api' : 'dexter.finance.sd.v2', apiEnabled ? () => [] : seedDeposits)
+/** API mode: security deposits ↔ /finance/security-deposits (receipt no + Verified status set by the server; cash > ₹2 lakh refused). */
+export const sdCfg: FinCfg<SecurityDeposit> = {
+  key: 'security-deposits', label: 'Security deposit', get: () => securityDepositStore.get(), set: (l) => securityDepositStore.set(l),
+  fields: ['paymentType', 'paymentDate', 'transactionDate', 'transferTime', 'txnNumber', 'amount', 'depositCategory', 'hpyAccount', 'cashLiveDate', 'frBankName', 'accountHolder', 'frAccount', 'frIfsc', 'branchName', 'franchiseeName', 'franchiseeNo', 'verifierRemarks'],
+  money: ['amount'], dates: ['paymentDate', 'transactionDate', 'cashLiveDate'], dateOut: 'iso', times: ['transferTime'], statusField: 'status', blank: () => createEmptySecurityDeposit(),
+  fromExtra: (r, f) => ({
+    status: (f.sdStatus as string) || (r.status === 'Approved' ? 'Verified' : r.status === 'Rejected' ? 'Disputed' : 'Pending Verification'),
+    transferTime: r.data.transferTime ? `${String(r.data.transferTime)}:00` : '',
+    verifiedBy: r.approvedByName ?? '',
+    verifiedAt: (r as { approvedAt?: string }).approvedAt ?? '',
+  }),
+}
 
 // Auto-clean any ghost or empty records from local storage on load
 try {
@@ -27,6 +45,7 @@ try {
 }
 
 export const useSecurityDeposits = () => {
+  finLoader(sdCfg).use()
   const list = securityDepositStore.use()
   return sanitizeDeposits(list)
 }
@@ -81,15 +100,22 @@ export function saveSecurityDeposit(deposit: SecurityDeposit): SecurityDeposit {
     return [toSave, ...list]
   })
 
+  if (apiEnabled) void finSave(sdCfg, existing, toSave)
   return toSave
 }
 
 export function deleteSecurityDeposit(id: string) {
+  if (apiEnabled) void finDelete(sdCfg, id)
   securityDepositStore.set((list) => list.filter((s) => s.id !== id))
 }
 
 export function setSecurityDepositStatus(ids: string[], status: SecurityDepositStatus) {
   const now = new Date().toISOString()
+  if (apiEnabled)
+    ids.forEach((id) => {
+      const prev = securityDepositStore.get().find((s) => s.id === id)
+      if (prev) void finSave(sdCfg, prev, { ...prev, status })
+    })
   securityDepositStore.set((list) =>
     list.map((s) => (ids.includes(s.id) ? { ...s, status, updatedAt: now } : s)),
   )

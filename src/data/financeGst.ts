@@ -1,7 +1,9 @@
 // Finance · GST details (Figma 95:7894 list, 98:7683 record view, 211:19323 edit).
 // Enhanced to match the unified GST Invoice Management & Payout Reconciliation UI.
 import { createStore } from '@/lib/store'
-import { FRANCHISEES, SITES, rng } from './cbrSites'
+import { apiEnabled, finDelete, finLoader, finSave, type FinCfg } from './financeApi'
+import { FRANCHISEES, rng } from './cbrSites'
+import { franchiseNameOf, siteAt } from '@/lib/siteRef'
 
 export const GST_INVOICE_STATUSES = [
   'Pending at Franchise',
@@ -305,8 +307,10 @@ function seed(): GstRecord[] {
     fyName = '2026-27'
   ) => {
     for (let i = 0; i < count; i++) {
-      const site = SITES[(currentSn + i) % SITES.length]
-      const fr = FRANCHISEES.find((f) => f.id === site.franchiseId) || FRANCHISEES[0]
+      // Site Master site (cbrSites is not a stable source for seeding)
+      const ms = siteAt(currentSn - 1)
+      const site = { location: ms.location, city: ms.district }
+      const fr = FRANCHISEES[(currentSn + i) % FRANCHISEES.length]
       const cleanSiteId = String(200 + ((currentSn * 7) % 85))
       const cleanAtmId = `ATM${12340 + ((currentSn * 11) % 900)}`
       const base = Math.round(25000 + r() * 40000)
@@ -373,10 +377,32 @@ function seed(): GstRecord[] {
   // 125 more Reconciled (Paid) -> total 126
   generateSeedBatch(125, 'Reconciled', 'Paid', 'August 2026', '2026-27')
 
-  return out
+  // Site identity (Site ID / ATM ID / franchise / location) from the common Site Master
+  return out.map((g, i) => {
+    const site = siteAt(i)
+    return { ...g, siteId: site.siteId, atmId: site.atmId, franchiseeName: franchiseNameOf(site) || g.franchiseeName, locationName: site.location }
+  })
 }
 
-export const gstStore = createStore<GstRecord[]>('dexter.finance.gst.v4', seed)
+const gstRaw = createStore<GstRecord[]>(apiEnabled ? 'dexter.finance.gst.api' : 'dexter.finance.gst.v5', apiEnabled ? () => [] : seed)
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+const monthToIso = (m: string) => {
+  const x = m.match(/^([A-Za-z]+)\s+(\d{4})$/)
+  const i = x ? MONTHS.indexOf(x[1]) : -1
+  return i >= 0 ? `${x![2]}-${String(i + 1).padStart(2, '0')}` : /^\d{4}-\d{2}$/.test(m) ? m : undefined
+}
+const isoToMonth = (m: string) => (/^\d{4}-\d{2}$/.test(m) ? `${MONTHS[Number(m.slice(5)) - 1]} ${m.slice(0, 4)}` : m)
+/** API mode: GST invoices ↔ /finance/gst-invoices (CGST/SGST/IGST, totals and IRN computed by the server). */
+export const gstCfg: FinCfg<GstRecord> = {
+  key: 'gst-invoices', label: 'GST invoice', get: () => gstRaw.get(), set: (l) => gstRaw.set(l),
+  fields: ['fYear', 'month', 'sapCode', 'franchiseeName', 'contactNo', 'locationName', 'gstNumber', 'state', 'stateCode', 'panNumber', 'address', 'invoiceNumber', 'invoiceDate', 'basicAmount', 'gstRatePct', 'interState', 'roundOff', 'tds', 'cashShortageDeduction', 'disputeDeduction', 'chargebackDeduction', 'gstRelatedDeduction', 'paidAmount', 'paymentDate', 'utrNumber', 'invoiceStatus', 'paymentStatus', 'remark'],
+  money: ['basicAmount', 'cgst', 'sgst', 'invoiceAmount', 'tds', 'cashShortageDeduction', 'disputeDeduction', 'chargebackDeduction', 'gstRelatedDeduction', 'netAmount', 'paidAmount'],
+  moneyFmt: 'grouped2', dates: ['invoiceDate', 'paymentDate'], dateOut: 'dmy', statusField: 'invoiceStatus', blank: () => emptyGst(),
+  fromExtra: (r, f) => ({ month: isoToMonth(String(f.month ?? '')), roundOff: String((Number(r.data.roundOff) || 0) / 100), sn: Number(String(r.recordId).replace(/\D/g, '')) || 0, updatedBy: r.approvedByName ?? r.createdByName ?? '' }),
+  toExtra: (f) => ({ month: monthToIso(f.month), roundOff: Math.max(-99, Math.min(99, Math.round((Number(String(f.roundOff).replace(/[,\s]/g, '')) || 0) * 100))) }),
+}
+/** gstStore.use() also hydrates the register from the backend in API mode. */
+export const gstStore = { ...gstRaw, use: (): GstRecord[] => (finLoader(gstCfg).use(), gstRaw.use()) }
 export const getGst = (id: string) => gstStore.get().find((g) => g.id === id)
 
 export function emptyGst(fy = '2026-27'): GstRecord {
@@ -429,13 +455,17 @@ export function saveGst(rec: GstRecord): GstRecord {
     const sn = all.reduce((m, g) => Math.max(m, g.sn), 0) + 1
     const created = { ...rec, ...stamp, sn, id: `GST-${String(sn).padStart(4, '0')}` }
     gstStore.set([created, ...all])
+    if (apiEnabled) void finSave(gstCfg, undefined, created)
     return created
   }
+  const prev = gstStore.get().find((g) => g.id === rec.id)
   const saved = { ...rec, ...stamp }
   gstStore.set((all) => all.map((g) => (g.id === rec.id ? saved : g)))
+  if (apiEnabled) void finSave(gstCfg, prev, saved)
   return saved
 }
 
 export function deleteGst(id: string) {
+  if (apiEnabled) void finDelete(gstCfg, id)
   gstStore.set((all) => all.filter((g) => g.id !== id))
 }

@@ -4,6 +4,7 @@ import { Info, Plus, SquarePen, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { toast } from '@/components/ui/Toast'
 import { cn } from '@/lib/cn'
+import { canIn, guardAct, useCanIn } from '@/lib/guard'
 import { useReportMode } from '@/hooks/useReportMode'
 import type { Row } from '@/data/reportsFinancial'
 
@@ -22,14 +23,16 @@ export const FOOTER = 'Reports respect your workspace permissions. Exports are r
 
 /** view → Update → edit (Save / Cancel) state over a list of rows. */
 export function useDraft(saved: Row[], persist: (rows: Row[]) => void, label: string, initialEditing = false) {
-  const [draft, setDraft] = useState<Row[] | null>(initialEditing ? saved.map((r) => ({ ...r })) : null)
+  const canEditReports = () => canIn('Reports', 'Edit') || canIn('Reports', 'Create')
+  const [draft, setDraft] = useState<Row[] | null>(initialEditing && canEditReports() ? saved.map((r) => ({ ...r })) : null)
   const rows = draft ?? saved
   return {
     rows,
     editing: draft !== null,
-    start: () => setDraft(saved.map((r) => ({ ...r }))),
+    start: () => (canEditReports() || guardAct('Reports', 'Edit', 'update reports')) && setDraft(saved.map((r) => ({ ...r }))),
     cancel: () => setDraft(null),
     save: () => {
+      if (!canEditReports() && !guardAct('Reports', 'Edit', 'update reports')) return
       if (draft) persist(draft)
       setDraft(null)
       toast(`${label} saved`)
@@ -59,7 +62,8 @@ export function EditActions({
   addLabel?: string
 }) {
   const { isReport } = useReportMode()
-  if (isReport) {
+  const allow = useCanIn('Reports')
+  if (isReport || !(allow('Edit') || allow('Create'))) {
     return (
       <span className="inline-flex items-center px-2.5 py-1 text-[11px] font-semibold rounded-md bg-blue-50 text-blue-700 border border-blue-200">
         View-Only Report Mode

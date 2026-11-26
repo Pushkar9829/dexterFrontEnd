@@ -1,3 +1,4 @@
+import { promptReason } from '@/lib/reason'
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowUpRight, CalendarDays, ChevronDown, ClipboardList, Clock, Copy, Download, MoreHorizontal, Search, ShieldCheck, CircleCheck, ListFilter, X } from 'lucide-react'
@@ -10,8 +11,17 @@ import { toast } from '@/components/ui/Toast'
 import { cn } from '@/lib/cn'
 import { downloadCsv } from '@/lib/export'
 import { APPLICANT_TYPES, STATUSES, type Application, type AppStatus } from '@/data/applications'
+import { canIn, guardAct, useCanIn, ViewOnlyNote } from '@/lib/guard'
+import { apiEnabled } from '@/lib/api'
 import { deleteApplication, getApplication, setStatus, useApplications } from '@/data/applicationStore'
 import { ApplicationWizard } from './wizard/ApplicationWizard'
+
+/** Rejection reason (mandatory on the backend). Mock mode keeps the one-click reject. null = cancelled. */
+function rejectReason(): string | null {
+  if (!apiEnabled) return ''
+  const r = window.prompt('Reason for rejection (required)')?.trim()
+  return r ? r : null
+}
 
 const TABS: { key: AppStatus | 'all'; label: string }[] = [
   { key: 'all', label: 'All applications' },
@@ -41,6 +51,7 @@ const initials = (n: string) => n.split(' ').map((p) => p[0]).slice(0, 2).join('
 
 function RowMenu({ app, onOpen }: { app: Application; onOpen: () => void }) {
   const [open, setOpen] = useState(false)
+  const allow = useCanIn('Onboarding')
   const act = (fn: () => void) => () => {
     fn()
     setOpen(false)
@@ -66,28 +77,31 @@ function RowMenu({ app, onOpen }: { app: Application; onOpen: () => void }) {
             >
               <Copy size={13} /> Copy App ID
             </button>
-            {app.status === 'Under review' && (
-              <button className="block w-full px-3 py-2 text-left hover:bg-surface" onClick={act(() => { setStatus([app.id], 'KYC pending'); toast(`${app.id} moved to KYC pending`) })}>
+            {app.status === 'Under review' && allow('Edit') && (
+              <button className="block w-full px-3 py-2 text-left hover:bg-surface" onClick={act(() => { if (!guardAct('Onboarding', 'Edit')) return; setStatus([app.id], 'KYC pending'); toast(`${app.id} moved to KYC pending`) })}>
                 Move to KYC pending
               </button>
             )}
             {(app.status === 'Under review' || app.status === 'KYC pending') && (
               <>
-                <button className="block w-full px-3 py-2 text-left text-emerald-700 hover:bg-surface" onClick={act(() => { setStatus([app.id], 'Approved'); toast(`${app.id} approved`) })}>
+                {allow('Approve') && <button className="block w-full px-3 py-2 text-left text-emerald-700 hover:bg-surface" onClick={act(() => { if (!guardAct('Onboarding', 'Approve')) return; setStatus([app.id], 'Approved'); toast(`${app.id} approved`) })}>
                   Approve
-                </button>
-                <button className="block w-full px-3 py-2 text-left text-brand-red hover:bg-surface" onClick={act(() => { setStatus([app.id], 'Rejected'); toast(`${app.id} rejected`, 'info') })}>
+                </button>}
+                {allow('Reject') && <button className="block w-full px-3 py-2 text-left text-brand-red hover:bg-surface" onClick={act(() => { if (!guardAct('Onboarding', 'Reject')) return; const reason = rejectReason(); if (reason === null) return; setStatus([app.id], 'Rejected', reason); toast(`${app.id} rejected`, 'info') })}>
                   Reject
-                </button>
+                </button>}
               </>
             )}
-            {app.status === 'Draft' && (
+            {app.status === 'Draft' && (allow('Delete') || allow('Edit')) && (
               <button
                 className="block w-full px-3 py-2 text-left text-brand-red hover:bg-surface"
                 onClick={act(() => {
-                  if (confirm(`Delete draft ${app.id}? This cannot be undone.`)) {
-                    deleteApplication(app.id)
-                    toast(`Draft ${app.id} deleted`, 'info')
+                  if (!canIn('Onboarding', 'Delete') && !guardAct('Onboarding', 'Edit', 'delete drafts')) return
+                  if (apiEnabled) {
+                    const reason = promptReason(`Delete draft ${app.id}?`)
+                    if (reason && deleteApplication(app.id, reason)) toast(`Draft ${app.id} deleted`, 'info')
+                  } else if (confirm(`Delete draft ${app.id}? This cannot be undone.`)) {
+                    if (deleteApplication(app.id)) toast(`Draft ${app.id} deleted`, 'info')
                   }
                 })}
               >
@@ -105,6 +119,7 @@ export default function Applications() {
   const apps = useApplications()
   const navigate = useNavigate()
   const { appId } = useParams()
+  const allow = useCanIn('Onboarding')
   const [tab, setTab] = useState<AppStatus | 'all'>('all')
   const [query, setQuery] = useState('')
   const [status, setStatusFilter] = useState<AppStatus | ''>('')
@@ -192,6 +207,7 @@ export default function Applications() {
   ]
 
   const exportRows = () =>
+    guardAct('Onboarding', 'Export') &&
     downloadCsv(
       'applications',
       ['App ID', 'Applicant Name', 'Email', 'Type', 'Status', 'Date Submitted'],
@@ -207,15 +223,21 @@ export default function Applications() {
         sub="Manage franchise applications from submission to approval."
         actions={
           <>
-            <Button variant="secondary" icon={<Download size={15} />} onClick={exportRows}>
-              Export
-            </Button>
-            <Button onClick={() => navigate('/onboarding/applications/new')}>
-              + New Application
-            </Button>
+            {allow('Export') && (
+              <Button variant="secondary" icon={<Download size={15} />} onClick={exportRows}>
+                Export
+              </Button>
+            )}
+            {allow('Create') && (
+              <Button onClick={() => navigate('/onboarding/applications/new')}>
+                + New Application
+              </Button>
+            )}
           </>
         }
       />
+
+      <ViewOnlyNote module="Onboarding" />
 
       <div className="mb-[22px] grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
         {kpis.map((k) => (
@@ -333,12 +355,12 @@ export default function Applications() {
             noun="applications"
             bulkActions={(ids, clear) => (
               <>
-                <button className="font-medium text-emerald-700" onClick={() => { setStatus(ids.filter((i) => ['Under review', 'KYC pending'].includes(getApplication(i)?.status ?? '')), 'Approved'); toast('Selected applications approved'); clear() }}>
+                {allow('Approve') && <button className="font-medium text-emerald-700" onClick={() => { if (!guardAct('Onboarding', 'Approve')) return; setStatus(ids.filter((i) => ['Under review', 'KYC pending'].includes(getApplication(i)?.status ?? '')), 'Approved'); toast('Selected applications approved'); clear() }}>
                   Approve
-                </button>
-                <button className="font-medium text-brand-red" onClick={() => { setStatus(ids.filter((i) => ['Under review', 'KYC pending'].includes(getApplication(i)?.status ?? '')), 'Rejected'); toast('Selected applications rejected', 'info'); clear() }}>
+                </button>}
+                {allow('Reject') && <button className="font-medium text-brand-red" onClick={() => { if (!guardAct('Onboarding', 'Reject')) return; const reason = rejectReason(); if (reason === null) return; setStatus(ids.filter((i) => ['Under review', 'KYC pending'].includes(getApplication(i)?.status ?? '')), 'Rejected', reason); toast('Selected applications rejected', 'info'); clear() }}>
                   Reject
-                </button>
+                </button>}
                 <button className="text-muted" onClick={clear}>
                   Clear selection
                 </button>

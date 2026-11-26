@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 import { downloadCsv } from '@/lib/export'
 import { toast } from '@/components/ui/Toast'
+import { guardAct, useCanIn } from '@/lib/guard'
 
 export interface MonthlyAtmRecord {
   sn: number
@@ -156,6 +157,7 @@ function getDailyTxnData(atmId: string, day: number, monthIndex: number, year: n
 }
 
 export default function MonthlyTxnsReport() {
+  const allowRep = useCanIn('Reports')
   // Selected Month & Year (Default to May 2025 matching Page 01)
   const [selectedMonthYearLabel, setSelectedMonthYearLabel] = useState<string>('May 2025')
   const [filterSiteId, setFilterSiteId] = useState<string>('')
@@ -270,6 +272,7 @@ export default function MonthlyTxnsReport() {
 
   // Export CSV handler
   const handleExportCsv = () => {
+    if (!guardAct('Reports', 'Export', 'export reports')) return
     if (filteredRecords.length === 0) {
       toast('No records to export')
       return
@@ -377,15 +380,17 @@ export default function MonthlyTxnsReport() {
           </button>
 
           <div className="relative">
-            <button
-              type="button"
-              onClick={() => setShowExportMenu(!showExportMenu)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-xs"
-            >
-              <Download size={14} className="text-[#0066FF]" />
-              <span>Download</span>
-              <ChevronDown size={13} className="text-slate-400 ml-0.5" />
-            </button>
+            {allowRep('Export') && (
+              <button
+                type="button"
+                onClick={() => setShowExportMenu(!showExportMenu)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-xs"
+              >
+                <Download size={14} className="text-[#0066FF]" />
+                <span>Download</span>
+                <ChevronDown size={13} className="text-slate-400 ml-0.5" />
+              </button>
+            )}
 
             {showExportMenu && (
               <div className="absolute right-0 mt-1 w-44 rounded-lg border border-slate-200 bg-white py-1 shadow-lg z-30">

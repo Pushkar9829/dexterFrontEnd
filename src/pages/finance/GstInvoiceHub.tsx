@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { FileText, FileSpreadsheet, PlusCircle, ArrowLeft, Receipt } from 'lucide-react'
 import { HubTile, type HubTileTheme } from '@/components/ui/HubTile'
+import { useCanIn } from '@/lib/guard'
 
 interface InvoiceSubTileConfig {
   title: string
@@ -37,6 +38,7 @@ const INVOICE_TILES: InvoiceSubTileConfig[] = [
 ]
 
 export default function GstInvoiceHub() {
+  const allow = useCanIn('Finance')
   return (
     <div className="max-w-[1020px] space-y-6">
       {/* Top Breadcrumb & Navigation */}
@@ -74,7 +76,7 @@ export default function GstInvoiceHub() {
 
       {/* Main Two Tiles Grid */}
       <div className="grid gap-5 sm:grid-cols-3">
-        {INVOICE_TILES.map((tile) => (
+        {INVOICE_TILES.filter((t) => allow('Create') || !t.to.endsWith('/new')).map((tile) => (
           <HubTile key={tile.title} {...tile} />
         ))}
       </div>

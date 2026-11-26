@@ -62,6 +62,7 @@ import { createTask, NOW as TASK_NOW } from '@/data/tasks'
 import { answer, sanitize, suggestReply, summarize } from './ai'
 import ComposeDialog from './Compose'
 import CaseEmail from './CaseEmail'
+import { guardAct, useCanIn, ViewOnlyNote } from '@/lib/guard'
 
 type Tab = 'all' | 'unread' | 'assigned' | 'mentions' | 'followups'
 const TABS: { key: Tab; label: string; test: (m: Mail) => boolean }[] = [
@@ -108,6 +109,7 @@ const preview = (body: string) => body.replace(/^\s*(dear|hi|hello)\b[^\n,]*,?\s
 export default function Mailbox({ folder, compose = false }: { folder: MailFolder; compose?: boolean }) {
   const { mails } = emailStore.use()
   const nav = useNavigate()
+  const allowEmail = useCanIn('Email')
   const [params, setParams] = useSearchParams()
   const selectedId = params.get('m')
 
@@ -214,12 +216,13 @@ export default function Mailbox({ folder, compose = false }: { folder: MailFolde
     return (
       <>
         <CaseEmail trackerId={caseBehind} />
-        <ComposeDialog />
+        {allowEmail('Create') && <ComposeDialog />}
       </>
     )
 
   return (
     <div className="space-y-4">
+      <ViewOnlyNote module="Email" />
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-[24px] font-semibold tracking-tight text-ink sm:text-[28px]">Email — {TITLES[folder]}</h1>
@@ -236,9 +239,11 @@ export default function Mailbox({ folder, compose = false }: { folder: MailFolde
           >
             <Sparkles size={15} /> AI Assistant
           </button>
-          <Button icon={<Send size={16} />} onClick={() => nav('/email/inbox/compose')}>
-            Compose Email
-          </Button>
+          {allowEmail('Create') && (
+            <Button icon={<Send size={16} />} onClick={() => nav('/email/inbox/compose')}>
+              Compose Email
+            </Button>
+          )}
         </div>
       </div>
 
@@ -351,6 +356,7 @@ export default function Mailbox({ folder, compose = false }: { folder: MailFolde
                 className="text-muted hover:text-brand-red"
                 onClick={() => {
                   if (!sel.length) return toast('Select drafts first.', 'info')
+                  if (!guardAct('Email', 'Delete', 'discard drafts')) return
                   sel.forEach(removeMail)
                   toast(`${sel.length} draft${sel.length > 1 ? 's' : ''} discarded.`)
                   setSel([])
@@ -503,7 +509,7 @@ export default function Mailbox({ folder, compose = false }: { folder: MailFolde
         </button>
       </div>
 
-      {compose && <ComposeDialog />}
+      {compose && allowEmail('Create') && <ComposeDialog />}
     </div>
   )
 }
@@ -556,7 +562,7 @@ function Reader({ m, all, onBack }: { m: Mail; all: Mail[]; onBack: () => void }
   const [showCc, setShowCc] = useState(false)
   const [openPrev, setOpenPrev] = useState(false) // collapsed: latest previous message only, as in the design
   const thread = threadOf(m, all).filter((x) => Date.parse(x.at) < Date.parse(m.at))
-  const go = (mode: string) => nav(`/email/inbox/compose?${mode}=${m.id}`)
+  const go = (mode: string) => guardAct('Email', 'Create', 'send email') && nav(`/email/inbox/compose?${mode}=${m.id}`)
   const createFollowUp = () => {
     const t = createTask({
       title: `Follow up: ${m.subject.replace(/^(re|fwd):\s*/i, '')}`,

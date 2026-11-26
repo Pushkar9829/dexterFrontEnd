@@ -29,6 +29,9 @@ import {
 import { downloadCsv } from '@/lib/export'
 import { toast } from '@/components/ui/Toast'
 import { useReportMode } from '@/hooks/useReportMode'
+import { useCanIn, guardAct, ViewOnlyNote } from '@/lib/guard'
+import { franchiseNameOf, resolveSite, SiteRef } from '@/lib/siteRef'
+import { emitFinance } from './finWorkflow'
 import {
   useAccountOpenings,
   addAccountOpening,
@@ -40,6 +43,7 @@ import {
 export default function AccountOpeningList() {
   const { isReport } = useReportMode()
   const applications = useAccountOpenings()
+  const allow = useCanIn('Finance')
 
   // Filter States
   const [filterAppId, setFilterAppId] = useState('')
@@ -171,6 +175,7 @@ export default function AccountOpeningList() {
   // Export
   const [showExportMenu, setShowExportMenu] = useState(false)
   const handleExportCsv = () => {
+    if (!guardAct('Finance', 'Export', 'export account opening applications')) return
     const headers = [
       'S.N.',
       'Application ID',
@@ -214,6 +219,7 @@ export default function AccountOpeningList() {
 
   // Modal open helpers
   const handleOpenNew = () => {
+    if (!guardAct('Finance', 'Create', 'create account opening applications')) return
     setEditingRecord(null)
     setModalForm({
       siteId: '',
@@ -257,22 +263,38 @@ export default function AccountOpeningList() {
 
   const handleSaveModal = (e: React.FormEvent) => {
     e.preventDefault()
+    if (!guardAct('Finance', editingRecord ? 'Edit' : 'Create', 'save account opening applications')) return
     if (!modalForm.siteId || !modalForm.franchiseeName || !modalForm.bankName) {
       toast('Please enter required fields (Site ID, Franchisee Name, Bank Name)')
       return
     }
+    const site = resolveSite(modalForm.siteId)
+    if (!site) {
+      toast(`Site ID ${modalForm.siteId} is not in the Site Master`)
+      return
+    }
+    if (modalForm.atmId && resolveSite(modalForm.atmId)?.siteId !== site.siteId) {
+      toast(`ATM ID ${modalForm.atmId} does not belong to Site ${site.siteId} (expected ${site.atmId})`)
+      return
+    }
+    const form = { ...modalForm, siteId: site.siteId, atmId: site.atmId }
+    const wf = { what: 'account opening application', site: site.atmId, franchise: form.franchiseeName }
 
     if (editingRecord) {
-      updateAccountOpening(editingRecord.id, modalForm)
+      updateAccountOpening(editingRecord.id, form)
+      if (form.status !== editingRecord.status && form.status === 'Active') emitFinance('Approve', editingRecord.id, { ...wf, status: 'Active' })
+      else if (form.stage !== editingRecord.stage && form.stage === 'Rejected') emitFinance('Reject', editingRecord.id, { ...wf, status: 'Rejected' })
       toast('Account opening application updated')
     } else {
-      addAccountOpening(modalForm)
+      const created = addAccountOpening(form)
+      emitFinance('Submit', created.id, { ...wf, status: form.status })
       toast('New account opening application submitted')
     }
     setIsModalOpen(false)
   }
 
   const handleDelete = (id: string) => {
+    if (!guardAct('Finance', 'Delete', 'delete account opening applications')) return
     if (window.confirm(`Are you sure you want to delete application "${id}"?`)) {
       deleteAccountOpening(id)
       toast('Application deleted')
@@ -327,7 +349,7 @@ export default function AccountOpeningList() {
               : 'Track and process new nodal, escrow, and virtual pool bank account opening applications.'}
           </p>
         </div>
-        {!isReport && (
+        {!isReport && allow('Create') && (
           <button
             onClick={handleOpenNew}
             className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#0066FF] px-4 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-[#0052CC] transition-colors shrink-0"
@@ -337,6 +359,8 @@ export default function AccountOpeningList() {
           </button>
         )}
       </div>
+
+      {!isReport && <ViewOnlyNote module="Finance" />}
 
       {/* Filter Card */}
       <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -468,7 +492,7 @@ export default function AccountOpeningList() {
             <RotateCcw size={14} />
             Reset
           </button>
-          <div className="relative">
+          {allow('Export') && <div className="relative">
             <button
               onClick={() => setShowExportMenu(!showExportMenu)}
               className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
@@ -495,7 +519,7 @@ export default function AccountOpeningList() {
                 </button>
               </div>
             )}
-          </div>
+          </div>}
         </div>
       </div>
 
@@ -620,7 +644,7 @@ export default function AccountOpeningList() {
                       </td>
                       <td className="py-2.5 px-3 border-r border-slate-100 whitespace-nowrap">
                         <div className="font-semibold text-slate-900 whitespace-nowrap">{rec.siteId}</div>
-                        <div className="text-[10.5px] font-mono text-slate-400 whitespace-nowrap">{rec.atmId}</div>
+                        <div className="text-[10.5px] font-mono text-slate-400 whitespace-nowrap"><SiteRef id={rec.atmId || rec.siteId} /></div>
                       </td>
                       <td className="py-2.5 px-3 border-r border-slate-100 whitespace-nowrap">
                         <div className="font-semibold text-slate-900 whitespace-nowrap">{rec.franchiseeName}</div>
@@ -695,18 +719,18 @@ export default function AccountOpeningList() {
                             <>
                               <button
                                 onClick={() => handleOpenEdit(rec)}
-                                title="Edit Application"
+                                title={allow('Edit') ? 'Edit Application' : 'View Application'}
                                 className="p-1 rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
                               >
-                                <Edit2 size={13} />
+                                {allow('Edit') ? <Edit2 size={13} /> : <Eye size={13} />}
                               </button>
-                              <button
+                              {allow('Delete') && <button
                                 onClick={() => handleDelete(rec.id)}
                                 title="Delete Application"
                                 className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
                               >
                                 <Trash2 size={13} />
-                              </button>
+                              </button>}
                             </>
                           )}
                         </div>
@@ -801,8 +825,11 @@ export default function AccountOpeningList() {
                     type="text"
                     required
                     value={modalForm.siteId}
-                    onChange={(e) => setModalForm({ ...modalForm, siteId: e.target.value })}
-                    placeholder="e.g. ST-MH-PUN-00124"
+                    onChange={(e) => {
+                      const st = resolveSite(e.target.value)
+                      setModalForm({ ...modalForm, siteId: e.target.value, ...(st ? { atmId: st.atmId, franchiseeName: franchiseNameOf(st) } : {}) })
+                    }}
+                    placeholder="e.g. SITE-MH-0001"
                     className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
@@ -813,10 +840,18 @@ export default function AccountOpeningList() {
                   <input
                     type="text"
                     value={modalForm.atmId}
-                    onChange={(e) => setModalForm({ ...modalForm, atmId: e.target.value })}
-                    placeholder="e.g. DX-MH-01482"
+                    onChange={(e) => {
+                      const st = resolveSite(e.target.value)
+                      setModalForm({ ...modalForm, atmId: e.target.value, ...(st ? { siteId: st.siteId, franchiseeName: franchiseNameOf(st) } : {}) })
+                    }}
+                    placeholder="e.g. DXMH70007"
                     className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
+                  {(modalForm.atmId || modalForm.siteId) && (
+                    <div className="mt-0.5 text-[10.5px]">
+                      <SiteRef id={modalForm.atmId || modalForm.siteId} />
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -992,7 +1027,7 @@ export default function AccountOpeningList() {
                 >
                   {isReport ? 'Close' : 'Cancel'}
                 </button>
-                {!isReport && (
+                {!isReport && allow(editingRecord ? 'Edit' : 'Create') && (
                   <button
                     type="submit"
                     className="px-4 py-1.5 rounded-lg bg-[#0066FF] text-white font-semibold hover:bg-[#0052CC] transition-colors"

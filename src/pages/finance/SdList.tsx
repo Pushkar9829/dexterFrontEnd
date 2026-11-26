@@ -34,11 +34,14 @@ import {
   deleteSecurityDeposit,
   useSecurityDeposits,
 } from '@/data/financeSdStore'
+import { useCanIn, guardAct, ViewOnlyNote } from '@/lib/guard'
+import { SiteRef } from '@/lib/siteRef'
 
 export default function SdList() {
   const navigate = useNavigate()
   const { isReport } = useReportMode()
   const deposits = useSecurityDeposits()
+  const allow = useCanIn('Finance')
 
   // Filter States
   const [filterSiteId, setFilterSiteId] = useState('')
@@ -180,6 +183,7 @@ export default function SdList() {
   }, [filtered, currentPage, pageSize])
 
   const handleExport = () => {
+    if (!guardAct('Finance', 'Export', 'export security deposits')) return
     if (filtered.length === 0) {
       toast('No records to export')
       return
@@ -227,6 +231,7 @@ export default function SdList() {
   }
 
   const handleDelete = (id: string, name: string) => {
+    if (!guardAct('Finance', 'Delete', 'delete security deposits')) return
     if (confirm(`Are you sure you want to delete the security deposit record for ${name}?`)) {
       deleteSecurityDeposit(id)
       toast(`Record deleted`)
@@ -261,6 +266,8 @@ export default function SdList() {
         )}
       </div>
 
+      {!isReport && <ViewOnlyNote module="Finance" />}
+
       {/* Page Title & Top Action Button */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-1">
         <div>
@@ -272,7 +279,7 @@ export default function SdList() {
           </p>
         </div>
 
-        {!isReport && (
+        {!isReport && allow('Create') && (
           <div>
             <button
               onClick={() => navigate('/finance/sd/new')}
@@ -515,14 +522,14 @@ export default function SdList() {
             <span>Reset</span>
           </button>
 
-          <button
+          {allow('Export') && <button
             onClick={handleExport}
             className="inline-flex items-center gap-1.5 h-8.5 px-4 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[12px] font-medium transition-all"
           >
             <Download size={14} />
             <span>Export</span>
             <ChevronDown size={12} className="text-slate-400 ml-0.5" />
-          </button>
+          </button>}
         </div>
       </div>
 
@@ -623,7 +630,7 @@ export default function SdList() {
                       </button>
                     </td>
                     <td className="py-2.5 px-3 border-r border-slate-100 whitespace-nowrap font-medium text-slate-700">
-                      {item.atmId || '—'}
+                      <SiteRef id={item.atmId} />
                     </td>
                     <td className="py-2.5 px-3 border-r border-slate-100 font-medium text-slate-800 text-left whitespace-nowrap">
                       {item.franchiseeName || '—'}
@@ -663,17 +670,17 @@ export default function SdList() {
                             <button
                               onClick={() => navigate(`/finance/sd/${item.id}`)}
                               className="p-1 text-slate-500 hover:text-[#0066FF] hover:bg-blue-50 rounded"
-                              title="Edit / Open"
+                              title={allow('Edit') ? 'Edit / Open' : 'Open'}
                             >
-                              <Edit2 size={13} />
+                              {allow('Edit') ? <Edit2 size={13} /> : <Eye size={13} />}
                             </button>
-                            <button
+                            {allow('Delete') && <button
                               onClick={() => handleDelete(item.id, item.franchiseeName)}
                               className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded"
                               title="Delete"
                             >
                               <Trash2 size={13} />
-                            </button>
+                            </button>}
                           </>
                         )}
                       </div>
@@ -698,7 +705,7 @@ export default function SdList() {
                           : 'Try adjusting your filters or click on "New Security Deposit" to add a record.'}
                       </p>
 
-                      {!isReport && (
+                      {!isReport && allow('Create') && (
                         <div className="mt-4 flex items-center gap-2">
                           <button
                             onClick={() => navigate('/finance/sd/new')}

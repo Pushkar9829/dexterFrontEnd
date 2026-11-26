@@ -1,13 +1,13 @@
+import { lazy } from 'react'
 import { Route } from 'react-router-dom'
-import UserHub from './UserHub'
-import MyAccountHub from './MyAccountHub'
-import HelpSupportHub from './HelpSupportHub'
-import UserProfile from './UserProfile'
-import ChangePassword from './ChangePassword'
-import SupportTickets from './SupportTickets'
-import HelpCenter from './HelpCenter'
-import TakeTour from './TakeTour'
-
+const UserHub = lazy(() => import('./UserHub'))
+const MyAccountHub = lazy(() => import('./MyAccountHub'))
+const HelpSupportHub = lazy(() => import('./HelpSupportHub'))
+const UserProfile = lazy(() => import('./UserProfile'))
+const ChangePassword = lazy(() => import('./ChangePassword'))
+const SupportTickets = lazy(() => import('./SupportTickets'))
+const HelpCenter = lazy(() => import('./HelpCenter'))
+const TakeTour = lazy(() => import('./TakeTour'))
 export const userRoutes = [
   <Route key="user-hub" path="/user" element={<UserHub />} />,
   <Route key="user-my-account" path="/user/my-account" element={<MyAccountHub />} />,

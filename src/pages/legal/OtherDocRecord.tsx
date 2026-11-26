@@ -1,3 +1,4 @@
+import { promptReason } from '@/lib/reason'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   Home,
@@ -13,17 +14,25 @@ import {
 } from 'lucide-react'
 import {
   getOtherDocRecord,
-  deleteOtherDocRecord,
+  useOtherDocRecords,
+  otherDocsLoader,
+  removeOtherDocRecord,
   type OtherDocCategory,
   type OtherDocStatus,
 } from '@/data/legalOtherDocs'
 import { toast } from '@/components/ui/Toast'
+import { apiEnabled } from '@/lib/api'
+import { LoadNote } from './ui'
+import { Can, guardAct } from '@/lib/guard'
+import { SiteRef } from '@/lib/siteRef'
 
 export default function OtherDocRecord() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
-  const record = id ? getOtherDocRecord(id) : undefined
+  const { records, load } = useOtherDocRecords()
+  const record = id ? records.find((r) => r.id === id) ?? getOtherDocRecord(id) : undefined
 
+  if (!record && !load.loaded) return <div className="max-w-[1000px] mx-auto py-8"><LoadNote load={load} what="the document" onRetry={() => void otherDocsLoader.reload()} /></div>
   if (!record) {
     return (
       <div className="max-w-[1000px] mx-auto py-16 text-center space-y-4">
@@ -47,11 +56,15 @@ export default function OtherDocRecord() {
   }
 
   const handleDelete = () => {
-    if (confirm(`Are you sure you want to delete document ${record.id}?`)) {
-      deleteOtherDocRecord(record.id)
-      toast('Document record deleted')
-      navigate('/legal/other-documents')
-    }
+    if (!guardAct('Legal', 'Delete')) return
+    const reason = apiEnabled ? promptReason(`Delete document ${record.id}?`) : confirm(`Are you sure you want to delete document ${record.id}?`) ? 'local' : null
+    if (!reason) return
+    removeOtherDocRecord(record.id, reason)
+      .then(() => {
+        toast('Document record deleted')
+        navigate('/legal/other-documents')
+      })
+      .catch(() => undefined)
   }
 
   const renderStatusBadge = (status: OtherDocStatus) => {
@@ -147,7 +160,7 @@ export default function OtherDocRecord() {
             <p className="text-[12.5px] text-slate-500 flex items-center gap-2 flex-wrap">
               <span>Site ID: <strong className="text-slate-700">{record.siteId}</strong></span>
               <span>•</span>
-              <span>ATM ID: <strong className="text-slate-700">{record.atmId}</strong></span>
+              <span>ATM ID: <strong className="text-slate-700"><SiteRef id={record.siteId} /></strong></span>
               <span>•</span>
               <span>Franchisee: <strong className="text-slate-700">{record.franchiseeName}</strong></span>
               <span>•</span>
@@ -164,6 +177,7 @@ export default function OtherDocRecord() {
                 <ArrowLeft size={14} /> Back
               </button>
             </Link>
+            <Can module="Legal" action="Edit">
             <Link to={`/legal/other-documents/${record.id}/edit`}>
               <button
                 type="button"
@@ -172,6 +186,8 @@ export default function OtherDocRecord() {
                 <Edit3 size={14} /> Edit
               </button>
             </Link>
+            </Can>
+            <Can module="Legal" action="Delete">
             <button
               type="button"
               onClick={handleDelete}
@@ -180,6 +196,7 @@ export default function OtherDocRecord() {
             >
               <Trash2 size={14} /> Delete
             </button>
+            </Can>
           </div>
         </div>
       </div>
@@ -200,7 +217,7 @@ export default function OtherDocRecord() {
             </div>
             <div className="flex justify-between py-1 border-b border-slate-50">
               <span className="text-slate-500">ATM ID:</span>
-              <span className="font-medium text-slate-800">{record.atmId}</span>
+              <span className="font-medium text-slate-800"><SiteRef id={record.siteId} /></span>
             </div>
             <div className="flex justify-between py-1 border-b border-slate-50">
               <span className="text-slate-500">Franchisee Name:</span>

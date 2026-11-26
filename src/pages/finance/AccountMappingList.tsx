@@ -29,6 +29,8 @@ import {
 import { downloadCsv } from '@/lib/export'
 import { toast } from '@/components/ui/Toast'
 import { useReportMode } from '@/hooks/useReportMode'
+import { useCanIn, guardAct, ViewOnlyNote } from '@/lib/guard'
+import { SiteRef } from '@/lib/siteRef'
 import {
   useAccountMappings,
   deleteAccountMapping,
@@ -39,6 +41,7 @@ export default function AccountMappingList() {
   const navigate = useNavigate()
   const { isReport } = useReportMode()
   const mappings = useAccountMappings()
+  const allow = useCanIn('Finance')
 
   // Filter States
   const [filterType, setFilterType] = useState('')
@@ -153,6 +156,7 @@ export default function AccountMappingList() {
   // Export
   const [showExportMenu, setShowExportMenu] = useState(false)
   const handleExportCsv = () => {
+    if (!guardAct('Finance', 'Export', 'export account mappings')) return
     const headers = [
       'S.N.',
       'ATM ID',
@@ -189,6 +193,7 @@ export default function AccountMappingList() {
   }
 
   const handleDelete = (id: string, name: string) => {
+    if (!guardAct('Finance', 'Delete', 'delete account mappings')) return
     if (window.confirm(`Are you sure you want to delete account mapping for "${name}"?`)) {
       deleteAccountMapping(id)
       toast('Account mapping deleted')
@@ -243,7 +248,7 @@ export default function AccountMappingList() {
               : 'View, search, and manage WLA, Axis Indent, and ICICI settlement bank account mappings.'}
           </p>
         </div>
-        {!isReport && (
+        {!isReport && allow('Create') && (
           <button
             onClick={() => navigate('/finance/settlement-bank/account-mapping/new')}
             className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#0066FF] px-4 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-[#0052CC] transition-colors shrink-0"
@@ -253,6 +258,8 @@ export default function AccountMappingList() {
           </button>
         )}
       </div>
+
+      {!isReport && <ViewOnlyNote module="Finance" />}
 
       {/* Filter Card */}
       <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -391,7 +398,7 @@ export default function AccountMappingList() {
             <RotateCcw size={14} />
             Reset
           </button>
-          <div className="relative">
+          {allow('Export') && <div className="relative">
             <button
               onClick={() => setShowExportMenu(!showExportMenu)}
               className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
@@ -418,7 +425,7 @@ export default function AccountMappingList() {
                 </button>
               </div>
             )}
-          </div>
+          </div>}
         </div>
       </div>
 
@@ -552,7 +559,7 @@ export default function AccountMappingList() {
                         </span>
                       </td>
                       <td className="py-2.5 px-3 border-r border-slate-100 font-mono text-[11px] text-slate-600 whitespace-nowrap">
-                        {rec.hpyCode || rec.siteId || '-'}
+                        {rec.hpyCode || (rec.siteId ? <SiteRef id={rec.siteId} /> : '-')}
                       </td>
                       <td className="py-2.5 px-3 border-r border-slate-100 whitespace-nowrap">
                         <div className="font-semibold text-slate-900 whitespace-nowrap">{rec.franchiseeName}</div>
@@ -613,18 +620,18 @@ export default function AccountMappingList() {
                                 onClick={() =>
                                   navigate(`/finance/settlement-bank/account-mapping/${rec.id}`)
                                 }
-                                title="Edit / View Form"
+                                title={allow('Edit') ? 'Edit / View Form' : 'View Form'}
                                 className="p-1 rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
                               >
-                                <Edit2 size={13} />
+                                {allow('Edit') ? <Edit2 size={13} /> : <Eye size={13} />}
                               </button>
-                              <button
+                              {allow('Delete') && <button
                                 onClick={() => handleDelete(rec.id, rec.franchiseeName)}
                                 title="Delete Mapping"
                                 className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
                               >
                                 <Trash2 size={13} />
-                              </button>
+                              </button>}
                             </>
                           )}
                         </div>

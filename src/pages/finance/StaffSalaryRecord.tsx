@@ -33,6 +33,8 @@ import {
   type SalaryRecord,
   type SalaryStatus,
 } from '@/data/financeSalary'
+import { useCanIn, guardAct } from '@/lib/guard'
+import { emitFinance, statusEvent } from './finWorkflow'
 import { SEED_EMPLOYEES, type Employee } from '@/data/employees'
 
 const BANKS_LIST = [
@@ -52,6 +54,8 @@ export default function StaffSalaryRecordPage() {
   const navigate = useNavigate()
   const { id = '' } = useParams<{ id: string }>()
   const isNew = !id || id === 'new'
+  const allow = useCanIn('Finance')
+  const canSave = allow(isNew ? 'Create' : 'Edit')
 
   const [record, setRecord] = useState<SalaryRecord>(() => {
     if (!isNew && id) {
@@ -123,6 +127,7 @@ export default function StaffSalaryRecordPage() {
   const netCalculated = calcNetSalary(record)
 
   const handleSave = (isDraft = false) => {
+    if (!guardAct('Finance', isNew ? 'Create' : 'Edit', isNew ? 'create staff salarys' : 'edit staff salarys')) return
     if (!isDraft) {
       if (!record.empId && !record.empName) {
         toast('Please enter or select an Employee ID or Name', 'info')
@@ -142,7 +147,15 @@ export default function StaffSalaryRecordPage() {
       paymentStatus: record.paymentStatus || (isDraft ? 'Pending' : 'Paid'),
     }
 
+    // A status change to Paid / Approved / Rejected is an approval decision: needs that right too
+    const prevStatus = isNew ? undefined : getSalary(id ?? '')?.paymentStatus
+    const ev = isDraft ? undefined : isNew ? 'Submit' : statusEvent(prevStatus, payload.paymentStatus)
+    if (ev === 'Approve' && !guardAct('Finance', 'Approve', 'approve staff salarys')) return
+    if (ev === 'Reject' && !guardAct('Finance', 'Reject', 'reject staff salarys')) return
     const saved = saveSalary(payload)
+    if (ev) emitFinance(ev, saved.id, { what: 'staff salary', status: saved.paymentStatus })
+    if (ev === 'Submit' && saved.paymentStatus === 'Paid')
+      emitFinance('Approve', saved.id, { what: 'staff salary', status: saved.paymentStatus })
     toast(
       isDraft
         ? 'Salary draft saved successfully'
@@ -781,7 +794,7 @@ export default function StaffSalaryRecordPage() {
           <span>Back</span>
         </button>
 
-        <div className="flex items-center gap-3">
+        {canSave && <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={() => handleSave(true)}
@@ -799,7 +812,7 @@ export default function StaffSalaryRecordPage() {
             <span>Save Salary Record</span>
             <ChevronRight size={16} />
           </button>
-        </div>
+        </div>}
       </div>
     </div>
   )

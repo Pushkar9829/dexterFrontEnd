@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
   AlertCircle,
@@ -33,15 +33,15 @@ import {
   ALL_EXPENSE_HEADS,
   DEFAULT_EMPLOYEE,
   EXPENSE_SUMMARY_REPORT_DATA,
-  INITIAL_APPROVALS,
-  INITIAL_FIELD_EXPENSES,
-  INITIAL_OFFICE_EXPENSES,
   TOP_EXPENSE_HEADS,
-  type ApprovalClaim,
   type EmployeeInfo,
   type ExpenseClaimItem,
   type ExpenseReportRow,
 } from '@/data/expensesData'
+import { addHrmsExpense, createClaimApi, decideHrmsClaim, hrmsSummaryStore, setHrmsSegment, updateClaimApi, useHrmsExpenses, useHrmsExpensesLoad } from '@/data/hrmsExpenses'
+import { apiEnabled, fromPaise } from '@/data/bizApi'
+import { getSession } from '@/lib/auth'
+import { guardAct, useCanIn, ViewOnlyNote } from '@/lib/guard'
 
 type TabType =
   | 'overview'
@@ -75,46 +75,30 @@ export default function HrmsExpenses() {
   }
 
   // Employee details state
-  const [employee] = useState<EmployeeInfo>(DEFAULT_EMPLOYEE)
+  const [employee] = useState<EmployeeInfo>(() => {
+    if (!apiEnabled) return DEFAULT_EMPLOYEE
+    const u = getSession() as { name?: string; employeeId?: string; department?: string; designation?: string; role?: string } | null
+    return { ...DEFAULT_EMPLOYEE, name: u?.name ?? DEFAULT_EMPLOYEE.name, code: u?.employeeId ?? '—', department: u?.department ?? u?.role ?? '—', designation: u?.designation ?? u?.role ?? '—', location: '—', reportingMonth: new Date().toLocaleString('en-US', { month: 'short' }) + '-' + String(new Date().getFullYear()).slice(2) }
+  })
+  // API mode: GET /hrms/expenses + /hrms/expenses/summary
+  const load = useHrmsExpensesLoad()
+  const summary = hrmsSummaryStore.use()
 
-  // Office Expenses State (Image 4)
-  const [officeExpenses, setOfficeExpenses] = useState<ExpenseClaimItem[]>(INITIAL_OFFICE_EXPENSES)
+  // Expense lines + approval claims come from the shared HRMS expense store (src/data/hrmsExpenses.ts)
+  const hrms = useHrmsExpenses()
+  const allow = useCanIn('HRMS')
+  const officeExpenses = useMemo(() => hrms.items.filter((i) => i.segment === 'Office'), [hrms.items])
+  const fieldExpenses = useMemo(() => hrms.items.filter((i) => i.segment === 'Field'), [hrms.items])
+  const otherExpenses = useMemo(() => hrms.items.filter((i) => i.segment === 'Other'), [hrms.items])
+  const setOfficeExpenses = (fn: (prev: ExpenseClaimItem[]) => ExpenseClaimItem[]) => setHrmsSegment('Office', fn)
+  const setFieldExpenses = (fn: (prev: ExpenseClaimItem[]) => ExpenseClaimItem[]) => setHrmsSegment('Field', fn)
   const [officeStatus] = useState<'Submitted' | 'Senior Approved' | 'Paid'>('Submitted')
   const [officeDeclaration, setOfficeDeclaration] = useState(true)
-
-  // Field Expenses State (Image 5)
-  const [fieldExpenses, setFieldExpenses] = useState<ExpenseClaimItem[]>(INITIAL_FIELD_EXPENSES)
   const [fieldStatus] = useState<'Submitted' | 'Senior Approved' | 'Paid'>('Submitted')
   const [fieldDeclaration, setFieldDeclaration] = useState(true)
 
-  // Other Staff Expenses State
-  const [otherExpenses, setOtherExpenses] = useState<ExpenseClaimItem[]>([
-    {
-      id: 'oth-1',
-      date: '10.08.2026',
-      category: 'Pantry & Tea',
-      purpose: 'Monthly tea & refreshment for branch office staff',
-      vendorRef: 'CASH-REC-441',
-      amount: 850,
-      paymentMode: 'Cash',
-      receiptName: 'Pantry_Cash_Slip.pdf',
-      remarks: 'Staff Welfare',
-    },
-    {
-      id: 'oth-2',
-      date: '22.08.2026',
-      category: 'Housekeeping Consumables',
-      purpose: 'Cleaning supplies & phenyl for Bewar office',
-      vendorRef: 'INV-CL-009',
-      amount: 620,
-      paymentMode: 'UPI',
-      receiptName: 'Cleaning_Supplies.pdf',
-      remarks: '-',
-    },
-  ])
-
   // Approvals State (Tab 6)
-  const [approvals, setApprovals] = useState<ApprovalClaim[]>(INITIAL_APPROVALS)
+  const approvals = hrms.approvals
 
   // Reports Filter State (Image 3)
   const [reportFromDate, setReportFromDate] = useState('01.08.2026')
@@ -123,6 +107,22 @@ export default function HrmsExpenses() {
   const [reportDept, setReportDept] = useState('All Departments')
   const [reportHead, setReportHead] = useState('All (24 Heads)')
   const [reportData, setReportData] = useState<ExpenseReportRow[]>(EXPENSE_SUMMARY_REPORT_DATA)
+  const apiReport = useMemo<ExpenseReportRow[] | null>(
+    () =>
+      apiEnabled && summary
+        ? summary.heads.map((h, i) => ({ sn: i + 1, head: h.head, office: fromPaise(h.officePaise), field: fromPaise(h.fieldPaise), other: fromPaise(h.otherPaise), total: fromPaise(h.totalPaise), claims: h.claims }))
+        : null,
+    [summary],
+  )
+  useEffect(() => {
+    if (apiReport) setReportData(apiReport)
+  }, [apiReport])
+  const topHeads = useMemo(() => {
+    if (!apiEnabled) return TOP_EXPENSE_HEADS
+    if (!summary) return []
+    const tot = summary.totalPaise || 1
+    return summary.heads.slice(0, 8).map((h, i) => ({ sn: i + 1, name: h.head, claims: h.claims, amount: fromPaise(h.totalPaise), percent: Math.round((h.totalPaise / tot) * 1000) / 10 }))
+  }, [summary])
 
   // New Claim Modal State (Image 2)
   const [showClaimModal, setShowClaimModal] = useState(false)
@@ -193,6 +193,7 @@ export default function HrmsExpenses() {
 
   const handleSaveExpenseHead = (e: React.FormEvent) => {
     e.preventDefault()
+    if (!guardAct('HRMS', 'Edit', 'edit the expense master')) return
     if (!headName.trim()) {
       toast('Please enter the expense head name')
       return
@@ -254,21 +255,25 @@ export default function HrmsExpenses() {
 
   // Approval actions
   const handleApproveClaim = (id: string, claimNo: string) => {
-    setApprovals((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, status: 'Approved' } : c))
-    )
-    toast(`Claim ${claimNo} approved and forwarded to next stage!`, 'success')
+    if (!guardAct('HRMS', 'Approve', 'approve claims')) return
+    decideHrmsClaim(id, 'Approved')
+    if (!apiEnabled) toast(`Claim ${claimNo} approved and forwarded to next stage!`, 'success')
   }
 
   const handleRejectClaim = (id: string, claimNo: string) => {
-    setApprovals((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, status: 'Rejected' } : c))
-    )
-    toast(`Claim ${claimNo} rejected / returned for clarification.`, 'info')
+    if (!guardAct('HRMS', 'Reject', 'reject claims')) return
+    let remark: string | undefined
+    if (apiEnabled) {
+      remark = window.prompt(`Reason for rejecting ${claimNo}`)?.trim()
+      if (!remark) return toast('A rejection remark is required', 'info')
+    }
+    decideHrmsClaim(id, 'Rejected', remark)
+    if (!apiEnabled) toast(`Claim ${claimNo} rejected / returned for clarification.`, 'info')
   }
 
   // Export report to CSV
   const handleExportReport = () => {
+    if (!guardAct('HRMS', 'Export', 'export reports')) return
     const headers = [
       'S.N.',
       'Expense Head Name',
@@ -303,6 +308,7 @@ export default function HrmsExpenses() {
   // Handle New Claim Submission (Image 2)
   const handleSubmitNewClaim = (e: React.FormEvent) => {
     e.preventDefault()
+    if (!guardAct('HRMS', 'Create', 'submit claims')) return
     if (!newAmount || isNaN(Number(newAmount))) {
       toast('Please enter a valid amount', 'info')
       return
@@ -312,9 +318,11 @@ export default function HrmsExpenses() {
       return
     }
 
-    const newItem: ExpenseClaimItem = {
-      id: `exp-${Date.now()}`,
-      date: new Date(newExpenseDate).toLocaleDateString('en-GB'),
+    const isField = claimSegment === 'Field'
+    const claimNo = addHrmsExpense({
+      source: 'Self',
+      segment: claimSegment,
+      date: new Date(newExpenseDate).toLocaleDateString('en-GB').replace(/\//g, '.'),
       category: newHead,
       purpose: newPurpose.trim(),
       vendorRef: newVendorRef.trim() || 'N/A',
@@ -322,29 +330,20 @@ export default function HrmsExpenses() {
       paymentMode: newPaymentMode,
       receiptName: newAttachedFile || 'Receipt_voucher.pdf',
       remarks: '-',
-    }
+      ...(isField ? { travelMode: 'Intercity Travel', km: 45, route: 'Bewar to Site' } : {}),
+      empName: employee.name,
+      department: employee.department,
+    })
+    setActiveTab(claimSegment === 'Office' ? 'office' : isField ? 'field' : 'other')
 
-    if (claimSegment === 'Office') {
-      setOfficeExpenses((prev) => [newItem, ...prev])
-      setActiveTab('office')
-    } else if (claimSegment === 'Field') {
-      newItem.travelMode = 'Intercity Travel'
-      newItem.km = 45
-      newItem.route = 'Bewar to Site'
-      setFieldExpenses((prev) => [newItem, ...prev])
-      setActiveTab('field')
-    } else {
-      setOtherExpenses((prev) => [newItem, ...prev])
-      setActiveTab('other')
-    }
-
-    toast(`Expense claim for ₹${Number(newAmount).toLocaleString('en-IN')} submitted successfully!`, 'success')
+    toast(apiEnabled ? `Submitting expense claim for ₹${Number(newAmount).toLocaleString('en-IN')}…` : `Expense claim for ₹${Number(newAmount).toLocaleString('en-IN')} submitted (${claimNo}) for approval!`, apiEnabled ? 'info' : 'success')
     setShowClaimModal(false)
   }
 
   // Handle Adding an item to Office or Field claim table
   const handleAddInlineRow = (e: React.FormEvent) => {
     e.preventDefault()
+    if (!guardAct('HRMS', 'Create', 'add expense rows')) return
     if (!rowAmount || isNaN(Number(rowAmount))) {
       toast('Please enter a valid amount', 'info')
       return
@@ -362,6 +361,19 @@ export default function HrmsExpenses() {
       remarks: rowRemarks.trim() || '-',
     }
 
+    if (apiEnabled) {
+      if (rowForTab === 'field') {
+        newItem.route = rowRoute || 'Local Field Visit'
+        newItem.travelMode = rowCategory
+        newItem.km = rowKm || undefined
+      }
+      // POST /hrms/expenses — each added line is submitted as its own claim (Senior → HR → Admin → Finance)
+      createClaimApi(rowForTab === 'office' ? 'Office' : 'Field', [newItem], true)
+        .then((no) => toast(`Expense line submitted as claim ${no}`))
+        .catch(() => undefined)
+      setShowAddRowModal(false)
+      return
+    }
     if (rowForTab === 'office') {
       setOfficeExpenses((prev) => [...prev, newItem])
       toast('Added new expense item to Office Claim')
@@ -379,12 +391,26 @@ export default function HrmsExpenses() {
     setRowVendor('')
   }
 
+  /** API mode: a line can be removed only while its claim is Draft / Rejected (PATCH the claim's remaining lines). */
+  const deleteLineApi = (id: string) => {
+    const line = hrms.items.find((i) => i.id === id)
+    if (!line?.claimNo) return
+    if (line.claimStatus !== 'Draft' && line.claimStatus !== 'Rejected') return toast(`Claim ${line.claimNo} is ${line.claimStatus} and locked`, 'info')
+    const rest = hrms.items.filter((i) => i.claimNo === line.claimNo && i.id !== id)
+    if (!rest.length) return toast('A claim needs at least one line — reject or leave it instead', 'info')
+    updateClaimApi(line.claimNo, rest).then(() => toast('Removed expense row')).catch(() => undefined)
+  }
+
   const handleDeleteOfficeRow = (id: string) => {
+    if (!guardAct('HRMS', 'Create', 'remove expense rows')) return
+    if (apiEnabled) return deleteLineApi(id)
     setOfficeExpenses((prev) => prev.filter((r) => r.id !== id))
     toast('Removed expense row')
   }
 
   const handleDeleteFieldRow = (id: string) => {
+    if (!guardAct('HRMS', 'Create', 'remove expense rows')) return
+    if (apiEnabled) return deleteLineApi(id)
     setFieldExpenses((prev) => prev.filter((r) => r.id !== id))
     toast('Removed expense row')
   }
@@ -461,7 +487,7 @@ export default function HrmsExpenses() {
         </div>
 
         <div className="flex items-center gap-2 self-end sm:self-auto">
-          {activeTab === 'reports' && (
+          {activeTab === 'reports' && allow('Export') && (
             <button
               type="button"
               onClick={handleExportReport}
@@ -473,16 +499,20 @@ export default function HrmsExpenses() {
             </button>
           )}
 
-          <button
-            type="button"
-            onClick={() => setShowClaimModal(true)}
-            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[12.5px] font-bold shadow-sm transition-all cursor-pointer"
-          >
-            <Plus size={15} strokeWidth={2.5} />
-            <span>New Claim</span>
-          </button>
+          {allow('Create') && (
+            <button
+              type="button"
+              onClick={() => setShowClaimModal(true)}
+              className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[12.5px] font-bold shadow-sm transition-all cursor-pointer"
+            >
+              <Plus size={15} strokeWidth={2.5} />
+              <span>New Claim</span>
+            </button>
+          )}
         </div>
       </div>
+
+      <ViewOnlyNote module="HRMS" />
 
       {/* ── NAVIGATION TABS (MATCHING IMAGE 01) ── */}
       <div className="overflow-x-auto scroll-thin pb-1">
@@ -758,7 +788,7 @@ export default function HrmsExpenses() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-slate-700">
-                      {TOP_EXPENSE_HEADS.map((item) => (
+                      {topHeads.map((item) => (
                         <tr key={item.sn} className="hover:bg-slate-50/70 transition-colors">
                           <td className="py-2 px-3 text-center text-slate-500 font-medium">{item.sn}</td>
                           <td className="py-2 px-3 font-semibold text-slate-800">{item.name}</td>
@@ -777,8 +807,16 @@ export default function HrmsExpenses() {
               </div>
 
               <div className="p-3 bg-slate-50/80 border-t border-slate-200 flex items-center justify-between text-[11.5px] text-slate-500">
-                <span>Top 8 heads account for 80.5% of total claims</span>
-                <span className="font-semibold text-slate-700">Combined: ₹ 7,02,140</span>
+                <span>
+                  {apiEnabled
+                    ? load.loading
+                      ? 'Loading expense heads…'
+                      : `Top ${topHeads.length} heads account for ${topHeads.reduce((s, h) => s + h.percent, 0).toFixed(1)}% of total claims`
+                    : 'Top 8 heads account for 80.5% of total claims'}
+                </span>
+                <span className="font-semibold text-slate-700">
+                  Combined: ₹ {apiEnabled ? topHeads.reduce((s, h) => s + h.amount, 0).toLocaleString('en-IN') : '7,02,140'}
+                </span>
               </div>
             </div>
           </div>
@@ -795,13 +833,15 @@ export default function HrmsExpenses() {
               <h2 className="text-[15px] font-bold text-slate-900">My Expense Claims History</h2>
               <p className="text-[12px] text-slate-500">Track claim submissions, vouchers and approval statuses.</p>
             </div>
-            <button
-              type="button"
-              onClick={() => setShowClaimModal(true)}
-              className="inline-flex items-center gap-1.5 h-8.5 px-3.5 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[12px] font-bold shadow-2xs"
-            >
-              <Plus size={14} /> New Claim Entry
-            </button>
+            {allow('Create') && (
+              <button
+                type="button"
+                onClick={() => setShowClaimModal(true)}
+                className="inline-flex items-center gap-1.5 h-8.5 px-3.5 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[12px] font-bold shadow-2xs"
+              >
+                <Plus size={14} /> New Claim Entry
+              </button>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -915,17 +955,19 @@ export default function HrmsExpenses() {
                 <FileText size={16} className="text-[#0066FF]" />
                 <h2 className="text-[14px] font-bold text-slate-900">Expense Details</h2>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setRowForTab('office')
-                  setRowCategory('Speed Post')
-                  setShowAddRowModal(true)
-                }}
-                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[12px] font-bold shadow-2xs cursor-pointer"
-              >
-                <Plus size={14} /> Add Expense
-              </button>
+              {allow('Create') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRowForTab('office')
+                    setRowCategory('Speed Post')
+                    setShowAddRowModal(true)
+                  }}
+                  className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[12px] font-bold shadow-2xs cursor-pointer"
+                >
+                  <Plus size={14} /> Add Expense
+                </button>
+              )}
             </div>
 
             <div className="overflow-x-auto scroll-thin">
@@ -955,7 +997,10 @@ export default function HrmsExpenses() {
                         </span>
                       </td>
                       <td className="py-2.5 px-3 font-medium text-slate-800">{row.purpose}</td>
-                      <td className="py-2.5 px-3 font-mono text-[11px] text-slate-600">{row.vendorRef}</td>
+                      <td className="py-2.5 px-3 font-mono text-[11px] text-slate-600">
+                        {row.vendorRef}
+                        {'refId' in row && row.refId && <span className="block font-sans text-[10.5px] text-slate-400">{row.source} · {row.refId}</span>}
+                      </td>
                       <td className="py-2.5 px-3 text-right font-bold text-slate-900">
                         {row.amount.toLocaleString('en-IN')}
                       </td>
@@ -979,14 +1024,16 @@ export default function HrmsExpenses() {
                       </td>
                       <td className="py-2.5 px-3 text-center text-slate-400 font-medium">{row.remarks || '-'}</td>
                       <td className="py-2.5 px-2 text-center">
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteOfficeRow(row.id)}
-                          className="p-1 text-slate-300 hover:text-red-500 transition-colors"
-                          title="Remove item"
-                        >
-                          <Trash2 size={13} />
-                        </button>
+                        {allow('Create') && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteOfficeRow(row.id)}
+                            className="p-1 text-slate-300 hover:text-red-500 transition-colors"
+                            title="Remove item"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -1148,17 +1195,19 @@ export default function HrmsExpenses() {
                 <FileText size={16} className="text-[#0066FF]" />
                 <h2 className="text-[14px] font-bold text-slate-900">Travel &amp; Field Expense Details</h2>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setRowForTab('field')
-                  setRowCategory('Petrol / Fuel')
-                  setShowAddRowModal(true)
-                }}
-                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[12px] font-bold shadow-2xs cursor-pointer"
-              >
-                <Plus size={14} /> Add Expense
-              </button>
+              {allow('Create') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRowForTab('field')
+                    setRowCategory('Petrol / Fuel')
+                    setShowAddRowModal(true)
+                  }}
+                  className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[12px] font-bold shadow-2xs cursor-pointer"
+                >
+                  <Plus size={14} /> Add Expense
+                </button>
+              )}
             </div>
 
             <div className="overflow-x-auto scroll-thin">
@@ -1214,14 +1263,16 @@ export default function HrmsExpenses() {
                       </td>
                       <td className="py-2.5 px-3 text-center text-slate-600 font-medium">{row.remarks || '-'}</td>
                       <td className="py-2.5 px-2 text-center">
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteFieldRow(row.id)}
-                          className="p-1 text-slate-300 hover:text-red-500 transition-colors"
-                          title="Remove item"
-                        >
-                          <Trash2 size={13} />
-                        </button>
+                        {allow('Create') && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteFieldRow(row.id)}
+                            className="p-1 text-slate-300 hover:text-red-500 transition-colors"
+                            title="Remove item"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -1374,7 +1425,10 @@ export default function HrmsExpenses() {
                       <td className="py-2.5 px-3 font-semibold text-slate-800">{row.date}</td>
                       <td className="py-2.5 px-3 font-medium text-slate-700">{row.category}</td>
                       <td className="py-2.5 px-3 font-medium text-slate-800">{row.purpose}</td>
-                      <td className="py-2.5 px-3 font-mono text-[11px] text-slate-600">{row.vendorRef}</td>
+                      <td className="py-2.5 px-3 font-mono text-[11px] text-slate-600">
+                        {row.vendorRef}
+                        {'refId' in row && row.refId && <span className="block font-sans text-[10.5px] text-slate-400">{row.source} · {row.refId}</span>}
+                      </td>
                       <td className="py-2.5 px-3 text-right font-bold text-slate-900">
                         {row.amount.toLocaleString('en-IN')}
                       </td>
@@ -1435,7 +1489,12 @@ export default function HrmsExpenses() {
                 <tbody className="divide-y divide-slate-100 text-slate-700">
                   {approvals.map((item) => (
                     <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
-                      <td className="py-2.5 px-3 font-bold text-[#0066FF] whitespace-nowrap">{item.claimNo}</td>
+                      <td className="py-2.5 px-3 font-bold text-[#0066FF] whitespace-nowrap">
+                        {item.claimNo}
+                        {item.source && item.source !== 'Self' && (
+                          <span className="block text-[10.5px] font-medium text-slate-500">{item.source}{item.refId ? ` · ${item.refId}` : ''}</span>
+                        )}
+                      </td>
                       <td className="py-2.5 px-3">
                         <div className="font-semibold text-slate-900">{item.empName}</div>
                         <div className="text-[11px] text-slate-400">{item.empCode} · {item.department}</div>
@@ -1477,22 +1536,28 @@ export default function HrmsExpenses() {
                         </a>
                       </td>
                       <td className="py-2.5 px-3 text-center">
-                        {item.status === 'Pending' ? (
+                        {item.status === 'Pending' && !allow('Approve') && !allow('Reject') ? (
+                          <span className="px-2 py-0.5 rounded text-[11px] font-bold text-amber-700 bg-amber-50">Pending</span>
+                        ) : item.status === 'Pending' ? (
                           <div className="inline-flex items-center gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => handleApproveClaim(item.id, item.claimNo)}
-                              className="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] shadow-2xs transition-colors cursor-pointer"
-                            >
-                              Approve
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleRejectClaim(item.id, item.claimNo)}
-                              className="px-2 py-1 rounded bg-slate-100 hover:bg-red-50 text-slate-600 hover:text-red-600 border border-slate-200 font-semibold text-[11px] transition-colors cursor-pointer"
-                            >
-                              Reject
-                            </button>
+                            {allow('Approve') && (
+                              <button
+                                type="button"
+                                onClick={() => handleApproveClaim(item.id, item.claimNo)}
+                                className="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] shadow-2xs transition-colors cursor-pointer"
+                              >
+                                Approve
+                              </button>
+                            )}
+                            {allow('Reject') && (
+                              <button
+                                type="button"
+                                onClick={() => handleRejectClaim(item.id, item.claimNo)}
+                                className="px-2 py-1 rounded bg-slate-100 hover:bg-red-50 text-slate-600 hover:text-red-600 border border-slate-200 font-semibold text-[11px] transition-colors cursor-pointer"
+                              >
+                                Reject
+                              </button>
+                            )}
                           </div>
                         ) : (
                           <span
@@ -1688,7 +1753,7 @@ export default function HrmsExpenses() {
                     setReportEmpType('All (Office/Field/Other)')
                     setReportDept('All Departments')
                     setReportHead('All (24 Heads)')
-                    setReportData(EXPENSE_SUMMARY_REPORT_DATA)
+                    setReportData(apiReport ?? EXPENSE_SUMMARY_REPORT_DATA)
                     toast('Filters reset')
                   }}
                   className="w-full h-9 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-[12.5px] flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
@@ -1807,13 +1872,15 @@ export default function HrmsExpenses() {
                 <option value="Logistics & Courier">Logistics & Courier</option>
                 <option value="Repair & Maintenance">Repair & Maintenance</option>
               </select>
-              <button
-                type="button"
-                onClick={() => setShowHeadModal(true)}
-                className="inline-flex items-center gap-1.5 h-8.5 px-3.5 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[12px] font-bold shadow-2xs transition-colors cursor-pointer"
-              >
-                <Plus size={14} /> Add Expense Head
-              </button>
+              {allow('Edit') && (
+                <button
+                  type="button"
+                  onClick={() => setShowHeadModal(true)}
+                  className="inline-flex items-center gap-1.5 h-8.5 px-3.5 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[12px] font-bold shadow-2xs transition-colors cursor-pointer"
+                >
+                  <Plus size={14} /> Add Expense Head
+                </button>
+              )}
             </div>
           </div>
 
@@ -1882,6 +1949,7 @@ export default function HrmsExpenses() {
                           <button
                             type="button"
                             onClick={() => {
+                              if (!guardAct('HRMS', 'Edit', 'edit the expense master')) return
                               const newStatus = item.status === 'Active' ? 'Inactive' : 'Active'
                               setMasterHeads((prev) =>
                                 prev.map((h) => (h.id === item.id ? { ...h, status: newStatus } : h))
@@ -1899,17 +1967,19 @@ export default function HrmsExpenses() {
                           </button>
                         </td>
                         <td className="py-2 px-3 text-center">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setMasterHeads((prev) => prev.filter((h) => h.id !== item.id))
-                              toast(`Removed "${item.name}"`)
-                            }}
-                            className="p-1 text-slate-400 hover:text-red-600 rounded transition-colors cursor-pointer"
-                            title="Delete head"
-                          >
-                            <Trash2 size={13} />
-                          </button>
+                          {allow('Edit') && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setMasterHeads((prev) => prev.filter((h) => h.id !== item.id))
+                                toast(`Removed "${item.name}"`)
+                              }}
+                              className="p-1 text-slate-400 hover:text-red-600 rounded transition-colors cursor-pointer"
+                              title="Delete head"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))

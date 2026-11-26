@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { toast } from '@/components/ui/Toast'
 import { downloadCsv } from '@/lib/export'
+import { Can, guardAct } from '@/lib/guard'
 import { fmtDate, fmtTime, istDay, type AuditEvent } from '@/data/legal'
 import { BackLink, legalTone } from './ui'
 
@@ -102,6 +103,7 @@ export function AuditHistory({
   ]
 
   const exportLog = () => {
+    if (!guardAct('Legal', 'Export')) return
     downloadCsv(
       exportName,
       ['#', 'Date', 'Actor', 'Event', 'Role', 'File / context', 'Note', 'Version', 'Outcome', 'Source', 'Time (IST)'],
@@ -119,9 +121,11 @@ export function AuditHistory({
           <p className="mt-1 text-[14px] text-muted">{sub}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="secondary" icon={<Download size={16} />} onClick={exportLog}>
-            Export audit log
-          </Button>
+          <Can module="Legal" action="Export">
+            <Button variant="secondary" icon={<Download size={16} />} onClick={exportLog}>
+              Export audit log
+            </Button>
+          </Can>
           {actions}
         </div>
       </div>

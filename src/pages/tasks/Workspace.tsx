@@ -17,6 +17,7 @@ import {
   slaOf,
   STATUSES,
   tasksStore,
+  useTasksLoad,
   VERIFICATION_TEAM,
   type Priority,
   type Task,
@@ -24,6 +25,7 @@ import {
 } from '@/data/tasks'
 import { CreateTaskModal } from './CreateTaskModal'
 import { Footer, HeroBanner, PillSelect, PriorityLabel, SlaCell, StatusBadge } from './ui'
+import { canIn, guardAct, useCanIn, ViewOnlyNote } from '@/lib/guard'
 
 export type WorkspaceView = 'my' | 'today' | 'daily' | 'monthly' | 'overdue' | 'blocked' | 'approval'
 
@@ -42,6 +44,8 @@ type SortKey = 'soonest' | 'latest' | 'risk' | 'newest'
 
 export default function Workspace({ view }: { view: WorkspaceView }) {
   const { tasks, viewAs, routine } = tasksStore.use()
+  // API mode: GET /tasks (+ /employees for people pickers)
+  const load = useTasksLoad()
   const nav = useNavigate()
   const [params, setParams] = useSearchParams()
   // CRM-06: the "My Tasks" tab is the employee queue (Rahul Kumar); "Team Tasks" is the team leader queue (Priya Menon)
@@ -59,7 +63,8 @@ export default function Workspace({ view }: { view: WorkspaceView }) {
   const [due, setDue] = useState<DueFilter>('any')
   const [sort, setSort] = useState<SortKey>('soonest')
   // "Create Task" lives in the top bar; it opens this modal through ?create=1
-  const creating = params.get('create') === '1'
+  const allowTasks = useCanIn('Tasks')
+  const creating = params.get('create') === '1' && allowTasks('Create')
   const setCreating = (v: boolean) => {
     const p = new URLSearchParams(params)
     if (v) p.set('create', '1')
@@ -142,7 +147,9 @@ export default function Workspace({ view }: { view: WorkspaceView }) {
               <select
                 aria-label={`Assignee for ${t.id}`}
                 value={t.assignee}
+                disabled={!canIn('Tasks', 'Assign')}
                 onChange={(e) => {
+                  if (!guardAct('Tasks', 'Assign', 'reassign tasks')) return
                   reassign(t.id, e.target.value, CURRENT_LEAD, 'Team queue rebalanced')
                   toast(`${t.id} assigned to ${e.target.value || 'Unassigned'}`)
                 }}
@@ -180,6 +187,8 @@ export default function Workspace({ view }: { view: WorkspaceView }) {
   return (
     <div className="space-y-4">
       <HeroBanner title={cfg.title} sub={cfg.sub(me.split(' ')[0])} code="CRM-06" />
+      <ViewOnlyNote module="Tasks" />
+      {load.loading && <div className="rounded-md border border-line bg-white px-3 py-2 text-[12px] text-muted">Loading tasks…</div>}
 
       {/* Summary metrics */}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">

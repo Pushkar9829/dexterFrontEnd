@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { useMyScope } from '../data/mobileSession'
 import {
   Headphones,
   ArrowLeft,
@@ -25,83 +26,10 @@ export interface EngineerItem {
   mobile: string
 }
 
-const SITES_LIST = [
-  { id: 'S-1045', name: 'S-1045 – City Center', atmId: 'ATM7821', location: 'MG Road, Bewar, Mainpuri, UP' },
-  { id: 'S-1046', name: 'S-1046 – Station Road', atmId: 'ATM7822', location: 'Near Bewar Bus Stand, Mainpuri, UP' },
-  { id: 'S-1047', name: 'S-1047 – Highway Plaza', atmId: 'ATM7823', location: 'NH-91 Bypass, Mainpuri, UP' }
-]
-
-// Level 1: Ground Field Engineers (ATM, Network, UPS with Name & Mobile Number)
-const LEVEL_1_DATA: Record<string, EngineerItem[]> = {
-  'S-1045': [
-    {
-      category: 'ATM',
-      title: 'ATM Engineer',
-      subRole: 'Hardware, Cash Dispenser, Cassettes & Machine Terminal',
-      name: 'Sanjay Sharma',
-      mobile: '+91 98765 43210'
-    },
-    {
-      category: 'Network',
-      title: 'Network Engineer',
-      subRole: '4G LTE Router, VSAT Antenna, SIM Card & Line Connectivity',
-      name: 'Deepak Verma',
-      mobile: '+91 98112 23344'
-    },
-    {
-      category: 'UPS',
-      title: 'UPS Engineer',
-      subRole: 'UPS Inverter, Battery Bank Backup, Power Trip & Line Voltage',
-      name: 'Rajesh Kumar',
-      mobile: '+91 97234 56789'
-    }
-  ],
-  'S-1046': [
-    {
-      category: 'ATM',
-      title: 'ATM Engineer',
-      subRole: 'Hardware, Cash Dispenser, Cassettes & Machine Terminal',
-      name: 'Amit Yadav',
-      mobile: '+91 98234 56781'
-    },
-    {
-      category: 'Network',
-      title: 'Network Engineer',
-      subRole: '4G LTE Router, VSAT Antenna, SIM Card & Line Connectivity',
-      name: 'Rohan Gupta',
-      mobile: '+91 98345 67892'
-    },
-    {
-      category: 'UPS',
-      title: 'UPS Engineer',
-      subRole: 'UPS Inverter, Battery Bank Backup, Power Trip & Line Voltage',
-      name: 'Manoj Tiwari',
-      mobile: '+91 98456 78903'
-    }
-  ],
-  'S-1047': [
-    {
-      category: 'ATM',
-      title: 'ATM Engineer',
-      subRole: 'Hardware, Cash Dispenser, Cassettes & Machine Terminal',
-      name: 'Pooja Singh',
-      mobile: '+91 98567 89014'
-    },
-    {
-      category: 'Network',
-      title: 'Network Engineer',
-      subRole: '4G LTE Router, VSAT Antenna, SIM Card & Line Connectivity',
-      name: 'Vikas Mehra',
-      mobile: '+91 98678 90125'
-    },
-    {
-      category: 'UPS',
-      title: 'UPS Engineer',
-      subRole: 'UPS Inverter, Battery Bank Backup, Power Trip & Line Voltage',
-      name: 'Sunil Mishra',
-      mobile: '+91 98789 01236'
-    }
-  ]
+const ROLE: Record<EngineerItem['category'], { title: string; subRole: string }> = {
+  ATM: { title: 'ATM Engineer', subRole: 'Hardware, Cash Dispenser, Cassettes & Machine Terminal' },
+  Network: { title: 'Network Engineer', subRole: '4G LTE Router, VSAT Antenna, SIM Card & Line Connectivity' },
+  UPS: { title: 'UPS Engineer', subRole: 'UPS Inverter, Battery Bank Backup, Power Trip & Line Voltage' },
 }
 
 // Level 2: Same structure (ATM, Network, UPS) but details blank till development
@@ -156,16 +84,24 @@ const LEVEL_3_DATA: EngineerItem[] = [
 
 export function MobileContactScreen({ onBackToMore }: MobileContactScreenProps) {
   const [selectedLevel, setSelectedLevel] = useState<number>(1)
-  const [selectedSite, setSelectedSite] = useState<string>('S-1045')
-
-  const selectedSiteData = SITES_LIST.find((s) => s.id === selectedSite) || SITES_LIST[0]
+  // Sites of the signed-in franchise (Site Master: engineer + relationship manager mapping)
+  const { sites } = useMyScope()
+  const SITES_LIST = useMemo(() => sites.map((x) => ({ id: x.siteId, name: `${x.siteId} – ${x.location.split(',')[0]}`, atmId: x.atmId, location: x.address || x.location })), [sites])
+  const [selectedSite, setSelectedSite] = useState<string>(() => sites[0]?.siteId ?? '')
+  const site = sites.find((x) => x.siteId === selectedSite) ?? sites[0]
+  const selectedSiteData = SITES_LIST.find((x) => x.id === site?.siteId) ?? { id: '', name: 'No site mapped', atmId: '—', location: '—' }
+  const LEVEL_1: EngineerItem[] = (['ATM', 'Network', 'UPS'] as const).map((cat) => {
+    const e = site?.engineer && (site.engineer.type === cat || (cat === 'Network' && site.engineer.type === 'NET')) ? site.engineer : undefined
+    return { category: cat, ...ROLE[cat], name: e?.name ?? '', mobile: e?.mobile ? `+91 ${e.mobile}` : '' }
+  })
+  const LEVEL_2: EngineerItem[] = LEVEL_2_DATA.map((x) => (site?.manager ? { ...x, name: `${site.manager.name} (RM)`, mobile: site.manager.mobile ? `+91 ${site.manager.mobile}` : '' } : x))
 
   // Get current engineers according to selected level
   const currentEngineers: EngineerItem[] =
     selectedLevel === 1
-      ? LEVEL_1_DATA[selectedSite] || LEVEL_1_DATA['S-1045']
+      ? LEVEL_1
       : selectedLevel === 2
-        ? LEVEL_2_DATA
+        ? LEVEL_2
         : LEVEL_3_DATA
 
   return (
@@ -269,7 +205,6 @@ export function MobileContactScreen({ onBackToMore }: MobileContactScreenProps) 
       {/* 3 Engineer Cards: ATM Engineer, Network Engineer, UPS Engineer */}
       <div className="space-y-3">
         {currentEngineers.map((eng) => {
-          const isL1 = selectedLevel === 1
           const Icon = eng.category === 'ATM' ? Cpu : eng.category === 'Network' ? Wifi : Zap
 
           return (
@@ -291,12 +226,12 @@ export function MobileContactScreen({ onBackToMore }: MobileContactScreenProps) 
 
                 <span
                   className={`px-2 py-0.5 rounded-full text-[9.5px] font-extrabold border shrink-0 ${
-                    isL1 && eng.name
+                    eng.name
                       ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                       : 'bg-slate-100 text-slate-500 border-slate-200'
                   }`}
                 >
-                  {isL1 && eng.name ? 'Active / On-Duty' : 'Under Development'}
+                  {eng.name ? 'Active / On-Duty' : 'Not assigned'}
                 </span>
               </div>
 
@@ -306,8 +241,8 @@ export function MobileContactScreen({ onBackToMore }: MobileContactScreenProps) 
                   <span className="text-[9.5px] text-slate-400 font-semibold block mb-0.5 flex items-center gap-1">
                     <User size={11} className="text-slate-400" /> Engineer Name
                   </span>
-                  <span className={`font-bold block text-xs ${isL1 && eng.name ? 'text-slate-900' : 'text-slate-400 italic'}`}>
-                    {isL1 && eng.name ? eng.name : '—'}
+                  <span className={`font-bold block text-xs ${eng.name ? 'text-slate-900' : 'text-slate-400 italic'}`}>
+                    {eng.name ? eng.name : '—'}
                   </span>
                 </div>
 
@@ -315,14 +250,14 @@ export function MobileContactScreen({ onBackToMore }: MobileContactScreenProps) 
                   <span className="text-[9.5px] text-slate-400 font-semibold block mb-0.5 flex items-center gap-1">
                     <Phone size={11} className="text-slate-400" /> Mobile Number
                   </span>
-                  <span className={`font-mono font-bold block text-xs ${isL1 && eng.mobile ? 'text-blue-700' : 'text-slate-400 italic'}`}>
-                    {isL1 && eng.mobile ? eng.mobile : '—'}
+                  <span className={`font-mono font-bold block text-xs ${eng.mobile ? 'text-blue-700' : 'text-slate-400 italic'}`}>
+                    {eng.mobile ? eng.mobile : '—'}
                   </span>
                 </div>
               </div>
 
               {/* Actions for Level 1 vs Blank Notice for Level 2 & Level 3 */}
-              {isL1 && eng.mobile ? (
+              {eng.mobile ? (
                 <div className="grid grid-cols-2 gap-2 pt-0.5">
                   <a
                     href={`tel:${eng.mobile.replace(/[^0-9+]/g, '')}`}

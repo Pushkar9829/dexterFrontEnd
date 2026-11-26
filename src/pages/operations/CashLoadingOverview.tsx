@@ -35,6 +35,7 @@ import {
 } from '@/data/cashLoadingRegisterStore'
 import { downloadCsv } from '@/lib/export'
 import { toast } from '@/components/ui/Toast'
+import { resolveSite, franchiseNameOf } from '@/lib/siteRef'
 import { cn } from '@/lib/cn'
 
 const formatINR = (n: number | undefined) => {
@@ -221,15 +222,21 @@ export default function CashLoadingOverview() {
 
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!newRowData.atmId.trim() || !newRowData.franchiseeName.trim()) {
-      toast('Please enter ATM ID and Franchisee Name', 'error')
+    if (!newRowData.atmId.trim()) {
+      toast('Please enter ATM ID', 'error')
+      return
+    }
+    const site = resolveSite(newRowData.atmId)
+    if (!site) {
+      toast(`ATM / Site "${newRowData.atmId.trim()}" was not found in the Site Master`, 'error')
       return
     }
     addOverviewRow({
+      siteId: site.siteId,
       spoc: newRowData.spoc,
       machineType: newRowData.machineType,
-      atmId: newRowData.atmId.trim().toUpperCase(),
-      franchiseeName: newRowData.franchiseeName.trim(),
+      atmId: site.atmId,
+      franchiseeName: newRowData.franchiseeName.trim() || franchiseNameOf(site),
       cbrDate: newRowData.cbrDate,
       counterDate: newRowData.counterDate,
       status: newRowData.status,
@@ -977,9 +984,12 @@ export default function CashLoadingOverview() {
                     type="text"
                     required
                     value={newRowData.atmId}
-                    onChange={(e) => setNewRowData({ ...newRowData, atmId: e.target.value })}
+                    onChange={(e) => {
+                      const site = resolveSite(e.target.value)
+                      setNewRowData({ ...newRowData, atmId: e.target.value, ...(site ? { franchiseeName: franchiseNameOf(site) } : {}) })
+                    }}
                     className="w-full h-9 rounded-lg border border-slate-200 px-3 text-[12.5px] uppercase font-mono focus:border-[#0066FF] focus:outline-none"
-                    placeholder="e.g. MPZ28000"
+                    placeholder="Site Master ATM ID or Site ID"
                   />
                 </div>
                 <div>

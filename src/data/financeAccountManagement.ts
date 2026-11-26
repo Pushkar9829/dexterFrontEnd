@@ -1,5 +1,7 @@
 import { createStore } from '@/lib/store'
+import { apiEnabled, finDelete, finLoader, finSave, type FinCfg } from './financeApi'
 import { downloadCsv } from '@/lib/export'
+import { franchiseNameOf, siteAt } from '@/lib/siteRef'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. SETTLEMENT BANK DATA MODEL & STORE
@@ -126,19 +128,30 @@ export const INITIAL_SETTLEMENT_BANKS: SettlementBankRecord[] = [
   },
 ]
 
-export const settlementBankStore = createStore<SettlementBankRecord[]>('dexter_settlement_banks_v1', () => INITIAL_SETTLEMENT_BANKS)
+export const settlementBankStore = createStore<SettlementBankRecord[]>(apiEnabled ? 'dexter_settlement_banks_api' : 'dexter_settlement_banks_v1', () => (apiEnabled ? [] : INITIAL_SETTLEMENT_BANKS))
+/** API mode: settlement banks ↔ /finance/settlement-banks (daily limit in paise). */
+export const settlementBankCfg: FinCfg<SettlementBankRecord> = {
+  key: 'settlement-banks', label: 'Settlement bank', get: () => settlementBankStore.get(), set: (l) => settlementBankStore.set(l),
+  fields: ['bankName', 'accountNo', 'accountName', 'accountType', 'ifscCode', 'branchLocation', 'dailyLimit', 'settlementCycle', 'bankStatus', 'registeredDate'],
+  moneyNum: ['dailyLimit'], dates: ['registeredDate'], dateOut: 'dmy', rename: { status: 'bankStatus' },
+}
 
 export function useSettlementBanks() {
+  finLoader(settlementBankCfg).use()
   const banks = settlementBankStore.use()
   return {
     banks,
     addBank: (bank: SettlementBankRecord) => {
       settlementBankStore.set((prev) => [bank, ...prev])
+      if (apiEnabled) void finSave(settlementBankCfg, undefined, bank)
     },
     updateBank: (bank: SettlementBankRecord) => {
+      const prev0 = settlementBankStore.get().find((b) => b.id === bank.id)
       settlementBankStore.set((prev) => prev.map((b) => (b.id === bank.id ? bank : b)))
+      if (apiEnabled) void finSave(settlementBankCfg, prev0, bank)
     },
     deleteBank: (id: string) => {
+      if (apiEnabled) void finDelete(settlementBankCfg, id)
       settlementBankStore.set((prev) => prev.filter((b) => b.id !== id))
     },
     resetData: () => settlementBankStore.reset(),
@@ -184,6 +197,7 @@ export function exportSettlementBanksCsv(records: SettlementBankRecord[]) {
 export interface TdsComplianceRecord {
   id: string
   atmId: string
+  siteId?: string // Site Master Site ID (added; ATM ID stays the key)
   franchiseName: string
   panNo: string
   sectionCode: '194N' | '194C' | '194J' | '194H'
@@ -350,19 +364,37 @@ export const INITIAL_TDS_COMPLIANCE: TdsComplianceRecord[] = [
   },
 ]
 
-export const tdsComplianceStore = createStore<TdsComplianceRecord[]>('dexter_tds_compliance_v1', () => INITIAL_TDS_COMPLIANCE)
+// ATM / Site / franchise from the common Site Master
+const seedTdsCompliance = (): TdsComplianceRecord[] =>
+  INITIAL_TDS_COMPLIANCE.map((rec, i) => {
+    const site = siteAt(i)
+    return { ...rec, atmId: site.atmId, siteId: site.siteId, franchiseName: franchiseNameOf(site) || rec.franchiseName }
+  })
+
+export const tdsComplianceStore = createStore<TdsComplianceRecord[]>(apiEnabled ? 'dexter_tds_compliance_api' : 'dexter_tds_compliance_v2', apiEnabled ? () => [] : seedTdsCompliance)
+/** API mode: TDS compliance ↔ /finance/tds-compliance (TDS deducted computed by the server). */
+export const tdsComplianceCfg: FinCfg<TdsComplianceRecord> = {
+  key: 'tds-compliance', label: 'TDS compliance record', get: () => tdsComplianceStore.get(), set: (l) => tdsComplianceStore.set(l),
+  fields: ['franchiseName', 'panNo', 'sectionCode', 'financialYear', 'annualWithdrawal', 'tdsRate', 'challanBsrCode', 'form15GStatus', 'complianceStatus', 'lastAuditDate'],
+  moneyNum: ['annualWithdrawal', 'tdsDeducted'], dates: ['lastAuditDate'], dateOut: 'dmy', rename: { status: 'complianceStatus' },
+}
 
 export function useTdsCompliance() {
+  finLoader(tdsComplianceCfg).use()
   const records = tdsComplianceStore.use()
   return {
     records,
     addRecord: (rec: TdsComplianceRecord) => {
       tdsComplianceStore.set((prev) => [rec, ...prev])
+      if (apiEnabled) void finSave(tdsComplianceCfg, undefined, rec)
     },
     updateRecord: (rec: TdsComplianceRecord) => {
+      const prev0 = tdsComplianceStore.get().find((r) => r.id === rec.id)
       tdsComplianceStore.set((prev) => prev.map((r) => (r.id === rec.id ? rec : r)))
+      if (apiEnabled) void finSave(tdsComplianceCfg, prev0, rec)
     },
     deleteRecord: (id: string) => {
+      if (apiEnabled) void finDelete(tdsComplianceCfg, id)
       tdsComplianceStore.set((prev) => prev.filter((r) => r.id !== id))
     },
     resetData: () => tdsComplianceStore.reset(),
@@ -374,6 +406,7 @@ export function exportTdsComplianceCsv(records: TdsComplianceRecord[]) {
     'S.N.',
     'Compliance ID',
     'ATM ID',
+    'Site ID',
     'Franchise Name',
     'PAN Number',
     'Section Code',
@@ -390,6 +423,7 @@ export function exportTdsComplianceCsv(records: TdsComplianceRecord[]) {
     String(i + 1),
     r.id,
     r.atmId,
+    r.siteId ?? '',
     r.franchiseName,
     r.panNo,
     r.sectionCode,

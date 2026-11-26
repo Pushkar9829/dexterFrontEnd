@@ -24,12 +24,20 @@ import {
 } from 'lucide-react'
 import { downloadCsv } from '@/lib/export'
 import { toast } from '@/components/ui/Toast'
+import { apiEnabled } from '@/lib/api'
+import { useRole } from '@/lib/rbac'
+import { Modal } from '@/components/ui/Modal'
+import { Button } from '@/components/ui/Button'
+import { LoadBanner } from '../recon2/shared'
 import { RpRollsIcon } from '@/components/icons/RpRollsIcon'
 import {
   type RpRollRecord,
   getStoredRpRolls,
   saveStoredRpRolls,
   resetStoredRpRolls,
+  rpStore,
+  rpLoader,
+  deleteRpRollAsync,
   STATES_LIST,
   DELIVERY_STATUSES,
 } from '@/data/rpRolls'
@@ -39,9 +47,15 @@ type SortOrder = 'asc' | 'desc'
 
 export default function RpRollsList() {
   const navigate = useNavigate()
+  const role = useRole()
+  // API mode: soft delete with a reason (Super Admin / Admin only on the server)
+  const [delFor, setDelFor] = useState<{ id: string; atmId: string; reason: string; error: string; busy: boolean } | null>(null)
 
   // Data state
-  const [records, setRecords] = useState<RpRollRecord[]>(() => getStoredRpRolls())
+  const [localRecords, setRecords] = useState<RpRollRecord[]>(() => getStoredRpRolls())
+  const liveRecords = rpStore.use()
+  const load = rpLoader.use()
+  const records = apiEnabled ? liveRecords : localRecords
 
   // Sorting state
   const [sortField, setSortField] = useState<SortField>('sn')
@@ -161,6 +175,11 @@ export default function RpRollsList() {
 
   // Delete Record
   const handleDeleteRow = (id: string, atmId: string) => {
+    if (apiEnabled) {
+      if (role !== 'Super Admin' && role !== 'Admin') return toast('Only a Super Admin / Admin can delete a dispatch record', 'error')
+      setDelFor({ id, atmId, reason: '', error: '', busy: false })
+      return
+    }
     if (window.confirm(`Are you sure you want to remove dispatch record for ${atmId || 'this ATM'}?`)) {
       const updated = records.filter((r) => r.id !== id)
       setRecords(updated)
@@ -183,6 +202,12 @@ export default function RpRollsList() {
 
   // Reset all records to original
   const handleResetAllData = () => {
+    if (apiEnabled) {
+      void rpLoader.reload()
+      setCurrentPage(1)
+      toast('Reloaded from the server', 'info')
+      return
+    }
     const defaultData = resetStoredRpRolls()
     setRecords(defaultData)
     setCurrentPage(1)
@@ -304,6 +329,7 @@ export default function RpRollsList() {
   return (
     <div className="mx-auto max-w-[1440px] min-w-0 pb-16 font-sans">
       {/* 1. Breadcrumb: [Home Icon] Workspace > Operations > RP Rolls */}
+      <LoadBanner state={load} onRetry={() => void rpLoader.reload()} />
       <nav aria-label="Breadcrumb" className="mb-3 flex items-center gap-1.5 text-[12px]">
         <Home size={15} className="text-[#0066FF] shrink-0" />
         <Link to="/dashboard" className="text-[#0066FF] hover:underline font-medium">
@@ -1255,6 +1281,38 @@ export default function RpRollsList() {
             </div>
           </div>
         </div>
+      )}
+      {delFor && (
+        <Modal
+          title={`Delete dispatch record — ${delFor.atmId || delFor.id}`}
+          sub="Soft delete: the record is hidden from the list but kept on the server and audited."
+          onClose={() => setDelFor(null)}
+          footer={
+            <>
+              <Button variant="secondary" onClick={() => setDelFor(null)}>Cancel</Button>
+              <Button
+                variant="danger"
+                disabled={delFor.busy}
+                onClick={() => {
+                  if (delFor.reason.trim().length < 3) return setDelFor({ ...delFor, error: 'A reason is required (at least 3 characters).' })
+                  setDelFor({ ...delFor, busy: true, error: '' })
+                  deleteRpRollAsync(delFor.id, delFor.reason)
+                    .then(() => {
+                      toast(`Dispatch record for ${delFor.atmId || delFor.id} deleted`, 'info')
+                      setDelFor(null)
+                    })
+                    .catch((e: unknown) => setDelFor({ ...delFor, busy: false, error: e instanceof Error ? e.message : 'Not deleted' }))
+                }}
+              >
+                Delete
+              </Button>
+            </>
+          }
+        >
+          <label htmlFor="rp-del-reason" className="mb-1.5 block text-[11px] font-semibold">Reason *</label>
+          <textarea id="rp-del-reason" value={delFor.reason} maxLength={300} rows={3} onChange={(e) => setDelFor({ ...delFor, reason: e.target.value, error: '' })} className="w-full rounded-md border border-slate-200 p-2 text-[12px] outline-none focus:border-[#0066FF]" />
+          {delFor.error && <p className="mt-1 text-[11.5px] text-red-600">{delFor.error}</p>}
+        </Modal>
       )}
     </div>
   )

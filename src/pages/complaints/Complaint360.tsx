@@ -1,11 +1,16 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { apiEnabled, complaintAi, fetchComplaint } from '@/data/complaintsApi'
+import { toastError } from '@/data/opsApi'
 import { Search } from 'lucide-react'
 import { ExcelGrid, type GridColumn } from '@/components/grid/ExcelGrid'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { toast } from '@/components/ui/Toast'
 import { downloadCsv } from '@/lib/export'
+import { guardAct, useCanIn } from '@/lib/guard'
+import { opsCan, usePermState } from '@/pages/operations/intel/opsData'
+import { SiteRef } from '@/lib/siteRef'
 import {
   CURRENT_USER,
   RESPONSE_MIN,
@@ -27,12 +32,14 @@ import {
 } from '@/data/complaints'
 import { recStore } from '@/data/complaintsAi'
 import { ComplaintsShell, Entry, GridCard, KV, LinkBtn, Panel, ViewAll, BASE, priorityTone, useNow } from './shared'
+import { ComplaintWorkflowPanel } from '@/pages/operations/intel/ComplaintWorkflowPanel'
 import { AddActionModal, AssignOwnerModal, ComposeEmailModal, EditDetailsModal, EscalateModal, ResolutionModal, ScheduleVisitModal } from './Complaint360Modals'
 
 const H = 3_600_000
 type ModalKind = 'owner' | 'action' | 'edit' | 'visit' | 'email' | 'escalate' | 'resolution' | null
 
 const ANCHORS: [string, string][] = [
+  ['Workflow', 'c360-workflow'],
   ['Context', 'c360-context'],
   ['Issue & AI', 'c360-issue'],
   ['Tasks', 'c360-tasks'],
@@ -91,13 +98,37 @@ export default function Complaint360() {
   const { complaintId = '' } = useParams()
   const all = complaintStore.use()
   const now = useNow(15_000)
-  const [modal, setModal] = useState<ModalKind>(null)
+  const [modal, setModalRaw] = useState<ModalKind>(null)
   const [fullLog, setFullLog] = useState(false)
+  const allowIn = useCanIn('Complaints')
+  usePermState() // re-render when the Operations matrix loads / changes
+  // Assignment follows the Operations matrix (§17: CRM verifies / assigns) as the backend does.
+  const allow = (a: Parameters<typeof allowIn>[0]) => allowIn(a) && (a !== 'Assign' || opsCan('Complaint', 'Assign'))
+  // action-level gate: assign → Assign, every other change → Edit (closing is checked again inside the resolution modal)
+  const setModal = (k: ModalKind) => {
+    if (k && !guardAct('Complaints', k === 'owner' ? 'Assign' : 'Edit', k === 'owner' ? 'assign complaints' : 'edit complaints')) return
+    setModalRaw(k)
+  }
   const c = all.find((x) => x.id === complaintId)
 
   useEffect(() => {
     if (c) setLastOpened(c.id)
   }, [c])
+  // API mode: fresh record with its full history, then the server's read-only AI advice merged into the AI summary
+  useEffect(() => {
+    if (!apiEnabled || !complaintId) return
+    fetchComplaint(complaintId)
+      .then((x) =>
+        x
+          ? complaintAi(complaintId).then((a) =>
+              updateComplaint(complaintId, (y) => ({
+                ai: y.ai ? { ...y.ai, summary: String(a.summary ?? y.ai.summary), nextAction: String(a.nextAction ?? y.ai.nextAction), reason: String(a.reason ?? y.ai.reason), updated: new Date().toISOString() } : y.ai,
+              })),
+            )
+          : undefined,
+      )
+      .catch((e) => toastError(e, `Could not load ${complaintId}`))
+  }, [complaintId])
 
   if (!c)
     return (
@@ -133,19 +164,23 @@ export default function Complaint360() {
   const approvals = !c.frSignOff && !c.hdValidation ? 'FR sign-off and HD Team validation required' : !c.frSignOff ? 'HD Team validation recorded · FR sign-off required' : !c.hdValidation ? 'FR sign-off received · HD Team validation required' : 'FR sign-off & HD Team validation recorded'
 
   const markTask = (t: CTask) => {
+    if (!guardAct('Complaints', 'Edit', 'edit complaints')) return
     updateComplaint(c.id, (x) => ({ tasks: x.tasks.map((y) => (y.id === t.id ? { ...y, done: true } : y)), lastAction: `${t.title} · completed` }), { title: 'Task completed', meta: `${CURRENT_USER} · ${t.id} · ${t.title}` })
     toast(`${t.id} marked complete`)
   }
   const visitStep = (id: string, status: 'Confirmed' | 'Completed') => {
+    if (!guardAct('Complaints', 'Edit', 'edit complaints')) return
     const v = c.visits.find((x) => x.id === id)!
     updateComplaint(c.id, (x) => ({ visits: x.visits.map((y) => (y.id === id ? { ...y, status } : y)), lastAction: `Field visit ${id} ${status.toLowerCase()}` }), { title: `Field visit ${status.toLowerCase()}`, meta: `${CURRENT_USER} · ${id} · ${v.engineer}` })
     toast(`${id} ${status.toLowerCase()}`)
   }
   const reviewAi = () => {
+    if (!guardAct('Complaints', 'Edit', 'edit complaints')) return
     updateComplaint(c.id, (x) => ({ ai: { ...x.ai!, reviewed: { by: CURRENT_USER, at: new Date(now).toISOString() } } }), { title: 'AI summary reviewed', meta: `${CURRENT_USER} · Human review recorded` })
     toast('AI summary marked as reviewed')
   }
   const acceptAi = () => {
+    if (!guardAct('Complaints', 'Edit', 'edit complaints')) return
     const id = nextTaskId(recStore.get().flatMap((r) => (r.taskId ? [r.taskId] : [])))
     const title = c.ai!.nextAction.replace(/\.$/, '')
     updateComplaint(
@@ -230,10 +265,12 @@ export default function Complaint360() {
             </div>
           </div>
           <div className="flex gap-2">
-            <Button variant="secondary" onClick={() => setModal('owner')}>
-              Assign owner
-            </Button>
-            <Button onClick={() => setModal('action')}>Add action</Button>
+            {allow('Assign') && (
+              <Button variant="secondary" onClick={() => setModal('owner')}>
+                Assign owner
+              </Button>
+            )}
+            {allow('Edit') && <Button onClick={() => setModal('action')}>Add action</Button>}
           </div>
         </div>
       </section>
@@ -251,6 +288,9 @@ export default function Complaint360() {
           ))}
         </nav>
       </div>
+
+      {/* Operations workflow integration (§12): task, email, hierarchy escalation, resolution & closure */}
+      <ComplaintWorkflowPanel c={c} />
 
       {/* Context */}
       <div id="c360-context" className="mb-4 grid scroll-mt-4 gap-4 lg:grid-cols-2">
@@ -286,7 +326,7 @@ export default function Complaint360() {
       <div id="c360-issue" className="mb-4 grid scroll-mt-4 gap-4 lg:grid-cols-2">
         <Panel title="ATM asset & component">
           <KV k="ATM ID">
-            {c.atmId} · {atm.model}
+            <SiteRef id={c.atmId} /> · {atm.model}
           </KV>
           <KV k="Asset serial">
             {atm.serial} · Installed {atm.installed}
@@ -414,7 +454,7 @@ export default function Complaint360() {
       </div>
 
       <div id="c360-sla" className="mb-4 grid scroll-mt-4 gap-4 lg:grid-cols-2">
-        <Panel title="SLA" sub={`${c.priority} ${FAULT[c.category]} · Response ${minLabel(RESPONSE_MIN[c.priority])} / Resolution ${SLA_HOURS[c.priority]}h`}>
+        <Panel title="SLA" sub={`${c.priority} ${FAULT[c.category] ?? c.category.toLowerCase()} · Response ${minLabel(RESPONSE_MIN[c.priority])} / Resolution ${SLA_HOURS[c.priority]}h`}>
           <KV k="Response">{respMin == null ? 'Not responded' : `${respMet ? 'Met' : 'Missed'} · ${fmtDT(c.respondedAt)} (${respMin} minutes)`}</KV>
           <KV k="Resolution deadline">{fmtDT(s.deadline)} IST</KV>
           <KV k={open ? 'Current reference time' : 'Closed at'}>{open ? `${fmtDT(now)} IST` : `${fmtDT(c.closedAt)} IST`}</KV>

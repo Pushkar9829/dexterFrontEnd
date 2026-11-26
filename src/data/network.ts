@@ -1,7 +1,10 @@
 // Franchise network + Master Data (site master) — shared model for the
 // "Franchise & Master Data Management" spec (20.11.2026).
 // Mock only: everything lives in localStorage via createStore until the backend exists.
+import { useEffect, useState } from 'react'
 import { createStore } from '@/lib/store'
+import { ApiError, apiEnabled, get, patch as apiPatch, post, put } from '@/lib/api'
+import { toast } from '@/components/ui/Toast'
 import { franchiseStore, STATE_CODE, type Franchise, type Tier } from './franchises'
 import { LOCATIONS } from './applications'
 
@@ -76,10 +79,22 @@ const seedCategories = (): Categories => ({
 export const categoryStore = createStore<Categories>('dexter.categories.v1', seedCategories)
 export const useCategories = () => categoryStore.use()
 export function addCategoryItem(key: CategoryKey, item: Omit<CategoryItem, 'active'>) {
+  if (apiEnabled) {
+    post<CategoryItem>(`/categories/${key}`, { code: item.code, name: item.name, description: item.description, category: item.category })
+      .then((c) => categoryStore.set((cs) => ({ ...cs, [key]: [...cs[key], { code: c.code, name: c.name, description: c.description, category: c.category, active: c.active ?? true }] })))
+      .catch((e: Error) => toast(e.message || 'Could not add the category item.', 'error'))
+    return
+  }
   categoryStore.set((c) => ({ ...c, [key]: [...c[key], { ...item, active: true }] }))
   logMasterAudit({ entity: 'Category', ref: key, action: 'Created', after: item.code })
 }
 export function toggleCategoryItem(key: CategoryKey, code: string) {
+  if (apiEnabled) {
+    post<CategoryItem>(`/categories/${key}/${encodeURIComponent(code)}/toggle`)
+      .then((c) => categoryStore.set((cs) => ({ ...cs, [key]: cs[key].map((x) => (x.code === code ? { ...x, active: c.active } : x)) })))
+      .catch((e: Error) => toast(e.message || 'Could not change the category item.', 'error'))
+    return
+  }
   categoryStore.set((c) => ({ ...c, [key]: c[key].map((i) => (i.code === code ? { ...i, active: !i.active } : i)) }))
   logMasterAudit({ entity: 'Category', ref: key, action: 'Status changed', after: code })
 }
@@ -249,6 +264,11 @@ export type AccountMapping = {
   settlement: 'Active' | 'Pending' | 'Stopped'
 }
 export type PayoutMapping = { bank: string; accountNo: string; ifsc: string; status: 'Mapped' | 'Pending' }
+/** Pending payout-mapping change (API: PUT /sites/:id/payout → 202). The current mapping stays in force until approved. */
+export type PayoutRequest = { bank: string; accountNo: string; ifsc: string; status: 'Pending'; requestedBy?: string; requestedByName?: string; requestedAt?: string }
+/** Pending settlement-status change (API: POST /sites/:id/account/settlement). */
+export type SettlementRequest = { to: AccountMapping['settlement']; reason: string; requestedBy?: string; requestedByName?: string; requestedAt?: string }
+export type SettlementChange = { from: string; to: string; reason?: string; requestedByName?: string; requestedAt?: string; decision: 'Approved' | 'Rejected'; decidedByName?: string; decidedAt?: string; remark?: string }
 export type EngineerAssignment = { engineerId: string; name: string; mobile: string; type: string; assignedOn: string; assignedBy: string }
 export type ManagerAssignment = { managerId: string; name: string; empCode: string; mobile: string; email: string; department: string; reportingManager: string; mappedOn: string }
 export type TisDetails = { createdBy: string; otherName?: string; responsible: string; createdOn: string; photos: number; verification: 'Pending' | 'Verified' | 'Rejected'; verifiedBy?: string; remarks?: string }
@@ -273,6 +293,9 @@ export type Site = {
   account?: AccountMapping
   accountHistory: (AccountMapping & { replacedOn: string; replacedBy: string })[]
   payout?: PayoutMapping
+  payoutRequest?: PayoutRequest
+  settlementRequest?: SettlementRequest
+  settlementHistory?: SettlementChange[]
   engineer?: EngineerAssignment
   engineerHistory: (EngineerAssignment & { removedOn: string })[]
   manager?: ManagerAssignment
@@ -377,13 +400,21 @@ export const getSiteById = (s: SiteState, siteId: string) => s.sites.find((x) =>
 export const siteByAtm = (atmId: string) => siteStore.get().sites.find((x) => x.atmId.toLowerCase() === atmId.trim().toLowerCase())
 
 export function updateSite(siteId: string, patch: Partial<Site> | ((s: Site) => Partial<Site>), audit?: { action: string; before?: string; after?: string }) {
+  const before = siteStore.get().sites.find((x) => x.siteId === siteId)
   siteStore.set((st) => ({
     sites: st.sites.map((x) => (x.siteId === siteId ? { ...x, ...(typeof patch === 'function' ? patch(x) : patch), updatedAt: nowIso() } : x)),
   }))
+  if (apiEnabled) {
+    // API mode: optimistic update, then the matching backend endpoint(s); rolled back on error. The server audits.
+    const after = siteStore.get().sites.find((x) => x.siteId === siteId)
+    if (before && after) syncSite(before, after)
+    return
+  }
   if (audit) logMasterAudit({ entity: 'Site', ref: siteId, ...audit })
 }
 export function addSite(site: Site) {
   siteStore.set((st) => ({ sites: [site, ...st.sites] }))
+  if (apiEnabled) return createSiteOnServer(site) // POST /sites (unique Site ID / ATM ID enforced server-side)
   logMasterAudit({ entity: 'Site', ref: site.siteId, action: 'Site created', after: site.atmId })
 }
 
@@ -506,3 +537,251 @@ export function logMasterAudit(e: Omit<MasterAudit, 'id' | 'at' | 'by'> & { by?:
 export const useMasterAudit = () => masterAuditStore.use()
 
 export { LOCATIONS }
+
+// ── API mode (backend /sites, /categories, /franchises, /audit) ──────────
+// The stores keep their shapes. `loadSites()` / `loadCategories()` / `loadNetwork()` hydrate them;
+// `updateSite()` / `addSite()` above route the change to the matching endpoint (see `pushSiteChange`).
+type ApiPage<T> = { items: T[]; total: number; pages: number }
+
+const LEGAL_DEFAULT: LegalTrack = { upload: 'Pending', verification: 'Pending', final: 'Pending' }
+/** Backend site (possibly field-projected for Finance / Legal / Project parts) → frontend Site. */
+export function toSite(x: Partial<Site> & { siteId: string; atmId: string; createdAt?: string }): Site {
+  const legal = Object.fromEntries(LEGAL_SEQUENCE.map((d) => [d, { ...LEGAL_DEFAULT, ...(x.legal?.[d] ?? {}) }])) as Record<LegalDocKey, LegalTrack>
+  return {
+    projectId: '', frId: '', projectType: '', plan: '', siteType: '', machineType: '', location: '', address: '', state: '', district: '', pin: '',
+    investment: 0, operational: false, monthlyTxns: 0, installation: 'Not Started', updatedAt: x.createdAt ?? nowIso(),
+    ...x,
+    // explicit keys so a merge clears a request the server has decided (mergeSite spreads the fresh record)
+    payoutRequest: x.payoutRequest,
+    settlementRequest: x.settlementRequest,
+    accountHistory: x.accountHistory ?? [],
+    engineerHistory: x.engineerHistory ?? [],
+    managerHistory: x.managerHistory ?? [],
+    steps: x.steps ?? {},
+    legal,
+  }
+}
+
+/** Fetch every page of a list endpoint (limit 200 per page). */
+async function fetchAllPages<T>(path: string, query: Record<string, string | number | boolean | undefined> = {}): Promise<T[]> {
+  const first = await get<ApiPage<T>>(path, { ...query, limit: 200, page: 1 })
+  const out = [...first.items]
+  for (let p = 2; p <= Math.min(first.pages ?? 1, 50); p++) out.push(...(await get<ApiPage<T>>(path, { ...query, limit: 200, page: p })).items)
+  return out
+}
+
+let sitesLoaded: Promise<boolean> | null = null
+/** Hydrate the Site Master from GET /sites (roles with Master Data access). Keeps the local store on 403. */
+export function loadSites(force = false): Promise<boolean> {
+  if (!apiEnabled) return Promise.resolve(false)
+  if (sitesLoaded && !force) return sitesLoaded
+  sitesLoaded = fetchAllPages<Site>('/sites')
+    .then((items) => {
+      siteStore.set({ sites: items.map(toSite) })
+      return true
+    })
+    .catch((e) => {
+      sitesLoaded = null
+      if (e instanceof ApiError && e.status === 403) return false
+      throw e
+    })
+  return sitesLoaded
+}
+/** Full record of one site (incl. histories) — GET /sites/:siteId. */
+export async function loadSite(siteId: string) {
+  if (!apiEnabled) return siteStore.get().sites.find((s) => s.siteId === siteId)
+  const r = await get<{ site: Site }>(`/sites/${encodeURIComponent(siteId)}`)
+  const s = toSite(r.site)
+  mergeSite(s)
+  return s
+}
+function mergeSite(s: Site) {
+  siteStore.set((st) => (st.sites.some((x) => x.siteId === s.siteId) ? { sites: st.sites.map((x) => (x.siteId === s.siteId ? { ...x, ...s, accountHistory: s.accountHistory.length ? s.accountHistory : x.accountHistory, engineerHistory: s.engineerHistory.length ? s.engineerHistory : x.engineerHistory, managerHistory: s.managerHistory.length ? s.managerHistory : x.managerHistory } : x)) } : { sites: [s, ...st.sites] }))
+}
+
+const BASE_FIELDS = ['atmId', 'projectId', 'projectType', 'plan', 'siteType', 'machineType', 'location', 'address', 'state', 'district', 'pin', 'investment', 'operational', 'monthlyTxns'] as const
+const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
+const enc = encodeURIComponent
+
+/** Work out which backend endpoints a local site change needs and call them in order. */
+async function pushSiteChange(before: Site, after: Site): Promise<Site | null> {
+  const id = enc(before.siteId)
+  let last: Site | null = null
+  const run = async (p: Promise<Site>) => {
+    last = toSite(await p)
+  }
+  const base: Record<string, unknown> = {}
+  for (const k of BASE_FIELDS) if (!same(before[k], after[k])) base[k] = after[k]
+  if (Object.keys(base).length) await run(apiPatch<Site>(`/sites/${id}`, base))
+  if (!same(before.account, after.account) && after.account) {
+    const a = after.account
+    const b = before.account
+    const onlyDecision = b && same({ ...b, approval: undefined, settlement: undefined, decidedBy: undefined }, { ...a, approval: undefined, settlement: undefined, decidedBy: undefined })
+    if (onlyDecision && a.approval !== b.approval && (a.approval === 'Approved' || a.approval === 'Rejected')) await run(post<Site>(`/sites/${id}/account/decision`, { decision: a.approval }))
+    else if (onlyDecision && a.settlement !== b.settlement) throw new ApiError(0, 'NOT_SUPPORTED', 'Settlement status changes go through requestSettlementChange (maker-checker).')
+    else if (!onlyDecision) await run(put<Site>(`/sites/${id}/account`, { type: a.type, bank: a.bank, holder: a.holder, accountNo: a.accountNo, ifsc: a.ifsc, branch: a.branch }))
+  }
+  if (!same(before.payout, after.payout) && after.payout) await run(put<Site>(`/sites/${id}/payout`, { bank: after.payout.bank, accountNo: after.payout.accountNo, ifsc: after.payout.ifsc }))
+  if (!same(before.engineer, after.engineer) && after.engineer) {
+    const e = after.engineer
+    await run(put<Site>(`/sites/${id}/engineer`, { engineerId: e.engineerId, name: e.name, mobile: e.mobile, type: e.type }))
+  }
+  if (!same(before.manager, after.manager) && after.manager) {
+    const m = after.manager
+    await run(put<Site>(`/sites/${id}/manager`, { managerId: m.managerId, name: m.name, empCode: m.empCode, mobile: m.mobile, email: m.email, department: m.department, reportingManager: m.reportingManager }))
+  }
+  if (!same(before.tis, after.tis) && after.tis) {
+    const t = after.tis
+    await run(put<Site>(`/sites/${id}/tis`, { createdBy: t.createdBy, otherName: t.otherName || undefined, responsible: t.responsible, createdOn: t.createdOn.slice(0, 10), photos: t.photos, verification: t.verification, verifiedBy: t.verifiedBy || undefined, remarks: t.remarks || undefined }))
+  }
+  for (const k of Object.keys(after.steps ?? {})) {
+    const a = after.steps[k]
+    const b = before.steps?.[k]
+    if (same(a, b)) continue
+    const body: Record<string, string> = {}
+    if (a.status !== b?.status) body.status = a.status
+    if (a.assignedTo !== b?.assignedTo) body.assignedTo = a.assignedTo
+    if (a.remark !== b?.remark && a.remark !== undefined) body.remark = a.remark
+    if (Object.keys(body).length) await run(apiPatch<Site>(`/sites/${id}/steps/${enc(k)}`, body))
+  }
+  for (const d of LEGAL_SEQUENCE) {
+    const a = after.legal[d]
+    const b = before.legal[d]
+    if (same(a, b)) continue
+    const body: Record<string, string> = {}
+    if (a.upload !== b.upload) body.upload = a.upload
+    if (a.verification !== b.verification) body.verification = a.verification
+    if (a.final !== b.final) body.final = a.final
+    if (Object.keys(body).length) await run(apiPatch<Site>(`/sites/${id}/legal/${d}`, body))
+  }
+  return last
+}
+
+// ── Maker-checker requests on the Site Master (API mode; callers handle mock mode locally) ──
+const siteCall = async (p: Promise<Site>) => {
+  const s = toSite(await p)
+  mergeSite(s)
+  return s
+}
+/** PUT /sites/:id/payout → 202 with a Pending `payoutRequest`; the current mapping stays until a different user approves. */
+export const requestPayoutChange = (siteId: string, p: { bank: string; accountNo: string; ifsc: string }) => siteCall(put<Site>(`/sites/${enc(siteId)}/payout`, p))
+/** POST /sites/:id/payout/decision — maker-checker (`MAKER_CHECKER`); a remark is required to reject. */
+export const decidePayoutChange = (siteId: string, decision: 'Approved' | 'Rejected', remark?: string) =>
+  siteCall(post<Site>(`/sites/${enc(siteId)}/payout/decision`, { decision, ...(remark?.trim() ? { remark: remark.trim() } : {}) }))
+/** POST /sites/:id/account/settlement — opens a settlement-status change request (reason ≥ 3 chars). */
+export const requestSettlementChange = (siteId: string, status: AccountMapping['settlement'], reason: string) =>
+  siteCall(post<Site>(`/sites/${enc(siteId)}/account/settlement`, { status, reason: reason.trim() }))
+/** POST /sites/:id/account/settlement/decision — maker-checker; a remark is required to reject. */
+export const decideSettlementChange = (siteId: string, decision: 'Approved' | 'Rejected', remark?: string) =>
+  siteCall(post<Site>(`/sites/${enc(siteId)}/account/settlement/decision`, { decision, ...(remark?.trim() ? { remark: remark.trim() } : {}) }))
+
+function syncSite(before: Site, after: Site) {
+  pushSiteChange(before, after)
+    .then((s) => s && mergeSite(s))
+    .catch((e: Error) => {
+      // roll back the optimistic change and show the backend reason
+      siteStore.set((st) => ({ sites: st.sites.map((x) => (x.siteId === before.siteId ? before : x)) }))
+      toast(e.message || 'The server rejected the change.', 'error')
+    })
+}
+function createSiteOnServer(site: Site) {
+  post<Site>('/sites', {
+    siteId: site.siteId, atmId: site.atmId, frId: site.frId, projectId: site.projectId || undefined, projectType: site.projectType, plan: site.plan, siteType: site.siteType,
+    machineType: site.machineType, location: site.location, address: site.address, state: site.state, district: site.district, pin: site.pin, investment: Math.round(site.investment) || undefined,
+  })
+    .then((s) => mergeSite(toSite(s)))
+    .catch((e: Error) => {
+      siteStore.set((st) => ({ sites: st.sites.filter((x) => x.siteId !== site.siteId) }))
+      toast(e.message || 'The server rejected the new site.', 'error')
+    })
+}
+
+// ── Category masters ──
+export async function loadCategories() {
+  if (!apiEnabled) return
+  const r = await get<Record<CategoryKey, CategoryItem[]>>('/categories')
+  categoryStore.set((c) => {
+    const next = { ...c }
+    for (const k of Object.keys(CATEGORY_META) as CategoryKey[]) if (r[k]) next[k] = r[k].map((i) => ({ code: i.code, name: i.name, description: i.description, category: i.category, active: i.active }))
+    return next
+  })
+}
+
+// ── Franchise network (GET /franchises → franchiseStore + networkStore) ──
+export type ApiFranchise = {
+  frId: string; name: string; tier: Tier; code: string; partnerCode?: string; state: string; city: string; atms: number; kyc: Franchise['kyc']; status: NetworkStatus; owner?: string; entity: EntityType
+  parent: ParentRef; agreementNo?: string; agreementDate?: string; agreementValidTill?: string; nocPending?: boolean; reportingManager?: string; assignedTeam?: string
+  mappingHistory?: MappingHistory[]; entityHistory?: NetworkNode['entityHistory']; updatedAt?: string
+}
+export const toFranchise = (f: ApiFranchise): Franchise => ({ id: f.frId, name: f.name, tier: f.tier, state: f.state, city: f.city, atms: f.atms, kyc: f.kyc, status: f.status === 'Active' ? 'Active' : 'Inactive', owner: f.owner ?? '', updatedAt: f.updatedAt ?? nowIso() })
+export const toNode = (f: ApiFranchise): NetworkNode => ({
+  frId: f.frId, tier: f.tier, code: f.code, partnerCode: f.partnerCode ?? '—', entity: f.entity, parent: f.parent, status: f.status, agreementNo: f.agreementNo ?? '', agreementDate: f.agreementDate ?? '',
+  agreementValidTill: f.agreementValidTill ?? '', nocPending: !!f.nocPending, reportingManager: f.reportingManager ?? '', assignedTeam: f.assignedTeam ?? '', history: f.mappingHistory ?? [], entityHistory: f.entityHistory ?? [],
+})
+/** Merge one backend franchise into both stores. */
+export function mergeFranchise(f: ApiFranchise) {
+  franchiseStore.set((list) => (list.some((x) => x.id === f.frId) ? list.map((x) => (x.id === f.frId ? toFranchise(f) : x)) : [toFranchise(f), ...list]))
+  networkStore.set((s) => ({ nodes: { ...s.nodes, [f.frId]: toNode(f) } }))
+}
+let networkLoaded: Promise<boolean> | null = null
+export function loadNetwork(force = false): Promise<boolean> {
+  if (!apiEnabled) return Promise.resolve(false)
+  if (networkLoaded && !force) return networkLoaded
+  networkLoaded = fetchAllPages<ApiFranchise>('/franchises')
+    .then((items) => {
+      franchiseStore.set(items.map(toFranchise))
+      networkStore.set({ nodes: Object.fromEntries(items.map((f) => [f.frId, toNode(f)])) })
+      return true
+    })
+    .catch((e) => {
+      networkLoaded = null
+      if (e instanceof ApiError && e.status === 403) return false
+      throw e
+    })
+  return networkLoaded
+}
+
+/** Master-data audit (GET /audit?category=data, entities Site / Category / Franchise). */
+export async function loadMasterAudit() {
+  if (!apiEnabled) return
+  type A = { _id: string; at: string; actor?: { name?: string }; entity: string; ref: string; action: string; diff?: { path: string; before?: unknown; after?: unknown }[] }
+  const rows = (await Promise.all(['Site', 'Category', 'Franchise'].map((entity) => get<ApiPage<A>>('/audit', { category: 'data', entity, limit: 200, sort: '-at' }).then((r) => r.items).catch(() => [] as A[])))).flat()
+  const s = (v: unknown) => (v === undefined ? undefined : typeof v === 'string' ? v : JSON.stringify(v))
+  masterAuditStore.set(
+    rows
+      .sort((a, b) => b.at.localeCompare(a.at))
+      .map((a) => ({ id: a._id, at: a.at, by: a.actor?.name ?? 'System', entity: a.entity === 'Franchise' ? 'Hierarchy' : a.entity, ref: a.ref, action: a.action, before: s(a.diff?.[0]?.before), after: s(a.diff?.[0]?.after) })),
+  )
+}
+
+/** Hook for Master Data / franchise pages: hydrate the given slices once per mount (API mode). */
+export function useMasterLoad(which: ('sites' | 'categories' | 'network' | 'audit')[] = ['sites']) {
+  const [state, setState] = useState<{ loading: boolean; error: string | null }>({ loading: apiEnabled, error: null })
+  const key = which.join(',')
+  useEffect(() => {
+    if (!apiEnabled) return
+    let alive = true
+    Promise.all(which.map((w) => (w === 'sites' ? loadSites(true) : w === 'categories' ? loadCategories() : w === 'network' ? loadNetwork(true) : loadMasterAudit())))
+      .then(() => alive && setState({ loading: false, error: null }))
+      .catch((e: Error) => alive && setState({ loading: false, error: e.message }))
+    return () => {
+      alive = false
+    }
+  }, [key]) // eslint-disable-line react-hooks/exhaustive-deps
+  return state
+}
+
+/** Franchisee: own sites only (GET /my/sites — no account / legal data). */
+export async function loadMySites() {
+  if (!apiEnabled) return
+  const r = await get<{ items: Site[] } | Site[]>('/my/sites', { limit: 200 })
+  const items = Array.isArray(r) ? r : r.items
+  siteStore.set({ sites: items.map(toSite) })
+}
+
+/** Roles without Master Data access: identity-only site directory (Site ID / ATM ID / franchise / type / location). */
+export async function loadSiteDirectory() {
+  if (!apiEnabled) return
+  const r = await get<{ items: (Partial<Site> & { siteId: string; atmId: string })[] }>('/sites/directory')
+  siteStore.set({ sites: r.items.map(toSite) })
+}

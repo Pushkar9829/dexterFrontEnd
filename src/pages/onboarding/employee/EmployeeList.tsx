@@ -1,3 +1,5 @@
+import { apiEnabled } from '@/lib/api'
+import { promptReason } from '@/lib/reason'
 import { useState, useMemo, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
@@ -39,6 +41,7 @@ import {
 } from '@/data/employeeStore'
 import { toast } from '@/components/ui/Toast'
 import { downloadCsv } from '@/lib/export'
+import { guardAct, useCanIn, ViewOnlyNote } from '@/lib/guard'
 
 interface StatusTileConfig {
   key: EmployeeStatus | 'all'
@@ -130,6 +133,7 @@ const STATUS_TILES: StatusTileConfig[] = [
 export default function EmployeeList() {
   const navigate = useNavigate()
   const employees = useEmployees()
+  const allow = useCanIn('Users')
 
   // Filter States
   const [tab, setTab] = useState<EmployeeStatus | 'all'>('all')
@@ -227,14 +231,19 @@ export default function EmployeeList() {
   }, [filtered, currentPage, pageSize])
 
   const handleDelete = (emp: Employee) => {
-    if (confirm(`Are you sure you want to delete employee ${emp.fullName} (${emp.employeeCode})?`)) {
-      deleteEmployee(emp.id)
-      toast(`Employee ${emp.fullName} removed successfully`)
+    if (!guardAct('Users', 'Delete', 'delete employees')) return
+    if (apiEnabled) {
+      // soft delete, only while the onboarding record is not activated (server: NOT_DRAFT otherwise)
+      const reason = promptReason(`Delete onboarding record ${emp.fullName} (${emp.employeeCode})?`)
+      if (reason && deleteEmployee(emp.id, reason)) toast(`Employee ${emp.fullName} removed`)
+    } else if (confirm(`Are you sure you want to delete employee ${emp.fullName} (${emp.employeeCode})?`)) {
+      if (deleteEmployee(emp.id)) toast(`Employee ${emp.fullName} removed successfully`)
     }
   }
 
   // Export to CSV
   const handleExport = () => {
+    if (!guardAct('Users', 'Export')) return
     if (filtered.length === 0) {
       toast('No records to export')
       return
@@ -323,25 +332,31 @@ export default function EmployeeList() {
         </div>
 
         <div className="flex items-center gap-2.5">
-          <button
-            type="button"
-            onClick={handleExport}
-            className="inline-flex items-center gap-1.5 h-9.5 px-3.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-[12px] font-semibold transition-all shadow-xs"
-          >
-            <Download size={14} className="text-[#0066FF]" />
-            <span>Export CSV</span>
-          </button>
+          {allow('Export') && (
+            <button
+              type="button"
+              onClick={handleExport}
+              className="inline-flex items-center gap-1.5 h-9.5 px-3.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-[12px] font-semibold transition-all shadow-xs"
+            >
+              <Download size={14} className="text-[#0066FF]" />
+              <span>Export CSV</span>
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={() => navigate('/onboarding/users/new')}
-            className="inline-flex items-center gap-2 h-9.5 px-4 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[13px] font-semibold transition-all shadow-sm hover:shadow"
-          >
-            <Plus size={16} strokeWidth={2.4} />
-            <span>Add Employee</span>
-          </button>
+          {allow('Create') && (
+            <button
+              type="button"
+              onClick={() => navigate('/onboarding/users/new')}
+              className="inline-flex items-center gap-2 h-9.5 px-4 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[13px] font-semibold transition-all shadow-sm hover:shadow"
+            >
+              <Plus size={16} strokeWidth={2.4} />
+              <span>Add Employee</span>
+            </button>
+          )}
         </div>
       </div>
+
+      <ViewOnlyNote module="Users" />
 
       {/* Tabs Header - Status Tiles matching design */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
@@ -557,15 +572,17 @@ export default function EmployeeList() {
             <span>Reset</span>
           </button>
 
-          <button
-            type="button"
-            onClick={handleExport}
-            className="inline-flex items-center gap-1.5 h-8.5 px-4 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[12px] font-medium transition-all"
-          >
-            <Download size={14} />
-            <span>Download</span>
-            <ChevronDown size={12} className="text-slate-400 ml-0.5" />
-          </button>
+          {allow('Export') && (
+            <button
+              type="button"
+              onClick={handleExport}
+              className="inline-flex items-center gap-1.5 h-8.5 px-4 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[12px] font-medium transition-all"
+            >
+              <Download size={14} />
+              <span>Download</span>
+              <ChevronDown size={12} className="text-slate-400 ml-0.5" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -718,20 +735,24 @@ export default function EmployeeList() {
                         >
                           <Eye size={13} />
                         </button>
-                        <button
-                          onClick={() => navigate(`/onboarding/users/${item.id}/edit`)}
-                          className="p-1 text-slate-500 hover:text-[#0066FF] hover:bg-blue-50 rounded"
-                          title="Edit"
-                        >
-                          <Edit2 size={13} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(item)}
-                          className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded"
-                          title="Delete"
-                        >
-                          <Trash2 size={13} />
-                        </button>
+                        {allow('Edit') && (
+                          <button
+                            onClick={() => navigate(`/onboarding/users/${item.id}/edit`)}
+                            className="p-1 text-slate-500 hover:text-[#0066FF] hover:bg-blue-50 rounded"
+                            title="Edit"
+                          >
+                            <Edit2 size={13} />
+                          </button>
+                        )}
+                        {allow('Delete') && (
+                          <button
+                            onClick={() => handleDelete(item)}
+                            className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded"
+                            title="Delete"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -751,13 +772,15 @@ export default function EmployeeList() {
                       </p>
 
                       <div className="mt-4 flex items-center gap-2">
-                        <button
-                          onClick={() => navigate('/onboarding/users/new')}
-                          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[11px] font-semibold transition-all shadow-xs"
-                        >
-                          <Plus size={13} />
-                          Add Employee
-                        </button>
+                        {allow('Create') && (
+                          <button
+                            onClick={() => navigate('/onboarding/users/new')}
+                            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-[#0066FF] hover:bg-[#0052CC] text-white text-[11px] font-semibold transition-all shadow-xs"
+                          >
+                            <Plus size={13} />
+                            Add Employee
+                          </button>
+                        )}
                         <button
                           onClick={handleReset}
                           className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-medium transition-all"

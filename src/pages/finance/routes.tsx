@@ -1,34 +1,30 @@
-import { Route, useParams } from 'react-router-dom'
-import FinanceHub from './FinanceHub'
-import ClfList from './ClfList'
-import ClfRecordPage from './ClfRecord'
-import GstHub from './GstHub'
-import GstMapping from './GstMapping'
-import GstInvoiceHub from './GstInvoiceHub'
-import GstInvoiceData from './GstInvoiceData'
-import GstInvoiceEntry from './GstInvoiceEntry'
-import GstList from './GstList'
-import GstRecordPage from './GstRecord'
-import PayoutList from './PayoutList'
-import PayoutRecordPage from './PayoutRecord'
-import SdList from './SdList'
-import SdRecordPage from './SdRecord'
-
-import HrPaymentsHub from './HrPaymentsHub'
-import StaffSalaryList from './StaffSalaryList'
-import StaffSalaryRecordPage from './StaffSalaryRecord'
-import StaffExpenseList from './StaffExpenseList'
-import StaffExpenseRecordPage from './StaffExpenseRecord'
-
-import AccountManagementHub from './AccountManagementHub'
-import SettlementBankHub from './SettlementBankHub'
-import AccountMappingList from './AccountMappingList'
-import SettlementAccountMappingForm from './SettlementAccountMappingForm'
-import AcChangeRequestList from './AcChangeRequestList'
-import AcChangeRequestForm from './AcChangeRequestForm'
-import AccountOpeningList from './AccountOpeningList'
-import TdsComplianceList from './TdsComplianceList'
-
+import { lazy } from 'react'
+import { Navigate, Route, useParams } from 'react-router-dom'
+const FinanceHub = lazy(() => import('./FinanceHub'))
+const ClfList = lazy(() => import('./ClfList'))
+const ClfRecordPage = lazy(() => import('./ClfRecord'))
+const GstHub = lazy(() => import('./GstHub'))
+const GstMapping = lazy(() => import('./GstMapping'))
+const GstInvoiceHub = lazy(() => import('./GstInvoiceHub'))
+const GstInvoiceData = lazy(() => import('./GstInvoiceData'))
+const GstInvoiceEntry = lazy(() => import('./GstInvoiceEntry'))
+const GstList = lazy(() => import('./GstList'))
+const GstRecordPage = lazy(() => import('./GstRecord'))
+const SdList = lazy(() => import('./SdList'))
+const SdRecordPage = lazy(() => import('./SdRecord'))
+const HrPaymentsHub = lazy(() => import('./HrPaymentsHub'))
+const StaffSalaryList = lazy(() => import('./StaffSalaryList'))
+const StaffSalaryRecordPage = lazy(() => import('./StaffSalaryRecord'))
+const StaffExpenseList = lazy(() => import('./StaffExpenseList'))
+const StaffExpenseRecordPage = lazy(() => import('./StaffExpenseRecord'))
+const AccountManagementHub = lazy(() => import('./AccountManagementHub'))
+const SettlementBankHub = lazy(() => import('./SettlementBankHub'))
+const AccountMappingList = lazy(() => import('./AccountMappingList'))
+const SettlementAccountMappingForm = lazy(() => import('./SettlementAccountMappingForm'))
+const AcChangeRequestList = lazy(() => import('./AcChangeRequestList'))
+const AcChangeRequestForm = lazy(() => import('./AcChangeRequestForm'))
+const AccountOpeningList = lazy(() => import('./AccountOpeningList'))
+const TdsComplianceList = lazy(() => import('./TdsComplianceList'))
 // keyed by :id so moving between records (or new → created) remounts with fresh form state
 function ClfRecordRoute() {
   const { id = '' } = useParams()
@@ -38,10 +34,9 @@ function GstRecordRoute() {
   const { id = '' } = useParams()
   return <GstRecordPage key={id} />
 }
-function PayoutRecordRoute() {
-  const { id = '' } = useParams()
-  return <PayoutRecordPage key={id} />
-}
+// The old Finance Payout pages duplicated Payout Management (/finance/payouts/*, registered in App.tsx).
+// Old URLs (bookmarks, report links) land on the new module.
+const toPayouts = <Navigate to="/finance/payouts" replace />
 function SdRecordRoute() {
   const { id = '' } = useParams()
   return <SdRecordPage key={id} />
@@ -58,9 +53,9 @@ function StaffExpenseRecordRoute() {
 export const financeRoutes = [
   <Route key="finance-hub" path="/finance" element={<FinanceHub />} />,
   <Route key="finance-acc-mgmt" path="/finance/account-management" element={<AccountManagementHub />} />,
-  <Route key="finance-acc-payout" path="/finance/account-management/payout" element={<PayoutList />} />,
-  <Route key="finance-acc-payout-new" path="/finance/account-management/payout/new" element={<PayoutRecordRoute />} />,
-  <Route key="finance-acc-payout-id" path="/finance/account-management/payout/:id" element={<PayoutRecordRoute />} />,
+  <Route key="finance-acc-payout" path="/finance/account-management/payout" element={toPayouts} />,
+  <Route key="finance-acc-payout-new" path="/finance/account-management/payout/new" element={toPayouts} />,
+  <Route key="finance-acc-payout-id" path="/finance/account-management/payout/:id" element={toPayouts} />,
   <Route key="finance-settlement-bank" path="/finance/settlement-bank" element={<SettlementBankHub />} />,
   <Route key="finance-acc-settlement-bank" path="/finance/account-management/settlement-bank" element={<SettlementBankHub />} />,
   <Route key="finance-settlement-bank-mapping" path="/finance/settlement-bank/account-mapping" element={<AccountMappingList />} />,
@@ -115,7 +110,7 @@ export const financeRoutes = [
   <Route key="finance-gst-id" path="/finance/gst/:id" element={<GstInvoiceEntry />} />,
   <Route key="finance-gst-legacy-list" path="/finance/gst/legacy-list" element={<GstList />} />,
   <Route key="finance-gst-legacy-record" path="/finance/gst/legacy-record/:id" element={<GstRecordRoute />} />,
-  <Route key="finance-payout" path="/finance/payout" element={<PayoutList />} />,
-  <Route key="finance-payout-new" path="/finance/payout/new" element={<PayoutRecordRoute />} />,
-  <Route key="finance-payout-id" path="/finance/payout/:id" element={<PayoutRecordRoute />} />,
+  <Route key="finance-payout" path="/finance/payout" element={toPayouts} />,
+  <Route key="finance-payout-new" path="/finance/payout/new" element={toPayouts} />,
+  <Route key="finance-payout-id" path="/finance/payout/:id" element={toPayouts} />,
 ]

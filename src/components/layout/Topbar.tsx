@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { Bell, Calendar, ChevronDown, LogOut, Menu, Search, Smartphone } from 'lucide-react'
 import { getSession, signOut, DEMO_USER } from '@/lib/auth'
+import { terminateBrowserSession } from '@/pages/auth/flow'
 import { ROLES, switchRole, useRole, type Role } from '@/lib/rbac'
+import { apiEnabled, get } from '@/lib/api'
 
 export function Topbar({ onMenu }: { onMenu: () => void }) {
   const { pathname } = useLocation()
@@ -11,6 +13,14 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
   const role = useRole()
   const user = { ...(getSession() ?? DEMO_USER), role }
   const [menu, setMenu] = useState(false)
+  // API mode: unread in-app notifications of the signed-in user (refreshed on navigation).
+  const [unread, setUnread] = useState<number | null>(apiEnabled ? null : 3)
+  useEffect(() => {
+    if (!apiEnabled) return
+    get<{ total: number }>('/notifications', { unread: true, limit: 1 })
+      .then((r) => setUnread(r.total))
+      .catch(() => undefined)
+  }, [pathname])
   const searchRef = useRef<HTMLInputElement>(null)
   const isReports = pathname.startsWith('/reports')
   const qVal = isReports ? (params.get('q') ?? '') : ''
@@ -60,9 +70,11 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
         )} */}
         <button className="relative p-1 text-ink-2 hover:text-ink transition-colors" aria-label="Notifications" onClick={() => navigate('/notices')}>
           <Bell size={19} />
-          <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-red px-1 text-[9px] font-bold text-white ring-2 ring-white">
-            3
-          </span>
+          {!!unread && (
+            <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-red px-1 text-[9px] font-bold text-white ring-2 ring-white">
+              {unread > 99 ? '99+' : unread}
+            </span>
+          )}
         </button>
         <div className="hidden items-center gap-2 rounded-lg border border-[#E2E8F0] bg-white px-2.5 py-1 text-left sm:flex">
           <Calendar size={15} className="text-[#0066FF] shrink-0" />
@@ -80,6 +92,7 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
         <label className="flex h-9 w-[180px] sm:w-[240px] md:w-[280px] lg:w-[320px] items-center gap-2.5 rounded-lg border border-line bg-surface px-3 text-[12px] text-muted transition-colors focus-within:border-primary focus-within:bg-white">
           <Search size={15} className="shrink-0 text-[#64748B]" />
           <input
+            key={isReports ? 'reports-search' : 'global-search'}
             ref={searchRef}
             value={isReports ? qVal : undefined}
             onChange={(e) => {
@@ -114,6 +127,12 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
           </button>
           {menu && (
             <div className="absolute right-0 mt-2 w-64 rounded-lg border border-line bg-white py-1 shadow-lg">
+              {apiEnabled ? (
+                <div className="border-b border-line px-3 py-2 text-[11px] text-muted">
+                  Signed in as <b className="text-ink">{user.role}</b>
+                  {user.email ? <div className="truncate">{user.email}</div> : null}
+                </div>
+              ) : (
               <div className="border-b border-line px-3 py-2">
                 <label className="block text-[10px] font-bold uppercase tracking-wider text-muted">View as role (UAT demo)</label>
                 <select
@@ -129,8 +148,10 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
                   ))}
                 </select>
               </div>
+              )}
               <button
                 onClick={() => {
+                  if (!apiEnabled) terminateBrowserSession('Signed out')
                   signOut()
                   navigate('/login')
                 }}

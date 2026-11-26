@@ -26,7 +26,9 @@ import {
   GST_PAYMENT_STATUSES,
   type GstRecord,
 } from '@/data/financeGst'
-import { SITES, FRANCHISEES } from '@/data/cbrSites'
+import { resolveSite, SiteRef } from '@/lib/siteRef'
+import { useCanIn, guardAct } from '@/lib/guard'
+import { emitFinance, gstPatchFromSite, statusEvent } from './finWorkflow'
 import GstInvoiceTemplate from '@/components/finance/GstInvoiceTemplate'
 import { toast } from '@/components/ui/Toast'
 
@@ -34,6 +36,8 @@ export default function GstInvoiceEntry() {
   const navigate = useNavigate()
   const { id = '' } = useParams<{ id: string }>()
   const isEditing = Boolean(id && id !== 'new')
+  const allow = useCanIn('Finance')
+  const canSave = allow(isEditing ? 'Edit' : 'Create')
 
   // Form State
   const [formData, setFormData] = useState<GstRecord>(() => {
@@ -139,26 +143,9 @@ export default function GstInvoiceEntry() {
       toast('Please enter a Site ID to search', 'error')
       return
     }
-    const found = SITES.find(
-      (s) =>
-        s.siteId.toLowerCase() === inputSite.toLowerCase() ||
-        s.atmId.toLowerCase() === inputSite.toLowerCase()
-    )
+    const found = resolveSite(inputSite)
     if (found) {
-      const fr = FRANCHISEES.find((f) => f.id === found.franchiseId)
-      setFormData((prev) => ({
-        ...prev,
-        siteId: found.siteId,
-        atmId: found.atmId,
-        locationName: `${found.location}, ${found.city}`,
-        sapCode: fr?.sapCode || prev.sapCode,
-        franchiseeName: fr?.name || prev.franchiseeName,
-        contactNo: fr?.contact || prev.contactNo,
-        gstNumber: fr?.gstin || prev.gstNumber,
-        stateCode: fr?.gstin ? fr.gstin.slice(0, 2) : '09',
-        panNumber: fr?.gstin ? fr.gstin.slice(2, 12) : prev.panNumber,
-        address: `${found.location}\n${found.city}\nUttar Pradesh - 201306`,
-      }))
+      setFormData((prev) => gstPatchFromSite(prev, found))
       toast(`Loaded details for Site ${found.siteId}`, 'success')
     } else {
       toast('Site ID not found in master registry', 'error')
@@ -171,22 +158,9 @@ export default function GstInvoiceEntry() {
       toast('Please enter an ATM ID to search', 'error')
       return
     }
-    const found = SITES.find((s) => s.atmId.toLowerCase() === inputAtm.toLowerCase())
+    const found = resolveSite(inputAtm)
     if (found) {
-      const fr = FRANCHISEES.find((f) => f.id === found.franchiseId)
-      setFormData((prev) => ({
-        ...prev,
-        siteId: found.siteId,
-        atmId: found.atmId,
-        locationName: `${found.location}, ${found.city}`,
-        sapCode: fr?.sapCode || prev.sapCode,
-        franchiseeName: fr?.name || prev.franchiseeName,
-        contactNo: fr?.contact || prev.contactNo,
-        gstNumber: fr?.gstin || prev.gstNumber,
-        stateCode: fr?.gstin ? fr.gstin.slice(0, 2) : '09',
-        panNumber: fr?.gstin ? fr.gstin.slice(2, 12) : prev.panNumber,
-        address: `${found.location}\n${found.city}\nUttar Pradesh - 201306`,
-      }))
+      setFormData((prev) => gstPatchFromSite(prev, found))
       toast(`Loaded details for ATM ${found.atmId}`, 'success')
     } else {
       toast('ATM ID not found in master records', 'error')
@@ -202,6 +176,16 @@ export default function GstInvoiceEntry() {
   // Submit Handler
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    if (!guardAct('Finance', isEditing ? 'Edit' : 'Create', isEditing ? 'edit GST invoices' : 'create GST invoices')) return
+    const site = resolveSite(formData.atmId || formData.siteId)
+    if ((formData.siteId || formData.atmId) && !site) {
+      toast('Site ID / ATM ID is not in the Site Master', 'error')
+      return
+    }
+    if (site && formData.siteId && formData.atmId && (site.siteId !== formData.siteId.trim() || site.atmId !== formData.atmId.trim())) {
+      toast(`ATM ID ${site.atmId} belongs to ${site.siteId} — use Search to load the site`, 'error')
+      return
+    }
 
     if (!formData.siteId && !formData.atmId && !formData.franchiseeName) {
       toast('Please provide at least a Franchisee Name, Site ID, or ATM ID', 'error')
@@ -225,7 +209,10 @@ export default function GstInvoiceEntry() {
       updatedBy: 'Admin (Dexter Finance)',
     }
 
-    saveGst(recordToSave)
+    const prevStatus = isEditing ? getGst(id)?.invoiceStatus : undefined
+    const saved = saveGst(site ? { ...recordToSave, siteId: site.siteId, atmId: site.atmId } : recordToSave)
+    const ev = isEditing ? statusEvent(prevStatus, saved.invoiceStatus) : 'Submit'
+    if (ev) emitFinance(ev, saved.id, { what: 'GST invoice', site: saved.atmId || saved.siteId, franchise: saved.franchiseeName, status: saved.invoiceStatus })
     toast(
       isEditing
         ? `Invoice ${finalInvNo} updated successfully!`
@@ -308,13 +295,13 @@ export default function GstInvoiceEntry() {
           <FileSpreadsheet size={15} />
           <span>GST Invoice Data</span>
         </Link>
-        <Link
+        {allow('Create') && <Link
           to="/finance/gst/invoice/new"
           className="inline-flex items-center gap-2 border-b-2 border-primary px-4 py-2 text-[13px] font-bold text-primary"
         >
           <Plus size={15} />
           <span>New GST Invoice Entry</span>
-        </Link>
+        </Link>}
       </div>
 
       {/* Main Form Card */}
@@ -367,7 +354,7 @@ export default function GstInvoiceEntry() {
               <div className="flex items-center gap-1">
                 <input
                   type="text"
-                  placeholder="e.g. DX-MH-01482"
+                  placeholder="e.g. DXMH70007"
                   value={formData.atmId}
                   onChange={(e) => handleFieldChange('atmId', e.target.value)}
                   className="flex-1 h-8 px-2 text-[12px] font-mono border border-slate-200 rounded-lg bg-white focus:border-primary focus:outline-hidden"
@@ -389,7 +376,7 @@ export default function GstInvoiceEntry() {
               <div className="flex items-center gap-1">
                 <input
                   type="text"
-                  placeholder="e.g. ST-MH-PUN-00124"
+                  placeholder="e.g. SITE-MH-0001"
                   value={formData.siteId}
                   onChange={(e) => handleFieldChange('siteId', e.target.value)}
                   className="flex-1 h-8 px-2 text-[12px] font-mono border border-slate-200 rounded-lg bg-white focus:border-primary focus:outline-hidden"
@@ -403,6 +390,11 @@ export default function GstInvoiceEntry() {
                   <Search size={12} />
                 </button>
               </div>
+              {(formData.atmId || formData.siteId) && (
+                <div className="mt-1 text-[10.5px]">
+                  <SiteRef id={formData.atmId || formData.siteId} />
+                </div>
+              )}
             </div>
 
             {/* Franchisee Name */}
@@ -754,13 +746,13 @@ export default function GstInvoiceEntry() {
               <Eye size={14} />
               <span>Preview Invoice</span>
             </button>
-            <button
+            {canSave && <button
               type="submit"
               className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-6 py-2 text-[12px] font-semibold text-white hover:bg-primary-hover shadow-xs transition-colors"
             >
               <Save size={14} />
               <span>{isEditing ? 'Save Changes' : 'Submit GST Invoice Entry'}</span>
-            </button>
+            </button>}
           </div>
         </div>
       </form>

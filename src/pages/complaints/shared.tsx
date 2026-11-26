@@ -6,6 +6,7 @@ import { useReportMode } from '@/hooks/useReportMode'
 import { PageHeader } from '@/components/ui/Card'
 import { Badge, type Tone } from '@/components/ui/Badge'
 import { cn } from '@/lib/cn'
+import { guardAct, useCanIn, ViewOnlyNote } from '@/lib/guard'
 import { getLastOpened, nowMs, type Complaint, type Priority, sla, statusLabel, fmtDate, fmtTime } from '@/data/complaints'
 
 export const BASE = '/operations/complaints'
@@ -24,7 +25,8 @@ const TABS = [
 export function SubNav() {
   const { pathname } = useLocation()
   const { isReport } = useReportMode()
-  const visibleTabs = isReport ? TABS.filter((t) => t.to !== `${BASE}/new`) : TABS
+  const allow = useCanIn('Complaints')
+  const visibleTabs = isReport || !allow('Create') ? TABS.filter((t) => t.to !== `${BASE}/new`) : TABS
   const fixed = visibleTabs.filter((t) => t.to !== '360').map((t) => t.to)
   const isActive = (to: string) => (to === '360' ? pathname.startsWith(`${BASE}/`) && !fixed.includes(pathname) : pathname === to)
   return (
@@ -70,6 +72,7 @@ export function ComplaintsShell({
 }) {
   const nav = useNavigate()
   const { isReport } = useReportMode()
+  const allow = useCanIn('Complaints')
   return (
     <div className="mx-auto max-w-[1400px]">
       <PageHeader
@@ -78,11 +81,13 @@ export function ComplaintsShell({
         actions={
           onExport && (
             <>
-            <Button variant="secondary" icon={<Download size={15} />} onClick={onExport}>
-              Export
-            </Button>
-            {!isReport && (
-              <Button icon={<Plus size={15} />} onClick={() => nav(`${BASE}/new`)}>
+            {allow('Export') && (
+              <Button variant="secondary" icon={<Download size={15} />} onClick={() => guardAct('Complaints', 'Export', 'export complaints') && onExport()}>
+                Export
+              </Button>
+            )}
+            {!isReport && allow('Create') && (
+              <Button icon={<Plus size={15} />} onClick={() => guardAct('Complaints', 'Create', 'create complaints') && nav(`${BASE}/new`)}>
                 Create complaint
               </Button>
             )}
@@ -91,6 +96,7 @@ export function ComplaintsShell({
         }
       />
       <SubNav />
+      {!isReport && <ViewOnlyNote module="Complaints" />}
       {children}
       {footer && <PageFooter />}
     </div>
@@ -335,6 +341,7 @@ export function GridCard({
   children: ReactNode
   className?: string
 }) {
+  const allow = useCanIn('Complaints')
   return (
     <section id={id} className={cn('mb-5 scroll-mt-4 overflow-hidden rounded-xl border border-line bg-white', className)}>
       <div className="flex flex-wrap items-center gap-3 px-4 py-3.5">
@@ -342,8 +349,8 @@ export function GridCard({
         <h3 className="text-[14px] font-semibold">{title}</h3>
         {sub && <span className="text-[11px] text-muted">{sub}</span>}
         <div className="ml-auto flex items-center gap-4">
-          {onExport && (
-            <button type="button" aria-label={`Export ${typeof title === 'string' ? title.toLowerCase() : 'records'}`} onClick={onExport} className="text-muted hover:text-primary">
+          {onExport && allow('Export') && (
+            <button type="button" aria-label={`Export ${typeof title === 'string' ? title.toLowerCase() : 'records'}`} onClick={() => guardAct('Complaints', 'Export', 'export complaints') && onExport()} className="text-muted hover:text-primary">
               <Download size={16} />
             </button>
           )}

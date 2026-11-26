@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   AlertCircle,
@@ -28,10 +28,45 @@ import { toast } from '@/components/ui/Toast'
 import { downloadCsv } from '@/lib/export'
 import { cn } from '@/lib/cn'
 import { NOTICES, NOTICE_TYPES, type Notice, type NoticeType } from '@/data/notices'
+import { apiEnabled, get, post } from '@/lib/api'
 
-const TODAY = '2026-10-06'
+// ── API mode: own in-app notifications (GET /notifications) ──────────────
+type ApiNotification = { notificationId: string; at: string; module?: string; refId?: string; text?: string; read: boolean; channel?: string }
+const MODULE_LINK: Record<string, string> = {
+  Tasks: '/tasks/my', Complaints: '/complaints', Legal: '/legal', Finance: '/finance', Onboarding: '/onboarding', Franchise: '/franchise',
+  HRMS: '/hrms', Projects: '/projects/active', KYC: '/kyc/verification', EOD: '/cbr/eod-summary', Sites: '/master-data/sites', 'Master Data': '/master-data/sites',
+}
+function noticeType(n: ApiNotification): NoticeType {
+  const t = `${n.module ?? ''} ${n.text ?? ''}`.toLowerCase()
+  if (/escalat/.test(t)) return 'Escalation'
+  if (/overdue|breach/.test(t)) return 'SLA breach'
+  if (/sla|due soon/.test(t)) return 'SLA warning'
+  if (/kyc/.test(t)) return 'KYC'
+  if (/eod/.test(t)) return 'EOD'
+  if (/complaint/.test(t)) return 'Complaint'
+  if (/remind/.test(t)) return 'Reminder'
+  if (/application|onboard/.test(t)) return 'Application'
+  if (/stage/.test(t)) return 'Stage'
+  return 'Assignment'
+}
+const toNotice = (n: ApiNotification): Notice => ({
+  id: n.notificationId,
+  at: n.at,
+  type: noticeType(n),
+  title: n.text ?? `${n.module ?? 'Notification'} ${n.refId ?? ''}`.trim(),
+  details: [n.module, n.refId].filter(Boolean).join(' · '),
+  link: MODULE_LINK[n.module ?? ''] ?? '/tasks/my',
+  read: !!n.read,
+})
+export async function loadNotifications(): Promise<Notice[]> {
+  const r = await get<{ items: ApiNotification[] }>('/notifications', { limit: 200 })
+  return r.items.map(toNotice)
+}
+
 const istDay = (iso: string) =>
   new Date(new Date(iso).getTime() + 5.5 * 3600_000).toISOString().slice(0, 10)
+const TODAY = istDay(new Date().toISOString())
+const TODAY_LABEL = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })
 const FIRST_EARLIER = NOTICES.find((n) => istDay(n.at) < TODAY)?.id
 
 function whenLabel(n: Notice) {
@@ -127,7 +162,17 @@ const CATEGORY_STYLES: Record<
 
 export default function Notices() {
   const navigate = useNavigate()
-  const [items, setItems] = useState<Notice[]>(NOTICES)
+  const [items, setItems] = useState<Notice[]>(apiEnabled ? [] : NOTICES)
+  const [loading, setLoading] = useState(apiEnabled)
+  const reload = () => {
+    if (!apiEnabled) return
+    setLoading(true)
+    loadNotifications()
+      .then(setItems)
+      .catch((e: Error) => toast(e.message || 'Could not load notifications.', 'error'))
+      .finally(() => setLoading(false))
+  }
+  useEffect(reload, [])
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('')
@@ -214,6 +259,9 @@ export default function Notices() {
 
   // Actions: Read status management
   const markRead = (ids: string[], read = true) => {
+    // API mode: the server only supports marking read (unread stays a local view change).
+    if (apiEnabled && read)
+      ids.filter((id) => items.find((n) => n.id === id && !n.read)).forEach((id) => post(`/notifications/${encodeURIComponent(id)}/read`).catch((e: Error) => toast(e.message, 'error')))
     setItems((prev) =>
       prev.map((n) => (ids.includes(n.id) ? { ...n, read } : n))
     )
@@ -223,6 +271,7 @@ export default function Notices() {
   }
 
   const handleMarkAllRead = () => {
+    if (apiEnabled) post('/notifications/read-all').catch((e: Error) => toast(e.message, 'error'))
     setItems((prev) => prev.map((n) => ({ ...n, read: true })))
     setSelectedIds([])
     toast('All notices marked as read', 'success')
@@ -243,6 +292,7 @@ export default function Notices() {
   }
 
   const handleRefresh = () => {
+    if (apiEnabled) return reload()
     setItems([...items])
     toast(`Notices refreshed · ${unreadCount} pending review`, 'info')
   }
@@ -317,6 +367,7 @@ export default function Notices() {
 
   return (
     <div className="mx-auto max-w-[1440px] min-w-0 space-y-5 pb-16 font-sans">
+      {loading && <div className="text-[12px] text-slate-500">Loading notifications…</div>}
       {/* ── Breadcrumbs ────────────────────────────────────────────────────── */}
       <div className="flex items-center gap-1.5 text-[12px] text-slate-500">
         <Home size={14} className="text-slate-400 shrink-0" />
@@ -486,7 +537,7 @@ export default function Notices() {
             <div className="text-[12px] font-semibold text-emerald-800">Today&apos;s Broadcasts</div>
             <div className="text-2xl font-bold text-emerald-600 mt-1">{todayCount}</div>
             <div className="text-[11px] text-emerald-700/80 mt-0.5 font-medium">
-              Generated 06 Oct 2026
+              Generated {TODAY_LABEL}
             </div>
           </div>
           <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">

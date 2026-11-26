@@ -1,5 +1,8 @@
 // Unified Reports Hub: 6 categories · 44 reports, each with a live preview grid; saved views and scheduled exports.
+import { promptReason } from '@/lib/reason'
 import { createStore } from '@/lib/store'
+import { del, get, patch, post } from '@/lib/api'
+import { apiCall, apiEnabled, background, createLoader, fromPaise } from '@/data/bizApi'
 import type { Franchise } from './franchises'
 import { SITES, rng } from './reportsFinancial'
 
@@ -401,12 +404,12 @@ export const DATE_RANGES = [
 export type SavedView = { id: string; name: string; reportId: string; category: string; range: string; query: string; savedAt: string; by: string }
 export type Schedule = { id: string; reportId: string; frequency: 'Daily' | 'Weekly' | 'Monthly'; time: string; recipients: string; format: '.xlsx' | '.csv'; createdBy: string; createdAt: string; active: boolean }
 
-export const savedViewStore = createStore<SavedView[]>('dexter.reports.saved.v1', () => [
+export const savedViewStore = createStore<SavedView[]>(apiEnabled ? 'dexter.reports.saved.api.v1' : 'dexter.reports.saved.v1', () => apiEnabled ? [] : [
   { id: 'SV-1', name: 'Pune network — this month', reportId: 'franchise-register', category: 'all', range: 'month', query: '', savedAt: '2026-10-06T09:20', by: 'Paras Dubey' },
   { id: 'SV-2', name: 'Open compliance exceptions', reportId: 'compliance-exceptions', category: 'kyc', range: 'all', query: '', savedAt: '2026-10-02T17:05', by: 'Paras Dubey' },
 ])
 
-export const scheduleStore = createStore<Schedule[]>('dexter.reports.schedules.v1', () => [
+export const scheduleStore = createStore<Schedule[]>(apiEnabled ? 'dexter.reports.schedules.api.v1' : 'dexter.reports.schedules.v1', () => apiEnabled ? [] : [
   { id: 'SCH-1', reportId: 'cash-reconciliation', frequency: 'Daily', time: '08:00', recipients: 'finance@dexterindia.in', format: '.xlsx', createdBy: 'Vikram Shah', createdAt: '2026-09-12', active: true },
   { id: 'SCH-2', reportId: 'franchise-register', frequency: 'Weekly', time: '09:00', recipients: 'Paras.Dubey@dexterindia.in, meera.iyer@dexterindia.in', format: '.xlsx', createdBy: 'Paras Dubey', createdAt: '2026-08-30', active: true },
   { id: 'SCH-3', reportId: 'audit-trail', frequency: 'Monthly', time: '07:30', recipients: 'governance@dexterindia.in', format: '.csv', createdBy: 'Suresh Nair', createdAt: '2026-07-01', active: false },
@@ -419,3 +422,99 @@ export function nextRun(s: Schedule) {
   if (s.frequency === 'Weekly') return `Mon 19 Oct, ${s.time}`
   return `01 Nov, ${s.time}`
 }
+
+// ── backend adapter (API mode): /reports ────────────────────────────────────
+// Hub previews run GET /reports/:id (live / external reports); saved views + schedules are the user's own server rows.
+type ApiCol = { key: string; label: string; kind?: PCol['kind'] }
+export type LiveReport = { available: boolean; columns: PCol[]; rows: PRow[]; total: number; source?: string }
+const isPaiseKey = (k: string) => /Paise$/.test(k)
+const fromPaiseKey = (k: string) => k.replace(/Paise$/, '')
+const prettyLabel = (l: string) => (l === l.replace(/[A-Z]/g, '') ? l : l.replace(/Paise$/, '').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, (c) => c.toUpperCase()))
+const ISO_DT = /^\d{4}-\d{2}-\d{2}T/
+/** GET /reports/:id → hub grid shape; integer paise columns become rupee money columns. */
+export async function fetchLiveReport(id: string, opts: { from?: string; to?: string; q?: string } = {}): Promise<LiveReport> {
+  const r = await get<{ report?: { source?: string }; available: boolean; columns: ApiCol[]; rows: Record<string, unknown>[]; total: number }>(`/reports/${encodeURIComponent(id)}`, { ...opts, limit: 500 })
+  const columns: PCol[] = (r.columns ?? []).map((c) =>
+    isPaiseKey(c.key) ? { key: fromPaiseKey(c.key), label: prettyLabel(c.label), kind: 'money' } : { key: c.key, label: prettyLabel(c.label), kind: c.kind ?? (/At$|^at$/.test(c.key) ? 'datetime' : /Date$|^date$/.test(c.key) ? 'date' : undefined) },
+  )
+  const rows: PRow[] = (r.rows ?? []).map((row) => {
+    const o: PRow = {}
+    for (const [k, v] of Object.entries(row)) {
+      if (isPaiseKey(k)) o[fromPaiseKey(k)] = fromPaise(v as number)
+      else if (v === null || v === undefined) o[k] = ''
+      else if (typeof v === 'number' || typeof v === 'string') o[k] = typeof v === 'string' && ISO_DT.test(v) ? v.slice(0, 16) : v
+      else if (typeof v === 'boolean') o[k] = v ? 'Yes' : 'No'
+      else o[k] = Array.isArray(v) ? v.join(', ') : JSON.stringify(v)
+    }
+    return o
+  })
+  return { available: r.available !== false, columns, rows, total: r.total ?? rows.length, source: r.report?.source }
+}
+/** Backend report ids (GET /reports catalog), cached; null until loaded / in mock mode. */
+let catalog: Set<string> | null = null
+export async function backendReportIds(): Promise<Set<string>> {
+  if (!apiEnabled) return new Set()
+  if (!catalog) catalog = new Set((await get<{ reports: { id: string }[] }>('/reports')).reports.map((r) => r.id))
+  return catalog
+}
+
+type ApiView = { viewId: string; name: string; reportId: string; category: string; range: string; query: string; by?: string; createdAt: string }
+type ApiSchedule = { scheduleId: string; reportId: string; frequency: Schedule['frequency']; time: string; recipients: string[]; format: Schedule['format']; active: boolean; createdByName?: string; createdAt: string }
+const viewFromApi = (v: ApiView): SavedView => ({ id: v.viewId, name: v.name, reportId: v.reportId, category: v.category, range: v.range, query: v.query, savedAt: v.createdAt, by: v.by ?? '' })
+const schedFromApi = (s: ApiSchedule): Schedule => ({ id: s.scheduleId, reportId: s.reportId, frequency: s.frequency, time: s.time, recipients: s.recipients.join(', '), format: s.format, createdBy: s.createdByName ?? '', createdAt: s.createdAt.slice(0, 10), active: s.active })
+export const savedViewsLoader = createLoader('saved reports', async () => {
+  savedViewStore.set((await get<{ items: ApiView[] }>('/reports/saved-views')).items.map(viewFromApi))
+})
+export const schedulesLoader = createLoader('scheduled exports', async () => {
+  scheduleStore.set((await get<{ items: ApiSchedule[] }>('/reports/schedules')).items.map(schedFromApi))
+})
+/** Save a view (API: POST /reports/saved-views). Returns false on failure (toasted). */
+export async function addSavedView(v: SavedView): Promise<boolean> {
+  if (!apiEnabled) {
+    savedViewStore.set((l) => [v, ...l])
+    return true
+  }
+  try {
+    const r = await apiCall(() => post<ApiView>('/reports/saved-views', { name: v.name, reportId: v.reportId, category: v.category, range: v.range, query: v.query }), 'Could not save view')
+    savedViewStore.set((l) => [viewFromApi(r), ...l])
+    return true
+  } catch {
+    return false
+  }
+}
+export function removeSavedView(id: string) {
+  savedViewStore.set((l) => l.filter((x) => x.id !== id))
+  background(() => del(`/reports/saved-views/${id}`), 'Could not remove saved view', () => void savedViewsLoader.reload())
+}
+export async function addSchedule(s: Schedule): Promise<boolean> {
+  if (!apiEnabled) {
+    scheduleStore.set((l) => [s, ...l])
+    return true
+  }
+  try {
+    const r = await apiCall(() => post<ApiSchedule>('/reports/schedules', { reportId: s.reportId, frequency: s.frequency, time: s.time, recipients: s.recipients.split(/[,;\s]+/).filter(Boolean), format: s.format }), 'Could not schedule export')
+    scheduleStore.set((l) => [schedFromApi(r), ...l])
+    return true
+  } catch {
+    return false
+  }
+}
+export function toggleSchedule(id: string) {
+  const cur = scheduleStore.get().find((x) => x.id === id)
+  scheduleStore.set((l) => l.map((x) => (x.id === id ? { ...x, active: !x.active } : x)))
+  if (cur) background(() => patch(`/reports/schedules/${id}`, { active: !cur.active }), 'Could not change schedule', () => void schedulesLoader.reload())
+}
+/** Mock: removes. API mode: soft delete with a mandatory reason — DELETE /reports/schedules/:id {reason} (deactivated, hidden, audited). */
+export function removeSchedule(id: string): 'removed' | 'cancelled' {
+  if (!apiEnabled) {
+    scheduleStore.set((l) => l.filter((x) => x.id !== id))
+    return 'removed'
+  }
+  const reason = promptReason('Delete this scheduled export?')
+  if (!reason) return 'cancelled'
+  scheduleStore.set((l) => l.filter((x) => x.id !== id))
+  background(() => del(`/reports/schedules/${id}`, { reason }), 'Could not delete schedule', () => void schedulesLoader.reload())
+  return 'removed'
+}
+/** API mode: run a schedule now (emails the CSV). */
+export const runScheduleNow = (id: string) => apiCall(() => post<{ rows?: number }>(`/reports/schedules/${id}/run`), 'Could not run export')

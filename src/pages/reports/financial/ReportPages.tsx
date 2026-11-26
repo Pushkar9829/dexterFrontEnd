@@ -8,6 +8,7 @@ import { AttachmentModal } from './Attachments'
 import { DEFS, type DefCtx, type ReportDef } from './defs'
 import { ReportSheet, type SheetCol } from './ReportSheet'
 import { ChipSelect, EditActions, FinancialShell, newId } from './Shell'
+import { canIn, guardAct } from '@/lib/guard'
 
 const enc = encodeURIComponent
 
@@ -188,6 +189,7 @@ function RecordView({ def, recordId }: { def: ReportDef; recordId: string }) {
               onUpdate={() => setDraft({ ...saved })}
               onCancel={leaveEdit}
               onSave={() => {
+                if (!canIn('Reports', 'Create') && !guardAct('Reports', 'Edit', 'update reports')) return
                 if (draft) def.store.set((list) => list.map((r) => (r.id === recordId ? draft : r)))
                 leaveEdit()
                 toast(`${def.label} record S.N. ${sn} saved`)

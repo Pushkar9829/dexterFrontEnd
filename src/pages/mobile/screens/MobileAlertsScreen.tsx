@@ -8,7 +8,8 @@ import {
   Clock,
   ChevronRight,
 } from 'lucide-react'
-import { INITIAL_ALERTS, type AlertNotificationItem } from '../data/mobileMockData'
+import { useMobileAlerts, type MobileAlert } from '../data/mobileFeeds'
+import { fmtDateTime, relTime } from '../data/mobileSession'
 
 interface MobileAlertsScreenProps {
   onBackToHome?: () => void
@@ -16,13 +17,11 @@ interface MobileAlertsScreenProps {
 }
 
 export function MobileAlertsScreen({ onBackToHome, onNavigateToScreen }: MobileAlertsScreenProps) {
-  const [alerts, setAlerts] = useState<AlertNotificationItem[]>(INITIAL_ALERTS)
+  const { alerts, markRead, markAllRead } = useMobileAlerts()
   const [filter, setFilter] = useState<'All' | 'Unread' | 'Read'>('All')
 
-  const handleAlertClick = (alertItem: AlertNotificationItem) => {
-    setAlerts((prev) =>
-      prev.map((a) => (a.id === alertItem.id ? { ...a, read: true } : a))
-    )
+  const handleAlertClick = (alertItem: MobileAlert) => {
+    markRead(alertItem)
     if (alertItem.targetRoute) {
       onNavigateToScreen(alertItem.targetRoute)
     }
@@ -82,6 +81,11 @@ export function MobileAlertsScreen({ onBackToHome, onNavigateToScreen }: MobileA
               </button>
             ))}
           </div>
+          {unreadCount > 0 && (
+            <button type="button" onClick={markAllRead} className="text-[10px] font-bold text-blue-100 underline">
+              Mark all read
+            </button>
+          )}
         </div>
       </div>
 
@@ -125,7 +129,7 @@ export function MobileAlertsScreen({ onBackToHome, onNavigateToScreen }: MobileA
                     )}
                   </div>
                   <p className="text-[11px] font-medium text-slate-600 mt-0.5">{item.subtitle}</p>
-                  <span className="text-[10px] text-slate-400 mt-1 block">{item.time}</span>
+                  <span className="text-[10px] text-slate-400 mt-1 block" title={fmtDateTime(item.at)}>{relTime(item.at)}</span>
                 </div>
               </div>
 

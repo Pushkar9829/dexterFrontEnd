@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
+import { apiEnabled } from '@/data/bizApi'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -21,7 +22,10 @@ import { toast } from '@/components/ui/Toast'
 import { cn } from '@/lib/cn'
 import {
   addEvidence,
+  addEvidenceApi,
   createTask,
+  createTaskApi,
+  useTasksLoad,
   DEPTS,
   NOW,
   PEOPLE,
@@ -31,6 +35,7 @@ import {
   type Priority,
   type TaskKind,
 } from '@/data/tasks'
+import { guardAct, ViewOnlyNote } from '@/lib/guard'
 
 interface EntityOption {
   id: string
@@ -95,6 +100,7 @@ const toLocal = (ms: number) => new Date(ms + 5.5 * 3600_000).toISOString().slic
 export default function CreateTaskPage() {
   const navigate = useNavigate()
   const { tasks } = tasksStore.use()
+  useTasksLoad()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Form State
@@ -104,7 +110,7 @@ export default function CreateTaskPage() {
   const [priority, setPriority] = useState<Priority>('Medium')
   const [department, setDepartment] = useState<Dept>('Verification')
   const [kind, setKind] = useState<TaskKind>('Ad-hoc')
-  const [assignee, setAssignee] = useState('Rahul Kumar')
+  const [assignee, setAssignee] = useState(apiEnabled ? 'Unassigned' : 'Rahul Kumar')
   const [reviewer, setReviewer] = useState('Priya Menon')
   const [approver, setApprover] = useState('Meera Iyer')
   const [due, setDue] = useState(toLocal(NOW + 24 * 3600_000))
@@ -224,6 +230,7 @@ export default function CreateTaskPage() {
 
   // Create Task Execution
   const handleCreate = (createAnother = false) => {
+    if (!guardAct('Tasks', 'Create', 'create tasks')) return
     if (!validate()) {
       toast('Please correct the highlighted form errors before proceeding.')
       return
@@ -232,6 +239,29 @@ export default function CreateTaskPage() {
     setSubmitting(true)
     const upperEntityId = entityId.trim().toUpperCase()
     const matchedEntity = ENTITIES.find((e) => e.id === upperEntityId)
+
+    if (apiEnabled) {
+      // POST /tasks (people resolved to employee ids) → POST /files + /tasks/:id/evidence per attachment
+      void (async () => {
+        try {
+          const newTask = await createTaskApi({
+            title: title.trim(), description: description.trim() || title.trim(), expectedOutcome: expectedOutcome.trim(), priority, department,
+            assignee: assignee === 'Unassigned' ? '' : assignee, reviewer, approver, dueMs: parsedDueMs,
+            parentId: parentId ? parentId.split(' · ')[0] : undefined, entityId: upperEntityId || undefined, entityLabel: matchedEntity?.label ?? (upperEntityId || undefined),
+            source: 'Manual / Web Form', depLabel: dependencyNote.trim() || undefined, kind,
+          })
+          for (const file of attachments) await addEvidenceApi(newTask.id, file)
+          toast(`Task ${newTask.id} created successfully! SLA: ${newTask.tatHours}h`)
+          if (createAnother) resetForm()
+          else navigate(`/tasks/my/${newTask.id}`)
+        } catch {
+          /* toasted */
+        } finally {
+          setSubmitting(false)
+        }
+      })()
+      return
+    }
 
     try {
       const newTask = createTask({
@@ -294,6 +324,7 @@ export default function CreateTaskPage() {
 
   return (
     <div className="max-w-[1080px] pb-16">
+      <ViewOnlyNote module="Tasks" />
       {/* Top Breadcrumb & Return Link */}
       <div className="flex items-center justify-between mb-4">
         <Link

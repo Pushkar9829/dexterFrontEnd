@@ -1,3 +1,10 @@
+import type { Site } from './network'
+import { franchiseNameOf } from '@/lib/siteRef'
+import { pickSite } from './cbrSites'
+import { createStore } from '@/lib/store'
+import { del, post, uploadFile } from '@/lib/api'
+import { apiEnabled, apiCall, createLoader, fetchAll } from './opsApi'
+
 export interface RpRollRecord {
   id: string
   sn: number
@@ -20,7 +27,7 @@ export interface RpRollRecord {
   status?: string
 }
 
-export const KNOWN_ATMS = [
+const KNOWN_ATMS_RAW = [
   {
     atmId: 'MCRM0389',
     siteId: 'MCRM1943',
@@ -129,7 +136,7 @@ export const DELIVERY_STATUSES = [
   'RTO',
 ]
 
-export const INITIAL_RP_ROLLS: RpRollRecord[] = [
+const INITIAL_RAW: RpRollRecord[] = [
   {
     id: 'rp-1',
     sn: 1,
@@ -372,8 +379,31 @@ export const INITIAL_RP_ROLLS: RpRollRecord[] = [
   },
 ]
 
-const STORAGE_KEY = 'dexter_rp_rolls_data'
-const DRAFT_STORAGE_KEY = 'dexter_rp_rolls_draft'
+// Every demo ATM re-points at a real Site Master site in the same state (Site ID SITE-UP-0001 / ATM ID DXUP70007);
+// franchisee name, address and PIN come from the Site Master so the record never disagrees with it.
+const usedSites = new Set<string>()
+const siteForLegacy = new Map<string, Site>()
+function siteFor(legacyAtm: string, stateUpper: string): Site {
+  const hit = siteForLegacy.get(legacyAtm)
+  if (hit) return hit
+  const free = (x: Site) => !usedSites.has(x.siteId)
+  const s = pickSite(0, (x) => free(x) && x.state.toUpperCase() === stateUpper, free)
+  usedSites.add(s.siteId)
+  siteForLegacy.set(legacyAtm, s)
+  return s
+}
+function toSiteMaster<T extends { atmId: string; siteId: string; franchiseeName: string; frAddressWithPin: string; state: string; pinCode: string }>(r: T): T {
+  if (!r.atmId) return r
+  const s = siteFor(r.atmId, r.state)
+  return { ...r, atmId: s.atmId, siteId: s.siteId, franchiseeName: franchiseNameOf(s), frAddressWithPin: `${s.address}, ${s.state} ${s.pin}`, state: s.state.toUpperCase(), pinCode: s.pin }
+}
+
+export const KNOWN_ATMS = KNOWN_ATMS_RAW.map(toSiteMaster)
+export const INITIAL_RP_ROLLS: RpRollRecord[] = INITIAL_RAW.map(toSiteMaster)
+
+// v2: seed now references Site Master sites (old keys held module-specific IDs)
+const STORAGE_KEY = 'dexter_rp_rolls_data.v2'
+const DRAFT_STORAGE_KEY = 'dexter_rp_rolls_draft.v2'
 
 export function getStoredRpRolls(): RpRollRecord[] {
   try {
@@ -459,3 +489,96 @@ export function resetStoredRpRolls(): RpRollRecord[] {
   return INITIAL_RP_ROLLS
 }
 
+
+// ── Backend (/ops-intel/rp-rolls) ───────────────────────────────────────
+// API mode: records come from the server; the localStorage functions above stay the mock-mode path.
+export const RP_API_STATUSES = ['Delivered', 'In Transit', 'Dispatched', 'Out for Delivery', 'Pending', 'Delayed', 'RTO'] as const
+type ApiRp = {
+  rpId: string; atmId: string; siteId: string; frId: string; franchiseeName: string; hubLocation: string; frAddressWithPin: string; frNumber: string
+  state: string; pinCode: string; despatchChallanNo: string; courierName: string; docketNo: string; rolls: number; dispatchDate: string
+  deliveryStatus: string; deliveryStatusDate: string; remarks: string; documentFileId?: string
+}
+
+const MON = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
+/** '19-Nov-2026' / '19-Nov' / '19-11-2026' / '2026-11-19' → '2026-11-19' ('' when unparseable). */
+export function rpDateToIso(s: string): string {
+  const t = (s || '').trim()
+  if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return t
+  let m = t.match(/^(\d{1,2})[-/ .](\d{1,2})[-/ .](\d{4})$/)
+  if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`
+  m = t.match(/^(\d{1,2})[-/ ]([A-Za-z]{3})[A-Za-z]*(?:[-/ ](\d{4}))?$/)
+  if (m) {
+    const mi = MON.indexOf(m[2].toLowerCase())
+    if (mi >= 0) return `${m[3] ?? new Date().getFullYear()}-${String(mi + 1).padStart(2, '0')}-${m[1].padStart(2, '0')}`
+  }
+  return ''
+}
+const isoToRp = (iso: string) => {
+  if (!iso) return ''
+  const [y, m, d] = iso.slice(0, 10).split('-')
+  return `${d}-${MON[Number(m) - 1]?.replace(/^./, (c) => c.toUpperCase()) ?? m}-${y}`
+}
+
+const fromApi = (r: ApiRp, sn: number): RpRollRecord => ({
+  id: r.rpId,
+  sn,
+  atmId: r.atmId,
+  siteId: r.siteId,
+  franchiseeName: r.franchiseeName,
+  hubLocations: r.hubLocation,
+  frName: r.franchiseeName,
+  frAddressWithPin: r.frAddressWithPin,
+  frNumber: r.frNumber,
+  state: r.state,
+  pinCode: r.pinCode,
+  despatchChallanNo: r.despatchChallanNo,
+  dispatchedViaCourierName: r.courierName,
+  docketNo: r.docketNo,
+  dispatchDate: isoToRp(r.dispatchDate),
+  deliveryStatusDate: isoToRp(r.deliveryStatusDate),
+  // the register shows the delivery status in the Remarks column (mock data convention)
+  remarks: r.remarks || r.deliveryStatus,
+  status: r.deliveryStatus,
+  documentName: r.documentFileId,
+})
+
+export const rpStore = createStore<RpRollRecord[]>('dexter.api.rprolls.v1', () => [])
+export const rpLoader = createLoader('RP rolls', async () => {
+  const items = await fetchAll<ApiRp>('/ops-intel/rp-rolls', { sort: 'dispatchDate' })
+  rpStore.set(items.map((r, i) => fromApi(r, i + 1)))
+})
+
+/** API-aware create (mock mode → addRpRollRecord). Uploads the optional document first. */
+export async function addRpRollRecordAsync(newEntry: Omit<RpRollRecord, 'id' | 'sn'>, file?: File | null): Promise<RpRollRecord> {
+  if (!apiEnabled) return addRpRollRecord(newEntry)
+  const remark = (newEntry.remarks || newEntry.status || '').trim()
+  const status = RP_API_STATUSES.find((x) => x.toLowerCase() === remark.toLowerCase())
+  const dispatchDate = rpDateToIso(newEntry.dispatchDate)
+  if (!dispatchDate) throw new Error('Dispatch date must be a date such as 19-Nov-2026')
+  const r = await apiCall(async () => {
+    const documentFileId = file ? (await uploadFile(file, { purpose: 'rp-rolls' })).fileId : undefined
+    return post<ApiRp>('/ops-intel/rp-rolls', {
+      atmOrSite: newEntry.siteId || newEntry.atmId,
+      hubLocation: newEntry.hubLocations,
+      frAddressWithPin: newEntry.frAddressWithPin,
+      frNumber: newEntry.frNumber,
+      despatchChallanNo: newEntry.despatchChallanNo,
+      courierName: newEntry.dispatchedViaCourierName,
+      docketNo: newEntry.docketNo,
+      dispatchDate,
+      deliveryStatus: status ?? 'Dispatched',
+      deliveryStatusDate: rpDateToIso(newEntry.deliveryStatusDate),
+      remarks: status ? '' : remark,
+      documentFileId,
+    })
+  }, 'Could not save RP roll dispatch')
+  const out = fromApi(r, rpStore.get().length + 1)
+  rpStore.set((xs) => [...xs, out])
+  return out
+}
+
+/** Soft delete (Super Admin / Admin): DELETE /ops-intel/rp-rolls/:id {reason} — hidden from the list, kept + audited. */
+export async function deleteRpRollAsync(id: string, reason: string): Promise<void> {
+  await apiCall(() => del(`/ops-intel/rp-rolls/${encodeURIComponent(id)}`, { reason: reason.trim() }), 'Could not delete RP roll dispatch')
+  rpStore.set((xs) => xs.filter((x) => x.id !== id))
+}

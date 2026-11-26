@@ -35,12 +35,16 @@ import {
   type GstInvoiceStatus,
   type GstPaymentStatus,
 } from '@/data/financeGst'
-import { SITES, FRANCHISEES } from '@/data/cbrSites'
+import { allSites, resolveSite, SiteRef } from '@/lib/siteRef'
+import { useCanIn, guardAct } from '@/lib/guard'
+import { emitFinance, gstPatchFromSite, statusEvent } from './finWorkflow'
 
 export default function GstRecordPage() {
   const navigate = useNavigate()
   const { id = '' } = useParams<{ id: string }>()
   const isNew = !id || id === 'new'
+  const allow = useCanIn('Finance')
+  const canSave = allow(isNew ? 'Create' : 'Edit')
 
   const [record, setRecord] = useState<GstRecord>(() => {
     if (!isNew && id) {
@@ -61,30 +65,20 @@ export default function GstRecordPage() {
 
   // Lists for Dropdowns
   const atmOptions = useMemo(
-    () => Array.from(new Set(SITES.map((s) => s.atmId).filter(Boolean))).sort(),
+    () => Array.from(new Set(allSites().map((s) => s.atmId).filter(Boolean))).sort(),
     []
   )
   const siteOptions = useMemo(
-    () => Array.from(new Set(SITES.map((s) => s.siteId).filter(Boolean))).sort(),
+    () => Array.from(new Set(allSites().map((s) => s.siteId).filter(Boolean))).sort(),
     []
   )
 
   // Auto-fill details when ATM ID is chosen
   const handleAtmChange = (atmId: string) => {
-    const matchedSite = SITES.find((s) => s.atmId === atmId)
+    const matchedSite = resolveSite(atmId)
     if (matchedSite) {
-      const fr = FRANCHISEES.find((f) => f.id === matchedSite.franchiseId)
-      setRecord((prev) => ({
-        ...prev,
-        atmId,
-        siteId: matchedSite.siteId,
-        locationName: `${matchedSite.location}, ${matchedSite.city}`,
-        franchiseeName: fr?.name || prev.franchiseeName,
-        contactNo: fr?.contact || prev.contactNo,
-        gstNumber: fr?.gstin || prev.gstNumber,
-        sapCode: fr?.sapCode || prev.sapCode,
-      }))
-      toast(`Loaded details for ATM ${atmId}`)
+      setRecord((prev) => gstPatchFromSite(prev, matchedSite))
+      toast(`Loaded details for ATM ${matchedSite.atmId}`)
     } else {
       setRecord((prev) => ({ ...prev, atmId }))
     }
@@ -92,20 +86,10 @@ export default function GstRecordPage() {
 
   // Auto-fill details when Site ID is chosen
   const handleSiteChange = (siteId: string) => {
-    const matchedSite = SITES.find((s) => s.siteId === siteId)
+    const matchedSite = resolveSite(siteId)
     if (matchedSite) {
-      const fr = FRANCHISEES.find((f) => f.id === matchedSite.franchiseId)
-      setRecord((prev) => ({
-        ...prev,
-        siteId,
-        atmId: matchedSite.atmId,
-        locationName: `${matchedSite.location}, ${matchedSite.city}`,
-        franchiseeName: fr?.name || prev.franchiseeName,
-        contactNo: fr?.contact || prev.contactNo,
-        gstNumber: fr?.gstin || prev.gstNumber,
-        sapCode: fr?.sapCode || prev.sapCode,
-      }))
-      toast(`Loaded details for Site ${siteId}`)
+      setRecord((prev) => gstPatchFromSite(prev, matchedSite))
+      toast(`Loaded details for Site ${matchedSite.siteId}`)
     } else {
       setRecord((prev) => ({ ...prev, siteId }))
     }
@@ -133,6 +117,12 @@ export default function GstRecordPage() {
   const calcNetValue = Math.max(0, grossInv - totalDeductions)
 
   const handleSave = (isDraft = false) => {
+    if (!guardAct('Finance', isNew ? 'Create' : 'Edit', isNew ? 'create GST records' : 'edit GST records')) return
+    const site = record.atmId || record.siteId ? resolveSite(record.atmId || record.siteId) : undefined
+    if ((record.atmId || record.siteId) && !site) {
+      toast('Site ID / ATM ID is not in the Site Master', 'error')
+      return
+    }
     if (!isDraft) {
       if (!record.atmId && !record.siteId) {
         toast('Please enter or select an ATM ID or Site ID', 'info')
@@ -146,12 +136,18 @@ export default function GstRecordPage() {
 
     const payload: GstRecord = {
       ...record,
+      ...(site ? { siteId: site.siteId, atmId: site.atmId } : {}),
       gstNumber: record.gstNumber.trim().toUpperCase(),
       utrNumber: record.utrNumber.trim().toUpperCase(),
       netAmount: record.netAmount || String(calcNetValue),
     }
 
+    const prevStatus = isNew ? undefined : getGst(id)?.invoiceStatus
     const saved = saveGst(payload)
+    if (!isDraft) {
+      const ev = isNew ? 'Submit' : statusEvent(prevStatus, saved.invoiceStatus)
+      if (ev) emitFinance(ev, saved.id, { what: 'GST record', site: saved.atmId || saved.siteId, franchise: saved.franchiseeName, status: saved.invoiceStatus })
+    }
     toast(
       isDraft
         ? `GST draft saved successfully`
@@ -301,6 +297,11 @@ export default function GstRecordPage() {
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
                 />
               </div>
+              {(record.atmId || record.siteId) && (
+                <div className="mt-1 text-[11px]">
+                  <SiteRef id={record.atmId || record.siteId} />
+                </div>
+              )}
             </div>
 
             {/* SAP Code */}
@@ -838,7 +839,7 @@ export default function GstRecordPage() {
           <span>Back</span>
         </button>
 
-        <div className="flex items-center gap-3">
+        {canSave && <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={() => handleSave(true)}
@@ -856,7 +857,7 @@ export default function GstRecordPage() {
             <span>Save GST Record</span>
             <ChevronRight size={16} />
           </button>
-        </div>
+        </div>}
       </div>
     </div>
   )

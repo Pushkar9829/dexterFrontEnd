@@ -1,6 +1,7 @@
 import { useRef, type ReactNode, type InputHTMLAttributes, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
 import { ChevronDown, FileCheck2, UploadCloud, X } from 'lucide-react'
 import { cn } from '@/lib/cn'
+import { apiEnabled, uploadFile } from '@/lib/api'
 
 // Compact (36px) form controls used by data-entry screens. Auth screens use the larger Field.tsx.
 
@@ -56,7 +57,7 @@ export function SelectField({
       <div className="relative">
         <select id={fid} {...rest} className={cn(box, 'appearance-none pr-8', !rest.value && 'text-muted/80', error ? 'border-brand-red' : 'border-line')}>
           <option value="">{placeholder}</option>
-          {options.map((o) => (
+          {[...new Set(options)].map((o) => (
             <option key={o} value={o}>
               {o}
             </option>
@@ -101,14 +102,23 @@ export function RadioGroup<T extends string>({
   )
 }
 
-export type FileValue = { name: string; size: number } | null
+/** `file` = the picked File (kept for callers that upload themselves); `fileId` = backend file id when the API is on. */
+export type FileValue = { name: string; size: number; file?: File; fileId?: string; uploading?: boolean; error?: string } | null
 
 export const fmtSize = (b: number) => (b > 1024 * 1024 ? `${(b / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`)
 
-/** Dashed upload box. Keeps only file name/size (no backend yet). */
+/**
+ * Dashed upload box. Mock mode: keeps file name / size (+ the File). API mode: uploads to POST /files straight away
+ * and reports the `fileId`. Pass the owning `entity` / `purpose` (and `fileRef`, the record id) so the backend can
+ * authorise downloads by module (backend files/access.ts) — untagged files are readable only by the uploader and
+ * security admins. `upload={false}` when the caller uploads the captured File itself (avoids an orphan duplicate).
+ */
 export function FileDrop({
-  value, onChange, accept, maxMb = 5, hint, compact, label = 'Click to upload or drag a file', disabled,
-}: { value: FileValue; onChange: (f: FileValue) => void; accept?: string; maxMb?: number; hint?: ReactNode; compact?: boolean; label?: string; disabled?: boolean }) {
+  value, onChange, accept, maxMb = 5, hint, compact, label = 'Click to upload or drag a file', disabled, purpose, entity, fileRef, upload = true,
+}: {
+  value: FileValue; onChange: (f: FileValue) => void; accept?: string; maxMb?: number; hint?: ReactNode; compact?: boolean; label?: string; disabled?: boolean
+  purpose?: string; entity?: string; fileRef?: string; upload?: boolean
+}) {
   const ref = useRef<HTMLInputElement>(null)
   const take = (f?: File) => {
     if (!f) return
@@ -116,7 +126,13 @@ export function FileDrop({
       alert(`File is larger than ${maxMb} MB.`)
       return
     }
-    onChange({ name: f.name, size: f.size })
+    const base = { name: f.name, size: f.size, file: f }
+    if (!apiEnabled || !upload) return onChange(base)
+    // API mode: upload straight away so forms can send the backend fileId.
+    onChange({ ...base, uploading: true })
+    uploadFile(f, { purpose, entity, ref: fileRef })
+      .then((r) => onChange({ ...base, fileId: r.fileId }))
+      .catch((e: unknown) => onChange({ ...base, error: e instanceof Error ? e.message : 'Upload failed' }))
   }
 
   if (value)
@@ -125,7 +141,7 @@ export function FileDrop({
         <FileCheck2 size={18} className="shrink-0 text-emerald-600" />
         <div className="min-w-0 flex-1">
           <div className="truncate text-[12px] font-medium text-ink">{value.name}</div>
-          <div className="text-[11px] text-muted">{fmtSize(value.size)} · Uploaded</div>
+          <div className={cn('text-[11px]', value.error ? 'text-brand-red' : 'text-muted')}>{fmtSize(value.size)} · {value.uploading ? 'Uploading…' : value.error ? `Upload failed: ${value.error}` : 'Uploaded'}</div>
         </div>
         {!disabled && (
           <button type="button" onClick={() => onChange(null)} className="text-muted hover:text-brand-red" aria-label="Remove file">

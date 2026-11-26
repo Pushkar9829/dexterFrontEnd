@@ -10,11 +10,14 @@ import {
   X,
 } from 'lucide-react'
 import { addBroadcast } from '@/data/broadcasts'
+import { getSession } from '@/lib/auth'
 import { toast } from '@/components/ui/Toast'
+import { guardAct, useCanIn, ViewOnlyNote } from '@/lib/guard'
 import { cn } from '@/lib/cn'
 
 export default function BroadcastCreate() {
   const navigate = useNavigate()
+  const allow = useCanIn('Broadcast')
 
   // Form Fields matching Image 3
   const [broadcastType, setBroadcastType] = useState('Policy Circular')
@@ -109,13 +112,14 @@ Regards, Central Operations Command`
     }, 600)
   }
 
-  const handleSubmitForApproval = () => {
+  const handleSubmitForApproval = async () => {
+    if (!guardAct('Broadcast', 'Create', 'create broadcasts')) return
     if (!subject.trim() || !message.trim()) {
       toast('Please enter subject and message', 'info')
       return
     }
 
-    addBroadcast({
+    const ok = await addBroadcast({
       title: subject,
       subject,
       type: broadcastType,
@@ -133,16 +137,18 @@ Regards, Central Operations Command`
       channels: Object.entries(channels).filter(([_, v]) => v).map(([k]) => k === 'inApp' ? 'In-App' : k === 'whatsApp' ? 'WhatsApp' : k.toUpperCase()),
       ackRequired: true,
       approvalLevel: 'HOD',
-      createdBy: 'Paras Dubey',
+      createdBy: getSession()?.name ?? 'Paras Dubey',
       submittedAt: 'Just now',
     })
 
+    if (!ok) return
     toast('Broadcast submitted for HOD approval queue', 'success')
     navigate('/work-management/broadcast/approval-queue')
   }
 
-  const handleSaveDraft = () => {
-    addBroadcast({
+  const handleSaveDraft = async () => {
+    if (!guardAct('Broadcast', 'Create', 'create broadcasts')) return
+    const ok = await addBroadcast({
       title: subject || 'Untitled Broadcast',
       subject: subject || 'Untitled Broadcast',
       type: broadcastType,
@@ -157,16 +163,18 @@ Regards, Central Operations Command`
       readPercentage: 0,
       channels: ['In-App'],
       ackRequired: false,
-      createdBy: 'Paras Dubey',
+      createdBy: getSession()?.name ?? 'Paras Dubey',
       submittedAt: 'Just now',
     })
 
+    if (!ok) return
     toast('Broadcast saved to Drafts', 'info')
     navigate('/work-management/broadcast/scheduled')
   }
 
   return (
     <div className="space-y-6 pb-16">
+      <ViewOnlyNote module="Broadcast" />
       {/* Header matching Image 3 */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -179,13 +187,15 @@ Regards, Central Operations Command`
         </div>
 
         <div className="flex items-center gap-2.5">
-          <button
-            type="button"
-            onClick={handleSaveDraft}
-            className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition-all"
-          >
-            Save Draft
-          </button>
+          {allow('Create') && (
+            <button
+              type="button"
+              onClick={handleSaveDraft}
+              className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition-all"
+            >
+              Save Draft
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setPreviewOpen(true)}
@@ -193,13 +203,15 @@ Regards, Central Operations Command`
           >
             Preview
           </button>
-          <button
-            type="button"
-            onClick={handleSubmitForApproval}
-            className="flex items-center gap-1.5 rounded-lg bg-[#0066FF] hover:bg-blue-700 px-5 py-2 text-xs font-semibold text-white shadow-xs transition-all"
-          >
-            <span>Submit for Approval</span>
-          </button>
+          {allow('Create') && (
+            <button
+              type="button"
+              onClick={handleSubmitForApproval}
+              className="flex items-center gap-1.5 rounded-lg bg-[#0066FF] hover:bg-blue-700 px-5 py-2 text-xs font-semibold text-white shadow-xs transition-all"
+            >
+              <span>Submit for Approval</span>
+            </button>
+          )}
         </div>
       </div>
 

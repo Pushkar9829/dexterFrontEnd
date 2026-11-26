@@ -1,4 +1,8 @@
 import { createStore } from '@/lib/store'
+import { apiEnabled, del, patch, post } from '@/lib/api'
+import { apiCall, createLoader, fetchAll, toastError } from '@/data/bizApi'
+import { isoToSlash, legalIsFranchisee, slashToIso, snOf } from '@/data/legalApi'
+import { franchiseNameOf, siteAt } from '@/lib/siteRef'
 
 export type OtherDocCategory =
   | 'Bank Mandate'
@@ -13,6 +17,8 @@ export type OtherDocCategory =
 export type OtherDocStatus = 'Verified' | 'Pending Review' | 'Action Required' | 'Expired'
 
 export interface OtherDocFile {
+  /** API mode: stored file id (POST /files) */
+  fileId?: string
   name: string
   sizeKb: number
   type: string
@@ -45,7 +51,7 @@ export interface OtherDocsState {
   records: OtherDocRecord[]
 }
 
-const SEED_OTHER_DOCS: OtherDocRecord[] = [
+const SEED_OTHER_DOCS_RAW: OtherDocRecord[] = [
   {
     id: 'DOC-2025-001',
     sn: 1,
@@ -194,21 +200,120 @@ const SEED_OTHER_DOCS: OtherDocRecord[] = [
   },
 ]
 
-export const otherDocsStore = createStore<OtherDocsState>(
-  'dexter_other_docs_store_v1',
-  () => ({ records: SEED_OTHER_DOCS })
-)
+/** Seed records re-pointed at real Site Master sites (deterministic via siteAt). */
+function seedOtherDocs(): OtherDocRecord[] {
+  return SEED_OTHER_DOCS_RAW.map((r, i) => {
+    const site = siteAt(i * 5 + 2)
+    return { ...r, siteId: site.siteId, atmId: site.atmId, franchiseeName: franchiseNameOf(site) || r.franchiseeName }
+  })
+}
+
+// API mode keeps its own cache key and starts empty (never shows the mock seed); hydrated by otherDocsLoader.
+export const otherDocsStore = apiEnabled
+  ? createStore<OtherDocsState>('dexter_other_docs_store_api_v1', () => ({ records: [] }))
+  : createStore<OtherDocsState>('dexter_other_docs_store_v2', () => ({ records: seedOtherDocs() }))
+
+// ───────────── Backend (API mode): /legal/other-docs ─────────────
+
+type ApiOtherDoc = Omit<OtherDocRecord, 'id' | 'sn' | 'verifiedBy' | 'verificationDate'> & { otherId: string; frId?: string; verifiedBy?: string; verificationDate?: string }
+
+const otherFromApi = (d: ApiOtherDoc): OtherDocRecord => ({
+  id: d.otherId,
+  sn: snOf(d.otherId),
+  siteId: d.siteId,
+  atmId: d.atmId ?? '',
+  franchiseeName: d.franchiseeName ?? '',
+  mobileNumber: d.mobileNumber ?? '',
+  model: d.model ?? '',
+  category: d.category,
+  docTitle: d.docTitle ?? '',
+  docRefNumber: d.docRefNumber ?? '',
+  issuingAuthority: d.issuingAuthority ?? '',
+  issueDate: isoToSlash(d.issueDate),
+  expiryDate: isoToSlash(d.expiryDate),
+  status: d.status ?? 'Pending Review',
+  verifiedBy: d.verifiedBy ?? '',
+  verificationDate: isoToSlash(d.verificationDate),
+  documents: (d.documents ?? []).map((f) => ({ name: f.name, sizeKb: f.sizeKb ?? 0, type: f.type ?? 'application/pdf', fileId: f.fileId })),
+  remark: d.remark ?? '',
+  createdAt: d.createdAt,
+  updatedAt: d.updatedAt,
+})
+
+/** Editable fields only — status / verifiedBy / verificationDate are set by POST /legal/other-docs/:id/verify. */
+function otherToApi(p: Partial<OtherDocRecord>) {
+  const b: Record<string, unknown> = {}
+  const copy = ['franchiseeName', 'model', 'category', 'docTitle', 'docRefNumber', 'issuingAuthority', 'remark'] as const
+  copy.forEach((k) => {
+    if (p[k] !== undefined) b[k] = p[k]
+  })
+  if (p.mobileNumber !== undefined) b.mobileNumber = (p.mobileNumber ?? '').replace(/[^\d+]/g, '').slice(-15)
+  if (p.issueDate !== undefined) b.issueDate = slashToIso(p.issueDate)
+  if (p.expiryDate !== undefined) b.expiryDate = slashToIso(p.expiryDate)
+  if (p.documents !== undefined) b.documents = p.documents.map((d) => ({ name: d.name, sizeKb: Math.max(0, Math.round(d.sizeKb || 0)), type: d.type || 'application/pdf', fileId: d.fileId }))
+  return b
+}
+
+/** Hydration: staff GET /legal/other-docs; Franchisee GET /my/legal/other-docs (own franchise, read-only, deleted hidden). */
+export const otherDocsLoader = createLoader('legal documents', async () => {
+  const items = await fetchAll<ApiOtherDoc>(legalIsFranchisee() ? '/my/legal/other-docs' : '/legal/other-docs')
+  otherDocsStore.set({ records: items.map(otherFromApi) })
+})
+
+const upsert = (r: OtherDocRecord) => otherDocsStore.set((s) => ({ records: s.records.some((x) => x.id === r.id) ? s.records.map((x) => (x.id === r.id ? r : x)) : [r, ...s.records] }))
 
 export function useOtherDocRecords() {
+  const load = otherDocsLoader.use()
   const state = otherDocsStore.use()
   return {
     records: state.records,
+    load,
   }
 }
 
 export function getOtherDocRecord(id: string): OtherDocRecord | undefined {
   return otherDocsStore.get().records.find((r) => r.id === id)
 }
+
+/**
+ * Create / update + decision. API mode: POST or PATCH /legal/other-docs, then — when the chosen status is
+ * Verified / Action Required and differs from the server's — POST /legal/other-docs/:id/verify (maker-checker:
+ * the creator cannot verify; the save itself is kept and the refusal is toasted). Resolves the saved record.
+ */
+export async function saveOtherDoc(id: string | undefined, payload: Omit<OtherDocRecord, 'id' | 'sn' | 'createdAt' | 'updatedAt'>): Promise<OtherDocRecord> {
+  if (!apiEnabled || legalIsFranchisee()) {
+    if (id) {
+      updateOtherDocRecord(id, payload)
+      return getOtherDocRecord(id)!
+    }
+    return addOtherDocRecord(payload)
+  }
+  const saved = id
+    ? await apiCall(() => patch<ApiOtherDoc>(`/legal/other-docs/${encodeURIComponent(id)}`, otherToApi(payload)), 'Update failed')
+    : await apiCall(() => post<ApiOtherDoc>('/legal/other-docs', { siteId: payload.siteId, ...otherToApi(payload) }), 'Save failed')
+  let rec = otherFromApi(saved)
+  upsert(rec)
+  if ((payload.status === 'Verified' || payload.status === 'Action Required') && payload.status !== rec.status) {
+    try {
+      const v = await post<ApiOtherDoc>(`/legal/other-docs/${encodeURIComponent(rec.id)}/verify`, { decision: payload.status, remark: payload.remark || undefined })
+      rec = otherFromApi(v)
+      upsert(rec)
+    } catch (e) {
+      toastError(e, `Saved, but not marked ${payload.status}`)
+    }
+  }
+  return rec
+}
+
+/** Verify / return (API: POST /legal/other-docs/:id/verify). */
+export async function verifyOtherDoc(id: string, decision: 'Verified' | 'Action Required', remark?: string): Promise<boolean> {
+  if (!apiEnabled || legalIsFranchisee()) return updateOtherDocRecord(id, { status: decision, remark: remark ?? '' })
+  const v = await apiCall(() => post<ApiOtherDoc>(`/legal/other-docs/${encodeURIComponent(id)}/verify`, { decision, remark }), 'Verification failed')
+  upsert(otherFromApi(v))
+  return true
+}
+
+// ───────────── Local (mock mode / franchise app) ─────────────
 
 export function addOtherDocRecord(
   payload: Omit<OtherDocRecord, 'id' | 'sn' | 'createdAt' | 'updatedAt'>
@@ -254,6 +359,15 @@ export function updateOtherDocRecord(
   return true
 }
 
+/** Soft delete. API mode: DELETE /legal/other-docs/:id {reason} (verified documents are locked → refused). */
+export async function removeOtherDocRecord(id: string, reason: string): Promise<boolean> {
+  if (!apiEnabled || legalIsFranchisee()) return deleteOtherDocRecord(id)
+  await apiCall(() => del(`/legal/other-docs/${encodeURIComponent(id)}`, { reason }), 'Delete failed')
+  otherDocsStore.set((s) => ({ ...s, records: s.records.filter((r) => r.id !== id) }))
+  return true
+}
+
+/** Local delete (mock mode). */
 export function deleteOtherDocRecord(id: string): boolean {
   const state = otherDocsStore.get()
   const exists = state.records.some((r) => r.id === id)

@@ -1,4 +1,5 @@
 import { createStore } from '@/lib/store'
+import { apiEnabled, finDelete, finLoader, finSave, type FinCfg } from './financeApi'
 import { SEED_EMPLOYEES } from './employees'
 
 export const EXPENSE_CATEGORIES = [
@@ -101,7 +102,16 @@ function seedExpenses(): ExpenseRecord[] {
   return out
 }
 
-export const expenseStore = createStore<ExpenseRecord[]>('dexter.finance.expenses.v1', seedExpenses)
+const expenseRaw = createStore<ExpenseRecord[]>(apiEnabled ? 'dexter.finance.expenses.api' : 'dexter.finance.expenses.v1', apiEnabled ? () => [] : seedExpenses)
+/** API mode: staff expense claims ↔ /finance/staff-expenses (reimbursement computed by the server; bill file required to approve). */
+export const expenseCfg: FinCfg<ExpenseRecord> = {
+  key: 'staff-expenses', label: 'Staff expense', get: () => expenseRaw.get(), set: (l) => expenseRaw.set(l),
+  fields: ['empId', 'empName', 'department', 'category', 'claimDate', 'expenseDate', 'billNumber', 'billAmount', 'approvedAmount', 'taxAmount', 'deductionAmount', 'description', 'bankName', 'accountNumber', 'ifscCode', 'paymentStatus', 'paymentDate', 'utrNumber', 'remarks'],
+  money: ['billAmount', 'approvedAmount', 'taxAmount', 'deductionAmount', 'reimbursementAmount'], moneyFmt: 'plain', dates: ['claimDate', 'expenseDate', 'paymentDate'], dateOut: 'iso', statusField: 'paymentStatus',
+  fromExtra: (r) => ({ sn: Number(String(r.recordId).replace(/\D/g, '')) || 0, updatedBy: r.approvedByName ?? r.createdByName ?? '' }),
+}
+/** expenseStore.use() also hydrates from the backend in API mode. */
+export const expenseStore = { ...expenseRaw, use: (): ExpenseRecord[] => (finLoader(expenseCfg).use(), expenseRaw.use()) }
 export const getExpense = (id: string) => expenseStore.get().find((e) => e.id === id)
 
 export function emptyExpense(): ExpenseRecord {
@@ -150,13 +160,17 @@ export function saveExpense(rec: ExpenseRecord): ExpenseRecord {
     const sn = all.reduce((m, e) => Math.max(m, e.sn), 0) + 1
     const created = { ...toSave, sn, id: `EXP-${String(sn).padStart(4, '0')}` }
     expenseStore.set([...all, created])
+    if (apiEnabled) void finSave(expenseCfg, undefined, created)
     return created
   }
 
+  const prev = expenseStore.get().find((e) => e.id === rec.id)
   expenseStore.set((all) => all.map((e) => (e.id === rec.id ? toSave : e)))
+  if (apiEnabled) void finSave(expenseCfg, prev, toSave)
   return toSave
 }
 
 export function deleteExpense(id: string) {
+  if (apiEnabled) void finDelete(expenseCfg, id)
   expenseStore.set((all) => all.filter((e) => e.id !== id))
 }

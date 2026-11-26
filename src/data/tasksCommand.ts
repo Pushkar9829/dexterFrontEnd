@@ -1,4 +1,7 @@
 import type { Dept, Region } from './tasks'
+import { get } from '@/lib/api'
+import { createStore } from '@/lib/store'
+import { apiEnabled, createLoader } from './bizApi'
 
 /* Organisation-wide aggregates behind the Management Command Center (CRM-07).
    Department totals are exact for "This month · 01–06 Oct"; regions and other
@@ -50,6 +53,7 @@ function split(n: number, weights: number[]) {
 export type Cell = { dept: Dept; region: Region; total: number; closed: number; breaches: number; tatSum: number; scoreSum: number }
 
 export function cells(period: Period): Cell[] {
+  if (apiEnabled) return apiCells(period)
   const f = PERIOD_F[period]
   const out: Cell[] = []
   for (const d of DEPT_BASE) {
@@ -100,7 +104,7 @@ export function kpis(period: Period, depts: Dept[], regions: Region[]): Kpis {
 /** Share of in-scope tasks vs the unfiltered month — used to scale workflow/blocker counts. */
 export const share = (period: Period, depts: Dept[], regions: Region[]) => {
   const all = kpis('month', DEPT_BASE.map((d) => d.dept), REGIONS_ORDER).total
-  return kpis(period, depts, regions).total / all
+  return all ? kpis(period, depts, regions).total / all : 0
 }
 
 /* -------------------- Department Coordination Matrix -------------------- */
@@ -142,3 +146,41 @@ export const BLOCKERS: Blocker[] = [
 ]
 /** Region share of blockers (sums to 1). */
 export const BLOCKER_REGION_W: Record<Region, number> = { West: 0.42, North: 0.25, South: 0.21, East: 0.12 }
+
+/* -------------------- Backend API (VITE_API_URL): GET /tasks/command-center -------------------- */
+
+export type ApiCommandCenter = {
+  period: Period; from: string; total: number; closed: number; open: number; overdueOpen: number; pendingApproval: number; blocked: number
+  completionPct: number; slaCompliancePct: number; avgTatHours: number
+  cells: { dept: Dept; region: Region; total: number; closed: number; breaches: number; tatSumHours: number }[]
+  blockers: { department: Dept; count: number; tasks: string[] }[]
+}
+export const commandCenterStore = createStore<Partial<Record<Period, ApiCommandCenter>>>('dexter.tasks.cc.api.v1', () => ({}))
+
+if (apiEnabled) {
+  // the design's fixed October labels don't apply to live data
+  PERIODS.splice(0, PERIODS.length, { key: 'month', label: 'Last 30 days' }, { key: 'week', label: 'Last 7 days' }, { key: 'today', label: 'Today' })
+}
+
+/** Live cells. The backend has no performance score — it is derived here as the mean of completion % and SLA compliance %. */
+function apiCells(period: Period): Cell[] {
+  return (commandCenterStore.get()[period]?.cells ?? []).map((c) => {
+    const score = c.total ? Math.round(((c.closed / c.total) * 100 + (1 - c.breaches / c.total) * 100) / 2) : 0
+    return { dept: c.dept, region: c.region, total: c.total, closed: c.closed, breaches: c.breaches, tatSum: c.tatSumHours, scoreSum: score * c.total }
+  })
+}
+
+/** API mode: one call per period (month / week / today). */
+export const commandCenterLoader = createLoader('command center', async () => {
+  const keys: Period[] = ['month', 'week', 'today']
+  const res = await Promise.all(keys.map((period) => get<ApiCommandCenter>('/tasks/command-center', { period })))
+  commandCenterStore.set(Object.fromEntries(keys.map((k, i) => [k, res[i]])))
+})
+
+/** API mode: blockers (Waiting/Blocked tasks) per department, in the BLOCKERS shape. */
+export function apiBlockers(period: Period = 'month'): Blocker[] {
+  return (commandCenterStore.get()[period]?.blockers ?? []).map((b) => ({
+    key: b.department, label: `Waiting / blocked · ${b.department}`, byDept: { [b.department]: b.count }, who: `${b.count} task${b.count === 1 ? '' : 's'} on hold`,
+    taskId: b.tasks[0] ?? '', taskLabel: b.tasks.slice(0, 3).join(', '),
+  }))
+}

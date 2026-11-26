@@ -12,8 +12,12 @@ import {
   ShieldCheck,
   CheckCircle2,
 } from 'lucide-react'
-import { getPvcRecord, type PvcStatus } from '@/data/legalPvc'
+import { getPvcRecord, usePvcRecords, usePvcLoad, pvcLoader, type PvcStatus } from '@/data/legalPvc'
+import { downloadLegalFile } from '@/data/legal'
+import { LoadNote } from './ui'
 import { toast } from '@/components/ui/Toast'
+import { Can } from '@/lib/guard'
+import { SiteRef } from '@/lib/siteRef'
 import { useReportMode } from '@/hooks/useReportMode'
 
 export default function PvcRecord() {
@@ -21,8 +25,11 @@ export default function PvcRecord() {
   const navigate = useNavigate()
   const { isReport } = useReportMode()
 
-  const record = id ? getPvcRecord(id) : undefined
+  const { records } = usePvcRecords()
+  const load = usePvcLoad()
+  const record = id ? records.find((r) => r.id === id || r.siteId === id) ?? getPvcRecord(id) : undefined
 
+  if (!record && !load.loaded) return <div className="max-w-[1040px] mx-auto py-8"><LoadNote load={load} what="the PVC record" onRetry={() => void pvcLoader.reload()} /></div>
   if (!record) {
     return (
       <div className="max-w-[1040px] mx-auto py-12 text-center space-y-4">
@@ -74,7 +81,11 @@ export default function PvcRecord() {
   }
 
   const handleDownload = () => {
-    toast(`Downloading document: ${record.fileName || 'PVC_Certificate.pdf'}`)
+    const name = record.fileName || 'PVC_Certificate.pdf'
+    // API mode: stored certificate (fileId) downloads from the file store
+    downloadLegalFile(record.fileId, name)
+      .then((ok) => !ok && toast(`Downloading document: ${name}`))
+      .catch(() => undefined)
   }
 
   return (
@@ -139,6 +150,7 @@ export default function PvcRecord() {
 
         <div className="flex items-center gap-2.5">
           {!isReport && (
+            <Can module="Legal" action="Edit">
             <Link to={`/legal/pvc/${record.id}/edit`}>
               <button
                 type="button"
@@ -147,6 +159,7 @@ export default function PvcRecord() {
                 <Edit3 size={15} /> Edit Record
               </button>
             </Link>
+            </Can>
           )}
           <button
             type="button"
@@ -183,7 +196,7 @@ export default function PvcRecord() {
           <div>
             <div className="text-[11.5px] font-semibold text-slate-500 mb-1">ATM ID</div>
             <div className="h-10 px-3.5 rounded-xl bg-[#F0F5FA] border border-[#E2ECF8] text-[12.5px] font-medium text-slate-800 flex items-center truncate">
-              {record.atmId}
+              <SiteRef id={record.siteId} />
             </div>
           </div>
           <div>

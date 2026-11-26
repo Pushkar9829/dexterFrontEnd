@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { ChevronDown, X } from 'lucide-react'
 import { NAV, activeRoute, containsPath, type NavItem } from '@/data/nav'
+import { routeBlock, useRole } from '@/lib/rbac'
 import { cn } from '@/lib/cn'
 import { Brand } from './Brand'
 import { DEMO_USER, getSession } from '@/lib/auth'
@@ -122,6 +123,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
     if (current) setExpanded(current)
   }, [pathname, isReport])
 
+  const role = useRole()
   const user = getSession() ?? DEMO_USER
   const username = user.name || 'Dexter'
   const initials =
@@ -165,7 +167,11 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
 
         {/* Main Navigation */}
         <nav className="scroll-thin mt-2 flex-1 overflow-y-auto px-3 pb-3 space-y-1">
-          {NAV.map((g) => {
+          {NAV.filter((g) => {
+            if (g.onlyIfBlocked && !routeBlock(g.onlyIfBlocked, role)) return false
+            // Master Data: Finance / Legal / Project users may open the Site Master even though the overview is blocked.
+            return !g.to || !routeBlock(g.to, role) || (g.to === '/master-data' && !routeBlock(g.to + '/sites', role))
+          }).map((g) => {
             const hasChildren = Boolean(g.children && g.children.length > 0)
             const active = isReport
               ? g.label === 'Reports & MIS'

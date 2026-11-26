@@ -19,6 +19,8 @@ import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { toast } from '@/components/ui/Toast'
 import { downloadCsv } from '@/lib/export'
+import { ViewOnlyNote, guardAct, useCanIn } from '@/lib/guard'
+import { SiteRef } from '@/lib/siteRef'
 import { useLegal, fmtDate, type DocKind } from '@/data/legal'
 
 interface CategoryMeta {
@@ -75,6 +77,7 @@ export default function LegalDocView() {
   const { category = 'loi' } = useParams<{ category: string }>()
   const meta = CATEGORY_MAP[category] || CATEGORY_MAP.loi
   const state = useLegal()
+  const allow = useCanIn('Legal')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
 
@@ -100,6 +103,7 @@ export default function LegalDocView() {
       return {
         id: site.id,
         siteId: site.id,
+        atmId: site.atmId,
         franchiseName: site.franchiseName,
         location: site.location,
         city: site.city,
@@ -119,6 +123,7 @@ export default function LegalDocView() {
       const matchSearch =
         !q ||
         r.id.toLowerCase().includes(q) ||
+        r.atmId.toLowerCase().includes(q) ||
         r.franchiseName.toLowerCase().includes(q) ||
         r.city.toLowerCase().includes(q) ||
         r.location.toLowerCase().includes(q)
@@ -138,11 +143,13 @@ export default function LegalDocView() {
   }, [rows])
 
   const exportData = () => {
+    if (!guardAct('Legal', 'Export')) return
     downloadCsv(
       `legal-${category}-records`,
-      ['Site ID', 'Franchise Name', 'Location', 'City', 'State', 'Status', 'Version', 'Signatory'],
+      ['Site ID', 'ATM ID', 'Franchise Name', 'Location', 'City', 'State', 'Status', 'Version', 'Signatory'],
       filtered.map((r) => [
         r.id,
+        r.atmId,
         r.franchiseName,
         r.location,
         r.city,
@@ -192,18 +199,20 @@ export default function LegalDocView() {
         </div>
 
         <div className="flex items-center gap-2">
-          {category === 'loi' && (
+          {category === 'loi' && allow('Create') && (
             <Link to="/legal/loi/new">
               <Button variant="primary" icon={<Plus size={15} />}>
                 Add LOI
               </Button>
             </Link>
           )}
-          <Button variant="secondary" icon={<Download size={15} />} onClick={exportData}>
+          <Button variant="secondary" icon={<Download size={15} />} onClick={exportData} disabled={!allow('Export')} title={allow('Export') ? undefined : 'Export not permitted for your role'}>
             Export CSV
           </Button>
         </div>
       </div>
+
+      <ViewOnlyNote module="Legal" />
 
       {/* Summary Stat Pills */}
       <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -298,7 +307,7 @@ export default function LegalDocView() {
                         {r.id}
                       </Link>
                       <span className="block text-[11px] text-muted font-normal">
-                        Ver: {r.version}
+                        <SiteRef id={r.id} className="text-[11px]" /> · Ver: {r.version}
                       </span>
                     </td>
                     <td className="px-4 py-3">

@@ -1,54 +1,29 @@
-import {
-  BellRing,
-  History,
-  Laptop,
-  Scale,
-  ShieldAlert,
-} from 'lucide-react'
+import { BellRing, Scale, ShieldAlert } from 'lucide-react'
+import { routeBlock, useRole } from '@/lib/rbac'
 import { HubTile, type HubTileTheme } from '@/components/ui/HubTile'
+import { securityAdminTiles } from './security/routes'
+import { privacyTiles } from './privacy/routes'
 
 interface GovernanceTileConfig {
   title: string
   sub: string
   to: string
-  Icon: typeof History
+  Icon: typeof BellRing
   theme: HubTileTheme
   tag: string
   badge: string
   actionText: string
 }
 
+const THEMES: HubTileTheme[] = ['indigo', 'purple', 'emerald', 'amber', 'rose', 'cyan', 'teal', 'blue']
+const EXTRA_TILES: GovernanceTileConfig[] = [
+  ...securityAdminTiles.map((t, i) => ({ ...t, title: t.title.toUpperCase(), Icon: ShieldAlert, theme: THEMES[i % THEMES.length], tag: 'Security', badge: 'Security Framework', actionText: 'Open' })),
+  ...privacyTiles.map((t, i) => ({ ...t, title: t.title.toUpperCase(), Icon: Scale, theme: THEMES[(i + 3) % THEMES.length], tag: 'DPDP Act 2023', badge: 'Privacy', actionText: 'Open' })),
+]
+
+// One tile per real page. The legacy demo Audit / Sessions / Security / Compliance views were
+// superseded by Security Audit, Live Sessions, Security Administration and DPDP Compliance.
 const GOVERNANCE_TILES: GovernanceTileConfig[] = [
-  {
-    title: 'AUDIT',
-    sub: 'Track system events, configuration changes, and immutable audit logs.',
-    to: '/governance/audit',
-    Icon: History,
-    theme: 'blue',
-    tag: 'Audit Trail',
-    badge: 'Immutable',
-    actionText: 'View audit logs',
-  },
-  {
-    title: 'SESSIONS',
-    sub: 'Monitor active user sessions, sign-in activity, and access tokens.',
-    to: '/governance/sessions',
-    Icon: Laptop,
-    theme: 'purple',
-    tag: 'Session Monitor',
-    badge: 'Live',
-    actionText: 'Monitor sessions',
-  },
-  {
-    title: 'SECURITY',
-    sub: 'Manage security policies, access controls, and authentication rules.',
-    to: '/governance/security',
-    Icon: ShieldAlert,
-    theme: 'emerald',
-    tag: 'Access Control',
-    badge: 'Active',
-    actionText: 'Manage security',
-  },
   {
     title: 'PUSH NOTIFICATIONS',
     sub: 'Create, schedule, broadcast, and monitor push notifications across branches and departments.',
@@ -59,19 +34,11 @@ const GOVERNANCE_TILES: GovernanceTileConfig[] = [
     badge: 'Live',
     actionText: 'Manage push notifications',
   },
-  {
-    title: 'COMPLIANCE',
-    sub: 'Review regulatory standards, RBI checklists, and compliance exceptions.',
-    to: '/governance/compliance',
-    Icon: Scale,
-    theme: 'rose',
-    tag: 'Regulatory',
-    badge: 'Compliant',
-    actionText: 'Check compliance',
-  },
 ]
 
 export default function GovernanceHub() {
+  const role = useRole()
+  const tiles = [...GOVERNANCE_TILES, ...EXTRA_TILES].filter((t) => !routeBlock(t.to, role))
   return (
     <div className="max-w-[1020px]">
       <div className="mb-5 sm:mb-6">
@@ -82,7 +49,7 @@ export default function GovernanceHub() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {GOVERNANCE_TILES.map((tile) => (
+        {tiles.map((tile) => (
           <HubTile key={tile.title} {...tile} />
         ))}
       </div>

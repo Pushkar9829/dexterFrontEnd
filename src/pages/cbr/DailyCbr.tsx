@@ -6,9 +6,17 @@ import { toast } from '@/components/ui/Toast'
 import { downloadCsv } from '@/lib/export'
 import { cn } from '@/lib/cn'
 import { dmy, getSite, grp } from '@/data/cbrSites'
-import { BANDS, DENOS, GROUPS, amountOf, dailyForSite, dailyStore, getDaily, notesOf, reconcile, saveDaily, type DailyCbr, type GroupKey } from '@/data/cbr'
+import { BANDS, DENOS, GROUPS, amountOf, dailyForSite, dailyLoader, dailyStore, getDaily, notesOf, reconcile, saveDaily, type DailyCbr, type GroupKey } from '@/data/cbr'
 import { Amt, SiteContext } from './shared'
 import { useReportMode } from '@/hooks/useReportMode'
+import { toastError } from '@/data/opsApi'
+import { isFranchiseeSession } from '@/data/cbrApi'
+import { ApiError } from '@/lib/api'
+import { Modal } from '@/components/ui/Modal'
+import { CashRecordDetail, Crumbs, FundingChip } from './CashRecordUi'
+import { formPathOf, kindParam, masterOf, recordById } from './cashRows'
+import { cbrMaster } from '@/data/cbr'
+import { clMaster } from '@/data/cashLoadingRegisterStore'
 
 const PRINT_CSS = `
 @media print {
@@ -111,16 +119,20 @@ function GroupTable({
   )
 }
 
-export default function DailyCbrPage() {
+/** Old denomination-wise Daily CBR (demo daily records `<siteId>-<yyyymmdd>`) — still reachable from older links. */
+function LegacyDailyCbr() {
   const { isReport } = useReportMode()
   const { recordId = '' } = useParams()
   const [params] = useSearchParams()
   dailyStore.use()
+  const load = dailyLoader.use()
   const saved = getDaily(recordId)
   // ?edit=1 opens the record straight in edit mode (Figma 208:11219)
   const [editing, setEditing] = useState(() => !isReport && params.get('edit') === '1' && !!saved)
   const [draft, setDraft] = useState<DailyCbr | null>(() => (params.get('edit') === '1' && saved ? saved : null))
   const [deno, setDeno] = useState('')
+  /** Locked day (409 DAILY_LOCKED): staff give a correction reason and the save is retried with it. */
+  const [lockPrompt, setLockPrompt] = useState<{ lockReason: string; reason: string; error: string; busy: boolean } | null>(null)
   const [hiddenDenos, setHiddenDenos] = useState<Set<number>>(new Set())
   const [hiddenGroups, setHiddenGroups] = useState<Set<GroupKey>>(new Set())
   const [panel, setPanel] = useState<'filters' | 'columns' | null>(null)
@@ -131,8 +143,10 @@ export default function DailyCbrPage() {
       else n.add(v)
       return n
     })
+  if (!saved && load.loading) return <div className="rounded-xl border border-line bg-white p-6 text-[13px] text-muted">Loading daily CBR…</div>
   if (!saved) return <Navigate to="/cbr/consolidated" replace />
-  const site = getSite(saved.siteId)!
+  const site = getSite(saved.siteId)
+  if (!site) return <div className="rounded-xl border border-line bg-white p-6 text-[13px] text-muted">Site {saved.siteId} is not in the Site Master (yet) — reload once the sites have loaded.</div>
   const d = editing && draft ? draft : saved
   const rec = reconcile(d)
   const days = dailyForSite(site.siteId)
@@ -151,10 +165,28 @@ export default function DailyCbrPage() {
   }
   const setMeta = (k: MetaKey | 'remarks', v: string) => setDraft((cur) => ({ ...(cur ?? saved), [k]: v }))
 
-  const save = () => {
+  const save = async (correctionReason?: string) => {
     if (!draft) return setEditing(false)
     if (draft.eodTime && !/^([01]\d|2[0-3]):[0-5]\d$/.test(draft.eodTime)) return toast('EOD Time must be HH:MM (24-hour)', 'info')
-    saveDaily(draft)
+    try {
+      await saveDaily(draft, correctionReason)
+    } catch (e) {
+      if (e instanceof ApiError && e.code === 'DAILY_LOCKED' && !isFranchiseeSession()) {
+        const lockReason = String((e.details as { reason?: string } | undefined)?.reason ?? 'locked')
+        // first refusal → ask for the reason; a refusal of the retry keeps the prompt open with the server message
+        setLockPrompt((p) => ({ lockReason, reason: p?.reason ?? '', error: correctionReason ? e.message : '', busy: false }))
+        return
+      }
+      if (e instanceof ApiError && (e.code === 'STAFF_ENTRY' || e.code === 'DAILY_LOCKED')) {
+        toast(e.message, 'error') // franchise: locked day / staff entry — only the CRM can correct it
+        return
+      }
+      if (lockPrompt) setLockPrompt({ ...lockPrompt, busy: false, error: e instanceof Error ? e.message : 'Not saved' })
+      toastError(e, 'Daily CBR not saved')
+      return
+    }
+    if (correctionReason) toast('Locked day corrected — the reason and the previous values are kept in the correction log', 'success')
+    setLockPrompt(null)
     setEditing(false)
     setDraft(null)
     const r = reconcile(draft)
@@ -211,9 +243,36 @@ export default function DailyCbrPage() {
                 <Button variant="secondary" onClick={() => { setEditing(false); setDraft(null) }}>
                   Cancel
                 </Button>
-                <Button onClick={save}>
+                <Button onClick={() => void save()}>
                   Save
                 </Button>
+                {lockPrompt && (
+                  <Modal
+                    title="This day is locked"
+                    sub={`Daily CBR ${d.atmId} · ${dmy(d.date)} is locked (${lockPrompt.lockReason}). Save it as a controlled correction — the reason and the previous values are kept.`}
+                    onClose={() => setLockPrompt(null)}
+                    footer={
+                      <>
+                        <Button variant="secondary" onClick={() => setLockPrompt(null)}>Cancel</Button>
+                        <Button
+                          disabled={lockPrompt.busy}
+                          onClick={() => {
+                            const r = lockPrompt.reason.trim()
+                            if (r.length < 5) return setLockPrompt({ ...lockPrompt, error: 'Give the correction reason (at least 5 characters).' })
+                            setLockPrompt({ ...lockPrompt, busy: true, error: '' })
+                            void save(r)
+                          }}
+                        >
+                          Save correction
+                        </Button>
+                      </>
+                    }
+                  >
+                    <label htmlFor="cbr-correction-reason" className="mb-1.5 block text-[11px] font-semibold">Correction reason *</label>
+                    <textarea id="cbr-correction-reason" value={lockPrompt.reason} maxLength={300} rows={3} onChange={(e) => setLockPrompt({ ...lockPrompt, reason: e.target.value, error: '' })} className="w-full rounded-md border border-line p-2 text-[12px] outline-none focus:border-primary" />
+                    {lockPrompt.error && <p className="mt-1 text-[11.5px] text-red-600">{lockPrompt.error}</p>}
+                  </Modal>
+                )}
               </>
             ) : (
               <>
@@ -406,6 +465,32 @@ export default function DailyCbrPage() {
         </span>
         <span>Site-level report · {site.siteId}</span>
       </div>
+    </div>
+  )
+}
+
+/**
+ * Daily record view. Ids of the new flow (CBR-2026-…, CL-2026-…) open the real record from the CBR Master /
+ * Cash Loading Master — the same detail (status, documents, verification, approval) as Cash Replacement Management.
+ */
+export default function DailyCbrPage() {
+  const { recordId = '' } = useParams()
+  cbrMaster.store.use()
+  clMaster.store.use()
+  const hit = recordById(recordId)
+  if (!hit) return <LegacyDailyCbr />
+  const back = `/cbr/consolidated?kind=${kindParam(hit.kind)}&site=${hit.rec.siteId}`
+  return (
+    <div className="max-w-[1440px] space-y-4 pb-12">
+      <Crumbs trail={[{ label: 'Operations', to: '/operations' }, { label: 'CBR', to: '/cbr' }, { label: 'Consolidated', to: back }, { label: hit.rec.id }]} />
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-ink sm:text-[26px]">Daily {hit.kind === 'CBR' ? 'CBR' : 'Cash Loading'} · {hit.rec.atmId}</h1>
+          <p className="mt-1 text-[13px] text-muted">Live record from the {masterOf(hit.kind).meta.master}.</p>
+        </div>
+        <FundingChip kind={hit.kind} />
+      </div>
+      <CashRecordDetail master={masterOf(hit.kind)} id={hit.rec.id} listPath={back} formPath={formPathOf(hit.kind)} />
     </div>
   )
 }

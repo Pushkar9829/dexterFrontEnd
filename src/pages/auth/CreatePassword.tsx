@@ -1,84 +1,50 @@
-import { useState, type FormEvent } from 'react'
-import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { Check } from 'lucide-react'
-import { Button } from '@/components/ui/Button'
-import { PasswordInput } from '@/components/ui/Field'
-import { cn } from '@/lib/cn'
-import { Alert, AuthLayout, AuthTitle } from './AuthLayout'
-import { passwordRules } from './validation'
+import { apiEnabled } from '@/lib/api'
+import { ApiCreatePassword } from './ApiAuth'
+import { useState } from 'react'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { logSecurity, updateAccount, useSecurity } from '@/data/security'
+import { AuthLayout, AuthTitle } from './AuthLayout'
+import { NewPasswordForm } from './parts'
+import { readReset, setPassword, terminateSessions, writeReset } from './flow'
 
-const LEVELS = ['Too weak', 'Weak', 'Fair', 'Good', 'Strong']
-const COLORS = ['bg-line', 'bg-brand-red', 'bg-accent-amber', 'bg-accent-blue', 'bg-accent-green']
-
-export default function CreatePassword() {
+/** §3 — set the new password after the email OTP; ends every active session of the account. */
+function MockCreatePassword() {
   const navigate = useNavigate()
-  const loc = useLocation()
-  // QA aid: /forgot-password/reset?qa=1 renders the step directly (for screenshots)
-  const state = loc.state ?? (new URLSearchParams(loc.search).get('qa') ? { qa: true } : null)
-  const [pw, setPw] = useState('')
-  const [confirm, setConfirm] = useState('')
-  const [touched, setTouched] = useState(false)
+  const security = useSecurity()
+  const [reset] = useState(readReset)
+  const acc = reset ? security.accounts.find((a) => a.id === reset.accountId) : undefined
 
-  if (!state) return <Navigate to="/forgot-password" replace />
+  if (!reset || !reset.verified || !acc) return <Navigate to="/forgot-password" replace />
 
-  const passed = passwordRules.filter((r) => r.test(pw)).length
-  const mismatch = touched && confirm.length > 0 && confirm !== pw
-  const ok = passed === passwordRules.length && pw === confirm
-
-  const submit = (e: FormEvent) => {
-    e.preventDefault()
-    setTouched(true)
-    if (ok) navigate('/forgot-password/done', { replace: true })
+  const submit = (pw: string) => {
+    setPassword(acc, pw)
+    const ended = terminateSessions(acc.id)
+    updateAccount(acc.id, { mustChangePassword: false, failedAttempts: 0 })
+    logSecurity({ actor: acc.name, action: 'Password reset via email OTP', target: acc.id, detail: `${ended} active session(s) terminated` })
+    writeReset(null)
+    navigate('/forgot-password/done', { replace: true })
   }
 
   return (
     <AuthLayout panel="showcase">
-      <AuthTitle title="Create a new password" sub="Set a strong password for secure access to ATM and cash-management operations." />
-      <form onSubmit={submit} className="space-y-5">
-        <PasswordInput label="New password" name="new" value={pw} onChange={(e) => setPw(e.target.value)} autoComplete="new-password" />
-        <PasswordInput
-          label="Confirm password"
-          name="confirm"
-          value={confirm}
-          onChange={(e) => setConfirm(e.target.value)}
-          onBlur={() => setTouched(true)}
-          error={mismatch ? 'Passwords do not match.' : undefined}
-          autoComplete="new-password"
-        />
-
-        <div>
-          <div className="mb-2 flex justify-between text-[12px]">
-            <span className="text-muted">Password strength</span>
-            <span className={cn('font-semibold', passed === 4 ? 'text-emerald-700' : 'text-ink-2')}>{pw ? LEVELS[passed] : '—'}</span>
+      <AuthTitle title="Create a new password" sub="Set a strong password for secure access to ATM and cash-management operations. All other signed-in sessions will be ended." />
+      <NewPasswordForm
+        account={acc}
+        submitLabel="Reset Password"
+        onSubmit={submit}
+        footer={
+          <div className="text-center">
+            <Link to="/login" className="text-[14px] font-semibold text-primary hover:underline">
+              Back to sign in
+            </Link>
           </div>
-          <div className="grid grid-cols-4 gap-1.5">
-            {[1, 2, 3, 4].map((i) => (
-              <span key={i} className={cn('h-1 rounded-full', i <= passed ? COLORS[passed] : 'bg-line')} />
-            ))}
-          </div>
-          <ul className="mt-2.5 flex flex-wrap gap-x-3 gap-y-1 text-[12px]">
-            {passwordRules.map((r) => {
-              const met = r.test(pw)
-              return (
-                <li key={r.label} className={cn('flex items-center gap-1', met ? 'text-muted' : 'text-muted/60')}>
-                  <Check size={12} className={met ? 'text-emerald-700' : ''} /> {r.label}
-                </li>
-              )
-            })}
-          </ul>
-        </div>
-
-        <Alert title="Security requirement">Your new password cannot match any of your last five passwords.</Alert>
-
-        <Button type="submit" size="lg" block disabled={!ok}>
-          Reset Password
-        </Button>
-        <div className="text-center">
-          <Link to="/login" className="text-[14px] font-semibold text-primary hover:underline">
-            Back to sign in
-          </Link>
-        </div>
-      </form>
+        }
+      />
     </AuthLayout>
   )
+}
+
+/** API mode: the backend drives this step (see ApiAuth.tsx); mock mode keeps the browser simulation. */
+export default function CreatePassword() {
+  return apiEnabled ? <ApiCreatePassword /> : <MockCreatePassword />
 }

@@ -16,10 +16,9 @@ export function CbrPopupModal({
   franchise,
   onConfirm
 }: CbrPopupModalProps) {
-  if (!isOpen) return null
-
-  // Denominations state in popup
+  // Denominations state in popup (hooks must run before any early return)
   const [counts, setCounts] = useState({ 100: 400, 200: 300, 500: 600 })
+  if (!isOpen) return null
   const expectedCash = 400000 // System cash balance
 
   const physicalCashTotal = counts[100] * 100 + counts[200] * 200 + counts[500] * 500

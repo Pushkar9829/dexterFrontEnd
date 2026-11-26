@@ -19,6 +19,8 @@ import {
 import { Button } from '@/components/ui/Button'
 import { toast } from '@/components/ui/Toast'
 import { downloadCsv } from '@/lib/export'
+import { apiEnabled } from '@/data/bizApi'
+import { markAttendance, punchIn, punchOut, useAttendance } from '@/data/hrmsAttendance'
 
 interface AttendanceRecord {
   id: string
@@ -129,11 +131,28 @@ const INITIAL_ATTENDANCE: AttendanceRecord[] = [
 ]
 
 export default function HrmsAttendance() {
-  const [records, setRecords] = useState<AttendanceRecord[]>(INITIAL_ATTENDANCE)
+  const [mockRecords, setRecords] = useState<AttendanceRecord[]>(INITIAL_ATTENDANCE)
   const [search, setSearch] = useState('')
   const [shiftFilter, setShiftFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
-  const [dateFilter, setDateFilter] = useState('2026-10-25')
+  const [dateFilter, setDateFilter] = useState(() => (apiEnabled ? new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10) : '2026-10-25'))
+  // API mode: GET /hrms/attendance?date=… (server filters to own rows for roles without HRMS Edit)
+  const remote = useAttendance(dateFilter)
+  const records: AttendanceRecord[] = apiEnabled ? remote.rows : mockRecords
+  const [punchRemark, setPunchRemark] = useState('')
+  const [busy, setBusy] = useState(false)
+  const selfPunch = async (kind: 'in' | 'out') => {
+    setBusy(true)
+    try {
+      const r = kind === 'in' ? await punchIn() : await punchOut()
+      toast(kind === 'in' ? `Punched in (${r.status})` : 'Punched out')
+      remote.reload()
+    } catch {
+      /* toasted */
+    } finally {
+      setBusy(false)
+    }
+  }
 
   // Quick punch modal
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -160,13 +179,14 @@ export default function HrmsAttendance() {
   }, [records, search, shiftFilter, statusFilter, dateFilter])
 
   const stats = useMemo(() => {
+    if (apiEnabled && remote.stats) return { total: remote.stats.total, present: remote.stats.present, late: remote.stats.late, leave: remote.stats.onLeave, halfDay: remote.stats.halfDay }
     const total = records.length
     const present = records.filter((r) => r.status === 'Present').length
     const late = records.filter((r) => r.status === 'Late').length
     const leave = records.filter((r) => r.status === 'On Leave').length
     const halfDay = records.filter((r) => r.status === 'Half Day').length
     return { total, present, late, leave, halfDay }
-  }, [records])
+  }, [records, remote.stats])
 
   const handleExport = () => {
     const headers = [
@@ -197,8 +217,25 @@ export default function HrmsAttendance() {
     toast(`Exported ${filtered.length} attendance records to CSV`)
   }
 
-  const handleMarkPunch = (e: React.FormEvent) => {
+  const handleMarkPunch = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (apiEnabled) {
+      // POST /hrms/attendance/mark — HR marks / corrects a day (needs a real Employee ID + remark)
+      if (!punchEmpId.trim()) return toast('Enter the Employee ID (e.g. EMP-014)', 'info')
+      if (punchRemark.trim().length < 3) return toast('Enter a remark (min 3 characters)', 'info')
+      try {
+        await markAttendance({ employeeId: punchEmpId.trim(), date: dateFilter || new Date().toISOString().slice(0, 10), status: punchType, remark: punchRemark.trim() })
+        toast(`Attendance marked for ${punchEmpId.trim()}`)
+        setIsModalOpen(false)
+        setPunchEmpId('')
+        setPunchEmpName('')
+        setPunchRemark('')
+        remote.reload()
+      } catch {
+        /* toasted */
+      }
+      return
+    }
     if (!punchEmpName.trim()) {
       toast('Please enter employee name', 'info')
       return
@@ -266,6 +303,16 @@ export default function HrmsAttendance() {
           >
             <Download size={14} className="mr-1.5 text-[#0066FF]" /> Export
           </Button>
+          {apiEnabled && (
+            <>
+              <Button type="button" variant="secondary" size="sm" disabled={busy} onClick={() => selfPunch('in')} className="h-9 border-[#CBD5E1] bg-white text-[#334155] hover:bg-slate-50">
+                <Clock size={14} className="mr-1.5 text-emerald-600" /> Punch In
+              </Button>
+              <Button type="button" variant="secondary" size="sm" disabled={busy} onClick={() => selfPunch('out')} className="h-9 border-[#CBD5E1] bg-white text-[#334155] hover:bg-slate-50">
+                <Clock size={14} className="mr-1.5 text-amber-600" /> Punch Out
+              </Button>
+            </>
+          )}
           <Button
             type="button"
             size="sm"
@@ -473,7 +520,7 @@ export default function HrmsAttendance() {
               ) : (
                 <tr>
                   <td colSpan={8} className="py-12 text-center text-[#64748B]">
-                    No attendance records match your filter criteria.
+                    {apiEnabled && remote.loading ? 'Loading attendance…' : 'No attendance records match your filter criteria.'}
                   </td>
                 </tr>
               )}
@@ -504,10 +551,10 @@ export default function HrmsAttendance() {
 
             <form onSubmit={handleMarkPunch} className="mt-4 space-y-3.5">
               <div>
-                <label className="block text-[12px] font-medium text-[#334155] mb-1">Employee Name *</label>
+                <label className="block text-[12px] font-medium text-[#334155] mb-1">Employee Name {apiEnabled ? '(Optional)' : '*'}</label>
                 <input
                   type="text"
-                  required
+                  required={!apiEnabled}
                   placeholder="e.g. Ramesh Kumar"
                   value={punchEmpName}
                   onChange={(e) => setPunchEmpName(e.target.value)}
@@ -516,7 +563,7 @@ export default function HrmsAttendance() {
               </div>
 
               <div>
-                <label className="block text-[12px] font-medium text-[#334155] mb-1">Employee ID (Optional)</label>
+                <label className="block text-[12px] font-medium text-[#334155] mb-1">Employee ID {apiEnabled ? '*' : '(Optional)'}</label>
                 <input
                   type="text"
                   placeholder="e.g. EMP-0108"
@@ -556,6 +603,19 @@ export default function HrmsAttendance() {
                   </select>
                 </div>
               </div>
+
+              {apiEnabled && (
+                <div>
+                  <label className="block text-[12px] font-medium text-[#334155] mb-1">Remark * (kept in the attendance history)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Regularised — biometric failure"
+                    value={punchRemark}
+                    onChange={(e) => setPunchRemark(e.target.value)}
+                    className="h-9 w-full rounded-lg border border-[#CBD5E1] px-3 text-[12.5px] outline-none focus:border-[#0066FF]"
+                  />
+                </div>
+              )}
 
               <div className="mt-5 flex justify-end gap-2 border-t border-[#F1F5F9] pt-3.5">
                 <Button

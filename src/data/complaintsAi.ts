@@ -1,5 +1,5 @@
 import { createStore } from '@/lib/store'
-import { ist } from '@/data/complaints'
+import { ist, legacyComplaintAtm } from '@/data/complaints'
 
 /* Preventive recommendations issued by the (demo) Service Risk model. Decisions persist locally. */
 
@@ -33,8 +33,12 @@ export const MODEL_INFO = {
 
 const R = (r: Omit<Recommendation, 'status'> & { status?: RecStatus }): Recommendation => ({ status: 'Needs review', ...r })
 
+/** Old ATM-XX-NNNN demo IDs → Site Master ATM IDs (same remap as the complaint seed). */
+const remap = (xs: Recommendation[]): Recommendation[] =>
+  JSON.parse(JSON.stringify(xs).replace(/ATM-[A-Z]{2}-\d{4}/g, (m) => legacyComplaintAtm(m) ?? m)) as Recommendation[]
+
 function seed(): Recommendation[] {
-  return [
+  return remap([
     R({
       id: 'REC-050',
       title: 'Test UPS charging circuit before replacement',
@@ -135,10 +139,10 @@ function seed(): Recommendation[] {
         taskId: `TSK-${2040 + i}`,
       }),
     ),
-  ]
+  ])
 }
 
-export const recStore = createStore<Recommendation[]>('dexter.complaints.ai.v1', seed)
+export const recStore = createStore<Recommendation[]>('dexter.complaints.ai.v2', seed)
 
 /** Human review of a prediction (risk queue). */
 export type PredictionReview = { verdict: 'Agree' | 'Disagree'; by: string; at: string; note: string }
