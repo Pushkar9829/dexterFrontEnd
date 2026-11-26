@@ -15,7 +15,8 @@ import {
   CheckCircle2,
 } from 'lucide-react'
 import { toast } from '@/components/ui/Toast'
-import { addOrUpdateAgreementDoc, useLegal, type LegalSite } from '@/data/legal'
+import { addOrUpdateAgreementDoc, legalSiteFrom, useLegal, type LegalSite } from '@/data/legal'
+import { useSites } from '@/data/network'
 import { ViewOnlyNote, guardAct, useCanIn } from '@/lib/guard'
 import { resolveSite, SiteRef } from '@/lib/siteRef'
 
@@ -57,7 +58,12 @@ export default function AddAgreement() {
   const allow = useCanIn('Legal')
   const canCreate = allow('Create')
   const legal = useLegal()
-  const PRESET_SITES = useMemo(() => legal.sites.map(toOption), [legal.sites])
+  const master = useSites()
+  // Every Site Master site can get its first legal document; sites already in the legal register keep their details.
+  const PRESET_SITES = useMemo(() => {
+    const known = new Set(legal.sites.map((s) => s.id))
+    return [...legal.sites, ...master.sites.filter((s) => !known.has(s.siteId)).map((s) => legalSiteFrom(s))].map(toOption)
+  }, [legal.sites, master.sites])
   const [siteError, setSiteError] = useState('')
 
   // Selected site data - initialized with the exact sample from the reference image

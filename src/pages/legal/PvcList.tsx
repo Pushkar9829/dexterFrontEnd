@@ -27,7 +27,7 @@ import { promptReason } from '@/lib/reason'
 import { apiEnabled } from '@/lib/api'
 import { LoadNote } from './ui'
 import { downloadCsv } from '@/lib/export'
-import { Can, ViewOnlyNote, guardAct, useCanIn } from '@/lib/guard'
+import { Can, ViewOnlyNote, guardAct, useCanIn, CanAny, guardAnyAct } from '@/lib/guard'
 import { SiteRef } from '@/lib/siteRef'
 import { toast } from '@/components/ui/Toast'
 
@@ -162,7 +162,7 @@ export default function PvcList() {
   }
 
   const handleDelete = (id: string, siteId: string) => {
-    if (!guardAct('Legal', 'Delete')) return
+    if (!guardAnyAct('Legal', ['Delete', 'Edit'], 'delete records')) return
     // API mode: soft delete with a mandatory reason (DELETE /legal/pvc/:id {reason})
     const reason = apiEnabled ? promptReason(`Delete the PVC record for ${siteId}?`) : confirm(`Are you sure you want to delete PVC record for ${siteId}?`) ? 'local' : null
     if (!reason) return
@@ -708,7 +708,7 @@ export default function PvcList() {
                               <Edit3 size={12} />
                             </Link>
                             </Can>
-                            <Can module="Legal" action="Delete">
+                            <CanAny module="Legal" actions={['Delete', 'Edit']}>
                             <button
                               type="button"
                               onClick={() => handleDelete(r.id, r.siteId)}
@@ -717,7 +717,7 @@ export default function PvcList() {
                             >
                               <Trash2 size={12} />
                             </button>
-                            </Can>
+                            </CanAny>
                           </>
                         )}
                       </div>

@@ -28,7 +28,7 @@ import {
   type OtherDocStatus,
 } from '@/data/legalOtherDocs'
 import { downloadCsv } from '@/lib/export'
-import { Can, ViewOnlyNote, guardAct, useCanIn } from '@/lib/guard'
+import { Can, ViewOnlyNote, guardAct, useCanIn, CanAny, guardAnyAct } from '@/lib/guard'
 import { SiteRef } from '@/lib/siteRef'
 import { toast } from '@/components/ui/Toast'
 import { apiEnabled } from '@/lib/api'
@@ -160,7 +160,7 @@ export default function OtherDocList() {
   }
 
   const handleDelete = (id: string, siteId: string) => {
-    if (!guardAct('Legal', 'Delete')) return
+    if (!guardAnyAct('Legal', ['Delete', 'Edit'], 'delete records')) return
     // API mode: soft delete with a mandatory reason (DELETE /legal/other-docs/:id {reason}; verified documents are locked)
     const reason = apiEnabled ? promptReason(`Delete the document record for ${siteId}?`) : confirm(`Are you sure you want to delete document for ${siteId}?`) ? 'local' : null
     if (!reason) return
@@ -658,7 +658,7 @@ export default function OtherDocList() {
                           <Edit3 size={12} />
                         </button>
                         </Can>
-                        <Can module="Legal" action="Delete">
+                        <CanAny module="Legal" actions={['Delete', 'Edit']}>
                         <button
                           type="button"
                           onClick={() => handleDelete(r.id, r.siteId)}
@@ -667,7 +667,7 @@ export default function OtherDocList() {
                         >
                           <Trash2 size={12} />
                         </button>
-                        </Can>
+                        </CanAny>
                       </div>
                     </td>
                   </tr>

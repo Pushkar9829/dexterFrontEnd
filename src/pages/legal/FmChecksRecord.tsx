@@ -25,7 +25,7 @@ import {
   type ChequeCollectionType,
 } from '@/data/legalCheques'
 import { toast } from '@/components/ui/Toast'
-import { Can, guardAct } from '@/lib/guard'
+import { Can, CanAny, guardAnyAct } from '@/lib/guard'
 import { SiteRef } from '@/lib/siteRef'
 import { LoadNote } from './ui'
 
@@ -60,7 +60,7 @@ export default function FmChecksRecord() {
   }
 
   const handleDelete = () => {
-    if (!guardAct('Legal', 'Delete')) return
+    if (!guardAnyAct('Legal', ['Delete', 'Edit'], 'delete records')) return
     const reason = apiEnabled ? promptReason(`Delete cheque collection record ${record.id}?`) : confirm(`Are you sure you want to delete cheque collection record ${record.id}?`) ? 'local' : null
     if (!reason) return
     removeChequeRecord(record.id, reason)
@@ -211,7 +211,7 @@ export default function FmChecksRecord() {
                   </button>
                 </Link>
                 </Can>
-                <Can module="Legal" action="Delete">
+                <CanAny module="Legal" actions={['Delete', 'Edit']}>
                 <button
                   type="button"
                   onClick={handleDelete}
@@ -220,7 +220,7 @@ export default function FmChecksRecord() {
                 >
                   <Trash2 size={14} /> Delete
                 </button>
-                </Can>
+                </CanAny>
               </>
             )}
           </div>

@@ -23,7 +23,7 @@ import {
 import { toast } from '@/components/ui/Toast'
 import { apiEnabled } from '@/lib/api'
 import { LoadNote } from './ui'
-import { Can, guardAct } from '@/lib/guard'
+import { Can, CanAny, guardAnyAct } from '@/lib/guard'
 import { SiteRef } from '@/lib/siteRef'
 
 export default function OtherDocRecord() {
@@ -56,7 +56,7 @@ export default function OtherDocRecord() {
   }
 
   const handleDelete = () => {
-    if (!guardAct('Legal', 'Delete')) return
+    if (!guardAnyAct('Legal', ['Delete', 'Edit'], 'delete records')) return
     const reason = apiEnabled ? promptReason(`Delete document ${record.id}?`) : confirm(`Are you sure you want to delete document ${record.id}?`) ? 'local' : null
     if (!reason) return
     removeOtherDocRecord(record.id, reason)
@@ -187,7 +187,7 @@ export default function OtherDocRecord() {
               </button>
             </Link>
             </Can>
-            <Can module="Legal" action="Delete">
+            <CanAny module="Legal" actions={['Delete', 'Edit']}>
             <button
               type="button"
               onClick={handleDelete}
@@ -196,7 +196,7 @@ export default function OtherDocRecord() {
             >
               <Trash2 size={14} /> Delete
             </button>
-            </Can>
+            </CanAny>
           </div>
         </div>
       </div>

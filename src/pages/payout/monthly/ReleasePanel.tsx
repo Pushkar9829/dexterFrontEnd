@@ -11,7 +11,7 @@ import { can } from '@/lib/rbac'
 import { apiEnabled } from '@/lib/api'
 import { getSession } from '@/lib/auth'
 import { usePayout, type PayoutBatch, type PayoutLine } from '@/data/payout'
-import { UTR_RE, actor, amt, confirmFailure, effNet, fmtDate, isOwnAdjustment, releaseOf, setRelease, useExt, type PayState, type UtrState } from './lib'
+import { UTR_RE, actor, amt, confirmFailure, effNet, fmtDate, holdLines, isOwnAdjustment, releaseOf, setRelease, unholdLines, useExt, type PayState, type UtrState } from './lib'
 import { Panel, SectionBar, tbodyRow, tdCls, thCls, theadRow } from './ui'
 
 const PAY_TONE: Record<PayState, 'blue' | 'green' | 'red' | 'amber'> = { Ready: 'blue', Released: 'green', Failed: 'red', 'On Hold': 'amber' }
@@ -71,7 +71,44 @@ export function ReleasePanel({ batch }: { batch: PayoutBatch }) {
     }
   }
 
-  const act = (filter: (l: PayoutLine) => boolean, patch: Parameters<typeof setRelease>[2], action: string, none: string) => {
+  // Line hold (reason required — maker) and hold release (checker, not the user who held the line).
+  const [holdOpen, setHoldOpen] = useState<{ reason: string; error: string; busy?: boolean } | null>(null)
+  const holdFilter = (l: PayoutLine) => rel(l).pay === 'Ready' || rel(l).pay === 'Failed'
+  const doHold = async () => {
+    if (!holdOpen || holdOpen.busy) return
+    if (holdOpen.reason.trim().length < 3) return setHoldOpen({ ...holdOpen, error: 'A reason is required to hold a line (at least 3 characters).' })
+    const target = (selected.length ? selected : lines).filter(holdFilter)
+    if (!target.length) {
+      setHoldOpen(null)
+      return toast('Only Ready / Failed lines can be held', 'error')
+    }
+    setHoldOpen({ ...holdOpen, busy: true })
+    const n = await holdLines(batch, target, holdOpen.reason)
+    setHoldOpen(null)
+    setSel(new Set())
+    if (n) toast(`Line payment held: ${n} line(s)`)
+  }
+  const backToReady = async () => {
+    const pool = selected.length ? selected : lines
+    // API mode: only manual holds can be lifted here (system holds — e.g. net ≤ 0, pending adjustment — clear on their own).
+    const held = pool.filter((l) => rel(l).pay === 'On Hold' && (!apiEnabled || rel(l).manualHold))
+    const failed = pool.filter((l) => rel(l).pay === 'Failed')
+    if (!held.length && !failed.length) {
+      const sysHeld = pool.some((l) => rel(l).pay === 'On Hold')
+      return toast(sysHeld ? 'These lines are held by the system (not a manual hold) — they clear when the cause is resolved.' : 'No Failed / On Hold lines', 'error')
+    }
+    setSel(new Set())
+    if (failed.length) {
+      setRelease(batch, failed, (r) => ({ ...r, pay: 'Ready' }), 'Back to Ready')
+      if (!apiEnabled) toast(`Back to Ready: ${failed.length} line(s)`)
+    }
+    if (held.length) {
+      const n = await unholdLines(batch, held)
+      if (n) toast(`Hold released: ${n} line(s)`)
+    }
+  }
+
+  const act = (filter:(l: PayoutLine) => boolean, patch: Parameters<typeof setRelease>[2], action: string, none: string) => {
     const target = (selected.length ? selected : lines).filter(filter)
     if (!target.length) {
       toast(none, 'error')
@@ -171,13 +208,13 @@ export function ReleasePanel({ batch }: { batch: PayoutBatch }) {
         <Button size="sm" variant="secondary" disabled={!editable} icon={<CheckCheck size={13} />} onClick={() => act((l) => rel(l).utrStatus === 'Paid', (r) => ({ ...r, utrStatus: 'Reconciled' }), 'UTR reconciled', 'No Paid lines (UTR entered) to reconcile')}>
           Mark Reconciled
         </Button>
-        <Button size="sm" variant="secondary" disabled={!editable} icon={<PauseCircle size={13} />} onClick={() => act((l) => rel(l).pay === 'Ready' || rel(l).pay === 'Failed', (r) => ({ ...r, pay: 'On Hold' }), 'Line payment held', 'Only Ready / Failed lines can be held')}>
+        <Button size="sm" variant="secondary" disabled={!editable} icon={<PauseCircle size={13} />} onClick={() => setHoldOpen({ reason: '', error: '' })}>
           Hold
         </Button>
         <Button size="sm" variant="danger" disabled={!editable} icon={<XCircle size={13} />} onClick={() => setFailOpen({ reason: '', error: '' })}>
           Mark Failed
         </Button>
-        <Button size="sm" variant="ghost" disabled={!editable} icon={<RotateCcw size={13} />} onClick={() => act((l) => rel(l).pay === 'Failed' || rel(l).pay === 'On Hold', (r) => ({ ...r, pay: 'Ready' }), 'Back to Ready', 'No Failed / On Hold lines')}>
+        <Button size="sm" variant="ghost" disabled={batch.status === 'On Hold' || !(can('Edit') || can('Approve'))} title="Lifting a manual line hold needs the Approve right and a different user than the one who held it" icon={<RotateCcw size={13} />} onClick={() => void backToReady()}>
           Back to Ready
         </Button>
       </div>
@@ -243,6 +280,7 @@ export function ReleasePanel({ batch }: { batch: PayoutBatch }) {
                         </div>
                       )}
                       {r.pay === 'On Hold' && r.holdReason && <div className="mt-1 max-w-[260px] truncate text-[10.5px] text-amber-800" title={r.holdReason}>{r.holdReason}</div>}
+                      {r.pay === 'On Hold' && r.manualHold && r.holdBy === me && <div className="mt-0.5 text-[10.5px] text-muted">you held it — another user must release</div>}
                     </td>
                     <td className={tdCls}>
                       {r.pay === 'Released' && r.utrStatus === 'Pending' && editable ? (
@@ -293,6 +331,23 @@ export function ReleasePanel({ batch }: { batch: PayoutBatch }) {
           <label htmlFor="fail-reason" className="mb-1.5 block text-[11px] font-semibold">Reason (required — e.g. bank return reason) *</label>
           <textarea id="fail-reason" value={failOpen.reason} maxLength={300} rows={3} onChange={(e) => setFailOpen({ reason: e.target.value, error: '' })} className="w-full rounded-md border border-line p-2 text-[12px] outline-none focus:border-primary" />
           {failOpen.error && <p className="mt-1 text-[11.5px] text-red-600">{failOpen.error}</p>}
+        </Modal>
+      )}
+      {holdOpen && (
+        <Modal
+          title="Hold line payment"
+          sub={`${selected.length ? `${selected.filter(holdFilter).length} selected` : 'All Ready / Failed'} line(s). Held lines are skipped by the release; another user with the Approve right must release the hold.`}
+          onClose={() => setHoldOpen(null)}
+          footer={
+            <>
+              <Button variant="secondary" onClick={() => setHoldOpen(null)}>Cancel</Button>
+              <Button variant="danger" disabled={holdOpen.busy} onClick={() => void doHold()}>Hold</Button>
+            </>
+          }
+        >
+          <label htmlFor="hold-reason" className="mb-1.5 block text-[11px] font-semibold">Reason (required) *</label>
+          <textarea id="hold-reason" value={holdOpen.reason} maxLength={500} rows={3} onChange={(e) => setHoldOpen({ reason: e.target.value, error: '' })} className="w-full rounded-md border border-line p-2 text-[12px] outline-none focus:border-primary" />
+          {holdOpen.error && <p className="mt-1 text-[11.5px] text-red-600">{holdOpen.error}</p>}
         </Modal>
       )}
       {confirmFor && (

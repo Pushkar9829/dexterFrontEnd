@@ -152,6 +152,19 @@ export function guardAct(module: AppModule, action: Action, what?: string): bool
   return false
 }
 
+/** Like guardAct, but any one of `actions` is enough (e.g. Legal soft delete: Delete OR Edit). */
+export function guardAnyAct(module: AppModule, actions: Action[], what?: string): boolean {
+  if (actions.some((a) => canIn(module, a))) return true
+  toast(`Your role (${currentRole()}) cannot ${(what ?? actions[0]).toLowerCase()} in ${module}.`, 'error')
+  return false
+}
+
+/** Renders children when the role has any one of `actions` in `module`. */
+export function CanAny({ module, actions, children }: { module: AppModule; actions: Action[]; children: ReactNode }) {
+  const allow = useCanIn(module)
+  return actions.some((a) => allow(a)) ? <>{children}</> : null
+}
+
 /** Renders children only when allowed (or a disabled lock hint when `fallback` is 'lock'). */
 export function Can({ module, action, children, fallback }: { module: AppModule; action: Action; children: ReactNode; fallback?: 'lock' | ReactNode }) {
   const allow = useCanIn(module)

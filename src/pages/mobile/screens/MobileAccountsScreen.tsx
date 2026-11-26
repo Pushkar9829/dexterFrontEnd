@@ -2707,7 +2707,7 @@ export function MobileAccountsScreen({ onBackToMore }: MobileAccountsScreenProps
                       <span className="text-[10px] text-slate-400">{d.file.name} · {fmtDateTime(d.uploadedAt)}</span>
                     </div>
                   </div>
-                  <button onClick={() => { if (apiEnabled) { void openTdsAsync(d.id, 'Download'); return } accessTds(d.id, frId, user?.name ?? 'Franchise', 'Download', 'Mobile App'); alert(`${d.file.name} — download logged.`) }} className="text-blue-600 font-bold hover:underline">
+                  <button onClick={() => { if (apiEnabled) { openTdsAsync(d.id, 'Download').catch((e: unknown) => alert(e instanceof Error ? e.message : 'Download failed')); return } accessTds(d.id, frId, user?.name ?? 'Franchise', 'Download', 'Mobile App'); alert(`${d.file.name} — download logged.`) }} className="text-blue-600 font-bold hover:underline">
                     Download
                   </button>
                 </div>

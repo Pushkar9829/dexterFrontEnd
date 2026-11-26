@@ -556,7 +556,7 @@ export async function addRpRollRecordAsync(newEntry: Omit<RpRollRecord, 'id' | '
   const dispatchDate = rpDateToIso(newEntry.dispatchDate)
   if (!dispatchDate) throw new Error('Dispatch date must be a date such as 19-Nov-2026')
   const r = await apiCall(async () => {
-    const documentFileId = file ? (await uploadFile(file, { purpose: 'rp-rolls' })).fileId : undefined
+    const documentFileId = file ? (await uploadFile(file, { purpose: 'rp-rolls', entity: 'RpRoll' })).fileId : undefined
     return post<ApiRp>('/ops-intel/rp-rolls', {
       atmOrSite: newEntry.siteId || newEntry.atmId,
       hubLocation: newEntry.hubLocations,

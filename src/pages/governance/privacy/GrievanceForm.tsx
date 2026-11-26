@@ -30,6 +30,9 @@ export function GrievanceForm({ mode, initial, identity, onDone, onBack }: { mod
   const [officer, setOfficer] = useState(() => initial?.officer ?? '')
   const [errors, setErrors] = useState<Errors>({})
   const [savedId, setSavedId] = useState<string | undefined>(() => initial?.id)
+  // Upload owner ref: only a grievance the server already knows (an existing draft / record). A new complaint's id is
+  // assigned on save, so its files go up with entity + purpose only and the backend tags them on reference.
+  const grievanceRef = initial?.id
 
   const changeMethod = (m: Method) => {
     setMethod(m)
@@ -180,7 +183,7 @@ export function GrievanceForm({ mode, initial, identity, onDone, onBack }: { mod
                 </div>
               ) : method === 'ID document' ? (
                 <div className="mt-6 space-y-2">
-                  <FileDrop compact purpose="privacy-grievance" value={idDoc} onChange={setIdDoc} accept=".pdf,image/*" label="Upload Aadhaar / PAN / Voter ID" hint="Kept only for verification" />
+                  <FileDrop compact purpose="privacy-grievance" entity="PrivacyGrievance" fileRef={grievanceRef} value={idDoc} onChange={setIdDoc} accept=".pdf,image/*" label="Upload Aadhaar / PAN / Voter ID" hint="Kept only for verification" />
                   {idDoc && <Button size="sm" onClick={() => setVerified(true)}>Mark identity verified</Button>}
                 </div>
               ) : method === 'Registered account' ? (
@@ -214,7 +217,7 @@ export function GrievanceForm({ mode, initial, identity, onDone, onBack }: { mod
                 </button>
               </div>
             ))}
-            {evidence.length < 5 && <FileDrop compact purpose="privacy-grievance" value={null} onChange={addEvidence} accept=".pdf,image/*" maxMb={10} hint="PDF, JPG, PNG — max 10 MB" />}
+            {evidence.length < 5 && <FileDrop compact purpose="privacy-grievance" entity="PrivacyGrievance" fileRef={grievanceRef} value={null} onChange={addEvidence} accept=".pdf,image/*" maxMb={10} hint="PDF, JPG, PNG — max 10 MB" />}
           </div>
         </div>
       </div>

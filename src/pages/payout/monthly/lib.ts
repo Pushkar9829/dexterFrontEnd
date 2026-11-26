@@ -5,6 +5,7 @@ import { createStore } from '@/lib/store'
 import { apiEnabled } from '@/lib/api'
 import * as papi from '@/data/payoutApi'
 import { getSession } from '@/lib/auth'
+import { toast } from '@/components/ui/Toast'
 import { downloadCsv } from '@/lib/export'
 import { siteByAtm, networkStore, type Site } from '@/data/network'
 import { franchiseStore } from '@/data/franchises'
@@ -89,6 +90,8 @@ export type UtrState = 'Pending' | 'Paid' | 'Reconciled'
 export type Release = {
   pay: PayState; utrStatus: UtrState; utr?: string; paidDate?: string; by?: string; at?: string
   holdReason?: string; failReason?: string; failSource?: 'Provider' | 'Manual' | 'Confirmed'; failMarkedBy?: string
+  /** Manual line hold (Hold action): who placed it — that user cannot release it (maker-checker). */
+  manualHold?: boolean; holdBy?: string
 }
 export type LineMeta = { flags: ReconStatus[]; accountNo?: string; row?: number }
 /** `makerId` / `submittedBy`: backend user ids (API mode) — they can never release the batch. */
@@ -503,10 +506,34 @@ export function setRelease(batch: PayoutBatch, lines: PayoutLine[], patch: (r: R
 }
 export const UTR_RE = /^[A-Z0-9]{8,22}$/
 
+/** Manual line hold before release (API: POST …/lines/:lineId/hold {reason}; maker / Edit right). Returns lines held. */
+export async function holdLines(batch: PayoutBatch, lines: PayoutLine[], reason: string): Promise<number> {
+  const r = reason.trim()
+  if (apiEnabled) return papi.apiLineHold(batch.id, lines.filter((l) => papi.isServerId(l.id)).map((l) => l.id), 'hold', r)
+  const me = getSession()?.userId ?? actor()
+  setRelease(batch, lines, (x) => ({ ...x, pay: 'On Hold', holdReason: `Manual hold: ${r}`, manualHold: true, holdBy: me }), 'Line payment held')
+  return lines.length
+}
+/**
+ * Lift a manual line hold (API: POST …/lines/:lineId/unhold {note?}; checker / Approve right, not the user who held it —
+ * the server refuses with MAKER_CHECKER and that error is shown). Returns lines released from hold.
+ */
+export async function unholdLines(batch: PayoutBatch, lines: PayoutLine[], note?: string): Promise<number> {
+  if (apiEnabled) return papi.apiLineHold(batch.id, lines.filter((l) => papi.isServerId(l.id)).map((l) => l.id), 'unhold', note)
+  const me = getSession()?.userId ?? actor()
+  const ext = extStore.get()
+  const own = lines.filter((l) => ext.release[l.id]?.manualHold && ext.release[l.id]?.holdBy === me)
+  const ok = lines.filter((l) => !own.includes(l))
+  if (own.length) toast(`Maker-checker: you held ${own.length} of these line(s) — another user must release the hold.`, 'error')
+  if (ok.length) setRelease(batch, ok, (x) => ({ ...x, pay: 'Ready', holdReason: undefined, manualHold: undefined, holdBy: undefined }), 'Line hold released')
+  return ok.length
+}
+
 /**
  * API mode: "Release" sends every releasable line of the batch to the bank-payout provider (server decides which lines
  * go and which are held); UTR entry / reconcile / failure post the bank-status callback for the chosen lines.
- * Line-level Hold and Back to Ready have no endpoint — the change is refused and the server state reloaded.
+ * Line-level Hold / hold release go through holdLines / unholdLines (their own endpoints), not here. A Failed line
+ * returns to Ready only via the second-user failure confirmation — any other change is refused and the server state reloaded.
  */
 function mirrorRelease(batch: PayoutBatch, lines: PayoutLine[], next: Record<string, Release>, action: string) {
   if (action === 'Payment released') {
@@ -520,7 +547,7 @@ function mirrorRelease(batch: PayoutBatch, lines: PayoutLine[], next: Record<str
       r.pay === 'Failed' ? [{ ref: l.id, status: 'Failed', reason: r.failReason?.trim() || 'Marked failed by payout user' }] : r.utr && (r.utrStatus === 'Paid' || r.utrStatus === 'Reconciled') ? [{ ref: l.id, status: 'Credited', utr: r.utr }] : [],
     )
   if (results.length) void papi.apiBankStatus(batch.id, results)
-  else void papi.mirror(action, () => Promise.reject(new Error(`"${action}" for individual lines is not supported by the backend (only batch release and bank status).`)), [papi.monthlyLoader])
+  else void papi.mirror(action, () => Promise.reject(new Error(`"${action}" is not available for these lines on the server — a Failed line returns to Ready through "Confirm failure" by a second user; use Hold / Release hold for held lines.`)), [papi.monthlyLoader])
 }
 
 // ── export ───────────────────────────────────────────────────────────────

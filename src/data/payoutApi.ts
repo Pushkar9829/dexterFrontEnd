@@ -48,6 +48,7 @@ type BLine = Omit<PayoutLine, 'id' | 'cashLiveDate' | 'mfCode'> & {
   }[]
   pay?: Release['pay']; utrStatus?: Release['utrStatus']
   holdReason?: string; failReason?: string; failSource?: Release['failSource']; failMarkedBy?: string
+  manualHold?: { reason?: string; by?: string; byName?: string; at?: string } | null
 }
 type BAudit = { _id: string; at: string; actor?: { name?: string }; entity: string; ref?: string; action: string; detail?: string; before?: unknown; after?: unknown }
 
@@ -192,7 +193,7 @@ export const monthlyLoader = createLoader('monthly payout batches', async () => 
     ;(b.resolutions ?? []).forEach((r) => (ext.resolutions[`${b.batchId}|${r.atmId.toUpperCase()}`] = { batchId: b.batchId, atmId: r.atmId, status: 'Variance Found', accepted: r.accepted, amount: r.amount, reason: r.reason, by: r.by, at: String(r.at) }))
   })
   lines.forEach((l) => {
-    ext.release[l.lineId] = { pay: l.pay ?? 'Ready', utrStatus: l.utrStatus ?? 'Pending', utr: l.utr, paidDate: l.paidDate, holdReason: l.holdReason, failReason: l.failReason, failSource: l.failSource, failMarkedBy: l.failMarkedBy }
+    ext.release[l.lineId] = { pay: l.pay ?? 'Ready', utrStatus: l.utrStatus ?? 'Pending', utr: l.utr, paidDate: l.paidDate, holdReason: l.holdReason, failReason: l.failReason, failSource: l.failSource, failMarkedBy: l.failMarkedBy, manualHold: !!l.manualHold, holdBy: l.manualHold?.by }
     ext.lineMeta[l.lineId] = { flags: (l.flags ?? []) as MonthlyExt['lineMeta'][string]['flags'], accountNo: l.fileAccountNo, row: l.row }
     ;(l.adjustments ?? []).forEach((a) =>
       ext.adjustments.push({
@@ -408,6 +409,27 @@ export const apiBankStatus = (batchId: string, results: { ref: string; status: '
 /** Second-user confirmation of a manually entered failure (≠ the user who entered it) → the line becomes re-releasable. */
 export const apiConfirmFailure = (batchId: string, lineId: string, reason: string) =>
   mirror('Failure not confirmed', () => post(`${B(batchId)}/lines/${enc(lineId)}/failure/confirm`, { reason: reason.trim() }), [monthlyLoader])
+/**
+ * Line-level manual hold / unhold (before release). Hold = maker (Edit right, reason ≥ 3); unhold = checker (Approve right,
+ * not the user who held it — the server answers 403 MAKER_CHECKER). Lines are posted one by one; the first backend error is
+ * toasted (with the failure count) and the store is reloaded once. Resolves to the number of lines the server accepted.
+ */
+export async function apiLineHold(batchId: string, lineIds: string[], mode: 'hold' | 'unhold', text?: string): Promise<number> {
+  if (!apiEnabled) return lineIds.length
+  let ok = 0
+  const errors: unknown[] = []
+  for (const id of lineIds) {
+    try {
+      await post(`${B(batchId)}/lines/${enc(id)}/${mode}`, mode === 'hold' ? { reason: (text ?? '').trim() } : text?.trim() ? { note: text.trim() } : {})
+      ok++
+    } catch (e) {
+      errors.push(e)
+    }
+  }
+  if (errors.length) toastError(errors[0], `${mode === 'hold' ? 'Line hold' : 'Hold release'} failed for ${errors.length} of ${lineIds.length} line(s)`)
+  await Promise.all([monthlyLoader, auditLoader].map((l) => l.reload()))
+  return ok
+}
 export const apiBankSync = (batchId: string) => mirror('Bank status sync failed', () => post(`${B(batchId)}/bank-status/sync`), [monthlyLoader])
 
 /** Server ids look like BAT-00012 / PL-0000061; locally generated ones (pid) are base-36 stamps. */
