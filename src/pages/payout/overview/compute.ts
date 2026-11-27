@@ -480,7 +480,7 @@ export function optionLists(m: Model) {
     bmCategories: b.bmCategories.map((c) => ({ value: `BM|${c.code}`, label: `BM · ${c.name}` })),
     businessModels: uniq(b.bmSites.map((s) => s.businessModel)),
     batches: m.snap.payout.batches.map((x) => ({ value: x.id, label: `${x.name} (${x.type})` })),
-    tls: m.snap.tl.rules.map((r) => ({ value: r.tlId, label: r.tlName })),
+    tls: m.snap.tl.rules.filter((r, i, a) => a.findIndex((x) => x.tlId === r.tlId) === i).map((r) => ({ value: r.tlId, label: r.tlName })), // one option per TL (a TL can have several rules)
   }
 }
 

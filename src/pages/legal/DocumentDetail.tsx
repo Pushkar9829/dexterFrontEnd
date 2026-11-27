@@ -244,8 +244,7 @@ export default function DocumentDetail() {
           }
         >
           <p className="text-[13px] text-ink-2">
-            Confirm that every page of the uploaded document is signed by the franchisee&rsquo;s authorised signatory
-            {site.signatory && site.signatory !== 'Authorised Signatory' ? ` (${site.signatory})` : ''}
+            Confirm that every page of the uploaded document is signed by the authorised signatory of {site.franchiseName || 'the franchisee'}
             {doc.kind === 'AGR' ? ' and the firm stamp is present' : ''}. The status changes to <b>Approved</b> and the decision is added to the immutable audit log.
           </p>
         </Modal>
