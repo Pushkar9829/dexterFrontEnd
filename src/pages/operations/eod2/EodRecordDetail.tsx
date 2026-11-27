@@ -1,15 +1,16 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { CheckCircle2, ClipboardCheck, Copy, ExternalLink, KeyRound, Lock, Plus, RotateCcw, ShieldCheck, XCircle } from 'lucide-react'
+import { CheckCircle2, ClipboardCheck, Copy, ExternalLink, KeyRound, Lock, PencilLine, Plus, RotateCcw, ShieldCheck, XCircle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { toast } from '@/components/ui/Toast'
-import { TextAreaField, TextField } from '@/components/ui/Form'
+import { SelectField, TextAreaField, TextField } from '@/components/ui/Form'
 import { useRole } from '@/lib/rbac'
 import { actorName, useWorkflow } from '@/data/workflow'
 import {
-  acknowledgeCashAsync, addEventAsync, approveEodAsync, completeness, eodLoader, emptyEvent, ledgerOf, rejectEodAsync, returnEodAsync, reviewExceptionAsync, useEod, validateEvent, verifyEodAsync, verifyEventAsync,
-  type EodRecord, type EventInput,
+  AUDIT_REASONS, EOD_CATEGORIES, EOD_CORRECTABLE_FIELDS, acknowledgeCashAsync, addEventAsync, approveEodAsync, completeness, correctEodAsync, eodLoader, emptyEvent, ledgerOf, rejectEodAsync,
+  returnEodAsync, reviewExceptionAsync, useEod, validateEvent, verifyEodAsync, verifyEventAsync,
+  type EodCorrectableKey, type EodRecord, type EventInput,
 } from '@/data/eodStore'
 import { apiEnabled } from '@/data/opsApi'
 import { opsMeLoader, rightsFor } from './access'
@@ -17,7 +18,7 @@ import { FLOW_STEPS, nextActionOf, stepOf } from './flow'
 import { dmy, dt, inr, signedInr } from './fmt'
 import { AckBox, KV, NoAccess, Note, OpsPage, Panel, Status, Stepper, TableWrap, TD, TH, Timeline, TR } from './ui'
 
-type Dialog = null | 'verify' | 'return' | 'reject' | 'clear' | 'exReturn' | 'event' | 'cash' | 'approve'
+type Dialog = null | 'verify' | 'return' | 'reject' | 'clear' | 'exReturn' | 'event' | 'cash' | 'approve' | 'correct'
 
 export default function EodRecordDetail() {
   const { id } = useParams()
@@ -185,6 +186,35 @@ export default function EodRecordDetail() {
             )}
           </Panel>
 
+          {(r.corrections?.length ?? 0) > 0 && (
+            <Panel title={`Controlled corrections · current version v${r.version ?? 1}`} sub="Corrections of the approved (locked) record. Each one creates a new version; the previous values stay in the version history." pad={false}>
+              <TableWrap empty={false}>
+                <thead className="bg-slate-50">
+                  <tr>
+                    {['Version', 'Field', 'Old value', 'New value', 'Reason', 'By', 'At'].map((h) => (
+                      <th key={h} className={TH}>
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {r.corrections!.map((c, i) => (
+                    <tr key={`${c.version}-${c.field}-${i}`} className={TR}>
+                      <td className={TD}>v{c.version}</td>
+                      <td className={TD}>{c.label}</td>
+                      <td className={TD}>{c.oldValue || '—'}</td>
+                      <td className={`${TD} font-semibold`}>{c.newValue || '—'}</td>
+                      <td className={TD}>{c.reason}</td>
+                      <td className={TD}>{c.by}</td>
+                      <td className={TD}>{dt(c.at)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </TableWrap>
+            </Panel>
+          )}
+
           <Panel title="Timeline">
             <Timeline items={r.log} />
           </Panel>
@@ -215,7 +245,13 @@ export default function EodRecordDetail() {
               )}
               {r.stage === 'Cash Acknowledged' && rights.approve && <Button block icon={<Lock size={15} />} onClick={() => setDialog('approve')}>Approve & lock</Button>}
               {r.stage === 'Cash Acknowledged' && !rights.approve && <Note tone="blue">Waiting for Admin approval.</Note>}
-              {r.stage === 'Approved' && <Note tone="green">Approved by {r.trail.approvedBy} · {dt(r.trail.approvedAt)}. Record locked.</Note>}
+              {r.stage === 'Approved' && <Note tone="green">Approved by {r.trail.approvedBy} · {dt(r.trail.approvedAt)}. Record locked{(r.version ?? 1) > 1 ? ` · version ${r.version} (corrected)` : ''}.</Note>}
+              {r.stage === 'Approved' && apiEnabled && rights.approve && !own && (
+                <Button block variant="secondary" icon={<PencilLine size={15} />} onClick={() => setDialog('correct')}>
+                  Correct (controlled correction)
+                </Button>
+              )}
+              {r.stage === 'Approved' && apiEnabled && rights.approve && own && <Note tone="amber">You created / submitted this request — maker-checker blocks you from correcting it.</Note>}
               {r.stage === 'Returned for Correction' && <Note tone="amber">Waiting for the franchise to re-submit from the mobile app.</Note>}
               {r.stage === 'Docket Generated' && <Note tone="blue">Waiting for the franchise's authorized user to generate the OTC through the link.</Note>}
             </div>
@@ -278,12 +314,60 @@ export default function EodRecordDetail() {
         </div>
       </div>
 
-      {dialog && <ActionDialog r={r} kind={dialog} onClose={() => setDialog(null)} />}
+      {dialog === 'correct' ? <CorrectDialog r={r} onClose={() => setDialog(null)} /> : dialog && <ActionDialog r={r} kind={dialog} onClose={() => setDialog(null)} />}
     </OpsPage>
   )
 }
 
-function ActionDialog({ r, kind, onClose }: { r: EodRecord; kind: Exclude<Dialog, null>; onClose: () => void }) {
+/** Controlled correction of an approved / locked EOD: changed fields + mandatory reason → new version (API mode). */
+function CorrectDialog({ r, onClose }: { r: EodRecord; onClose: () => void }) {
+  const [vals, setVals] = useState<Partial<Record<EodCorrectableKey, string>>>({})
+  const [reason, setReason] = useState('')
+  const [err, setErr] = useState('')
+  const [busy, setBusy] = useState(false)
+  const current: Record<EodCorrectableKey, string> = {
+    declaredCashPaise: inr(r.declaredCash), slipNo: r.counterSlip.slipNo, slipDate: dmy(r.counterSlip.slipDate), slipAmountPaise: inr(r.counterSlip.amount),
+    cashAmountPaise: r.cash ? inr(r.cash.amount) : '—', cashRemarks: r.cash?.remarks ?? '—', category: r.category ?? '—', auditReason: r.auditReason ?? '—', auditReasonOther: r.auditReasonOther ?? '—',
+  }
+  const fields = EOD_CORRECTABLE_FIELDS.filter((f) => (r.type === 'Cash Audit' || !f.key.startsWith('audit')) && (r.cash || !f.key.startsWith('cash')))
+  const set = (k: EodCorrectableKey) => (v: string) => setVals((p) => ({ ...p, [k]: v }))
+  const save = async () => {
+    setBusy(true)
+    const e = await correctEodAsync(r.id, vals, reason)
+    setBusy(false)
+    if (e) return setErr(e)
+    toast(`${r.id} corrected — new version saved`)
+    onClose()
+  }
+  return (
+    <Modal
+      title="Controlled correction"
+      sub={`${r.id} · ${r.atmId} · approved & locked (v${r.version ?? 1})`}
+      onClose={onClose}
+      width={640}
+      footer={<><Button variant="secondary" onClick={onClose}>Cancel</Button><Button onClick={save} disabled={busy}>Save correction</Button></>}
+    >
+      <div className="space-y-3">
+        <Note tone="blue">Fill only the fields to correct. The same validations as the original request apply (₹40,000 counter-slip rule, mandatory category, no future dates). A new version is created and audited.</Note>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {fields.map((f) =>
+            f.key === 'category' ? (
+              <SelectField key={f.key} label={f.label} hint={`Now: ${current[f.key]}`} options={[...EOD_CATEGORIES]} value={vals[f.key] ?? ''} onChange={(e) => set(f.key)(e.target.value)} />
+            ) : f.key === 'auditReason' ? (
+              <SelectField key={f.key} label={f.label} hint={`Now: ${current[f.key]}`} options={[...AUDIT_REASONS]} value={vals[f.key] ?? ''} onChange={(e) => set(f.key)(e.target.value)} />
+            ) : (
+              <TextField key={f.key} label={f.label} hint={`Now: ${current[f.key]}`} type={'money' in f ? 'number' : 'date' in f ? 'date' : 'text'} value={vals[f.key] ?? ''} onChange={(e) => set(f.key)(e.target.value)} />
+            ),
+          )}
+        </div>
+        <TextAreaField label="Reason for correction" required value={reason} onChange={(e) => setReason(e.target.value)} />
+        {err && <Note tone="red">{err}</Note>}
+      </div>
+    </Modal>
+  )
+}
+
+function ActionDialog({ r, kind, onClose }: { r: EodRecord; kind: Exclude<Dialog, null | 'correct'>; onClose: () => void }) {
   const [text, setText] = useState('')
   const [err, setErr] = useState('')
   const [ev, setEv] = useState<EventInput>(() => emptyEvent(r.eodDate))

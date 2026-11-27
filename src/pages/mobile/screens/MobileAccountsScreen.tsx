@@ -28,7 +28,7 @@ import {
 } from 'lucide-react'
 import { CardCornerAccent } from '../components/CardCornerAccent'
 import { getMasterAccountForAtm, saveClfRecord, useClfRecords } from '@/data/financeClf'
-import { periodLabel, uploadWla, uploadWlaAsync, useWlaStatements } from '@/data/wlaStatements'
+import { canWithdrawWla, periodLabel, uploadWla, uploadWlaAsync, useWlaStatements, withdrawWlaAsync } from '@/data/wlaStatements'
 import { apiEnabled } from '@/lib/api'
 import { accessTds, openTdsAsync, useTdsLetters } from '@/data/tdsLetters'
 import { gstStore, saveGst, type GstRecord } from '@/data/financeGst'
@@ -187,7 +187,7 @@ export function MobileAccountsScreen({ onBackToMore }: MobileAccountsScreenProps
   const setWlaSelectedFile = (v: null) => setWlaFile(v)
   const wlaStatements = wlaAll
     .filter((w) => w.frId === frId && w.status !== 'Replaced')
-    .map((w) => ({ id: w.id, month: `${periodLabel(w.period).toUpperCase()} · ${w.atmId}`, status: w.status.toUpperCase(), remarks: w.reason || (w.passwordProtected ? 'Password Protected' : '-'), file: w.file.name }))
+    .map((w) => ({ id: w.id, month: `${periodLabel(w.period).toUpperCase()} · ${w.atmId}`, status: w.status.toUpperCase(), remarks: w.withdrawReason || w.reason || (w.passwordProtected ? 'Password Protected' : '-'), file: w.file.name, canWithdraw: canWithdrawWla(w) }))
 
   // Security Deposit (Finance › Security Deposit register)
   const sdAll = useSecurityDeposits()
@@ -1784,7 +1784,22 @@ export function MobileAccountsScreen({ onBackToMore }: MobileAccountsScreenProps
                         {s.status}
                       </span>
                     </td>
-                    <td className="py-2.5 text-slate-400">{s.remarks}</td>
+                    <td className="py-2.5 text-slate-400">
+                      {s.remarks}
+                      {s.canWithdraw && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const reason = window.prompt(`Withdraw ${s.id}? Enter the reason (you can upload a replacement afterwards):`)
+                            if (reason == null) return
+                            void withdrawWlaAsync(s.id, reason).then((e) => alert(e ?? `${s.id} withdrawn.`))
+                          }}
+                          className="mt-1 block w-full rounded-md border border-red-200 bg-red-50 px-1.5 py-0.5 text-[10px] font-bold text-red-700"
+                        >
+                          WITHDRAW
+                        </button>
+                      )}
+                    </td>
                     <td className="py-2.5">
                       <button
                         onClick={() => alert(`${s.file} (${s.id}) — demo: no file server`)}

@@ -135,7 +135,25 @@ export type EodRecord = {
   status: OpsStatus
   trail: AuditTrail
   log: { at: string; by: string; text: string }[]
+  /** Controlled correction of an approved / locked record (API mode): current version + what was corrected. */
+  version?: number
+  corrections?: EodCorrection[]
+  versions?: { version: number; at: string; by: string; reason: string }[]
 }
+export type EodCorrection = { version: number; at: string; by: string; field: string; label: string; oldValue: string; newValue: string; reason: string }
+/** Fields an Admin may correct on a locked EOD (backend EOD_CORRECTABLE). Money values are in rupees in the UI. */
+export const EOD_CORRECTABLE_FIELDS = [
+  { key: 'declaredCashPaise', label: 'Declared cash (₹)', money: true },
+  { key: 'slipNo', label: 'Counter slip no.' },
+  { key: 'slipDate', label: 'Counter slip date', date: true },
+  { key: 'slipAmountPaise', label: 'Counter slip amount (₹)', money: true },
+  { key: 'cashAmountPaise', label: 'Acknowledged cash amount (₹)', money: true },
+  { key: 'cashRemarks', label: 'Cash acknowledgement remarks' },
+  { key: 'category', label: 'EOD category' },
+  { key: 'auditReason', label: 'Cash audit reason' },
+  { key: 'auditReasonOther', label: 'Audit reason (other)' },
+] as const
+export type EodCorrectableKey = (typeof EOD_CORRECTABLE_FIELDS)[number]['key']
 
 export type HistoryEntry = {
   id: string
@@ -663,6 +681,8 @@ export type ApiEod = {
   historyRef?: { ledger: Ledger; entryId: string; at: string }; stage: EodStage; status: OpsStatus
   trail?: Record<string, unknown> & { acknowledgement?: ApiAck; modifications?: AuditTrail['modifications']; documents?: AuditTrail['documents'] }
   modifications?: AuditTrail['modifications']; log?: { at: string; by: string; text: string }[]; taskRefs?: string[]; createdAt?: string
+  version?: number; versions?: { version: number; at: string; by: string; byName?: string; reason: string }[]
+  corrections?: (Omit<EodCorrection, 'by'> & { by: string; byName?: string })[]
 }
 type ApiHistory = { entryId: string; ledger: Ledger; siteId: string; atmId: string; frId: string; machineType: string; date: string; source: HistoryEntry['source']; refId: string; docketNo?: string; otc?: string; amountPaise?: number; text: string; at: string; by: string; byName?: string }
 
@@ -696,6 +716,9 @@ export function fromApiEod(r: ApiEod): EodRecord {
     })),
     cash: r.cash ? { mode: r.cash.mode, amount: fromPaise(r.cash.amountPaise), remarks: r.cash.remarks, ack: ackOf(r.cash.ack)!, at: r.cash.at, by: r.cash.byName ?? r.cash.by } : undefined,
     historyRef: r.historyRef, stage: r.stage, status: r.status, trail, log: r.log ?? [],
+    version: r.version ?? 1,
+    corrections: (r.corrections ?? []).map((c) => ({ ...c, by: c.byName ?? c.by })),
+    versions: (r.versions ?? []).map((v) => ({ version: v.version, at: v.at, by: v.byName ?? v.by, reason: v.reason })),
   }
 }
 const fromApiHistory = (h: ApiHistory): HistoryEntry => ({
@@ -783,6 +806,27 @@ export async function rejectEodAsync(id: string, reason: string) {
 export async function approveEodAsync(id: string, remark: string) {
   if (!apiEnabled) return approveEod(id, remark)
   return act(() => post<ApiEod>(`/eod/records/${enc(id)}/approve`, { remark: remark.trim() || undefined }))
+}
+
+/**
+ * Controlled correction of an approved / locked EOD (Admin / EOD Approve-Control) — API mode only. `changes` carries
+ * the corrected values (money in rupees, converted to paise here); a reason is mandatory.
+ */
+export async function correctEodAsync(id: string, changes: Partial<Record<EodCorrectableKey, string>>, reason: string): Promise<string | null> {
+  if (!apiEnabled) return 'Controlled correction is available when connected to the backend (API mode).'
+  if (reason.trim().length < 3) return 'A reason is mandatory (at least 3 characters).'
+  const body: Record<string, string | number> = {}
+  for (const f of EOD_CORRECTABLE_FIELDS) {
+    const v = changes[f.key]?.trim()
+    if (!v) continue
+    if ('money' in f && f.money) {
+      const n = Number(v)
+      if (!Number.isFinite(n) || n <= 0) return `${f.label}: enter a positive amount`
+      body[f.key] = toPaise(n)
+    } else body[f.key] = v
+  }
+  if (!Object.keys(body).length) return 'Enter at least one corrected value.'
+  return act(() => post<ApiEod>(`/eod/records/${enc(id)}/correct`, { changes: body, reason: reason.trim() }), true)
 }
 
 /** Vault opening / cash audit event. API mode uploads `files` (PDF / JPG / PNG) and sends their fileIds. */

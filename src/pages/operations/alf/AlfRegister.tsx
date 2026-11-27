@@ -238,6 +238,11 @@ function AlfDetail({ id }: { id: string }) {
           Maker-checker: you ({actorName()}) raised this request, so verification, approval and recovery entry by you are blocked.
         </div>
       )}
+      {rec.onBehalfReason && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-[12px] text-blue-800">
+          Raised on behalf of the franchise by {rec.onBehalfBy ?? rec.trail.createdBy}: {rec.onBehalfReason}
+        </div>
+      )}
       {rec.status === 'Rejected' && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[12px] text-red-800">
           Rejected by {rec.trail.returnedBy}: {rec.rejectReason}

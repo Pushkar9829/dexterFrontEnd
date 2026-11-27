@@ -34,6 +34,10 @@ export type AlfRecord = SiteSnapshot & {
   closedBy?: string
   closedAt?: string
   rejectReason?: string
+  /** API mode: raised by staff (CRM / Admin) on behalf of the franchise — mandatory reason. */
+  channel?: 'Franchise App' | 'Web – Authorized Entry'
+  onBehalfReason?: string
+  onBehalfBy?: string
   trail: AuditTrail
   statusLog: { at: string; by: string; status: AlfStatus; note?: string }[]
 }
@@ -138,7 +142,7 @@ const log = (rec: AlfRecord, status: AlfStatus, note?: string, by = actorName())
 const vars = (r: AlfRecord, pending: string) => ({ Record_ID: r.id, Site_ID: r.siteId, ATM_ID: r.atmId, Franchise_Name: r.franchiseName, Current_Status: r.status, Pending_Action: pending })
 const withTask = (r: AlfRecord, taskId?: string): AlfRecord => (taskId ? { ...r, trail: { ...r.trail, taskRefs: [...r.trail.taskRefs, taskId] } } : r)
 
-export type AlfInput = { atmId: string; requestDate: string; requestedAmount: number; purpose: string; remarks: string }
+export type AlfInput = { atmId: string; requestDate: string; requestedAmount: number; purpose: string; remarks: string; /** staff raising on behalf (API mode) */ frId?: string; onBehalfReason?: string }
 
 /** Request (Draft) — Self Funding sites only (ALF is linked to the Cash Loading Master). */
 function saveAlfLocal(input: AlfInput, opts: { id?: string; asFranchise?: boolean; submit?: boolean } = {}): AlfResult {

@@ -38,6 +38,9 @@ export interface BroadcastRecord {
   createdBy: string
   submittedAt: string
   reviewerRemarks?: string
+  /** Set on approval — status 'Approved' is stored before publish / schedule (backend history shows both steps). */
+  approvedBy?: string
+  approvedAt?: string
   aiSummary?: string
 }
 
@@ -481,6 +484,8 @@ export type ApiBroadcast = {
   createdByName?: string
   submittedAt?: string
   reviewerRemarks?: string
+  approvedBy?: string
+  approvedAt?: string
   publishedAt?: string
   createdAt?: string
   readAt?: string
@@ -537,6 +542,8 @@ export function fromApiBroadcast(b: ApiBroadcast, readPct?: number): BroadcastRe
     createdBy: b.createdByName ?? '',
     submittedAt: ago(b.submittedAt ?? b.createdAt),
     reviewerRemarks: b.reviewerRemarks,
+    approvedBy: b.approvedBy,
+    approvedAt: b.approvedAt,
   }
 }
 
@@ -697,7 +704,11 @@ export function approveBroadcast(id: string, remarks?: string) {
   broadcastStore.set((s) => ({
     ...s,
     broadcasts: s.broadcasts.map((b) =>
-      b.id === id ? { ...b, status: 'Published', readPercentage: 96, reviewerRemarks: remarks } : b
+      b.id === id
+        ? b.publishType === 'Scheduled'
+          ? { ...b, status: 'Scheduled', reviewerRemarks: remarks, approvedBy: getSession()?.name }
+          : { ...b, status: 'Published', readPercentage: 96, reviewerRemarks: remarks, approvedBy: getSession()?.name }
+        : b
     ),
   }))
 }

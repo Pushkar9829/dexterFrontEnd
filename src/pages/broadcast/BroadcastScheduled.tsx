@@ -69,7 +69,7 @@ export default function BroadcastScheduled({ defaultTab = 'scheduled' }: { defau
   const counts = useMemo(() => {
     return {
       all: broadcasts.length,
-      scheduled: broadcasts.filter((b) => b.status === 'Scheduled').length,
+      scheduled: broadcasts.filter((b) => b.status === 'Scheduled' || b.status === 'Approved').length,
       published: broadcasts.filter((b) => b.status === 'Published').length,
       drafts: broadcasts.filter((b) => b.status === 'Draft').length,
       pending: broadcasts.filter((b) => b.status === 'Pending Approval').length,
@@ -81,7 +81,7 @@ export default function BroadcastScheduled({ defaultTab = 'scheduled' }: { defau
   const filteredList = useMemo(() => {
     return broadcasts.filter((item) => {
       // Tab matching
-      if (activeTab === 'Scheduled' && item.status !== 'Scheduled') return false
+      if (activeTab === 'Scheduled' && item.status !== 'Scheduled' && item.status !== 'Approved') return false
       if (activeTab === 'Drafts' && item.status !== 'Draft') return false
       if (activeTab === 'Published' && item.status !== 'Published') return false
       if (activeTab === 'Pending' && item.status !== 'Pending Approval') return false

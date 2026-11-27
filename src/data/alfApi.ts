@@ -18,6 +18,7 @@ type ApiAlf = {
   recoveries?: { recoveryId: string; date: string; amountPaise: number; mode: 'Recovery' | 'Adjustment'; clRef?: string; remarks?: string; by?: string; byName?: string; at: string }[]
   status: AlfStatus
   emailSubmittedAt?: string; emailRef?: string; closedBy?: string; closedAt?: string; rejectReason?: string
+  channel?: AlfRecord['channel']; onBehalfReason?: string; onBehalfBy?: string; onBehalfByName?: string
   trail?: {
     createdBy: string; createdByName?: string; createdAt: string; submittedBy?: string; submittedByName?: string; submittedAt?: string
     verifiedBy?: string; verifiedByName?: string; verifiedAt?: string; approvedBy?: string; approvedByName?: string; approvedAt?: string; returnedBy?: string; returnReason?: string
@@ -49,6 +50,9 @@ export function toAlfRecord(a: ApiAlf): AlfRecord {
     closedBy: a.closedBy,
     closedAt: a.closedAt ? String(a.closedAt) : undefined,
     rejectReason: a.rejectReason,
+    channel: a.channel,
+    onBehalfReason: a.onBehalfReason,
+    onBehalfBy: a.onBehalfByName ?? a.onBehalfBy,
     trail: {
       createdBy: t.createdByName ?? t.createdBy,
       createdAt: String(t.createdAt ?? ''),
@@ -84,7 +88,11 @@ export function alfApi(putRec: (r: AlfRecord) => void) {
     list: async () => (await fetchAll<ApiAlf>(`${base()}/records`)).map(toAlfRecord),
     kpis: () => get<{ requested: number; disbursedPaise: number; recoveredPaise: number; outstandingPaise: number; overdue: number; byStatus: Record<string, number> }>(`${base()}/kpis`),
     save: async (input: AlfInput, opts: { id?: string; submit?: boolean }): Promise<AlfResult> => {
-      if (!opts.id) return run(post<ApiAlf>(`${base()}/records`, { ...body(input), submit: opts.submit || undefined }))
+      if (!opts.id) {
+        // staff (CRM / Admin) raise on behalf of a franchise: optional franchise + mandatory reason
+        const onBehalf = isFranchiseeSession() ? {} : { frId: input.frId || undefined, onBehalfReason: input.onBehalfReason?.trim() || undefined }
+        return run(post<ApiAlf>(`${base()}/records`, { ...body(input), ...onBehalf, submit: opts.submit || undefined }))
+      }
       const r = await run(patch<ApiAlf>(`${base()}/records/${opts.id}`, body(input)))
       if (!r.ok || !opts.submit) return r
       return run(post<ApiAlf>(`${base()}/records/${opts.id}/submit`, {}))

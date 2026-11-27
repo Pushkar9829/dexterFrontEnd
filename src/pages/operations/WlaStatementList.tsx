@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CheckCircle2, Download, Eye, RotateCcw, Upload, XCircle } from 'lucide-react'
+import { CheckCircle2, Download, Eye, RotateCcw, Undo2, Upload, XCircle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { Pagination } from '@/components/ui/Pagination'
@@ -8,7 +8,7 @@ import { toast } from '@/components/ui/Toast'
 import { TextAreaField } from '@/components/ui/Form'
 import { useRole } from '@/lib/rbac'
 import { actorName, useWorkflow } from '@/data/workflow'
-import { REVIEW_LABELS, WLA_STATUSES, exportWlaCsv, logWlaAccessAsync, periodLabel, processWlaAsync, reviewWlaAsync, useWlaStatements, wlaLoader, type WlaReviewCheck, type WlaStatement } from '@/data/wlaStatements'
+import { REVIEW_LABELS, WLA_STATUSES, canWithdrawWla, exportWlaCsv, logWlaAccessAsync, periodLabel, processWlaAsync, reviewWlaAsync, useWlaStatements, wlaLoader, withdrawWlaAsync, type WlaReviewCheck, type WlaStatement } from '@/data/wlaStatements'
 import { fmtSize } from '@/components/ui/Form'
 import { apiEnabled } from '@/data/opsApi'
 import { opsMeLoader, rightsFor } from './eod2/access'
@@ -34,6 +34,7 @@ export default function WlaStatementList() {
   const [openId, setOpenId] = useState<string | null>(null)
   const [reviewId, setReviewId] = useState<string | null>(null)
   const [processId, setProcessId] = useState<string | null>(null)
+  const [withdrawId, setWithdrawId] = useState<string | null>(null)
   const periods = useMemo(() => [...new Set(list.map((x) => x.period))].sort().reverse(), [list])
   const rows = useMemo(
     () =>
@@ -76,7 +77,7 @@ export default function WlaStatementList() {
       {load.error && <Note tone="red">Could not load WLA statements: {load.error}</Note>}
       <div className={`grid grid-cols-2 gap-3 ${WLA_STATUSES.length > 5 ? 'md:grid-cols-6' : 'md:grid-cols-5'}`}>
         {WLA_STATUSES.map((s) => (
-          <Kpi key={s} label={s} value={list.filter((x) => x.status === s).length} tone={s === 'Accepted' ? 'green' : s === 'Rejected' ? 'red' : s === 'Returned' ? 'amber' : s === 'Replaced' ? 'gray' : 'navy'} />
+          <Kpi key={s} label={s} value={list.filter((x) => x.status === s).length} tone={s === 'Accepted' ? 'green' : s === 'Rejected' ? 'red' : s === 'Returned' ? 'amber' : s === 'Replaced' || s === 'Withdrawn' ? 'gray' : 'navy'} />
         ))}
       </div>
 
@@ -137,7 +138,7 @@ export default function WlaStatementList() {
                 </td>
                 <td className={TD}>{x.checks.every((c) => c.ok) ? <Status text="All checks passed" tone="green" /> : <Status text={`${x.checks.filter((c) => !c.ok).length} failed`} tone="red" />}</td>
                 <td className={TD}>
-                  <Status text={x.status} tone={x.status === 'Returned' ? 'amber' : x.status === 'Replaced' ? 'gray' : undefined} />
+                  <Status text={x.status} tone={x.status === 'Returned' ? 'amber' : x.status === 'Replaced' || x.status === 'Withdrawn' ? 'gray' : undefined} />
                 </td>
                 <td className={TD}>{x.verifiedBy ? `${x.verifiedBy} · ${dt(x.verifiedAt)}` : '—'}</td>
                 <td className={TD}>
@@ -155,6 +156,16 @@ export default function WlaStatementList() {
                     <Button size="sm" variant="secondary" icon={<Eye size={13} />} onClick={() => { void logWlaAccessAsync(x.id, actorName(), 'View').catch(() => undefined); setOpenId(x.id) }}>
                       View
                     </Button>
+                    {canWithdrawWla(x) && (
+                      <Button size="sm" variant="secondary" icon={<Undo2 size={13} />} onClick={() => setWithdrawId(x.id)}>
+                        Withdraw
+                      </Button>
+                    )}
+                    {(x.status === 'Withdrawn' || x.status === 'Returned') && !x.replacedBy && (rights.verify || rights.create) && (
+                      <Button size="sm" variant="secondary" icon={<Upload size={13} />} onClick={() => navigate(`/operations/wla-statement/upload?replace=${encodeURIComponent(x.id)}`)}>
+                        Replace
+                      </Button>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -164,14 +175,23 @@ export default function WlaStatementList() {
         <Pagination page={page} pageSize={size} total={rows.length} onPage={setPage} onPageSize={(n) => { setSize(n); reset() }} noun="statements" />
       </Panel>
       <RoleTableCard modules={['WLA Statement']} />
-      {open && <StatementDrawer x={open} all={list} onClose={() => setOpenId(null)} onReview={rights.verify && open.status === 'Pending Verification' ? () => { setOpenId(null); setReviewId(open.id) } : undefined} />}
+      {open && (
+        <StatementDrawer
+          x={open}
+          all={list}
+          onClose={() => setOpenId(null)}
+          onReview={rights.verify && open.status === 'Pending Verification' ? () => { setOpenId(null); setReviewId(open.id) } : undefined}
+          onWithdraw={canWithdrawWla(open) ? () => { setOpenId(null); setWithdrawId(open.id) } : undefined}
+        />
+      )}
       {reviewing && <ReviewModal x={reviewing} onClose={() => setReviewId(null)} />}
       {processId && <ProcessModal id={processId} onClose={() => setProcessId(null)} />}
+      {withdrawId && <WithdrawModal id={withdrawId} onClose={() => setWithdrawId(null)} />}
     </OpsPage>
   )
 }
 
-function StatementDrawer({ x, all, onClose, onReview }: { x: WlaStatement; all: WlaStatement[]; onClose: () => void; onReview?: () => void }) {
+function StatementDrawer({ x, all, onClose, onReview, onWithdraw }: { x: WlaStatement; all: WlaStatement[]; onClose: () => void; onReview?: () => void; onWithdraw?: () => void }) {
   const wf = useWorkflow()
   const chain = all.filter((y) => y.rootId === x.rootId).sort((a, b) => a.version - b.version)
   const task = x.taskId ? wf.tasks.find((t) => t.id === x.taskId) : undefined
@@ -182,8 +202,13 @@ function StatementDrawer({ x, all, onClose, onReview }: { x: WlaStatement; all: 
       onClose={onClose}
       width={860}
       footer={
-        (apiEnabled && x.fileId) || onReview ? (
+        (apiEnabled && x.fileId) || onReview || onWithdraw ? (
           <>
+            {onWithdraw && (
+              <Button variant="secondary" icon={<Undo2 size={14} />} onClick={onWithdraw}>
+                Withdraw
+              </Button>
+            )}
             {apiEnabled && x.fileId && (
               <Button variant="secondary" icon={<Download size={14} />} onClick={() => void logWlaAccessAsync(x.id, actorName(), 'Download').catch((e) => toast((e as Error).message, 'error'))}>
                 Download statement
@@ -206,6 +231,7 @@ function StatementDrawer({ x, all, onClose, onReview }: { x: WlaStatement; all: 
             ['Verifier', x.verifiedBy ? `${x.verifiedBy} · ${dt(x.verifiedAt)}` : '—'],
             ['Processed', x.processedBy ? `${x.processedBy} · ${dt(x.processedAt)}` : '—'],
             ['Reason', x.reason ?? '—'],
+            ['Withdrawn', x.withdrawnAt ? `${x.withdrawnBy ?? ''} · ${dt(x.withdrawnAt)} — ${x.withdrawReason ?? ''}` : '—'],
             ['Remarks', x.remarks ?? '—'],
             ['CRM task', task ? `${task.id} · ${task.status}` : x.taskId ?? '—'],
           ]}
@@ -274,6 +300,31 @@ function StatementDrawer({ x, all, onClose, onReview }: { x: WlaStatement; all: 
           </Panel>
         </div>
       </div>
+    </Modal>
+  )
+}
+
+/** Uploader withdraws a not-yet-processed statement; it can then be replaced by a new upload. */
+function WithdrawModal({ id, onClose }: { id: string; onClose: () => void }) {
+  const [reason, setReason] = useState('')
+  const [err, setErr] = useState('')
+  const [busy, setBusy] = useState(false)
+  const go = async () => {
+    setBusy(true)
+    const e = await withdrawWlaAsync(id, reason)
+    setBusy(false)
+    if (e) return setErr(e)
+    toast(`${id} withdrawn — upload a replacement when ready`)
+    onClose()
+  }
+  return (
+    <Modal title={`Withdraw ${id}`} sub="Only the uploader can withdraw, and only before Finance processes the statement." onClose={onClose} footer={<><Button variant="secondary" onClick={onClose}>Cancel</Button><Button variant="danger" onClick={go} disabled={busy}>Withdraw statement</Button></>}>
+      <TextAreaField label="Reason for withdrawal" required value={reason} onChange={(e) => setReason(e.target.value)} />
+      {err && (
+        <div className="mt-2">
+          <Note tone="red">{err}</Note>
+        </div>
+      )}
     </Modal>
   )
 }

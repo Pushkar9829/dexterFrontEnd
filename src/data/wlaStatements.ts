@@ -9,12 +9,16 @@ import { siteStore, type Site } from '@/data/network'
 import { getFranchise } from '@/data/franchises'
 import { actorName, emitWorkflow, logAudit, nowIso } from '@/data/workflow'
 import { get, post } from '@/lib/api'
+import { getSession } from '@/lib/auth'
+import { currentRole } from '@/lib/rbac'
 import { apiCall, apiEnabled, createLoader, fetchAll } from '@/data/opsApi'
 import { downloadAuthed, uploadDoc, type OcrPreview } from '@/data/docsApi'
 
-export type WlaStatus = 'Pending Verification' | 'Accepted' | 'Returned' | 'Rejected' | 'Replaced' | 'Processed'
+export type WlaStatus = 'Pending Verification' | 'Accepted' | 'Returned' | 'Rejected' | 'Replaced' | 'Processed' | 'Withdrawn'
 /** 'Processed' (Finance, locked) exists only with the backend. */
-export const WLA_STATUSES: WlaStatus[] = apiEnabled ? ['Pending Verification', 'Accepted', 'Processed', 'Returned', 'Rejected', 'Replaced'] : ['Pending Verification', 'Accepted', 'Returned', 'Rejected', 'Replaced']
+export const WLA_STATUSES: WlaStatus[] = apiEnabled ? ['Pending Verification', 'Accepted', 'Processed', 'Returned', 'Rejected', 'Replaced', 'Withdrawn'] : ['Pending Verification', 'Accepted', 'Returned', 'Rejected', 'Replaced', 'Withdrawn']
+/** The uploader may withdraw a statement until it is processed (backend WLA_WITHDRAWABLE). */
+export const WLA_WITHDRAWABLE: WlaStatus[] = ['Pending Verification', 'Returned', 'Accepted']
 /** The backend file store accepts PDF / JPG / PNG only. */
 export const WLA_FILE_TYPES = apiEnabled ? ['pdf', 'jpg', 'jpeg', 'png'] : ['pdf', 'xlsx', 'xls', 'csv', 'jpg', 'jpeg', 'png']
 export const WLA_MAX_MB = 10
@@ -50,8 +54,13 @@ export type WlaStatement = {
   checks: WlaCheck[]
   channel: 'Mobile App' | 'Web (on behalf)'
   uploadedBy: string
+  /** API mode: uploader's userId (withdraw is allowed for the uploader). */
+  uploadedById?: string
   uploadedAt: string
   status: WlaStatus
+  withdrawnBy?: string
+  withdrawnAt?: string
+  withdrawReason?: string
   review?: WlaReviewCheck
   reason?: string
   remarks?: string
@@ -62,7 +71,7 @@ export type WlaStatement = {
   processedBy?: string
   processedAt?: string
   history: { at: string; by: string; action: string; remark?: string }[]
-  access: { at: string; by: string; action: 'View' | 'Download' }[]
+  access: { at: string; by: string; action: 'View' | 'Download' | 'Withdraw' }[]
 }
 
 const mask = (n: string) => (n.length > 4 ? `XXXX${n.slice(-4)}` : n)
@@ -147,7 +156,7 @@ export function uploadWla(i: WlaUploadInput, channel: WlaStatement['channel']): 
   if (i.passwordProtected && !i.password?.trim()) return { error: 'Password-protected file: enter the password so CRM can open it' }
   const list = wlaStore.get()
   const prev = i.replacingId ? list.find((x) => x.id === i.replacingId) : undefined
-  if (i.replacingId && (!prev || prev.status !== 'Returned')) return { error: 'Only a Returned statement can be replaced' }
+  if (i.replacingId && (!prev || (prev.status !== 'Returned' && prev.status !== 'Withdrawn'))) return { error: 'Only a Returned or Withdrawn statement can be replaced' }
   const checks = runChecks({ site, period: i.period, fileName: i.file.name, size: i.file.size, readable: i.readable }, list, i.replacingId)
   const failed = checks.filter((c) => !c.ok)
   if (failed.length) return { error: `Validation failed: ${failed.map((c) => c.label).join('; ')}`, checks }
@@ -201,7 +210,8 @@ type ApiWla = {
   period: string; periodFrom: string; periodTo: string; file: { fileId: string; name: string; size: number; mimeType?: string }; passwordProtected: boolean; readable: boolean
   checks: { key: string; label: string; ok: boolean; note?: string }[]; channel: WlaStatement['channel']; uploadedBy: string; uploadedByName?: string; uploadedAt: string; status: WlaStatus
   review?: WlaReviewCheck; reason?: string; remarks?: string; verifiedBy?: string; verifiedByName?: string; verifiedAt?: string; processedByName?: string; processedAt?: string
-  history?: { at: string; by: string; text: string }[]; access?: { at: string; by?: string; byName?: string; action: 'View' | 'Download' }[]
+  withdrawnByName?: string; withdrawnAt?: string; withdrawReason?: string
+  history?: { at: string; by: string; text: string }[]; access?: { at: string; by?: string; byName?: string; action: 'View' | 'Download' | 'Withdraw' }[]
 }
 
 export function fromApiWla(r: ApiWla): WlaStatement {
@@ -211,7 +221,8 @@ export function fromApiWla(r: ApiWla): WlaStatement {
     file: { name: r.file?.name ?? '', size: r.file?.size ?? 0, type: (r.file?.name ?? '').split('.').pop()?.toLowerCase() ?? '' },
     fileId: r.file?.fileId,
     passwordProtected: r.passwordProtected, readableFlag: r.readable, checks: (r.checks ?? []) as WlaCheck[], channel: r.channel,
-    uploadedBy: r.uploadedByName ?? r.uploadedBy, uploadedAt: r.uploadedAt, status: r.status, review: r.review, reason: r.reason, remarks: r.remarks,
+    uploadedBy: r.uploadedByName ?? r.uploadedBy, uploadedById: r.uploadedBy, uploadedAt: r.uploadedAt, status: r.status, review: r.review, reason: r.reason, remarks: r.remarks,
+    withdrawnBy: r.withdrawnByName, withdrawnAt: r.withdrawnAt, withdrawReason: r.withdrawReason,
     verifiedBy: r.verifiedByName ?? r.verifiedBy, verifiedAt: r.verifiedAt, processedBy: r.processedByName, processedAt: r.processedAt,
     history: (r.history ?? []).map((h) => ({ at: h.at, by: h.by, action: h.text })),
     access: (r.access ?? []).map((a) => ({ at: a.at, by: a.byName ?? a.by ?? '', action: a.action })),
@@ -285,7 +296,37 @@ export async function logWlaAccessAsync(id: string, by: string, action: 'View' |
   void loadWlaAccessLog(id).catch(() => undefined) // refresh without logging another View
 }
 
-type ApiAccessLog = { total: number; views: number; downloads: number; items: { at: string; by?: string; byName?: string; action: 'View' | 'Download'; channel?: string; frId?: string }[] }
+/**
+ * Can the signed-in user withdraw this statement? Not yet processed, and: a franchise user of the statement's
+ * franchise, or the staff member who uploaded it on behalf (backend is authoritative).
+ */
+export function canWithdrawWla(x: WlaStatement) {
+  if (!WLA_WITHDRAWABLE.includes(x.status)) return false
+  const sess = getSession()
+  if (currentRole() === 'Franchisee') return !apiEnabled || !sess?.franchiseId || sess.franchiseId === x.frId
+  return apiEnabled ? !!sess?.userId && x.uploadedById === sess.userId : x.uploadedBy === actorName()
+}
+
+/** Uploader withdraws a not-yet-processed statement (reason mandatory) → Withdrawn; it can then be replaced. */
+export async function withdrawWlaAsync(id: string, reason: string): Promise<string | null> {
+  if (reason.trim().length < 3) return 'A reason is required to withdraw (min 3 characters)'
+  if (!apiEnabled) {
+    const r = wlaStore.get().find((x) => x.id === id)
+    if (!r || !WLA_WITHDRAWABLE.includes(r.status)) return `A ${r?.status ?? 'missing'} statement can no longer be withdrawn`
+    const by = actorName()
+    wlaStore.set((l) => l.map((x) => (x.id === id ? { ...x, status: 'Withdrawn' as const, withdrawnBy: by, withdrawnAt: nowIso(), withdrawReason: reason.trim(), history: [...x.history, { at: nowIso(), by, action: 'Withdrawn', remark: reason.trim() }], access: [...x.access, { at: nowIso(), by, action: 'Withdraw' as const }] } : x)))
+    logAudit('WLA Statement', id, 'WLA statement withdrawn', reason.trim())
+    return null
+  }
+  try {
+    upsertWla(await apiCall(() => post<ApiWla>(`/wla-statements/${encodeURIComponent(id)}/withdraw`, { reason: reason.trim() })))
+    return null
+  } catch (e) {
+    return (e as Error).message
+  }
+}
+
+type ApiAccessLog = { total: number; views: number; downloads: number; items: { at: string; by?: string; byName?: string; action: 'View' | 'Download' | 'Withdraw'; channel?: string; frId?: string }[] }
 /**
  * Staff oversight: GET /wla-statements/:id/access-log ({total, views, downloads, items} newest first). Reading it does
  * not add a View entry. Fills the record's access list (oldest first, as the local log). API mode only.

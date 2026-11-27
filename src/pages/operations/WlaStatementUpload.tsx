@@ -20,7 +20,7 @@ export default function WlaStatementUpload() {
   const rights = rightsFor('WLA Statement', role)
   const list = useWlaStatements()
   const { sites } = useSites()
-  const replacing = list.find((x) => x.id === params.get('replace') && x.status === 'Returned')
+  const replacing = list.find((x) => x.id === params.get('replace') && (x.status === 'Returned' || x.status === 'Withdrawn'))
   const [q, setQ] = useState(replacing?.atmId ?? '')
   const [siteId, setSiteId] = useState(replacing?.siteId ?? '')
   const [period, setPeriod] = useState(replacing?.period ?? '')
@@ -48,8 +48,8 @@ export default function WlaStatementUpload() {
   }
 
   return (
-    <OpsPage title={replacing ? `Replace ${replacing.id} (returned)` : 'Upload WLA statement'} sub="On behalf of a franchise. The statement must belong to the WLA account mapped to the site in the Site Master." back={{ to: '/operations/wla-statement', label: 'WLA Statements' }}>
-      {replacing && <Note tone="amber">Returned by {replacing.verifiedBy}: {replacing.reason}. The new file becomes version {replacing.version + 1}; the old one is kept in the replacement history.</Note>}
+    <OpsPage title={replacing ? `Replace ${replacing.id} (${replacing.status.toLowerCase()})` : 'Upload WLA statement'} sub="On behalf of a franchise. The statement must belong to the WLA account mapped to the site in the Site Master." back={{ to: '/operations/wla-statement', label: 'WLA Statements' }}>
+      {replacing && <Note tone="amber">{replacing.status === 'Withdrawn' ? `Withdrawn by ${replacing.withdrawnBy ?? 'the uploader'}: ${replacing.withdrawReason ?? ''}` : `Returned by ${replacing.verifiedBy}: ${replacing.reason}`}. The new file becomes version {replacing.version + 1}; the old one is kept in the replacement history.</Note>}
       <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
         <Panel title="Statement details">
           <div className="grid gap-3 sm:grid-cols-2">

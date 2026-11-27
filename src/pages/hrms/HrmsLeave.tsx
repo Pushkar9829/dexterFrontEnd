@@ -22,7 +22,8 @@ const fmtD = (d?: string) => (d ? new Date(d.length === 10 ? `${d}T00:00:00` : d
 const fmtT = (iso?: string) => (iso ? new Date(iso).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : '—')
 const todayIso = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10)
 /** 'yyyy-mm-dd' + 'HH:mm' (IST) → ISO instant. */
-const istIso = (date: string, hm: string) => new Date(`${date}T${hm}:00+05:30`).toISOString()
+/** IST wall-clock time on `date` sent with an explicit +05:30 offset (backend normalises to UTC and checks the IST day). */
+const istIso = (date: string, hm: string) => `${date}T${hm.slice(0, 5)}:00+05:30`
 
 type Decide = { kind: 'leave' | 'reg'; id: string; decision: 'Approved' | 'Rejected'; remark: string; error: string }
 

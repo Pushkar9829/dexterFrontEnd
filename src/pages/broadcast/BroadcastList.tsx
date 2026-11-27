@@ -53,7 +53,7 @@ export default function BroadcastList() {
     return {
       all: broadcasts.length,
       published: broadcasts.filter((b) => b.status === 'Published').length,
-      scheduled: broadcasts.filter((b) => b.status === 'Scheduled').length,
+      scheduled: broadcasts.filter((b) => b.status === 'Scheduled' || b.status === 'Approved').length,
       pending: broadcasts.filter((b) => b.status === 'Pending Approval').length,
       draft: broadcasts.filter((b) => b.status === 'Draft').length,
       rejected: broadcasts.filter((b) => b.status === 'Rejected').length,
@@ -64,7 +64,7 @@ export default function BroadcastList() {
     return broadcasts.filter((item) => {
       // Tab matching
       if (activeTab === 'Published' && item.status !== 'Published') return false
-      if (activeTab === 'Scheduled' && item.status !== 'Scheduled') return false
+      if (activeTab === 'Scheduled' && item.status !== 'Scheduled' && item.status !== 'Approved') return false
       if (activeTab === 'Pending' && item.status !== 'Pending Approval') return false
       if (activeTab === 'Draft' && item.status !== 'Draft') return false
       if (activeTab === 'Rejected' && item.status !== 'Rejected') return false

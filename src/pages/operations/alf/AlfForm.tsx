@@ -7,6 +7,8 @@ import { SelectField, TextAreaField, TextField } from '@/components/ui/Form'
 import { toast } from '@/components/ui/Toast'
 import { useRole } from '@/lib/rbac'
 import { useSites } from '@/data/network'
+import { apiEnabled } from '@/data/opsApi'
+import { isFranchiseeSession } from '@/data/cbrApi'
 import { canCreateRole, checkSiteFor } from '@/data/cbr'
 import { Crumbs, FundingChip } from '@/pages/cbr/CashRecordUi'
 import { ALF_PURPOSES, alfLoader, alfStore, saveAlf, useAlf } from './alfData'
@@ -23,15 +25,29 @@ function AlfFormInner({ editId }: { editId?: string }) {
   const [amount, setAmount] = useState(existing ? String(existing.requestedAmount) : '')
   const [purpose, setPurpose] = useState(existing?.purpose ?? '')
   const [remarks, setRemarks] = useState(existing?.remarks ?? '')
+  // API mode, staff: raising on behalf of a franchise needs the franchise / site + a mandatory reason
+  const onBehalf = apiEnabled && !isFranchiseeSession()
+  const [frId, setFrId] = useState(existing?.frId ?? '')
+  const [onBehalfReason, setOnBehalfReason] = useState(existing?.onBehalfReason ?? '')
   const check = useMemo(() => (atmId.trim() ? checkSiteFor('Cash Loading', atmId) : null), [atmId])
-  const allowed = useMemo(() => sites.sites.filter((s) => s.siteType === 'SF').slice(0, 60), [sites])
+  const sfSites = useMemo(() => sites.sites.filter((s) => s.siteType === 'SF'), [sites])
+  const franchiseOptions = useMemo(() => [...new Set(sfSites.map((s) => s.frId))].sort(), [sfSites])
+  const allowed = useMemo(() => sfSites.filter((s) => !onBehalf || !frId || s.frId === frId).slice(0, 60), [sfSites, onBehalf, frId])
   const snap = check?.snap
 
   if (!canCreateRole(role)) return <div className="rounded-xl border border-slate-200 bg-white p-6 text-[13px]">Your role ({role}) cannot raise ALF requests.</div>
   if (existing && existing.status !== 'Draft') return <div className="rounded-xl border border-slate-200 bg-white p-6 text-[13px]">{existing.id} is {existing.status} and can no longer be edited.</div>
 
   const save = async (submit: boolean, asFranchise: boolean) => {
-    const res = await saveAlf({ atmId, requestDate, requestedAmount: Number(amount) || 0, purpose, remarks }, { id: editId, submit, asFranchise })
+    if (onBehalf && !existing && onBehalfReason.trim().length < 3) {
+      toast('Give the reason for raising this ALF on behalf of the franchise (min 3 characters).', 'error')
+      return
+    }
+    if (onBehalf && frId && snap && snap.frId !== frId) {
+      toast(`ATM ${atmId} belongs to ${snap.frId}, not ${frId}.`, 'error')
+      return
+    }
+    const res = await saveAlf({ atmId, requestDate, requestedAmount: Number(amount) || 0, purpose, remarks, ...(onBehalf ? { frId: frId || undefined, onBehalfReason } : {}) }, { id: editId, submit, asFranchise })
     if (!res.ok) {
       toast(res.error, 'error')
       return
@@ -49,6 +65,20 @@ function AlfFormInner({ editId }: { editId?: string }) {
             <FundingChip kind="Cash Loading" />
           </span>
         </div>
+        {onBehalf && (
+          <div className="mb-3.5 grid gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
+            <SelectField label="Franchise (raising on behalf)" value={frId} options={franchiseOptions} placeholder="Any franchise" onChange={(e) => { setFrId(e.target.value); setAtmId('') }} disabled={!!existing} />
+            <TextAreaField
+              className="sm:col-span-2 lg:col-span-3"
+              label="Reason for raising on behalf"
+              required
+              value={onBehalfReason}
+              onChange={(e) => setOnBehalfReason(e.target.value)}
+              disabled={!!existing}
+              placeholder="e.g. Franchise app unavailable; requested by phone"
+            />
+          </div>
+        )}
         <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <TextField label="ATM ID" required list="alf-atm-list" value={atmId} onChange={(e) => setAtmId(e.target.value)} placeholder="Search ATM ID / Site ID" disabled={!!existing} />
@@ -95,12 +125,14 @@ function AlfFormInner({ editId }: { editId?: string }) {
         <Button variant="secondary" onClick={() => void save(false, false)}>
           Save Draft
         </Button>
-        <Button variant="secondary" icon={<Send size={14} />} onClick={() => void save(true, false)}>
-          Submit (authorized user)
+        <Button variant={onBehalf ? 'primary' : 'secondary'} icon={<Send size={14} />} onClick={() => void save(true, false)}>
+          {onBehalf ? 'Submit on behalf of franchise' : 'Submit (authorized user)'}
         </Button>
-        <Button icon={<Send size={14} />} onClick={() => void save(true, true)}>
-          Submit as Franchise
-        </Button>
+        {!onBehalf && (
+          <Button icon={<Send size={14} />} onClick={() => void save(true, true)}>
+            Submit as Franchise
+          </Button>
+        )}
       </div>
     </div>
   )
