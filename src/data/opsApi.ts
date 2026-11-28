@@ -35,7 +35,8 @@ export function errMsg(e: unknown): string {
 /** Toast a backend error (and return the message). */
 export function toastError(e: unknown, prefix?: string): string {
   const m = errMsg(e)
-  toast(prefix ? `${prefix}: ${m}` : m, 'error')
+  // 401 = not signed in / session ended: the sign-in screen handles it, so no error pop-up
+  if (!(e instanceof ApiError && e.status === 401)) toast(prefix ? `${prefix}: ${m}` : m, 'error')
   return m
 }
 
