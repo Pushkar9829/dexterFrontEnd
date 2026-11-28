@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { nativeApp } from '../data/nativeApp'
 import {
   Bell,
   Search,
@@ -150,8 +151,8 @@ export function MobileHeader({
         />
       </svg>
 
-      {/* Status Bar Indicators */}
-      <div className="relative z-10 flex h-7 items-center justify-between px-6 pt-1 text-[12px] font-semibold tracking-tight text-white/95 select-none">
+      {/* Status Bar Indicators (web preview only — the real phone draws its own) */}
+      <div data-native={nativeApp} className="relative z-10 flex h-7 data-[native=true]:hidden items-center justify-between px-6 pt-1 text-[12px] font-semibold tracking-tight text-white/95 select-none">
         <span>9:41</span>
         <div className="flex items-center gap-1.5">
           {/* Cellular Signal bars */}

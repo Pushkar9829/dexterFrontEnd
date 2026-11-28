@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { nativeApp } from '../data/nativeApp'
 import {
   Mail,
   Lock,
@@ -283,8 +284,8 @@ export function MobileLoginScreen({ onLoginSuccess }: MobileLoginScreenProps) {
           </div>
         </div>
 
-        {/* Top Status Bar (9:41, 5G, Battery) */}
-        <div className="relative z-20 flex h-6 items-center justify-between px-5 pt-1.5 text-[11px] font-bold text-slate-800">
+        {/* Top Status Bar (9:41, 5G, Battery) — web preview only; the real phone draws its own */}
+        <div data-native={nativeApp} className="relative z-20 data-[native=true]:hidden flex h-6 items-center justify-between px-5 pt-1.5 text-[11px] font-bold text-slate-800">
           <span className="tracking-tight">9:41</span>
           <div className="flex items-center gap-1.5 text-slate-800">
             {/* Cellular signal bars */}

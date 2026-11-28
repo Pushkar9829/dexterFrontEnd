@@ -3,6 +3,7 @@ import { Sparkles } from 'lucide-react'
 
 import { mobileSignOut, syncFranchiseContext, useMobileUser } from './data/mobileSession'
 import { useFranchiseBroadcasts, useMobileAlerts } from './data/mobileFeeds'
+import { nativeApp } from './data/nativeApp'
 import { MobileHeader } from './components/MobileHeader'
 import { MobileBottomNav, type MobileTab } from './components/MobileBottomNav'
 import { MobileDrawer } from './components/MobileDrawer'
@@ -80,7 +81,7 @@ export function MobileAppShell() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
 
   // Device Frame Mode
-  const useDeviceFrame = true
+  const useDeviceFrame = !nativeApp
 
   // Search in header
   const [headerSearch, setHeaderSearch] = useState('')
@@ -235,13 +236,19 @@ export function MobileAppShell() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-2 sm:p-4 md:p-6">
-      <main className="w-full flex items-center justify-center">
+    <div
+      className={
+        nativeApp
+          ? 'h-[100dvh] bg-slate-50 text-slate-100 flex flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]'
+          : 'min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-2 sm:p-4 md:p-6'
+      }
+    >
+      <main className={nativeApp ? 'w-full flex-1 min-h-0 flex' : 'w-full flex items-center justify-center'}>
         {/* If device frame is enabled, wrap in realistic iPhone chassis; otherwise full-width mobile container */}
         <div
           className={`transition-all duration-300 ${useDeviceFrame
               ? 'relative w-full max-w-[400px] h-[850px] rounded-[52px] p-[10px] bg-[#1a1c22] shadow-[0_25px_80px_rgba(0,0,0,0.6),0_10px_30px_rgba(0,0,0,0.3)] border-4 border-[#2d3139] ring-1 ring-white/10 flex flex-col'
-              : 'relative w-full max-w-md h-[850px] rounded-2xl bg-white shadow-2xl overflow-hidden flex flex-col'
+              : 'relative w-full h-full flex flex-col' // installable app: full screen, no simulated phone
             }`}
         >
           {/* Side Hardware Buttons (Simulated on frame) */}
@@ -256,7 +263,7 @@ export function MobileAppShell() {
           )}
 
           {/* Screen Display Bezel */}
-          <div className="relative flex-1 w-full bg-slate-50 rounded-[42px] overflow-hidden flex flex-col select-none">
+          <div className={`relative flex-1 w-full bg-slate-50 ${nativeApp ? '' : 'rounded-[42px]'} overflow-hidden flex flex-col select-none`}>
             {/* Dynamic Island Pill (iPhone style) */}
             {useDeviceFrame && (
               <div className="absolute top-2 left-1/2 -translate-x-1/2 z-50 h-5 w-24 rounded-full bg-black flex items-center justify-between px-2.5 pointer-events-none">
